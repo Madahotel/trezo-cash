@@ -7,7 +7,7 @@ const Login = () => {
     
 
       {/* Contenu principal */}
-      <p className="flex-1 bg-gray-100 p-6">
+      <p className="text-3xl font-bold underline">
        Login
       </p>
 
