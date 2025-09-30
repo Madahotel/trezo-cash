@@ -23,7 +23,10 @@ const ClientRoute = {
     {
       path: "trezo",
       element: <BudgetTracker />,
-      path: "budget",
+      
+    },
+     {
+     path: "budget",
       element: <BudgetPage />,
     },
   ],
