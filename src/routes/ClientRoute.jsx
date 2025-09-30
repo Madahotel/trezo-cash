@@ -3,6 +3,7 @@ import BudgetPage from "../pages/clients/budget/BudgetPage";
 import DashboardView from "../pages/clients/dashboard/DashboardView";
 import ProjetClient from "../pages/clients/projets/ProjetClient";
 import BudgetTracker from "../pages/clients/tresorie/BudgetTracker";
+import TrezoPage from "../pages/clients/tresorie/TrezoPage";
 
 const ClientRoute = {
   path: "/client",
@@ -22,7 +23,7 @@ const ClientRoute = {
     },
     {
       path: "trezo",
-      element: <BudgetTracker />,
+      element: <TrezoPage />,
       
     },
      {

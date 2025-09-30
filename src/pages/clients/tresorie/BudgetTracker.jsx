@@ -48,7 +48,7 @@ const LectureView = ({ entries, periods, settings, actuals, isConsolidated, proj
         <div className="bg-white p-6 rounded-lg shadow-sm border">
             <table className="w-full text-sm">
                 <thead>
-                    <tr className="border-b text-left text-xs text-gray-500 uppercase">
+                    <tr className="border-b text-left text-xs text-gray-600 uppercase">
                         <th className="py-3 px-4 w-28">Groupe</th>
                         <th className="py-3 px-4">Écriture</th>
                         {isConsolidated && <th className="py-3 px-4">Projet</th>}
@@ -56,7 +56,7 @@ const LectureView = ({ entries, periods, settings, actuals, isConsolidated, proj
                         {periods.map(p => (
                             <th key={p.label} className="py-3 px-4 text-center">
                                 <div className="font-semibold">{p.label}</div>
-                                <div className="flex justify-around font-normal text-gray-400 mt-1">
+                                <div className="flex justify-around font-normal text-gray-600 mt-1">
                                     {visibleColumns.budget && <div className="w-1/3">Prév.</div>}
                                     {visibleColumns.actual && <div className="w-1/3">Réel</div>}
                                     {visibleColumns.reste && <div className="w-1/3">Reste</div>}
@@ -119,7 +119,7 @@ const LectureView = ({ entries, periods, settings, actuals, isConsolidated, proj
                 </tbody>
                 <tfoot>
                     <tr className="bg-gray-100 font-bold">
-                        <td colSpan={isConsolidated ? 4 : 3} className="py-3 px-4">Flux de trésorerie net</td>
+                        <td colSpan={isConsolidated ? 4 : 3} className="py-3 px-4 text-gray-600">Flux de trésorerie net</td>
                         {totalsByPeriod.map((total, index) => {
                             const period = periods[index];
                             const columnIdBase = period.startDate.toISOString();
@@ -747,7 +747,7 @@ const BudgetTracker = () => {
   
   return (
     <>
-      <div className="mb-6">
+      <div className="mb-6 ">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
                 <div className="flex items-center gap-2">
@@ -918,14 +918,14 @@ const BudgetTracker = () => {
                     </tr>
                     </thead>
                     <tbody>
-                    <tr className="bg-gray-200 text-gray-800"><td colSpan={(isConsolidated || isCustomConsolidated) ? 3 : 2} className="px-4 py-2 bg-gray-200 sticky left-0 z-10"><div className="flex items-center gap-2">Trésorerie début de période</div></td><td className="bg-surface"></td>{periods.map((_, periodIndex) => (<React.Fragment key={periodIndex}><td className="px-2 py-2 text-center font-normal" colSpan={1}>{formatCurrency(periodPositions[periodIndex]?.initial || 0, currencySettings)}</td><td className="bg-surface"></td></React.Fragment>))}</tr>
-                    <tr className="bg-surface"><td colSpan={totalCols} className="py-2"></td></tr>
+                    <tr className="bg-gray-200 text-gray-800"><td colSpan={(isConsolidated || isCustomConsolidated) ? 3 : 2} className="px-4 py-2 bg-gray-200 sticky left-0 z-10 "><div className="flex items-center gap-2">Trésorerie début de période</div></td><td className="bg-surface"></td>{periods.map((_, periodIndex) => (<React.Fragment key={periodIndex}><td className="px-2 py-2 text-center font-normal" colSpan={1}>{formatCurrency(periodPositions[periodIndex]?.initial || 0, currencySettings)}</td><td className="bg-surface"></td></React.Fragment>))}</tr>
+                    <tr className="bg-surface text-gray-600"><td colSpan={totalCols} className="py-2"></td></tr>
                     {renderBudgetRows('entree')}
                     <tr className="bg-surface"><td colSpan={totalCols} className="py-2"></td></tr>
                     {renderBudgetRows('sortie')}
                     <tr className="bg-surface"><td colSpan={totalCols} className="py-2"></td></tr>
                     <tr className="bg-gray-200 border-t-2 border-gray-300">
-                        <td colSpan={(isConsolidated || isCustomConsolidated) ? 3 : 2} className="px-4 py-2 text-text-primary bg-gray-200 sticky left-0 z-10"><div className="flex items-center gap-2"><ArrowRightLeft className="w-4 h-4" />Flux de trésorerie</div></td>
+                        <td colSpan={(isConsolidated || isCustomConsolidated) ? 3 : 2} className="px-4 py-2 text-gray-700 bg-gray-200 sticky left-0 z-10"><div className="flex items-center gap-2 text-gray-500"><ArrowRightLeft className="w-4 h-4" />Flux de trésorerie</div></td>
                         <td className="bg-surface" style={{ width: `${separatorWidth}px` }}></td>
                         {periods.map((period, periodIndex) => {
                             const revenueTotals = calculateGeneralTotals(groupedData.entree || [], period, 'entree', expandedAndVatEntries, actualTransactions, hasOffBudgetRevenues, hasOffBudgetExpenses);
