@@ -1,19 +1,16 @@
-import React from 'react';
-import { Outlet, Link } from 'react-router-dom';
-import GlobalHeaderAdmin from '../../../components/headers/GlobalHeaderAdmin';
+import React from "react";
+import { Outlet, Link } from "react-router-dom";
+import GlobalHeaderAdmin from "../../../components/headers/HeaderCustomer";
 
 const ProjetLayoutAdmin = () => {
   return (
     <div className="min-h-screen flex flex-col">
-    
-      <GlobalHeaderAdmin/>
+      <GlobalHeaderAdmin />
 
       {/* Contenu principal */}
       <main className="flex-1 bg-gray-100 p-6">
-        <Outlet /> 
+        <Outlet />
       </main>
-
-
     </div>
   );
 };
