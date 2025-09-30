@@ -1,11 +1,10 @@
-import React from "react";
-import { Outlet, Link } from "react-router-dom";
-import GlobalHeaderAdmin from "../../../components/headers/GlobalHeaderAdmin";
+import { Outlet } from "react-router-dom";
+import HeaderCustomer from "../../../components/headers/HeaderCustomer";
 
 const ProjetLayoutClient = () => {
   return (
     <div className="min-h-screen justify-center w-screen  ">
-      <GlobalHeaderAdmin />
+      <HeaderCustomer />
       <Outlet />
     </div>
   );
