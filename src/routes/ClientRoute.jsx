@@ -4,7 +4,7 @@ import ProjetClient from "../pages/clients/projets/ProjetClient";
 
 
 const ClientRoute = {
-    path: "/superadmin",
+    path: "/client",
     element: <ProjetLayoutClient />,
     children: [
         {
