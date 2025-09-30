@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { Edit, Save, Share2, Search } from 'lucide-react';
 import BudgetStateView from './BudgetStateView';
 import { useUI } from '../../../components/context/UIContext';
+import ShareProjectDrawer from '../../../components/drawer/ShareProjectDrawer';
 
 const BudgetPage = () => {
-      const uiContext = useUI();
-        const { uiState = {}, uiDispatch = () => {} } = uiContext || {};
-  const { activeProjectId } = uiState || {};
+    const uiContext = useUI();
+    const { uiState = {}, uiDispatch = () => { } } = uiContext || {};
+    const { activeProjectId, isShareProjectDrawerOpen } = uiState || {};
+
     const [mode, setModeState] = useState(() => sessionStorage.getItem('budgetPageMode') || 'lecture');
     const [searchTerm, setSearchTerm] = useState('');
     const isConsolidated = activeProjectId === 'consolidated' || activeProjectId?.startsWith('consolidated_view_');
@@ -42,7 +44,7 @@ const BudgetPage = () => {
 
                 {/* Right side: Action buttons */}
                 <div className="flex items-center gap-6">
-                    <button 
+                    <button
                         onClick={handleToggleMode}
                         className="flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-blue-600 transition-colors"
                     >
@@ -58,7 +60,7 @@ const BudgetPage = () => {
                             </>
                         )}
                     </button>
-                    <button 
+                    <button
                         onClick={handleShare}
                         disabled={isConsolidated}
                         className="flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -68,8 +70,9 @@ const BudgetPage = () => {
                     </button>
                 </div>
             </div>
-            
+
             <BudgetStateView mode={mode} setMode={setMode} searchTerm={searchTerm} />
+            <ShareProjectDrawer isOpen={isShareProjectDrawerOpen} onClose={() => uiDispatch({ type: 'CLOSE_SHARE_PROJECT_DRAWER' })} />
         </div>
     );
 };
