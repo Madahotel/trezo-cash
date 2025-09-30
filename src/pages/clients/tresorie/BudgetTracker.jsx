@@ -902,9 +902,9 @@ const BudgetTracker = () => {
                         return (
                             <React.Fragment key={periodIndex}>
                             <th className={`px-2 py-2 text-center font-medium border-b-2 ${isPast ? 'bg-gray-50' : 'bg-surface'} ${isNegativeFlow && !isPast ? 'bg-red-50' : ''}`} style={{ minWidth: `${periodColumnWidth}px` }}>
-                                <div className={`text-base mb-1 ${isNegativeFlow && !isPast ? 'text-red-700' : 'text-text-primary'}`}>{period.label}</div>
+                                <div className={`text-gray-700 mb-1 ${isNegativeFlow && !isPast ? 'text-red-700' : 'text-text-primary'}`}>{period.label}</div>
                                 {numVisibleCols > 0 && (
-                                <div className="flex gap-2 justify-around text-xs font-medium text-text-secondary">
+                                <div className="flex gap-2 justify-around text-xs font-medium text-gray-700">
                                     {visibleColumns.budget && <div className="flex-1">Prév.</div>}
                                     {visibleColumns.actual && <div className="flex-1">Réel</div>}
                                     {visibleColumns.reste && <div className="flex-1">Reste</div>}
@@ -962,7 +962,7 @@ const BudgetTracker = () => {
                             );
                         })}
                     </tr>
-                    <tr className="bg-gray-300 text-gray-900"><td colSpan={(isConsolidated || isCustomConsolidated) ? 3 : 2} className="px-4 py-2 bg-gray-300 sticky left-0 z-10"><div className="flex items-center gap-2">Trésorerie fin de période</div></td><td className="bg-surface"></td>{periods.map((_, periodIndex) => (<React.Fragment key={periodIndex}><td className="px-2 py-2 text-center font-normal" colSpan={1}>{formatCurrency(periodPositions[periodIndex]?.final || 0, currencySettings)}</td><td className="bg-surface"></td></React.Fragment>))}</tr>
+                    <tr className="bg-gray-300 text-gray-900"><td colSpan={(isConsolidated || isCustomConsolidated) ? 3 : 2} className="px-4 py-2 bg-gray-300 text-gray-600 sticky left-0 z-10"><div className="flex items-center gap-2">Trésorerie fin de période</div></td><td className="bg-surface"></td>{periods.map((_, periodIndex) => (<React.Fragment key={periodIndex}><td className="px-2 py-2 text-center font-normal" colSpan={1}>{formatCurrency(periodPositions[periodIndex]?.final || 0, currencySettings)}</td><td className="bg-surface"></td></React.Fragment>))}</tr>
                     </tbody>
                 </table>
             </div>
