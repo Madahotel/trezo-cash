@@ -56,7 +56,7 @@ export default function GlobalHeaderAdmin() {
     // }
     const pages = {
       "/app/dashboard": { title: "Tableau de Bord", icon: LayoutDashboard },
-      "/app/budget": { title: "Budget / État des Lieux", icon: ListChecks },
+      "/client/budget": { title: "Budget / État des Lieux", icon: ListChecks },
       "/app/trezo": { title: "Tableau de Trésorerie", icon: Table },
       "/app/flux": { title: "Flux de Trésorerie", icon: AreaChart },
       "/app/echeancier": { title: "Échéancier", icon: Calendar },
@@ -119,8 +119,8 @@ export default function GlobalHeaderAdmin() {
   //   }, [profile]);
 
   const navItems = [
-    { label: "Dashboard", path: "/app/dashboard", icon: LayoutDashboard },
-    { label: "Budget", path: "/app/budget", icon: ListChecks },
+    { label: "Dashboard", path: "/client/dashboard", icon: LayoutDashboard },
+    { label: "Budget", path: "/client/budget", icon: ListChecks },
     { label: "Trezo", path: "/app/trezo", icon: Table },
     { label: "Flux", path: "/app/flux", icon: AreaChart },
     { label: "Echeancier", path: "/app/echeancier", icon: Calendar },
@@ -163,21 +163,22 @@ export default function GlobalHeaderAdmin() {
         <div className="py-2 grid grid-cols-[auto_1fr_auto] items-center gap-6">
           {/* Logo + Switcher */}
           <div className="flex items-center gap-4">
-            <a
-              aria-current="page"
-              class="flex items-center gap-2 text-gray-700 hover:text-blue-600 active"
-              href="/app/dashboard"
-              data-discover="true"
+          <a
+            aria-current="page"
+            className="flex items-center gap-2 text-gray-700 hover:text-blue-600 active"
+            href="/app/dashboard"
+            data-discover="true"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-6 h-6"
             >
-              <svg
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                xmlns="http://www.w3.org/2000/svg"
-                class="w-6 h-6"
-              >
-                <path d="M4 4H20V12H12V20H4V4Z"></path>
-              </svg>
-            </a>
+              <path d="M4 4H20V12H12V20H4V4Z"></path>
+            </svg>
+          </a>
+
             <NavLink
               to="/app/dashboard"
               className="flex items-center gap-2 text-gray-700 hover:text-blue-600"
