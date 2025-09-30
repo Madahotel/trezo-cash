@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+
 import { getEntryAmountForMonth } from './budgetCalculations';
 
 const addMonths = (date, months) => {

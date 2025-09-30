@@ -1,7 +1,7 @@
 // import { supabase } from '../utils/supabase';
 import { deriveActualsFromEntry } from '../../utils/scenarioCalculations';
 import { templates as officialTemplatesData } from '../../utils/templates';
-import { v4 as uuidv4 } from 'uuid';
+
 
 const getDefaultExpenseTargets = () => ({
   'exp-main-1': 20, 'exp-main-2': 35, 'exp-main-3': 10, 'exp-main-4': 0,

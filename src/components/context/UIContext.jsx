@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useReducer } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 
 const UIContext = createContext();
 
