@@ -57,7 +57,7 @@ export default function HeaderCustomer() {
     // }
     const pages = {
       "/client/dashboard": { title: "Tableau de Bord", icon: LayoutDashboard },
-      "/app/budget": { title: "Budget / État des Lieux", icon: ListChecks },
+      "/client/budget": { title: "Budget / État des Lieux", icon: ListChecks },
       "/app/trezo": { title: "Tableau de Trésorerie", icon: Table },
       "/app/flux": { title: "Flux de Trésorerie", icon: AreaChart },
       "/app/echeancier": { title: "Échéancier", icon: Calendar },
@@ -121,7 +121,7 @@ export default function HeaderCustomer() {
 
   const navItems = [
     { label: "Dashboard", path: "/client/dashboard", icon: LayoutDashboard },
-    { label: "Budget", path: "/app/budget", icon: ListChecks },
+    { label: "Budget", path: "/client/budget", icon: ListChecks },
     { label: "Trezo", path: "/app/trezo", icon: Table },
     { label: "Flux", path: "/app/flux", icon: AreaChart },
     { label: "Echeancier", path: "/app/echeancier", icon: Calendar },
