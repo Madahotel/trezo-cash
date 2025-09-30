@@ -47,6 +47,10 @@ const PublicLayout = ({ onLogin, onSignUp }) => {
     { label: 'FAQ', path: '/#faq' },
     { label: 'Contact', path: '/#contact' },
   ];
+  const onlogin = () => {
+    navigate('/login');
+  }
+  
 
   return (
     <div className="bg-gray-50 text-gray-800 font-sans flex flex-col w-screen">
@@ -66,10 +70,10 @@ const PublicLayout = ({ onLogin, onSignUp }) => {
             </nav>
 
             <div className="hidden md:flex items-center gap-4">
-              <button onClick={onLogin} className="text-sm font-semibold text-gray-600 hover:text-blue-600">
+              <button onClick={onlogin} className="text-sm font-semibold text-gray-600 hover:text-blue-600">
                 Se connecter
               </button>
-              <button onClick={onSignUp} className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
+              <button onClick={onlogin} className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
                 Essai Gratuit
               </button>
             </div>

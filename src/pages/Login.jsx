@@ -99,7 +99,7 @@ const Login = ({ initialMode = 'login', onBack }) => {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-center text-lg"
+                      className="w-full px-4 py-3 border border-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 text-center text-lg bg-white"
                       placeholder="Email"
                       required
                       autoFocus
@@ -132,7 +132,7 @@ const Login = ({ initialMode = 'login', onBack }) => {
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-center text-lg"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-center text-lg bg-white"
                       placeholder="Mot de passe"
                       required
                       autoFocus
@@ -162,7 +162,7 @@ const Login = ({ initialMode = 'login', onBack }) => {
                       type="text"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
                       placeholder="Nom complet *"
                       required
                     />
@@ -172,7 +172,7 @@ const Login = ({ initialMode = 'login', onBack }) => {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
                       placeholder="Email *"
                       required
                     />
@@ -182,7 +182,7 @@ const Login = ({ initialMode = 'login', onBack }) => {
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
                       placeholder="Numéro de téléphone (optionnel)"
                     />
                   </div>
@@ -191,7 +191,7 @@ const Login = ({ initialMode = 'login', onBack }) => {
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
                       placeholder="Mot de passe *"
                       required
                     />
