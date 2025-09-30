@@ -1,4 +1,5 @@
 import ProjetLayoutClient from "../layouts/clients/projet/ProjetLayoutAdmin";
+import BudgetPage from "../pages/clients/budget/BudgetPage";
 import DashboardView from "../pages/clients/dashboard/DashboardView";
 import ProjetClient from "../pages/clients/projets/ProjetClient";
 import BudgetTracker from "../pages/clients/tresorie/BudgetTracker";
@@ -22,6 +23,8 @@ const ClientRoute = {
     {
       path: "trezo",
       element: <BudgetTracker />,
+      path: "budget",
+      element: <BudgetPage />,
     },
   ],
 };
