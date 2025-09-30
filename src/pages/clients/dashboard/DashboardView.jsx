@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import TrezoScoreWidget from "./TrezoScoreWidget";
 import ThirtyDayForecastWidget from "./ThirtyDayForecastWidget";
+import LoansSummaryWidget from "./LoansSummaryWidget";
+import CurrentMonthBudgetWidget from "./CurrentMonthBudgetWidget";
 
 const DashboardView = () => {
   // Message de bienvenue
@@ -82,6 +84,49 @@ const DashboardView = () => {
       1550, 1700, 1650, 1800, 2000, 1900, 2100, 2200, 2150, 2300, 2400, 2500,
       2450, 2600, 2700, 2800, 2750, 2900,
     ],
+  };
+
+  const loans = [
+    {
+      id: 1,
+      thirdParty: "Banque Centrale",
+      category: "Prêt immobilier",
+      totalRemaining: 150000,
+      installmentAmount: 2500,
+      remainingInstallments: 60,
+    },
+    {
+      id: 2,
+      thirdParty: "Société Générale",
+      category: "Prêt auto",
+      totalRemaining: 8000,
+      installmentAmount: 400,
+      remainingInstallments: 20,
+    },
+    {
+      id: 3,
+      thirdParty: "Microfinance Express",
+      category: "Prêt personnel",
+      totalRemaining: 1200,
+      installmentAmount: 100,
+      remainingInstallments: 12,
+    },
+  ];
+
+  const currencySettings = {
+    locale: "fr-FR",
+    currency: "EUR",
+  };
+
+  const TestBudgetData = {
+    totalBudgetedIncome: 5000,
+    totalBudgetedExpense: 3000,
+    totalActualIncome: 4200,
+    totalActualExpense: 2800,
+    settings: {
+      locale: "fr-FR",
+      currency: "EUR",
+    },
   };
   return (
     <div className="p-6 max-w-full space-y-8">
@@ -153,60 +198,81 @@ const DashboardView = () => {
         <div className="lg:col-span-2 space-y-8">
           <TrezoScoreWidget scoreData={testScoreData} />
           <ThirtyDayForecastWidget forecastData={testData} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <LoansSummaryWidget
+              title="Mes Emprunts"
+              icon={Banknote}
+              loans={loans}
+              currencySettings={currencySettings}
+              type="borrowing"
+            />
+            <LoansSummaryWidget
+              title="Mes Prêts Accordés"
+              icon={Coins}
+              loans={loans}
+              currencySettings={currencySettings}
+              type="lending"
+            />
+          </div>
         </div>
-      </div>
-      {/* Actions Prioritaires */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border flex flex-col">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2 flex-shrink-0">
-          <AlertTriangle className="w-5 h-5 text-yellow-500" />
-          Actions Prioritaires
-        </h2>
-        {overdueItems.length > 0 ? (
-          <div className="space-y-3">
-            {overdueItems.map((item) => (
-              <div
-                key={item.id}
-                className="w-full text-left p-2 rounded-lg border border-gray-200 bg-white"
-              >
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full ${
-                        item.type === "payable" ? "bg-red-100" : "bg-green-100"
-                      }`}
-                    >
-                      {item.type === "payable" ? (
-                        <ArrowDown className="w-4 h-4 text-red-600" />
-                      ) : (
-                        <ArrowUp className="w-4 h-4 text-green-600" />
-                      )}
-                    </div>
-                    <div className="overflow-hidden">
-                      <p
-                        className="font-semibold truncate text-gray-800"
-                        title={item.thirdParty}
-                      >
-                        {item.thirdParty}
-                      </p>
-                      <div className="text-xs text-gray-500">
-                        {new Date(item.date).toLocaleDateString("fr-FR")}
+        {/* Actions Prioritaires */}
+        <div className="space-y-8">
+          <CurrentMonthBudgetWidget {...TestBudgetData} />
+          <div className="bg-white p-6 rounded-lg shadow-sm border flex flex-col">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2 flex-shrink-0">
+              <AlertTriangle className="w-5 h-5 text-yellow-500" />
+              Actions Prioritaires
+            </h2>
+            {overdueItems.length > 0 ? (
+              <div className="space-y-3">
+                {overdueItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="w-full text-left p-2 rounded-lg border border-gray-200 bg-white"
+                  >
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full ${
+                            item.type === "payable"
+                              ? "bg-red-100"
+                              : "bg-green-100"
+                          }`}
+                        >
+                          {item.type === "payable" ? (
+                            <ArrowDown className="w-4 h-4 text-red-600" />
+                          ) : (
+                            <ArrowUp className="w-4 h-4 text-green-600" />
+                          )}
+                        </div>
+                        <div className="overflow-hidden">
+                          <p
+                            className="font-semibold truncate text-gray-800"
+                            title={item.thirdParty}
+                          >
+                            {item.thirdParty}
+                          </p>
+                          <div className="text-xs text-gray-500">
+                            {new Date(item.date).toLocaleDateString("fr-FR")}
+                          </div>
+                        </div>
                       </div>
+                      <p className="text-base font-normal whitespace-nowrap pl-2 text-gray-600">
+                        {item.remainingAmount}
+                      </p>
                     </div>
                   </div>
-                  <p className="text-base font-normal whitespace-nowrap pl-2 text-gray-600">
-                    {item.remainingAmount}
-                  </p>
+                ))}
+              </div>
+            ) : (
+              <div className="h-full flex items-center justify-center">
+                <div className="text-center text-gray-500 py-10">
+                  <p>Aucune action prioritaire. Tout est à jour !</p>
                 </div>
               </div>
-            ))}
+            )}
           </div>
-        ) : (
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center text-gray-500 py-10">
-              <p>Aucune action prioritaire. Tout est à jour !</p>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
 
       {/* Tutoriels */}
