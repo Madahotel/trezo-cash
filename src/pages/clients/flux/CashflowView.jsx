@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Layers, Plus, Edit, Trash2, Archive, ChevronLeft, ChevronRight, AreaChart, ChevronDown } from 'lucide-react';
 import ReactECharts from 'echarts-for-react';
-import CashflowDetailDrawer from './CashflowDetailDrawer.jsx';
+import CashflowDetailDrawer from '../../../components/drawer/CashflowDetailDrawer.jsx';
 import BudgetModal from '../../../components/modal/BudgetModal.jsx';
 import { formatCurrency } from '../../../utils/formatting.js';
 import { useData } from '../../../components/context/DataContext';
