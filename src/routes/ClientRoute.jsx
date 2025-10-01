@@ -10,6 +10,8 @@ import ExpenseAnalysisView from "../pages/clients/analyse/ExpenseAnalysisView";
 import MyTemplatesPage from "../pages/clients/models/MyTemplatesPage";
 import ProjectSettingsPage from "../pages/clients/projets/ProjectSettingsPage";
 import ProvisionsPage from "../pages/clients/suiviProvision/ProvisionsPage";
+import CategoryManagementPage from "../pages/clients/categories/CategoryManagementPage";
+import TiersManagementPage from "../pages/clients/tiers/TiersManagementPage";
 
 const ClientRoute = {
   path: "/client",
@@ -59,7 +61,17 @@ const ClientRoute = {
     },
     {
      path: "provisions",
-      element: <ProvisionsPage/>,
+      element: <ProvisionsPage/>
+    }
+    ,
+    {
+     path: "categories",
+      element: <CategoryManagementPage/>,
+    },
+    
+      {
+     path: "tiers",
+      element: <TiersManagementPage/>,
     },
 
   ],
