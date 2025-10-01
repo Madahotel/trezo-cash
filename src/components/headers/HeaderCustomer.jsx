@@ -122,7 +122,7 @@ export default function HeaderCustomer() {
   const navItems = [
     { label: "Dashboard", path: "/client/dashboard", icon: LayoutDashboard },
     { label: "Budget", path: "/client/budget", icon: ListChecks },
-    { label: "Trezo", path: "/app/trezo", icon: Table },
+    { label: "Trezo", path: "/client/trezo", icon: Table },
     { label: "Flux", path: "/app/flux", icon: AreaChart },
     { label: "Echeancier", path: "/app/echeancier", icon: Calendar },
     { label: "Scénarios", path: "/app/scenarios", icon: Layers },
