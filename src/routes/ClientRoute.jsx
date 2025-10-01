@@ -7,6 +7,7 @@ import ProjetClient from "../pages/clients/projets/ProjetClient";
 import BudgetTracker from "../pages/clients/tresorie/BudgetTracker";
 import TrezoPage from "../pages/clients/tresorie/TrezoPage";
 import ExpenseAnalysisView from "../pages/clients/analyse/ExpenseAnalysisView";
+import ProjectSettingsPage from "../pages/clients/projets/ProjectSettingsPage";
 
 const ClientRoute = {
   path: "/client",
@@ -45,6 +46,10 @@ const ClientRoute = {
     {
      path: "analyse",
       element: <ExpenseAnalysisView/>,
+    },
+    {
+     path: "parametres-projet",
+      element: <ProjectSettingsPage/>,
     },
 
   ],
