@@ -58,7 +58,7 @@ export default function HeaderCustomer() {
       "/client/flux": { title: "Flux de Trésorerie", icon: AreaChart },
       "/client/echeancier": { title: "Échéancier", icon: Calendar },
       "/app/scenarios": { title: "Gestion de Scénarios", icon: Layers },
-      "/app/analyse": { title: "Analyse", icon: PieChart },
+      "/client/analyse": { title: "Analyse", icon: PieChart },
       "/app/journal-budget": { title: "Journal du Budget", icon: BookOpen },
       "/app/journal-paiements": {
         title: "Journal des Paiements",
@@ -123,7 +123,7 @@ export default function HeaderCustomer() {
     { label: "Flux", path: "/client/flux", icon: AreaChart },
     { label: "Echeancier", path: "/client/echeancier", icon: Calendar },
     { label: "Scénarios", path: "/app/scenarios", icon: Layers },
-    { label: "Analyse", path: "/app/analyse", icon: PieChart },
+    { label: "Analyse", path: "/client/analyse", icon: PieChart },
   ];
 
   const settingsItems = [

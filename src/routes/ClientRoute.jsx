@@ -6,6 +6,7 @@ import ScheduleView from "../pages/clients/echeance/ScheduleView";
 import ProjetClient from "../pages/clients/projets/ProjetClient";
 import BudgetTracker from "../pages/clients/tresorie/BudgetTracker";
 import TrezoPage from "../pages/clients/tresorie/TrezoPage";
+import ExpenseAnalysisView from "../pages/clients/analyse/ExpenseAnalysisView";
 
 const ClientRoute = {
   path: "/client",
@@ -37,9 +38,13 @@ const ClientRoute = {
       element: <CashflowView/>,
     },
     ,
-     {
+    {
      path: "echeancier",
       element: <ScheduleView/>,
+    },
+    {
+     path: "analyse",
+      element: <ExpenseAnalysisView/>,
     },
 
   ],
