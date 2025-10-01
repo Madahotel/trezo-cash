@@ -10,6 +10,7 @@ import ExpenseAnalysisView from "../pages/clients/analyse/ExpenseAnalysisView";
 import MyTemplatesPage from "../pages/clients/models/MyTemplatesPage";
 import ProjectSettingsPage from "../pages/clients/projets/ProjectSettingsPage";
 import CategoryManagementPage from "../pages/clients/categories/CategoryManagementPage";
+import TiersManagementPage from "../pages/clients/tiers/TiersManagementPage";
 
 const ClientRoute = {
   path: "/client",
@@ -58,9 +59,14 @@ const ClientRoute = {
       element: <ProjectSettingsPage/>,
     },
     
-        {
+    {
      path: "categories",
       element: <CategoryManagementPage/>,
+    },
+    
+      {
+     path: "tiers",
+      element: <TiersManagementPage/>,
     },
 
   ],
