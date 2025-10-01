@@ -56,7 +56,7 @@ export default function HeaderCustomer() {
       "/client/budget": { title: "Budget / État des Lieux", icon: ListChecks },
       "/client/trezo": { title: "Tableau de Trésorerie", icon: Table },
       "/client/flux": { title: "Flux de Trésorerie", icon: AreaChart },
-      "/app/echeancier": { title: "Échéancier", icon: Calendar },
+      "/client/echeancier": { title: "Échéancier", icon: Calendar },
       "/app/scenarios": { title: "Gestion de Scénarios", icon: Layers },
       "/app/analyse": { title: "Analyse", icon: PieChart },
       "/app/journal-budget": { title: "Journal du Budget", icon: BookOpen },
@@ -121,7 +121,7 @@ export default function HeaderCustomer() {
     { label: "Budget", path: "/client/budget", icon: ListChecks },
     { label: "Trezo", path: "/client/trezo", icon: Table },
     { label: "Flux", path: "/client/flux", icon: AreaChart },
-    { label: "Echeancier", path: "/app/echeancier", icon: Calendar },
+    { label: "Echeancier", path: "/client/echeancier", icon: Calendar },
     { label: "Scénarios", path: "/app/scenarios", icon: Layers },
     { label: "Analyse", path: "/app/analyse", icon: PieChart },
   ];
