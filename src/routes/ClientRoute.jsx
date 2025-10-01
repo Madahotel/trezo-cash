@@ -9,6 +9,7 @@ import TrezoPage from "../pages/clients/tresorie/TrezoPage";
 import ExpenseAnalysisView from "../pages/clients/analyse/ExpenseAnalysisView";
 import MyTemplatesPage from "../pages/clients/models/MyTemplatesPage";
 import ProjectSettingsPage from "../pages/clients/projets/ProjectSettingsPage";
+import CategoryManagementPage from "../pages/clients/categories/CategoryManagementPage";
 
 const ClientRoute = {
   path: "/client",
@@ -55,6 +56,11 @@ const ClientRoute = {
     {
      path: "parametres-projet",
       element: <ProjectSettingsPage/>,
+    },
+    
+        {
+     path: "categories",
+      element: <CategoryManagementPage/>,
     },
 
   ],
