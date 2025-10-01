@@ -134,7 +134,7 @@ export default function HeaderCustomer() {
     { id: "/client/categories", label: "Catégories", icon: FolderKanban },
     { id: "/client/tiers", label: "Tiers", icon: Users },
     { id: "/client/comptes", label: "Comptes", icon: Wallet },
-    { id: "timezoneSettings", label: "Fuseau Horaire", icon: Globe },
+    { id: "/client/timezoneSettings", label: "Fuseau Horaire", icon: Globe },
     { id: "/app/archives", label: "Archives", icon: Archive },
   ];
 

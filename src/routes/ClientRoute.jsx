@@ -13,6 +13,7 @@ import ProvisionsPage from "../pages/clients/suiviProvision/ProvisionsPage";
 import CategoryManagementPage from "../pages/clients/categories/CategoryManagementPage";
 import TiersManagementPage from "../pages/clients/tiers/TiersManagementPage";
 import CashAccountsPage from "../pages/clients/account/CashAccountsPage";
+import TimezoneSettingsPage from "../pages/clients/timeZone/TimezoneSettingsPage";
 
 const ClientRoute = {
   path: "/client",
@@ -33,50 +34,54 @@ const ClientRoute = {
     {
       path: "trezo",
       element: <TrezoPage />,
-      
+
     },
-     {
-     path: "budget",
+    {
+      path: "budget",
       element: <BudgetPage />,
     },
     {
-     path: "flux",
-      element: <CashflowView/>,
+      path: "flux",
+      element: <CashflowView />,
     },
     ,
     {
-     path: "echeancier",
-      element: <ScheduleView/>,
+      path: "echeancier",
+      element: <ScheduleView />,
     },
     {
-     path: "analyse",
-      element: <ExpenseAnalysisView/>,
+      path: "analyse",
+      element: <ExpenseAnalysisView />,
     },
     {
-     path: "templates",
-      element: <MyTemplatesPage/>,
+      path: "templates",
+      element: <MyTemplatesPage />,
     },
     {
-     path: "parametres-projet",
-      element: <ProjectSettingsPage/>,
+      path: "parametres-projet",
+      element: <ProjectSettingsPage />,
     },
     {
-     path: "provisions",
-      element: <ProvisionsPage/>
+      path: "provisions",
+      element: <ProvisionsPage />
     }
     ,
     {
-     path: "categories",
-      element: <CategoryManagementPage/>,
+      path: "categories",
+      element: <CategoryManagementPage />,
     },
-    
+
     {
-     path: "tiers",
-      element: <TiersManagementPage/>,
+      path: "tiers",
+      element: <TiersManagementPage />,
     },
     {
-     path: "comptes",
-      element: <CashAccountsPage/>,
+      path: "comptes",
+      element: <CashAccountsPage />,
+    },
+    {
+      path: "timezoneSettings",
+      element: <TimezoneSettingsPage />,
     },
 
   ],
