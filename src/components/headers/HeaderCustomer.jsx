@@ -58,7 +58,7 @@ export default function HeaderCustomer() {
     const pages = {
       "/client/dashboard": { title: "Tableau de Bord", icon: LayoutDashboard },
       "/client/budget": { title: "Budget / État des Lieux", icon: ListChecks },
-      "/app/trezo": { title: "Tableau de Trésorerie", icon: Table },
+      "/client/trezo": { title: "Tableau de Trésorerie", icon: Table },
       "/app/flux": { title: "Flux de Trésorerie", icon: AreaChart },
       "/app/echeancier": { title: "Échéancier", icon: Calendar },
       "/app/scenarios": { title: "Gestion de Scénarios", icon: Layers },
