@@ -9,6 +9,7 @@ import TrezoPage from "../pages/clients/tresorie/TrezoPage";
 import ExpenseAnalysisView from "../pages/clients/analyse/ExpenseAnalysisView";
 import MyTemplatesPage from "../pages/clients/models/MyTemplatesPage";
 import ProjectSettingsPage from "../pages/clients/projets/ProjectSettingsPage";
+import ProvisionsPage from "../pages/clients/suiviProvision/ProvisionsPage";
 import CategoryManagementPage from "../pages/clients/categories/CategoryManagementPage";
 import TiersManagementPage from "../pages/clients/tiers/TiersManagementPage";
 import CashAccountsPage from "../pages/clients/account/CashAccountsPage";
@@ -59,7 +60,11 @@ const ClientRoute = {
      path: "parametres-projet",
       element: <ProjectSettingsPage/>,
     },
-    
+    {
+     path: "provisions",
+      element: <ProvisionsPage/>
+    }
+    ,
     {
      path: "categories",
       element: <CategoryManagementPage/>,
