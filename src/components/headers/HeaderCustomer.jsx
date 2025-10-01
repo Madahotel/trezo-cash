@@ -64,7 +64,7 @@ export default function HeaderCustomer() {
         title: "Journal des Paiements",
         icon: Receipt,
       },
-      "/app/parametres-projet": {
+      "/client/parametres-projet": {
         title: "Paramètres du Projet",
         icon: FolderCog,
       },
@@ -128,7 +128,7 @@ export default function HeaderCustomer() {
 
   const settingsItems = [
     {
-      id: "/app/parametres-projet",
+      id: "/client/parametres-projet",
       label: "Paramètres du Projet",
       icon: FolderCog,
     },
@@ -242,13 +242,14 @@ export default function HeaderCustomer() {
                     <ul className="p-2 space-y-1">
                       {settingsItems.map((s) => (
                         <li key={s.id}>
-                          <button
-                            // onClick={() => (s.id.startsWith("/app/") ? handleNavigate(s.id) : uiDispatch({ type: "SET_ACTIVE_SETTINGS_DRAWER", payload: s.id }))}
-                            className="flex items-center w-full h-10 px-4 rounded-lg text-sm text-gray-600 hover:bg-gray-100"
-                          >
-                            <s.icon className="w-5 h-5 mr-3" />
-                            {s.label}
-                          </button>
+                        <button
+                          onClick={() => handleNavigate(s.id)}
+                          className="flex items-center w-full h-10 px-4 rounded-lg text-sm text-gray-600 hover:bg-gray-100"
+                        >
+                          <s.icon className="w-5 h-5 mr-3" />
+                          {s.label}
+                        </button>
+
                         </li>
                       ))}
                     </ul>

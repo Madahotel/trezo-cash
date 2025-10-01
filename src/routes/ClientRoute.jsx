@@ -8,6 +8,7 @@ import BudgetTracker from "../pages/clients/tresorie/BudgetTracker";
 import TrezoPage from "../pages/clients/tresorie/TrezoPage";
 import ExpenseAnalysisView from "../pages/clients/analyse/ExpenseAnalysisView";
 import MyTemplatesPage from "../pages/clients/models/MyTemplatesPage";
+import ProjectSettingsPage from "../pages/clients/projets/ProjectSettingsPage";
 
 const ClientRoute = {
   path: "/client",
@@ -51,7 +52,10 @@ const ClientRoute = {
      path: "templates",
       element: <MyTemplatesPage/>,
     },
-    
+    {
+     path: "parametres-projet",
+      element: <ProjectSettingsPage/>,
+    },
 
   ],
 };
