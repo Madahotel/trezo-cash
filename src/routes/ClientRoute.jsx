@@ -13,6 +13,7 @@ import ProvisionsPage from "../pages/clients/suiviProvision/ProvisionsPage";
 import CategoryManagementPage from "../pages/clients/categories/CategoryManagementPage";
 import TiersManagementPage from "../pages/clients/tiers/TiersManagementPage";
 import CashAccountsPage from "../pages/clients/account/CashAccountsPage";
+import ArchivesPage from "../pages/clients/archives/ArchivesPage";
 
 const ClientRoute = {
   path: "/client",
@@ -77,6 +78,10 @@ const ClientRoute = {
     {
      path: "comptes",
       element: <CashAccountsPage/>,
+    },
+     {
+     path: "archives",
+      element: <ArchivesPage/>,
     },
 
   ],

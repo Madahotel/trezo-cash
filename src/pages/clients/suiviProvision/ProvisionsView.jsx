@@ -3,7 +3,7 @@ import { useData } from '../../../components/context/DataContext';
 import { useUI } from '../../../components/context/UIContext';
 import { useActiveProjectData } from '../../../utils/selectors.jsx';
 import { formatCurrency } from '../../../utils/formatting';
-import EmptyState from './EmptyState';
+import EmptyState from '../../../components/emptystate/EmptyState.jsx';
 import { Lock, PiggyBank } from 'lucide-react';
 
 const ProvisionItem = ({ provision, actuals, settings }) => {

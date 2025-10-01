@@ -3,7 +3,7 @@ import { useData } from '../../../components/context/DataContext.jsx';
 import { useUI } from '../../../components/context/UIContext';
 import { formatCurrency, formatPaymentTerms } from '../../../utils/formatting.js';
 import { HandCoins, TrendingDown, Briefcase, Plus, Trash2, Folder, Search, Lock, Edit } from 'lucide-react';
-import EmptyState from './EmptyState';
+import EmptyState from '../../../components/emptystate/EmptyState.jsx';
 import AddCategoryFlowModal from '../../../components/modal/AddCategoryFlowModal.jsx';
 import { deleteEntry } from '../../../components/context/actions';
 import { expandVatEntries } from '../../../utils/budgetCalculations';

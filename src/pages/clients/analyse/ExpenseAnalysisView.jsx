@@ -4,7 +4,7 @@ import { useData } from '../../../components/context/DataContext';
 import { useUI } from '../../../components/context/UIContext';
 import { formatCurrency } from '../../../utils/formatting';
 import ReactECharts from 'echarts-for-react';
-import EmptyState from '../budget/EmptyState';
+import EmptyState from '../../../components/emptystate/EmptyState';
 import { getTodayInTimezone, getEntryAmountForPeriod, expandVatEntries } from '../../../utils/budgetCalculations';
 import { motion, AnimatePresence } from 'framer-motion';
 
