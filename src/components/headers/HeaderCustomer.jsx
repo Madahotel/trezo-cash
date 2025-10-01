@@ -37,9 +37,6 @@ import ProjectSwitcher from "./ProjectSwitcher";
 // import StaticAppLogo from "./StaticAppLogo";
 
 export default function HeaderCustomer() {
-  //   const { dataState } = useData();
-  //   const { uiDispatch } = useUI();
-  //   const { profile, session, taxConfigs } = dataState;
   const navigate = useNavigate();
   const location = useLocation();
 
