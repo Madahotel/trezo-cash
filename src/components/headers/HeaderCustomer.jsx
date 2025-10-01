@@ -136,7 +136,7 @@ export default function HeaderCustomer() {
     { id: "/app/provisions", label: "Suivi des Provisions", icon: Lock },
     { id: "/client/categories", label: "Catégories", icon: FolderKanban },
     { id: "/client/tiers", label: "Tiers", icon: Users },
-    { id: "/app/comptes", label: "Comptes", icon: Wallet },
+    { id: "/client/comptes", label: "Comptes", icon: Wallet },
     { id: "timezoneSettings", label: "Fuseau Horaire", icon: Globe },
     { id: "/app/archives", label: "Archives", icon: Archive },
   ];

@@ -11,6 +11,7 @@ import MyTemplatesPage from "../pages/clients/models/MyTemplatesPage";
 import ProjectSettingsPage from "../pages/clients/projets/ProjectSettingsPage";
 import CategoryManagementPage from "../pages/clients/categories/CategoryManagementPage";
 import TiersManagementPage from "../pages/clients/tiers/TiersManagementPage";
+import CashAccountsPage from "../pages/clients/account/CashAccountsPage";
 
 const ClientRoute = {
   path: "/client",
@@ -64,9 +65,13 @@ const ClientRoute = {
       element: <CategoryManagementPage/>,
     },
     
-      {
+    {
      path: "tiers",
       element: <TiersManagementPage/>,
+    },
+    {
+     path: "comptes",
+      element: <CashAccountsPage/>,
     },
 
   ],
