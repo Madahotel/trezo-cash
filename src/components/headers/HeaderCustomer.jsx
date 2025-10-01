@@ -66,7 +66,7 @@ export default function HeaderCustomer() {
         icon: FolderCog,
       },
       "/client/templates": { title: "Mes Modèles", icon: LayoutTemplate },
-      "/app/provisions": { title: "Suivi des Provisions", icon: Lock },
+      "/client/provisions": { title: "Suivi des Provisions", icon: Lock },
       "/app/categories": {
         title: "Gestion des Catégories",
         icon: FolderKanban,
@@ -130,7 +130,7 @@ export default function HeaderCustomer() {
       icon: FolderCog,
     },
     { id: "/client/templates", label: "Mes Modèles", icon: LayoutTemplate },
-    { id: "/app/provisions", label: "Suivi des Provisions", icon: Lock },
+    { id: "/client/provisions", label: "Suivi des Provisions", icon: Lock },
     { id: "/app/categories", label: "Catégories", icon: FolderKanban },
     { id: "/app/tiers", label: "Tiers", icon: Users },
     { id: "/app/comptes", label: "Comptes", icon: Wallet },
