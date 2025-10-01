@@ -73,7 +73,7 @@ export default function HeaderCustomer() {
       },
       "/app/tiers": { title: "Gestion des Tiers", icon: Users },
       "/app/comptes": { title: "Comptes de Trésorerie", icon: Wallet },
-      "/app/archives": { title: "Archives", icon: Archive },
+      "/client/archives": { title: "Archives", icon: Archive },
       "/app/tva": { title: "Gestion de la TVA", icon: Hash },
       "/app/fiscalite": { title: "Gestion de la Fiscalité", icon: Hash },
       "/app/profil": { title: "Mon Profil", icon: User },
@@ -135,7 +135,7 @@ export default function HeaderCustomer() {
     { id: "/client/tiers", label: "Tiers", icon: Users },
     { id: "/client/comptes", label: "Comptes", icon: Wallet },
     { id: "/client/timezoneSettings", label: "Fuseau Horaire", icon: Globe },
-    { id: "/app/archives", label: "Archives", icon: Archive },
+    { id: "/client/archives", label: "Archives", icon: Archive },
   ];
 
   const menuItems = [

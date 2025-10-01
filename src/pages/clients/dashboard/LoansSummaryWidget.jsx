@@ -1,5 +1,5 @@
 import React from "react";
-import EmptyState from "./EmptyState";
+import EmptyState from "../../../components/emptystate/EmptyState";
 import { formatCurrency } from "../../../utils/formatting";
 
 const LoansSummaryWidget = ({

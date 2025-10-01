@@ -4,7 +4,7 @@ import { formatCurrency } from '../../../utils/formatting';
 import { useData, mainCashAccountCategories } from '../../../components/context/DataContext';
 import { useUI } from '../../../components/context/UIContext';
 import AddAccountForm from './AddAccountForm';
-import EmptyState from '../../../pages/clients/budget/EmptyState';
+import EmptyState from '../../../components/emptystate/EmptyState.jsx';
 import { updateUserCashAccount, addUserCashAccount } from '../../../components/context/actions';
 import { useAccountBalances } from '../../../utils/selectors.jsx';
 

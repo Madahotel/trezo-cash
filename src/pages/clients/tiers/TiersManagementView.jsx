@@ -3,7 +3,7 @@ import { Users, UserPlus, Edit, Trash2, Save, X, Plus, Search, Banknote, CreditC
 import { useData } from '../../../components/context/DataContext';
 import { useUI } from '../../../components/context/UIContext';
 import { formatCurrency, formatPaymentTerms } from '../../../utils/formatting';
-import EmptyState from '../../../pages/clients/budget/EmptyState';
+import EmptyState from '../../../components/emptystate/EmptyState';
 
 const TiersManagementView = ({ onOpenPaymentTerms }) => {
   const { dataState, dataDispatch } = useData();

@@ -2,7 +2,7 @@ import React,{useState} from 'react';
 import { useData } from '../../../components/context/DataContext';
 import { useUI } from '../../../components/context/UIContext';
 import { LayoutTemplate, Plus, Edit, Trash2 } from 'lucide-react';
-import EmptyState from './EmptyState';
+import EmptyState from '../../../components/emptystate/EmptyState';
 import { deleteTemplate } from '../../../components/context/actions';
 import SaveTemplateModal from '../../../components/modal/SaveTemplateModal';
 
