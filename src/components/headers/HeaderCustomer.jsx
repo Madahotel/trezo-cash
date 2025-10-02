@@ -37,9 +37,6 @@ import ProjectSwitcher from "./ProjectSwitcher";
 // import StaticAppLogo from "./StaticAppLogo";
 
 export default function HeaderCustomer() {
-  //   const { dataState } = useData();
-  //   const { uiDispatch } = useUI();
-  //   const { profile, session, taxConfigs } = dataState;
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -55,33 +52,33 @@ export default function HeaderCustomer() {
       "/client/dashboard": { title: "Tableau de Bord", icon: LayoutDashboard },
       "/client/budget": { title: "Budget / État des Lieux", icon: ListChecks },
       "/client/trezo": { title: "Tableau de Trésorerie", icon: Table },
-      "/app/flux": { title: "Flux de Trésorerie", icon: AreaChart },
-      "/app/echeancier": { title: "Échéancier", icon: Calendar },
+      "/client/flux": { title: "Flux de Trésorerie", icon: AreaChart },
+      "/client/echeancier": { title: "Échéancier", icon: Calendar },
       "/client/scenarios": { title: "Gestion de Scénarios", icon: Layers },
-      "/app/analyse": { title: "Analyse", icon: PieChart },
+      "/client/analyse": { title: "Analyse", icon: PieChart },
       "/app/journal-budget": { title: "Journal du Budget", icon: BookOpen },
       "/app/journal-paiements": {
         title: "Journal des Paiements",
         icon: Receipt,
       },
-      "/app/parametres-projet": {
+      "/client/parametres-projet": {
         title: "Paramètres du Projet",
         icon: FolderCog,
       },
-      "/app/templates": { title: "Mes Modèles", icon: LayoutTemplate },
-      "/app/provisions": { title: "Suivi des Provisions", icon: Lock },
+      "/client/templates": { title: "Mes Modèles", icon: LayoutTemplate },
+      "/client/provisions": { title: "Suivi des Provisions", icon: Lock },
       "/app/categories": {
         title: "Gestion des Catégories",
         icon: FolderKanban,
       },
       "/app/tiers": { title: "Gestion des Tiers", icon: Users },
       "/app/comptes": { title: "Comptes de Trésorerie", icon: Wallet },
-      "/app/archives": { title: "Archives", icon: Archive },
+      "/client/archives": { title: "Archives", icon: Archive },
       "/app/tva": { title: "Gestion de la TVA", icon: Hash },
       "/app/fiscalite": { title: "Gestion de la Fiscalité", icon: Hash },
-      "/app/profil": { title: "Mon Profil", icon: User },
-      "/app/securite": { title: "Mot de Passe et Sécurité", icon: Shield },
-      "/app/abonnement": { title: "Mon Abonnement", icon: CreditCard },
+      "/client/profil": { title: "Mon Profil", icon: User },
+      "/client/securite": { title: "Mot de Passe et Sécurité", icon: Shield },
+      "/client/abonnement": { title: "Mon Abonnement", icon: CreditCard },
       "/app/delete-account": { title: "Supprimer Mon Compte", icon: Trash2 },
     };
 
@@ -119,40 +116,44 @@ export default function HeaderCustomer() {
   const navItems = [
     { label: "Dashboard", path: "/client/dashboard", icon: LayoutDashboard },
     { label: "Budget", path: "/client/budget", icon: ListChecks },
-    { label: "Trezo", path: "/clent/trezo", icon: Table },
-    { label: "Flux", path: "/app/flux", icon: AreaChart },
-    { label: "Echeancier", path: "/app/echeancier", icon: Calendar },
+    { label: "Trezo", path: "/client/trezo", icon: Table },
+    { label: "Flux", path: "/client/flux", icon: AreaChart },
+    { label: "Echeancier", path: "/client/echeancier", icon: Calendar },
     { label: "Scénarios", path: "/client/scenarios", icon: Layers },
-    { label: "Analyse", path: "/app/analyse", icon: PieChart },
+    { label: "Analyse", path: "/client/analyse", icon: PieChart },
   ];
 
   const settingsItems = [
     {
-      id: "/app/parametres-projet",
+      id: "/client/parametres-projet",
       label: "Paramètres du Projet",
       icon: FolderCog,
     },
-    { id: "/app/templates", label: "Mes Modèles", icon: LayoutTemplate },
-    { id: "/app/provisions", label: "Suivi des Provisions", icon: Lock },
-    { id: "/app/categories", label: "Catégories", icon: FolderKanban },
-    { id: "/app/tiers", label: "Tiers", icon: Users },
-    { id: "/app/comptes", label: "Comptes", icon: Wallet },
-    { id: "timezoneSettings", label: "Fuseau Horaire", icon: Globe },
-    { id: "/app/archives", label: "Archives", icon: Archive },
+    { id: "/client/templates", label: "Mes Modèles", icon: LayoutTemplate },
+    { id: "/client/provisions", label: "Suivi des Provisions", icon: Lock },
+    { id: "/client/categories", label: "Catégories", icon: FolderKanban },
+    { id: "/client/tiers", label: "Tiers", icon: Users },
+    { id: "/client/comptes", label: "Comptes", icon: Wallet },
+    { id: "/client/timezoneSettings", label: "Fuseau Horaire", icon: Globe },
+    { id: "/client/archives", label: "Archives", icon: Archive },
   ];
 
   const menuItems = [
-    { title: "Mon profil", icon: User, path: "/app/profil" },
-    { title: "Mot de passe et sécurité", icon: Shield, path: "/app/securite" },
-    { title: "Mon abonnement", icon: CreditCard, path: "/app/abonnement" },
-    { title: "Factures", icon: FileText, path: "/app/factures" },
+    { title: "Mon profil", icon: User, path: "/client/profil" },
+    {
+      title: "Mot de passe et sécurité",
+      icon: Shield,
+      path: "/client/securite",
+    },
+    { title: "Mon abonnement", icon: CreditCard, path: "/client/abonnement" },
+    { title: "Factures", icon: FileText, path: "/client/factures" },
     {
       title: "Supprimer mon compte",
       icon: Trash2,
       path: "/app/delete-account",
       destructive: true,
     },
-    { title: "Centre d'aide", icon: HelpCircle, path: "/app/aide" },
+    { title: "Centre d'aide", icon: HelpCircle, path: "/client/aide" },
   ];
 
   return (
@@ -243,7 +244,7 @@ export default function HeaderCustomer() {
                       {settingsItems.map((s) => (
                         <li key={s.id}>
                           <button
-                            // onClick={() => (s.id.startsWith("/app/") ? handleNavigate(s.id) : uiDispatch({ type: "SET_ACTIVE_SETTINGS_DRAWER", payload: s.id }))}
+                            onClick={() => handleNavigate(s.id)}
                             className="flex items-center w-full h-10 px-4 rounded-lg text-sm text-gray-600 hover:bg-gray-100"
                           >
                             <s.icon className="w-5 h-5 mr-3" />

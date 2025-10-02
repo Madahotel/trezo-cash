@@ -1,7 +1,7 @@
 // import { supabase } from '../utils/supabase';
 import { deriveActualsFromEntry } from '../../utils/scenarioCalculations';
 import { templates as officialTemplatesData } from '../../utils/templates';
-import { v4 as uuidv4 } from 'uuid';
+
 
 const getDefaultExpenseTargets = () => ({
   'exp-main-1': 20, 'exp-main-2': 35, 'exp-main-3': 10, 'exp-main-4': 0,
@@ -863,5 +863,54 @@ export const addComment = async ({ dataDispatch, uiDispatch }, { projectId, rowI
     } catch (error) {
         console.error("Error adding comment:", error);
         uiDispatch({ type: 'ADD_TOAST', payload: { message: `Erreur lors de l'ajout du commentaire: ${error.message}`, type: 'error' } });
+    }
+};
+
+export const deleteTemplate = async ({dataDispatch, uiDispatch}, templateId) => {
+    try {
+        const { error } = await supabase.from('templates').delete().eq('id', templateId);
+        if (error) throw error;
+        dataDispatch({ type: 'DELETE_TEMPLATE_SUCCESS', payload: templateId });
+        uiDispatch({ type: 'ADD_TOAST', payload: { message: 'Modèle supprimé.', type: 'success' } });
+    } catch (error) {
+        console.error("Error deleting template:", error);
+        uiDispatch({ type: 'ADD_TOAST', payload: { message: `Erreur: ${error.message}`, type: 'error' } });
+    }
+};
+
+export const saveTemplate = async ({dataDispatch, uiDispatch}, { templateData, editingTemplate, projectStructure, user }) => {
+    try {
+        const dataToSave = {
+            ...templateData,
+            user_id: user.id,
+            structure: projectStructure,
+        };
+        let savedTemplate;
+        if (editingTemplate) {
+            const { data, error } = await supabase
+                .from('templates')
+                .update(dataToSave)
+                .eq('id', editingTemplate.id)
+                .select()
+                .single();
+            if (error) throw error;
+            savedTemplate = data;
+            dataDispatch({ type: 'UPDATE_TEMPLATE_SUCCESS', payload: savedTemplate });
+            uiDispatch({ type: 'ADD_TOAST', payload: { message: 'Modèle mis à jour.', type: 'success' } });
+        } else {
+            const { data, error } = await supabase
+                .from('templates')
+                .insert(dataToSave)
+                .select()
+                .single();
+            if (error) throw error;
+            savedTemplate = data;
+            dataDispatch({ type: 'ADD_TEMPLATE_SUCCESS', payload: savedTemplate });
+            uiDispatch({ type: 'ADD_TOAST', payload: { message: 'Modèle créé.', type: 'success' } });
+        }
+        uiDispatch({ type: 'CLOSE_SAVE_TEMPLATE_MODAL' });
+    } catch (error) {
+        console.error("Error saving template:", error);
+        uiDispatch({ type: 'ADD_TOAST', payload: { message: `Erreur: ${error.message}`, type: 'error' } });
     }
 };
