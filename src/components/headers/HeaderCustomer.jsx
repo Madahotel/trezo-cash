@@ -142,7 +142,7 @@ export default function HeaderCustomer() {
     { title: "Mon profil", icon: User, path: "/client/profil" },
     { title: "Mot de passe et sécurité", icon: Shield, path: "/client/securite" },
     { title: "Mon abonnement", icon: CreditCard, path: "/app/abonnement" },
-    { title: "Factures", icon: FileText, path: "/app/factures" },
+    { title: "Factures", icon: FileText, path: "/client/factures" },
     {
       title: "Supprimer mon compte",
       icon: Trash2,

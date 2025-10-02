@@ -17,6 +17,7 @@ import TimezoneSettingsPage from "../pages/clients/timeZone/TimezoneSettingsPage
 import ArchivesPage from "../pages/clients/archives/ArchivesPage";
 import ProfilePage from "../pages/clients/profil/ProfilePage";
 import SecurityPage from "../pages/clients/security/SecurityPage";
+import UnderConstructionView from "../pages/clients/facture/UnderConstructionView";
 
 const ClientRoute = {
   path: "/client",
@@ -93,11 +94,15 @@ const ClientRoute = {
      path: "profil",
       element: <ProfilePage/>
     }
-    ,{
+    ,
+    {
      path: "securite",
       element: <SecurityPage/>,
-    }
-    ,
+    },
+    {
+     path: "factures",
+      element: <UnderConstructionView/>,
+    },
 
   ],
 };
