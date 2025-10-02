@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { X, Save, PlusCircle } from 'lucide-react';
+import React, { useState } from "react";
+import { X, Save, PlusCircle } from "lucide-react";
 
 const AddCategoryModal = ({ isOpen, onClose, onSave, mainCategoryName }) => {
-  const [name, setName] = useState('');
+  const [name, setName] = useState("");
 
   if (!isOpen) return null;
 
@@ -21,7 +21,10 @@ const AddCategoryModal = ({ isOpen, onClose, onSave, mainCategoryName }) => {
             <PlusCircle className="w-5 h-5 text-orange-500" />
             Nouvelle sous-catégorie
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
             <X className="w-6 h-6" />
           </button>
         </div>
@@ -49,10 +52,17 @@ const AddCategoryModal = ({ isOpen, onClose, onSave, mainCategoryName }) => {
             />
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium"
+            >
               Annuler
             </button>
-            <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2">
+            <button
+              type="submit"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2"
+            >
               <Save className="w-4 h-4" /> Enregistrer
             </button>
           </div>
