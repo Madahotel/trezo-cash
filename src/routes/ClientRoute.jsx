@@ -20,6 +20,7 @@ import SecurityPage from "../pages/clients/security/SecurityPage";
 import UnderConstructionView from "../pages/clients/facture/UnderConstructionView";
 import { path } from "framer-motion/client";
 import Aide from "../pages/clients/aide/Aide";
+import SubscriptionPage from "../pages/clients/abonnement/SubscriptionPage";
 
 const ClientRoute = {
   path: "/client",
@@ -108,6 +109,10 @@ const ClientRoute = {
     {
       path:"aide",
       element: <Aide title="Centre d'aide" />
+    },
+    {
+      path:"abonnement",
+      element: <SubscriptionPage/>
     }
 
   ],

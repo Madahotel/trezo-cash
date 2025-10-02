@@ -78,7 +78,7 @@ export default function HeaderCustomer() {
       "/app/fiscalite": { title: "Gestion de la Fiscalité", icon: Hash },
       "/client/profil": { title: "Mon Profil", icon: User },
       "/client/securite": { title: "Mot de Passe et Sécurité", icon: Shield },
-      "/app/abonnement": { title: "Mon Abonnement", icon: CreditCard },
+      "/client/abonnement": { title: "Mon Abonnement", icon: CreditCard },
       "/app/delete-account": { title: "Supprimer Mon Compte", icon: Trash2 },
     };
 
@@ -141,7 +141,7 @@ export default function HeaderCustomer() {
   const menuItems = [
     { title: "Mon profil", icon: User, path: "/client/profil" },
     { title: "Mot de passe et sécurité", icon: Shield, path: "/client/securite" },
-    { title: "Mon abonnement", icon: CreditCard, path: "/app/abonnement" },
+    { title: "Mon abonnement", icon: CreditCard, path: "/client/abonnement" },
     { title: "Factures", icon: FileText, path: "/client/factures" },
     {
       title: "Supprimer mon compte",
