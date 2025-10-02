@@ -149,7 +149,7 @@ export default function HeaderCustomer() {
       path: "/app/delete-account",
       destructive: true,
     },
-    { title: "Centre d'aide", icon: HelpCircle, path: "/app/aide" },
+    { title: "Centre d'aide", icon: HelpCircle, path: "/client/aide" },
   ];
 
   return (

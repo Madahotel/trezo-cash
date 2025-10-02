@@ -18,6 +18,8 @@ import ArchivesPage from "../pages/clients/archives/ArchivesPage";
 import ProfilePage from "../pages/clients/profil/ProfilePage";
 import SecurityPage from "../pages/clients/security/SecurityPage";
 import UnderConstructionView from "../pages/clients/facture/UnderConstructionView";
+import { path } from "framer-motion/client";
+import Aide from "../pages/clients/aide/Aide";
 
 const ClientRoute = {
   path: "/client",
@@ -103,6 +105,10 @@ const ClientRoute = {
      path: "factures",
       element: <UnderConstructionView/>,
     },
+    {
+      path:"aide",
+      element: <Aide title="Centre d'aide" />
+    }
 
   ],
 };
