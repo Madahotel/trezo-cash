@@ -15,6 +15,7 @@ import TiersManagementPage from "../pages/clients/tiers/TiersManagementPage";
 import CashAccountsPage from "../pages/clients/account/CashAccountsPage";
 import TimezoneSettingsPage from "../pages/clients/timeZone/TimezoneSettingsPage";
 import ArchivesPage from "../pages/clients/archives/ArchivesPage";
+import SecurityPage from "../pages/clients/security/SecurityPage";
 
 const ClientRoute = {
   path: "/client",
@@ -87,6 +88,10 @@ const ClientRoute = {
      {
      path: "archives",
       element: <ArchivesPage/>,
+    },
+    {
+     path: "securite",
+      element: <SecurityPage/>,
     },
 
   ],
