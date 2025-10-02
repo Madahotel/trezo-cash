@@ -76,7 +76,7 @@ export default function HeaderCustomer() {
       "/client/archives": { title: "Archives", icon: Archive },
       "/app/tva": { title: "Gestion de la TVA", icon: Hash },
       "/app/fiscalite": { title: "Gestion de la Fiscalité", icon: Hash },
-      "/app/profil": { title: "Mon Profil", icon: User },
+      "/client/profil": { title: "Mon Profil", icon: User },
       "/app/securite": { title: "Mot de Passe et Sécurité", icon: Shield },
       "/app/abonnement": { title: "Mon Abonnement", icon: CreditCard },
       "/app/delete-account": { title: "Supprimer Mon Compte", icon: Trash2 },
@@ -139,7 +139,7 @@ export default function HeaderCustomer() {
   ];
 
   const menuItems = [
-    { title: "Mon profil", icon: User, path: "/app/profil" },
+    { title: "Mon profil", icon: User, path: "/client/profil" },
     { title: "Mot de passe et sécurité", icon: Shield, path: "/app/securite" },
     { title: "Mon abonnement", icon: CreditCard, path: "/app/abonnement" },
     { title: "Factures", icon: FileText, path: "/app/factures" },
