@@ -16,6 +16,7 @@ import CashAccountsPage from "../pages/clients/account/CashAccountsPage";
 import TimezoneSettingsPage from "../pages/clients/timeZone/TimezoneSettingsPage";
 import ArchivesPage from "../pages/clients/archives/ArchivesPage";
 import ProfilePage from "../pages/clients/profil/ProfilePage";
+import SecurityPage from "../pages/clients/security/SecurityPage";
 
 const ClientRoute = {
   path: "/client",
@@ -90,8 +91,13 @@ const ClientRoute = {
     },
     {
      path: "profil",
-      element: <ProfilePage/>,
-    },
+      element: <ProfilePage/>
+    }
+    ,{
+     path: "securite",
+      element: <SecurityPage/>,
+    }
+    ,
 
   ],
 };
