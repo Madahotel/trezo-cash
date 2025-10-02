@@ -21,6 +21,7 @@ import UnderConstructionView from "../pages/clients/facture/UnderConstructionVie
 import { path } from "framer-motion/client";
 import Aide from "../pages/clients/aide/Aide";
 import SubscriptionPage from "../pages/clients/abonnement/SubscriptionPage";
+import OnboardingView from "../pages/clients/onboarding/OnboardingView";
 
 const ClientRoute = {
   path: "/client",
@@ -113,6 +114,10 @@ const ClientRoute = {
     {
       path:"abonnement",
       element: <SubscriptionPage/>
+    },
+    {
+      path:"onboarding",
+      element: <OnboardingView/>
     }
 
   ],
