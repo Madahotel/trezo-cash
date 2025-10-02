@@ -1,9 +1,13 @@
 import React, { useState, useRef, useEffect } from "react";
 import { ChevronsUpDown, Check, Plus, Layers } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useUI } from "../context/UIContext";
+import ConsolidatedViewModal from "../modal/ConsolidatedViewModal";
 
 const ProjectSwitcher = () => {
   const [activeProjectId, setActiveProjectId] = useState(null);
+  const { uiDispatch } = useUI();
+  const [isConsolidatedViewModalOpen, setIsConsolidatedViewModalOpen] = useState(false);
   const navigate = useNavigate();
 
   const myProjects = [
@@ -17,7 +21,7 @@ const ProjectSwitcher = () => {
     { id: "1", name: "Vue globale finances" },
     { id: "2", name: "Vue marketing + ventes" },
   ];
-  
+
   const [isListOpen, setIsListOpen] = useState(false);
   const listRef = useRef(null);
 
@@ -59,10 +63,11 @@ const ProjectSwitcher = () => {
     navigate("/client/onboarding");
     setIsListOpen(false);
   };
-
+const closeConsolidatedViewModal = () => {
+setIsConsolidatedViewModalOpen(false);
+}
   const handleCreateConsolidatedView = () => {
-    // Ici vous pouvez ouvrir un modal ou naviguer vers une page de création de vue consolidée
-    alert("Fonctionnalité de création de vue consolidée");
+    setIsConsolidatedViewModalOpen(true);
     setIsListOpen(false);
   };
 
@@ -169,7 +174,7 @@ const ProjectSwitcher = () => {
               ))}
             </ul>
           </div>
-          
+
           {/* Actions */}
           <div className="border-t p-1">
             <button
@@ -189,7 +194,18 @@ const ProjectSwitcher = () => {
           </div>
         </div>
       )}
+      {
+        isConsolidatedViewModalOpen && <ConsolidatedViewModal
+          isOpen={isConsolidatedViewModalOpen}
+          onClose={closeConsolidatedViewModal}
+        //  onSave={handleSaveConsolidatedView} 
+        //  editingView={editingConsolidatedView} 
+        />
+      }
+
     </div>
+
+
   );
 };
 
