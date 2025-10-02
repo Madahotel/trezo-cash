@@ -50,18 +50,14 @@ export default function HeaderCustomer() {
 
   const currentPage = useMemo(() => {
     const path = location.pathname;
-    // if (path.startsWith("/app/fiscalite/")) {
-    //   const taxId = path.split("/")[3];
-    //   const tax = taxConfigs.find((t) => t.id === taxId);
-    //   return { title: `Paramètres: ${tax?.name || "Taxe"}`, icon: Hash };
-    // }
+
     const pages = {
       "/client/dashboard": { title: "Tableau de Bord", icon: LayoutDashboard },
-      "/app/budget": { title: "Budget / État des Lieux", icon: ListChecks },
-      "/app/trezo": { title: "Tableau de Trésorerie", icon: Table },
+      "/client/budget": { title: "Budget / État des Lieux", icon: ListChecks },
+      "/client/trezo": { title: "Tableau de Trésorerie", icon: Table },
       "/app/flux": { title: "Flux de Trésorerie", icon: AreaChart },
       "/app/echeancier": { title: "Échéancier", icon: Calendar },
-      "/app/scenarios": { title: "Gestion de Scénarios", icon: Layers },
+      "/client/scenarios": { title: "Gestion de Scénarios", icon: Layers },
       "/app/analyse": { title: "Analyse", icon: PieChart },
       "/app/journal-budget": { title: "Journal du Budget", icon: BookOpen },
       "/app/journal-paiements": {
@@ -88,8 +84,9 @@ export default function HeaderCustomer() {
       "/app/abonnement": { title: "Mon Abonnement", icon: CreditCard },
       "/app/delete-account": { title: "Supprimer Mon Compte", icon: Trash2 },
     };
+
     return pages[path];
-  }, []);
+  }, [location.pathname]); // ✅ mise à jour quand on change de page
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -121,11 +118,11 @@ export default function HeaderCustomer() {
 
   const navItems = [
     { label: "Dashboard", path: "/client/dashboard", icon: LayoutDashboard },
-    { label: "Budget", path: "/app/budget", icon: ListChecks },
-    { label: "Trezo", path: "/app/trezo", icon: Table },
+    { label: "Budget", path: "/client/budget", icon: ListChecks },
+    { label: "Trezo", path: "/clent/trezo", icon: Table },
     { label: "Flux", path: "/app/flux", icon: AreaChart },
     { label: "Echeancier", path: "/app/echeancier", icon: Calendar },
-    { label: "Scénarios", path: "/app/scenarios", icon: Layers },
+    { label: "Scénarios", path: "/client/scenarios", icon: Layers },
     { label: "Analyse", path: "/app/analyse", icon: PieChart },
   ];
 

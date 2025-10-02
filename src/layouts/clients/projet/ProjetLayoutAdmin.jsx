@@ -3,7 +3,7 @@ import HeaderCustomer from "../../../components/headers/HeaderCustomer";
 
 const ProjetLayoutClient = () => {
   return (
-    <div className="min-h-screen justify-center w-screen  ">
+    <div className="  ">
       <HeaderCustomer />
       <Outlet />
     </div>
