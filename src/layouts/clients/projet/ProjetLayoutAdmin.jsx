@@ -3,7 +3,7 @@ import HeaderCustomer from "../../../components/headers/HeaderCustomer";
 
 const ProjetLayoutClient = () => {
   const handleOpenPaymentTerms = () => {
-    console.log("Open payment terms"); // na function hafa
+    console.log("Open payment terms");
   };
 
   return (
