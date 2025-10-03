@@ -1,97 +1,145 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { CheckCircle, AlertTriangle } from 'lucide-react';
+import React from "react";
+import ReactECharts from "echarts-for-react";
+import { Loader } from "lucide-react";
+
+// NOTE: La logique d'évaluation est adaptée ici pour correspondre à la jauge à 6 niveaux.
+const getScoreDetails = (score) => {
+  let evaluation, emoji;
+  if (score >= 86) {
+    evaluation = "Excellente";
+    emoji = "🤩";
+  } else if (score >= 71) {
+    evaluation = "Bonne";
+    emoji = "😄";
+  } else if (score >= 51) {
+    evaluation = "Correcte";
+    emoji = "🙂";
+  } else if (score >= 36) {
+    evaluation = "Passable";
+    emoji = "😐";
+  } else if (score >= 16) {
+    evaluation = "Fragile";
+    emoji = "😟";
+  } else {
+    evaluation = "Critique";
+    emoji = "😠";
+  }
+  return { evaluation, emoji };
+};
 
 const TrezoScoreWidget = ({ scoreData }) => {
-    if (!scoreData) {
-        return (
-            <div className="bg-gray-800 text-white p-6 rounded-lg shadow-lg border border-gray-700 text-center">
-                Calcul du Score Trézo en cours...
-            </div>
-        );
-    }
-    const { score, evaluation, color, strengths, weaknesses, recommendations } = scoreData;
-
-    const colorClasses = {
-        blue: { text: 'text-blue-400', ring: 'text-blue-500' },
-        green: { text: 'text-green-400', ring: 'text-green-500' },
-        yellow: { text: 'text-yellow-400', ring: 'text-yellow-500' },
-        orange: { text: 'text-orange-400', ring: 'text-orange-500' },
-        red: { text: 'text-red-400', ring: 'text-red-500' },
-    };
-
-    const selectedColor = colorClasses[color] || colorClasses.yellow;
-
+  if (!scoreData) {
     return (
-        <div className="bg-gray-800 relative rounded-lg shadow-2xl border border-gray-700 overflow-hidden">
-            <div className="relative z-10 p-6 flex flex-col md:flex-row items-center gap-6">
-                {/* Score Circle */}
-                <div className="relative flex-shrink-0">
-                    <motion.svg className="w-32 h-32" viewBox="0 0 100 100">
-                        <circle cx="50" cy="50" r="45" className="stroke-current text-gray-700" strokeWidth="6" fill="transparent" />
-                        <motion.circle
-                            cx="50"
-                            cy="50"
-                            r="45"
-                            className={`stroke-current ${selectedColor.ring}`}
-                            strokeWidth="6"
-                            fill="transparent"
-                            strokeDasharray={2 * Math.PI * 45}
-                            strokeDashoffset={2 * Math.PI * 45 * (1 - score / 100)}
-                            strokeLinecap="round"
-                            transform="rotate(-90 50 50)"
-                            initial={{ strokeDashoffset: 2 * Math.PI * 45 }}
-                            animate={{ strokeDashoffset: 2 * Math.PI * 45 * (1 - score / 100) }}
-                            transition={{ duration: 1.5, ease: "circOut" }}
-                        />
-                    </motion.svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-4xl font-bold text-white drop-shadow-lg">{score}</span>
-                        <span className="text-xs text-gray-400">/ 100</span>
-                    </div>
-                </div>
-
-                {/* Score Details */}
-                <div className="flex-grow text-center md:text-left">
-                    <span className={`px-3 py-1 text-sm font-bold rounded-full bg-white/10 ${selectedColor.text}`}>
-                        {evaluation}
-                    </span>
-                    <h2 className="text-2xl font-bold text-white mt-2">Votre Score Trézo</h2>
-                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                        {strengths.slice(0, 2).map((item, index) => (
-                            <div key={`strength-${index}`} className="flex items-center gap-2">
-                                <CheckCircle className="w-4 h-4 text-green-400" />
-                                <span className="text-gray-300">{item.text}</span>
-                            </div>
-                        ))}
-                        {weaknesses.slice(0, 2).map((item, index) => (
-                            <div key={`weakness-${index}`} className="flex items-center gap-2">
-                                <AlertTriangle className="w-4 h-4 text-yellow-400" />
-                                <span className="text-gray-300">{item.text}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-
-            {/* Recommendations */}
-            {recommendations.length > 0 && (
-                <div className="relative z-10 mt-2 px-6 pb-6">
-                    <h3 className="text-base font-semibold text-white mb-3">🎯 Recommandations</h3>
-                    <ul className="space-y-2">
-                        {recommendations.map((rec, index) => (
-                            <li key={index} className="flex items-start gap-3">
-                                <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center bg-blue-500/20 text-blue-300 rounded-full font-bold text-xs">
-                                    {index + 1}
-                                </div>
-                                <span className="text-sm text-gray-300">{rec}</span>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            )}
+      <div className="bg-white p-6 rounded-lg shadow-sm border text-center">
+        <div className="flex justify-center items-center">
+          <Loader className="animate-spin w-6 h-6 text-blue-600 mr-2" />
+          Calcul du Score Trézo en cours...
         </div>
+      </div>
     );
+  }
+
+  const { score } = scoreData;
+  const { evaluation, emoji } = getScoreDetails(score);
+
+  const getChartOptions = () => ({
+    series: [
+      {
+        type: "gauge",
+        radius: "100%",
+        startAngle: 180,
+        endAngle: 0,
+        min: 0,
+        max: 100,
+        splitNumber: 100, // High value for precise label placement
+        axisLine: {
+          lineStyle: {
+            width: 30, // Increased width for better visibility
+            color: [
+              [0.16, "#ef4444"], // POOR (Critique)
+              [0.35, "#f97316"], // FAIR (Fragile)
+              [0.5, "#f59e0b"], // BAD (Passable)
+              [0.7, "#a3e635"], // NORMAL (Correcte)
+              [0.85, "#22c55e"], // GOOD (Bonne)
+              [1, "#16a34a"], // SUPER (Excellente)
+            ],
+          },
+        },
+        pointer: {
+          length: "65%",
+          width: 8, // Made pointer thicker
+          offsetCenter: [0, "-40%"],
+          itemStyle: {
+            color: "#1f2937",
+          },
+        },
+        axisTick: { show: false },
+        splitLine: { show: false },
+        axisLabel: {
+          distance: -60, // Adjusted distance for larger size
+          color: "#1f2937",
+          fontSize: 14, // Increased font size
+          fontWeight: "bold",
+          formatter: function (value) {
+            switch (value) {
+              case 8:
+                return "POOR";
+              case 25:
+                return "FAIR";
+              case 43:
+                return "BAD";
+              case 60:
+                return "NORMAL";
+              case 78:
+                return "GOOD";
+              case 93:
+                return "SUPER";
+              default:
+                return "";
+            }
+          },
+        },
+        detail: { show: false },
+        data: [{ value: score }],
+      },
+    ],
+  });
+
+  return (
+    <div className="bg-white p-6 rounded-lg shadow-sm border">
+      <div className="flex flex-col lg:flex-row items-center justify-center gap-6">
+        {/* Gauge Chart - Adjusted height */}
+        <div className="relative w-full lg:w-2/3 max-w-lg mx-auto">
+          <ReactECharts
+            option={getChartOptions()}
+            style={{ height: "280px" }}
+            notMerge={true}
+            lazyUpdate={true}
+          />
+        </div>
+
+        {/* Score Details */}
+        <div className="flex-grow text-center lg:text-left">
+          <p className="text-sm font-semibold text-blue-600">
+            Votre Score Trézo
+          </p>
+          <div className="flex items-center justify-center lg:justify-start gap-4 mt-1">
+            <div>
+              <h2 className="text-5xl font-bold text-gray-800">
+                {score} <span className="text-3xl text-gray-500">/ 100</span>
+              </h2>
+              <p className="text-xl font-semibold text-gray-600 mt-2">
+                {evaluation}
+              </p>
+            </div>
+            <div className="text-6xl" role="img" aria-label={evaluation}>
+              {emoji}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default TrezoScoreWidget;

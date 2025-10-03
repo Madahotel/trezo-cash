@@ -63,20 +63,38 @@ const testScenarios = [
   },
 ];
 
-const testPeriods = ["Jan", "Feb", "Mar", "Apr", "May"];
-const testBaseBalance = [1000, 1200, 1500, 1300, 1600];
+// Générer un tableau de données aléatoires
+const generateRandomData = (length, base = 1000, variance = 500) => {
+  return Array.from({ length }, () =>
+    Math.floor(base + Math.random() * variance - variance / 2)
+  );
+};
+
+// Périodes (axe X)
+const testPeriods = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"];
+
+// Solde de base (ligne principale)
+const testBaseBalance = generateRandomData(testPeriods.length, 1500, 400);
+
+// Scénarios simulés
 const testScenarioBalance = [
   {
     id: "1",
-    name: "Scénario 1",
+    name: "Scénario Optimiste",
     color: "#8b5cf6",
-    data: [1100, 1300, 1400, 1500, 1700],
+    data: generateRandomData(testPeriods.length, 1700, 500),
   },
   {
     id: "2",
-    name: "Scénario 2",
+    name: "Scénario Pessimiste",
     color: "#f97316",
-    data: [900, 1100, 1300, 1200, 1500],
+    data: generateRandomData(testPeriods.length, 1300, 500),
+  },
+  {
+    id: "3",
+    name: "Scénario Réaliste",
+    color: "#d946ef",
+    data: generateRandomData(testPeriods.length, 1500, 500),
   },
 ];
 
@@ -114,8 +132,31 @@ const ScenarioView = () => {
     return {
       tooltip: { trigger: "axis" },
       legend: { data: series.map((s) => s.name), top: "bottom" },
-      xAxis: { type: "category", data: testPeriods },
-      yAxis: { type: "value" },
+      grid: {
+        left: 70, // espace à gauche (évite que les nombres de Y collent)
+        right: 40, // espace à droite
+        top: 40, // espace en haut
+        bottom: 60, // espace en bas (évite que les labels X collent)
+        containLabel: true, // 👈 très important : garde les labels dans la zone
+      },
+      xAxis: {
+        type: "category",
+        data: testPeriods,
+        axisLabel: {
+          rotate: 30,
+          interval: 0,
+          fontSize: 12,
+        },
+      },
+      yAxis: {
+        type: "value",
+        splitNumber: 6,
+        minInterval: 100,
+        axisLabel: {
+          fontSize: 12,
+          margin: 20,
+        },
+      },
       series,
     };
   };
@@ -152,23 +193,72 @@ const ScenarioView = () => {
 
   const periodMenuRef = useRef(null);
 
-  const handlePeriodChange = (direction) => {
-    setPeriodLabel((prev) =>
-      direction === -1 ? "Période Précédente" : "Période Suivante"
-    );
-  };
+  // const handlePeriodChange = (direction) => {
+  //   setPeriodLabel((prev) =>
+  //     direction === -1 ? "Période Précédente" : "Période Suivante"
+  //   );
+  // };
 
-  const handleQuickPeriodSelect = (id) => {
-    const selected = quickPeriodOptions.find((opt) => opt.id === id);
-    if (selected) {
-      setSelectedPeriodLabel(selected.label);
-      setActiveQuickSelect(id);
-    }
-  };
+  // const handleQuickPeriodSelect = (id) => {
+  //   const selected = quickPeriodOptions.find((opt) => opt.id === id);
+  //   if (selected) {
+  //     setSelectedPeriodLabel(selected.label);
+  //     setActiveQuickSelect(id);
+  //   }
+  // };
 
   const handleOpenConfirmModal = () => {
     setConfirmModalOpen(true);
   };
+
+  const [currentPeriods, setCurrentPeriods] = useState(testPeriods);
+  const [currentBaseData, setCurrentBaseData] = useState(testBaseBalance);
+  const [currentScenarioData, setCurrentScenarioData] =
+    useState(testScenarioBalance);
+  const handleQuickPeriodSelect = (id) => {
+    const selected = quickPeriodOptions.find((opt) => opt.id === id);
+    if (!selected) return;
+
+    setSelectedPeriodLabel(selected.label);
+    setActiveQuickSelect(id);
+
+    let length;
+    if (id === "1m") length = 1;
+    else if (id === "3m") length = 3;
+    else if (id === "6m") length = 6;
+
+    setCurrentPeriods(testPeriods.slice(0, length));
+    setCurrentBaseData(testBaseBalance.slice(0, length));
+    setCurrentScenarioData(
+      testScenarioBalance.map((sc) => ({
+        ...sc,
+        data: sc.data.slice(0, length),
+      }))
+    );
+  };
+  const handlePeriodChange = (direction) => {
+    const length = currentPeriods.length;
+    let start = testPeriods.indexOf(currentPeriods[0]) + direction;
+
+    if (start < 0) start = 0;
+    if (start + length > testPeriods.length)
+      start = testPeriods.length - length;
+
+    const newPeriods = testPeriods.slice(start, start + length);
+    setCurrentPeriods(newPeriods);
+    setCurrentBaseData(testBaseBalance.slice(start, start + length));
+    setCurrentScenarioData(
+      testScenarioBalance.map((sc) => ({
+        ...sc,
+        data: sc.data.slice(start, start + length),
+      }))
+    );
+
+    setPeriodLabel(
+      direction === -1 ? "Période Précédente" : "Période Suivante"
+    );
+  };
+
   return (
     <>
       <div className="p-6 max-w-full flex flex-col h-full">
@@ -336,12 +426,11 @@ const ScenarioView = () => {
             </div>
           </div>
           <div className="flex-grow min-h-0">
-            <ReactECharts
-              option={getChartOptions()}
-              style={{ height: "100%", width: "100%" }}
-              notMerge={true}
-              lazyUpdate={true}
-            />
+            {/* <ScenarioChart
+              periods={currentPeriods}
+              baseData={currentBaseData}
+              scenarioData={currentScenarioData}
+            /> */}
           </div>
         </div>
 

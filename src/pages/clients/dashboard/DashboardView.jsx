@@ -11,11 +11,17 @@ import {
   PiggyBank,
   Banknote,
   Coins,
+  ListChecks,
+  Table,
+  Calendar,
+  PieChart,
+  Layers,
 } from "lucide-react";
 import TrezoScoreWidget from "./TrezoScoreWidget";
 import ThirtyDayForecastWidget from "./ThirtyDayForecastWidget";
 import LoansSummaryWidget from "./LoansSummaryWidget";
 import CurrentMonthBudgetWidget from "./CurrentMonthBudgetWidget";
+import ActionCard from "../../../components/card/ActionCard";
 
 const DashboardView = () => {
   // Message de bienvenue
@@ -128,6 +134,58 @@ const DashboardView = () => {
       currency: "EUR",
     },
   };
+  const actions = [
+    {
+      icon: ListChecks,
+      title: "Saisir votre budget",
+      description: "Définissez vos entrées et sorties prévisionnelles.",
+      path: "/app/budget",
+      colorClass: "border-blue-200 hover:border-blue-400",
+      iconColorClass: "text-blue-600",
+    },
+    {
+      icon: Table,
+      title: "Voir votre trézo",
+      description:
+        "Voyez la projection de vos entrées et sorties ventilées par mois de cette année.",
+      path: "/app/trezo",
+      colorClass: "border-pink-200 hover:border-pink-400",
+      iconColorClass: "text-pink-600",
+    },
+    {
+      icon: Calendar,
+      title: "Gérer l'échéancier",
+      description:
+        "Suivez et enregistrez vos paiements et encaissements réels.",
+      path: "/app/echeancier",
+      colorClass: "border-green-200 hover:border-green-400",
+      iconColorClass: "text-green-600",
+    },
+    {
+      icon: PieChart,
+      title: "Analyser vos flux",
+      description: "Comprenez la répartition de vos dépenses et revenus.",
+      path: "/app/analyse",
+      colorClass: "border-yellow-200 hover:border-yellow-400",
+      iconColorClass: "text-yellow-600",
+    },
+    {
+      icon: Layers,
+      title: "Ajouter des simulations",
+      description: "Anticipez l'impact de vos décisions avec les scénarios.",
+      path: "/app/scenarios",
+      colorClass: "border-purple-200 hover:border-purple-400",
+      iconColorClass: "text-purple-600",
+    },
+    {
+      icon: Wallet,
+      title: "Ajuster vos comptes",
+      description: "Consultez et mettez à jour vos soldes de trésorerie.",
+      path: "/app/comptes",
+      colorClass: "border-teal-200 hover:border-teal-400",
+      iconColorClass: "text-teal-600",
+    },
+  ];
   return (
     <div className="p-6 max-w-full space-y-8">
       <div>
@@ -193,7 +251,24 @@ const DashboardView = () => {
           </div>
         </div>
       </div>
-
+      <div className="pt-4">
+        <h3 className="text-xl font-semibold text-gray-700 mb-4">
+          Que voulez-vous faire maintenant ?
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+          {actions.map((action) => (
+            <ActionCard
+              key={action.title}
+              icon={action.icon}
+              title={action.title}
+              description={action.description}
+              onClick={() => navigate(action.path)}
+              colorClass={action.colorClass}
+              iconColorClass={action.iconColorClass}
+            />
+          ))}
+        </div>
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
           <TrezoScoreWidget scoreData={testScoreData} />
