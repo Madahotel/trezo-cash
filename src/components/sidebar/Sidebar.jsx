@@ -28,14 +28,14 @@ const Sidebar = () => {
     };
 
     const mainNavItems = [
-        { label: 'Dashboard', id: 'dashboard', path: '/app/dashboard', icon: LayoutDashboard },
-        { label: 'Budget', id: 'budget', path: '/app/budget', icon: ListChecks },
-        { label: 'Trezo', id: 'trezo', path: '/app/trezo', icon: Table },
-        { label: 'Flux', id: 'flux', path: '/app/flux', icon: AreaChart },
-        { label: 'Échéancier', id: 'echeancier', path: '/app/echeancier', icon: Calendar },
-        { label: 'Analyse', id: 'analyse', path: '/app/analyse', icon: PieChart },
-        { label: 'Scénarios', id: 'scenarios', path: '/app/scenarios', icon: Layers },
-        { label: 'Comptes', id: 'comptes', path: '/app/comptes', icon: Wallet },
+        { label: 'Dashboard', id: 'dashboard', path: '/client/dashboard', icon: LayoutDashboard },
+        { label: 'Budget', id: 'budget', path: '/client/budget', icon: ListChecks },
+        { label: 'Trezo', id: 'trezo', path: '/client/trezo', icon: Table },
+        { label: 'Flux', id: 'flux', path: '/client/flux', icon: AreaChart },
+        { label: 'Échéancier', id: 'echeancier', path: '/client/echeancier', icon: Calendar },
+        { label: 'Analyse', id: 'analyse', path: '/client/analyse', icon: PieChart },
+        { label: 'Scénarios', id: 'scenarios', path: '/client/scenarios', icon: Layers },
+        { label: 'Comptes', id: 'comptes', path: '/client/comptes', icon: Wallet },
     ];
 
     const visibleNavItems = useMemo(() => {
