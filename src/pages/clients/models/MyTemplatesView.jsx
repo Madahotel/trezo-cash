@@ -13,7 +13,7 @@ const MyTemplatesView = () => {
     const [isSaveTemplateModal, setIsSaveTemplateModal] = useState(false);
     const [TypeModal, setTypeModal] = useState(null);
     const myTemplates = templates.filter(t => t.userId === session.user.id);
-
+ 
     const handleCreateTemplate = () => {
       setIsSaveTemplateModal(true);
     };

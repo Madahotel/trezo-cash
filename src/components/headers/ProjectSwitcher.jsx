@@ -1,8 +1,14 @@
 import React, { useState, useRef, useEffect } from "react";
 import { ChevronsUpDown, Check, Plus, Layers } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useUI } from "../context/UIContext";
+import ConsolidatedViewModal from "../modal/ConsolidatedViewModal";
 
 const ProjectSwitcher = () => {
   const [activeProjectId, setActiveProjectId] = useState(null);
+  const { uiDispatch } = useUI();
+  const [isConsolidatedViewModalOpen, setIsConsolidatedViewModalOpen] = useState(false);
+  const navigate = useNavigate();
 
   const myProjects = [
     { id: "p1", name: "Projet Maison" },
@@ -15,10 +21,11 @@ const ProjectSwitcher = () => {
     { id: "1", name: "Vue globale finances" },
     { id: "2", name: "Vue marketing + ventes" },
   ];
+
   const [isListOpen, setIsListOpen] = useState(false);
   const listRef = useRef(null);
 
-  // clic en dehors pour fermer
+  // Clic en dehors pour fermer
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (listRef.current && !listRef.current.contains(event.target)) {
@@ -48,13 +55,25 @@ const ProjectSwitcher = () => {
   }
 
   const handleSelect = (id) => {
-    setActiveProjectId?.(id);
+    setActiveProjectId(id);
+    setIsListOpen(false);
+  };
+
+  const handleAddProject = () => {
+    navigate("/client/onboarding");
+    setIsListOpen(false);
+  };
+const closeConsolidatedViewModal = () => {
+setIsConsolidatedViewModalOpen(false);
+}
+  const handleCreateConsolidatedView = () => {
+    setIsConsolidatedViewModalOpen(true);
     setIsListOpen(false);
   };
 
   return (
     <div className="relative w-full" ref={listRef}>
-      {/* bouton principal */}
+      {/* Bouton principal */}
       <button
         onClick={() => setIsListOpen(!isListOpen)}
         className="flex items-center gap-2 p-1.5 rounded-md text-left text-gray-800 font-semibold hover:bg-gray-200 transition-colors focus:outline-none w-full"
@@ -64,12 +83,12 @@ const ProjectSwitcher = () => {
         <ChevronsUpDown className="w-4 h-4 text-gray-500 shrink-0" />
       </button>
 
-      {/* liste déroulante */}
+      {/* Liste déroulante */}
       {isListOpen && (
         <div className="absolute z-30 mt-2 w-72 bg-white border rounded-lg shadow-lg">
           <div className="p-1 max-h-80 overflow-y-auto">
             <ul>
-              {/* Consolidated views */}
+              {/* Vues consolidées */}
               <li>
                 <button
                   onClick={() => handleSelect("consolidated")}
@@ -155,16 +174,18 @@ const ProjectSwitcher = () => {
               ))}
             </ul>
           </div>
+
+          {/* Actions */}
           <div className="border-t p-1">
             <button
-              onClick={() => alert("Créer une vue consolidée")}
+              onClick={handleCreateConsolidatedView}
               className="flex items-center w-full px-3 py-2 text-left text-sm text-gray-700 rounded-md hover:bg-gray-100"
             >
               <Layers className="w-4 h-4 mr-2" />
               Créer une vue consolidée
             </button>
             <button
-              onClick={() => alert("Créer un nouveau projet")}
+              onClick={handleAddProject}
               className="flex items-center w-full px-3 py-2 text-left text-sm text-gray-700 rounded-md hover:bg-gray-100"
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -173,7 +194,18 @@ const ProjectSwitcher = () => {
           </div>
         </div>
       )}
+      {
+        isConsolidatedViewModalOpen && <ConsolidatedViewModal
+          isOpen={isConsolidatedViewModalOpen}
+          onClose={closeConsolidatedViewModal}
+        //  onSave={handleSaveConsolidatedView} 
+        //  editingView={editingConsolidatedView} 
+        />
+      }
+
     </div>
+
+
   );
 };
 
