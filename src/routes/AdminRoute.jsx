@@ -1,4 +1,5 @@
 import ProjetLayoutAdmin from "../layouts/admin/projet/ProjetLayoutAdmin";
+import AdminDashboard from "../pages/superadmin/dashboard/AdminDashboard";
 import Projet from "../pages/superadmin/projets/ProjetAdmin";
 
 const AdminRoute = {
@@ -7,7 +8,7 @@ const AdminRoute = {
     children: [
         {
             index: true,
-            element: <div>HomePage</div>,
+            element: <AdminDashboard/>,
         },
         {
             path: 'projet', element: (
