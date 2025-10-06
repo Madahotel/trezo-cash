@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Badge from '../ui/Badge';
-import { cn } from '../../lib/utils';
+import { cn } from '../../components/lib/utils';
 import { ArrowUpDown } from 'lucide-react';
 
 const statusStyles = {

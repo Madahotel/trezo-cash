@@ -1,14 +1,13 @@
 import React from "react";
 import { Outlet, Link } from "react-router-dom";
-import GlobalHeaderAdmin from "../../../components/headers/HeaderCustomer";
+import Sidebar from "../sidebar/Sidebar";
 
 const ProjetLayoutAdmin = () => {
   return (
-    <div className="min-h-screen flex flex-col">
-      <GlobalHeaderAdmin />
-
+    <div className="flex min-h-screen bg-background text-foreground">
+      <Sidebar />
       {/* Contenu principal */}
-      <main className="flex-1 bg-gray-100 p-6">
+      <main className="flex-1 p-4 sm:p-6 lg:p-8">
         <Outlet />
       </main>
     </div>

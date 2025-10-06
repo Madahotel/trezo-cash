@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Copy, Check } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import Badge from '../ui/Badge';
-import { cn } from '../../lib/utils';
+import { cn } from '../../components/lib/utils';
 
 const referralStatusStyles = {
   actif: 'bg-green-500/20 text-green-400 border-green-500/30',
