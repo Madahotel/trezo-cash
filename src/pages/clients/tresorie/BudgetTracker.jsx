@@ -1,13 +1,14 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Plus, Edit, Eye, Search, ChevronDown, Folder, TrendingUp, TrendingDown, Layers, ChevronLeft, ChevronRight, Filter, XCircle, Trash2, ArrowRightLeft, Calendar, Lock, MessageSquare, ChevronUp, Table, TableProperties } from 'lucide-react';
+import { Plus, Edit, Eye, Search, ChevronDown, Folder, TrendingUp, TrendingDown, Layers, ChevronLeft, ChevronRight, Filter, XCircle, Trash2, ArrowRightLeft, Calendar, Lock, MessageSquare, ChevronUp, Table, TableProperties, Banknote, Coins, PiggyBank } from 'lucide-react';
 import TransactionDetailDrawer from './TransactionDetailDrawer';
 import ResizableTh from './ResizableTh';
-import { getEntryAmountForPeriod, getActualAmountForPeriod, getTodayInTimezone, getStartOfWeek } from '../../../utils/budgetCalculations.js';
+import { getEntryAmountForPeriod, getActualAmountForPeriod, getTodayInTimezone, getStartOfWeek, expandVatEntries } from '../../../utils/budgetCalculations';
 import { useActiveProjectData, useProcessedEntries, useGroupedData, usePeriodPositions, calculateGeneralTotals, calculateMainCategoryTotals, calculatePeriodPositions } from '../../../utils/selectors.jsx';
 import { formatCurrency } from '../../../utils/formatting';
-import { useData } from '../../../components/context/DataContext.jsx';
+import { useData } from '../../../components/context/DataContext';
 import { useUI } from '../../../components/context/UIContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { deleteEntry, saveEntry } from '../../../components/context/actions';
 
 const criticalityConfig = {
     critical: { label: 'Critique', color: 'bg-red-500' },
@@ -19,11 +20,11 @@ const LectureView = ({ entries, periods, settings, actuals, isConsolidated, proj
     const sortedEntries = useMemo(() => {
         return [...entries].sort((a, b) => {
             if (a.type !== b.type) return a.type === 'revenu' ? -1 : 1;
-            const catA = a.category.toLowerCase();
-            const catB = b.category.toLowerCase();
+            const catA = a.category?.toLowerCase() || '';
+            const catB = b.category?.toLowerCase() || '';
             if (catA < catB) return -1;
             if (catA > catB) return 1;
-            return a.supplier.toLowerCase().localeCompare(b.supplier.toLowerCase());
+            return (a.supplier || '').toLowerCase().localeCompare((b.supplier || '').toLowerCase());
         });
     }, [entries]);
 
@@ -48,15 +49,16 @@ const LectureView = ({ entries, periods, settings, actuals, isConsolidated, proj
         <div className="bg-white p-6 rounded-lg shadow-sm border">
             <table className="w-full text-sm">
                 <thead>
-                    <tr className="border-b text-left text-xs text-gray-600 uppercase">
+                    <tr className="border-b text-left text-xs text-gray-500 uppercase">
                         <th className="py-3 px-4 w-28">Groupe</th>
                         <th className="py-3 px-4">Écriture</th>
                         {isConsolidated && <th className="py-3 px-4">Projet</th>}
                         <th className="py-3 px-4">Tiers</th>
+                        {visibleColumns.description && <th className="py-3 px-4">Description</th>}
                         {periods.map(p => (
                             <th key={p.label} className="py-3 px-4 text-center">
                                 <div className="font-semibold">{p.label}</div>
-                                <div className="flex justify-around font-normal text-gray-600 mt-1">
+                                <div className="flex justify-around font-normal text-gray-400 mt-1">
                                     {visibleColumns.budget && <div className="w-1/3">Prév.</div>}
                                     {visibleColumns.actual && <div className="w-1/3">Réel</div>}
                                     {visibleColumns.reste && <div className="w-1/3">Reste</div>}
@@ -76,7 +78,7 @@ const LectureView = ({ entries, periods, settings, actuals, isConsolidated, proj
                             isFirstExpense = false;
                         }
 
-                        const subCat = (entry.type === 'depense') 
+                        const subCat = (entry.type === 'depense' && entry.category) 
                             ? categories.expense.flatMap(mc => mc.subCategories).find(sc => sc.name === entry.category) 
                             : null;
                         const criticality = subCat?.criticality;
@@ -96,6 +98,7 @@ const LectureView = ({ entries, periods, settings, actuals, isConsolidated, proj
                                     {entry.supplier}
                                     {entry.isProvision && <Lock className="w-3 h-3 text-indigo-500" title="Provision" />}
                                 </td>
+                                {visibleColumns.description && <td className="py-2 px-4 text-xs text-gray-500 truncate max-w-xs">{entry.description}</td>}
                                 {periods.map(period => {
                                     const budget = getEntryAmountForPeriod(entry, period.startDate, period.endDate);
                                     const actual = getActualAmountForPeriod(entry, actuals, period.startDate, period.endDate);
@@ -119,7 +122,7 @@ const LectureView = ({ entries, periods, settings, actuals, isConsolidated, proj
                 </tbody>
                 <tfoot>
                     <tr className="bg-gray-100 font-bold">
-                        <td colSpan={isConsolidated ? 4 : 3} className="py-3 px-4 text-gray-600">Flux de trésorerie net</td>
+                        <td colSpan={isConsolidated ? (visibleColumns.description ? 5 : 4) : (visibleColumns.description ? 4 : 3)} className="py-3 px-4">Flux de trésorerie net</td>
                         {totalsByPeriod.map((total, index) => {
                             const period = periods[index];
                             const columnIdBase = period.startDate.toISOString();
@@ -141,13 +144,30 @@ const LectureView = ({ entries, periods, settings, actuals, isConsolidated, proj
     );
 };
 
-const BudgetTracker = () => {
+const BudgetTracker = ({ 
+    quickFilter, 
+    showTemporalToolbar = true, 
+    visibleColumns: visibleColumnsProp,
+    showViewModeSwitcher = true, 
+    showNewEntryButton = true 
+}) => {
   const { dataState, dataDispatch } = useData();
   const { uiState, uiDispatch } = useUI();
-  const { projects, categories, settings, allComments, vatRegimes, taxConfigs } = dataState;
+  const { projects, categories, settings, allComments, vatRegimes, taxConfigs, loans, tiers } = dataState;
   const { activeProjectId, timeUnit, horizonLength, periodOffset, activeQuickSelect } = uiState;
   
-  const [tableauMode, setTableauMode] = useState('lecture');
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [mobileMonthOffset, setMobileMonthOffset] = useState(0);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const visibleColumns = useMemo(() => visibleColumnsProp || { budget: true, actual: true, reste: false, description: true }, [visibleColumnsProp]);
+
+  const [tableauMode, setTableauMode] = useState('edition');
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false);
   const periodMenuRef = useRef(null);
 
@@ -160,7 +180,7 @@ const BudgetTracker = () => {
     const { activeProjectId: budgetActiveProjectId } = budgetUIState;
 
     const commentsForCell = useMemo(() => {
-         const projectId = budgetActiveProjectId === 'consolidated' || budgetActiveProjectId?.startsWith('consolidated_view_') ? null : budgetActiveProjectId;
+        const projectId = budgetActiveProjectId === 'consolidated' || budgetActiveProjectId?.startsWith('consolidated_view_') ? null : budgetActiveProjectId;
         return (budgetAllComments[projectId] || []).filter(c => c.rowId === rowId && c.columnId === columnId);
     }, [budgetAllComments, budgetActiveProjectId, rowId, columnId]);
 
@@ -189,21 +209,26 @@ const BudgetTracker = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [projectSearchTerm, setProjectSearchTerm] = useState('');
-  const [visibleColumns, setVisibleColumns] = useState({ budget: true, actual: false, reste: false });
   const [drawerData, setDrawerData] = useState({ isOpen: false, transactions: [], title: '' });
   const [collapsedItems, setCollapsedItems] = useState({});
   const [isEntreesCollapsed, setIsEntreesCollapsed] = useState(false);
   const [isSortiesCollapsed, setIsSortiesCollapsed] = useState(false);
   const topScrollRef = useRef(null);
   const mainScrollRef = useRef(null);
-  const toggleCollapse = (id) => setCollapsedItems(prev => ({ ...prev, [id]: !prev[id] }));
-  const [columnWidths, setColumnWidths] = useState(() => { try { const savedWidths = localStorage.getItem('budgetAppColumnWidths'); if (savedWidths) return JSON.parse(savedWidths); } catch (error) { console.error("Failed to parse column widths from localStorage", error); } return { category: 192, supplier: 160, project: 192 }; });
+  const [columnWidths, setColumnWidths] = useState(() => { try { const savedWidths = localStorage.getItem('budgetAppColumnWidths'); if (savedWidths) return JSON.parse(savedWidths); } catch (error) { console.error("Failed to parse column widths from localStorage", error); } return { category: 192, supplier: 160, description: 200, project: 192 }; });
   
   const [isTierSearchOpen, setIsTierSearchOpen] = useState(false);
   const [isProjectSearchOpen, setIsProjectSearchOpen] = useState(false);
   const tierSearchRef = useRef(null);
   const projectSearchRef = useRef(null);
   const today = getTodayInTimezone(settings.timezoneOffset);
+
+  const toggleCollapse = (mainCatId) => {
+    setCollapsedItems(prev => ({
+        ...prev,
+        [mainCatId]: !prev[mainCatId]
+    }));
+  };
 
   useEffect(() => {
       const handleClickOutside = (event) => {
@@ -227,6 +252,10 @@ const BudgetTracker = () => {
   useEffect(() => { const topEl = topScrollRef.current; const mainEl = mainScrollRef.current; if (!topEl || !mainEl) return; let isSyncing = false; const syncTopToMain = () => { if (!isSyncing) { isSyncing = true; mainEl.scrollLeft = topEl.scrollLeft; requestAnimationFrame(() => { isSyncing = false; }); } }; const syncMainToTop = () => { if (!isSyncing) { isSyncing = true; topEl.scrollLeft = mainEl.scrollLeft; requestAnimationFrame(() => { isSyncing = false; }); } }; topEl.addEventListener('scroll', syncTopToMain); mainEl.addEventListener('scroll', syncMainToTop); return () => { topEl.removeEventListener('scroll', syncTopToMain); mainEl.removeEventListener('scroll', syncMainToTop); }; }, []);
   const handleResize = (columnId, newWidth) => setColumnWidths(prev => ({ ...prev, [columnId]: Math.max(newWidth, 80) }));
   
+  const supplierColLeft = columnWidths.category;
+  const descriptionColLeft = supplierColLeft + columnWidths.supplier;
+  const projectColLeft = descriptionColLeft + (visibleColumns.description ? columnWidths.description : 0);
+
   const currencySettings = {
     currency: activeProject?.currency,
     displayUnit: activeProject?.display_unit,
@@ -325,6 +354,7 @@ const BudgetTracker = () => {
   }, [periodOffset, timeUnit, timeUnitLabels]);
 
   const periods = useMemo(() => {
+    if (isMobile) return [];
     const today = getTodayInTimezone(settings.timezoneOffset);
     let baseDate;
     switch (timeUnit) {
@@ -401,7 +431,7 @@ const BudgetTracker = () => {
         }
         return { label, startDate: periodStart, endDate: periodEnd };
     });
-  }, [timeUnit, horizonLength, periodOffset, activeQuickSelect, settings.timezoneOffset]);
+  }, [isMobile, timeUnit, horizonLength, periodOffset, activeQuickSelect, settings.timezoneOffset]);
 
   const filteredBudgetEntries = useMemo(() => {
     let entries = budgetEntries;
@@ -414,8 +444,23 @@ const BudgetTracker = () => {
             return project && project.name.toLowerCase().includes(projectSearchTerm.toLowerCase());
         });
     }
+    if (quickFilter !== 'all') {
+        if (quickFilter === 'provisions') {
+            entries = entries.filter(e => e.isProvision);
+        } else if (quickFilter === 'borrowings') {
+            const borrowingCat = "Emprunt ( Remboursement d')";
+            entries = entries.filter(e => e.category && e.category.startsWith(borrowingCat));
+        } else if (quickFilter === 'lendings') {
+            const lendingCat = "Prêts (Remboursement de)";
+            entries = entries.filter(e => e.category && e.category.startsWith(lendingCat));
+        } else if (quickFilter === 'savings') {
+            const epargneMainCategory = categories.expense.find(cat => cat.name === 'Épargne');
+            const epargneSubCategories = epargneMainCategory ? epargneMainCategory.subCategories.map(sc => sc.name) : [];
+            entries = entries.filter(e => e.category && epargneSubCategories.includes(e.category));
+        }
+    }
     return entries;
-  }, [budgetEntries, searchTerm, isConsolidated, isCustomConsolidated, projectSearchTerm, projects]);
+  }, [budgetEntries, searchTerm, isConsolidated, isCustomConsolidated, projectSearchTerm, projects, quickFilter, loans, categories]);
   
   const isRowVisibleInPeriods = useCallback((entry) => {
     if (!periods || periods.length === 0) return false;
@@ -431,13 +476,138 @@ const BudgetTracker = () => {
   const groupedData = useGroupedData(expandedAndVatEntries, categories, isRowVisibleInPeriods);
   const periodPositions = usePeriodPositions(periods, cashAccounts, actualTransactions, groupedData, hasOffBudgetRevenues, hasOffBudgetExpenses, settings, expandedAndVatEntries);
   
-  const handleNewBudget = () => { if (!isConsolidated && !isCustomConsolidated) { uiDispatch({ type: 'OPEN_BUDGET_MODAL', payload: null }); } };
+  const mobilePeriod = useMemo(() => {
+    if (!isMobile) return null;
+    const targetDate = new Date();
+    targetDate.setDate(1);
+    targetDate.setMonth(targetDate.getMonth() + mobileMonthOffset);
+    const year = targetDate.getFullYear();
+    const month = targetDate.getMonth();
+    const periodStart = new Date(year, month, 1);
+    const periodEnd = new Date(year, month + 1, 0);
+    periodEnd.setHours(23, 59, 59, 999);
+    return { 
+        startDate: periodStart, 
+        endDate: periodEnd,
+        label: targetDate.toLocaleString('fr-FR', { month: 'long', year: 'numeric' })
+    };
+  }, [isMobile, mobileMonthOffset]);
+
+  const mobileProcessedEntries = useProcessedEntries(
+    budgetEntries, 
+    actualTransactions, 
+    categories, 
+    vatRegimes, 
+    taxConfigs, 
+    activeProjectId, 
+    mobilePeriod ? [mobilePeriod] : [],
+    isConsolidated, 
+    isCustomConsolidated
+  );
+
+  const mobileData = useMemo(() => {
+    if (!isMobile || !mobilePeriod) return null;
+
+    const { startDate, endDate } = mobilePeriod;
+    const tiersData = new Map();
+
+    mobileProcessedEntries.forEach(entry => {
+        const tierName = entry.supplier;
+        if (!tierName) return;
+
+        const budgetAmount = getEntryAmountForPeriod(entry, startDate, endDate);
+        
+        if (budgetAmount > 0) {
+            if (!tiersData.has(tierName)) {
+                tiersData.set(tierName, { budget: 0, actual: 0, type: entry.type });
+            }
+            const data = tiersData.get(tierName);
+            data.budget += budgetAmount;
+        }
+    });
+
+    actualTransactions.forEach(actual => {
+        const tierName = actual.thirdParty;
+        if (!tierName) return;
+
+        const actualAmountInPeriod = (actual.payments || [])
+            .filter(p => {
+                const paymentDate = new Date(p.paymentDate);
+                return paymentDate >= startDate && paymentDate <= endDate;
+            })
+            .reduce((sum, p) => sum + p.paidAmount, 0);
+        
+        if (actualAmountInPeriod > 0) {
+            const type = actual.type === 'receivable' ? 'revenu' : 'depense';
+            if (!tiersData.has(tierName)) {
+                tiersData.set(tierName, { budget: 0, actual: 0, type });
+            }
+            const data = tiersData.get(tierName);
+            // Ensure type consistency if tier already exists from budget entries
+            if (data.type !== type && data.budget === 0) {
+                data.type = type;
+            }
+            data.actual += actualAmountInPeriod;
+        }
+    });
+
+    const allTiers = Array.from(tiersData.entries())
+        .map(([name, data]) => ({ name, ...data }))
+        .filter(item => item.budget > 0 || item.actual > 0);
+
+    const entrees = allTiers.filter(item => item.type === 'revenu').sort((a,b) => b.actual - a.actual);
+    const sorties = allTiers.filter(item => item.type === 'depense').sort((a,b) => b.actual - a.actual);
+
+    return { 
+        entrees, 
+        sorties, 
+        periodLabel: mobilePeriod.label
+    };
+
+  }, [isMobile, mobilePeriod, mobileProcessedEntries, actualTransactions]);
+
+  const handleNewBudget = () => { 
+    if (!isConsolidated && !isCustomConsolidated) { 
+        const onSave = (entryData) => {
+            const user = dataState.session?.user;
+            if (!user) return;
+            const targetProjectId = entryData.projectId || activeProjectId;
+            const cashAccountsForEntry = dataState.allCashAccounts[targetProjectId] || [];
+            saveEntry({dataDispatch, uiDispatch, dataState}, { 
+                entryData, 
+                editingEntry: null, 
+                activeProjectId: targetProjectId,
+                user,
+                tiers,
+                cashAccounts: cashAccountsForEntry,
+                exchangeRates: dataState.exchangeRates,
+            });
+        };
+        uiDispatch({ type: 'OPEN_BUDGET_DRAWER', payload: { onSave } }); 
+    } 
+  };
   const handleEditEntry = (entry) => { 
-    if (entry.is_vat_payment || entry.is_tax_payment) return; // Cannot edit automatic payments
+    if (entry.is_vat_payment || entry.is_tax_payment) return;
     const originalEntryId = entry.is_vat_child ? entry.id.replace('_vat', '') : entry.id;
     const originalEntry = budgetEntries.find(e => e.id === originalEntryId);
     if (originalEntry) {
-        uiDispatch({ type: 'OPEN_BUDGET_MODAL', payload: originalEntry });
+        const onSave = (entryData) => {
+            const user = dataState.session?.user;
+            if (!user) return;
+            const targetProjectId = entryData.projectId || activeProjectId;
+            const cashAccountsForEntry = dataState.allCashAccounts[targetProjectId] || [];
+            saveEntry({dataDispatch, uiDispatch, dataState}, { 
+                entryData, 
+                editingEntry: originalEntry, 
+                activeProjectId: targetProjectId,
+                user,
+                tiers,
+                cashAccounts: cashAccountsForEntry,
+                exchangeRates: dataState.exchangeRates,
+            });
+        };
+        const onDelete = () => handleDeleteEntry(originalEntry);
+        uiDispatch({ type: 'OPEN_BUDGET_DRAWER', payload: { entry: originalEntry, onSave, onDelete } });
     }
   };
   const handleDeleteEntry = (entry) => {
@@ -548,11 +718,10 @@ const BudgetTracker = () => {
   const numVisibleCols = Object.values(visibleColumns).filter(v => v).length;
   const periodColumnWidth = numVisibleCols > 0 ? numVisibleCols * 90 : 50;
   const separatorWidth = 4;
-  const fixedColsWidth = columnWidths.category + columnWidths.supplier + ((isConsolidated || isCustomConsolidated) ? columnWidths.project : 0);
+  
+  const fixedColsWidth = columnWidths.category + columnWidths.supplier + (visibleColumns.description ? columnWidths.description : 0) + ((isConsolidated || isCustomConsolidated) ? columnWidths.project : 0);
   const totalTableWidth = fixedColsWidth + separatorWidth + (periods.length * (periodColumnWidth + separatorWidth));
-  const supplierColLeft = columnWidths.category;
-  const projectColLeft = supplierColLeft + columnWidths.supplier;
-  const totalCols = ((isConsolidated || isCustomConsolidated) ? 3 : 2) + 1 + (periods.length * 2);
+  const totalCols = ((isConsolidated || isCustomConsolidated) ? 5 : 4) + (periods.length * 2);
   
   const quickPeriodOptions = [
     { id: 'today', label: 'Jour' },
@@ -584,45 +753,49 @@ const BudgetTracker = () => {
       <>
         {/* Total Row for Type */}
         <tr className="bg-gray-200 border-y-2 border-gray-300 cursor-pointer" onClick={toggleMainCollapse}>
-          <td colSpan={(isConsolidated || isCustomConsolidated) ? 3 : 2} className="px-4 py-2 text-text-primary bg-gray-200 sticky left-0 z-10">
-            <div className="flex items-center gap-2">
-              <ChevronDown className={`w-4 h-4 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
-              <Icon className={`w-4 h-4 ${colorClass}`} />
-              {isEntree ? 'TOTAL ENTRÉES' : 'TOTAL SORTIES'}
-            </div>
-          </td>
-          <td className="bg-surface" style={{ width: `${separatorWidth}px` }}></td>
-          {periods.map((period, periodIndex) => {
-            const totals = calculateGeneralTotals(mainCategories, period, type, expandedAndVatEntries, actualTransactions, hasOffBudgetRevenues, hasOffBudgetExpenses);
-            const reste = totals.budget - totals.actual;
-            const columnIdBase = period.startDate.toISOString();
-            const rowId = `total_${type}`;
-            return (
-              <React.Fragment key={periodIndex}>
-                <td className="px-2 py-2">
-                  {numVisibleCols > 0 && (
-                    <div className="flex gap-2 justify-around text-sm">
-                        {visibleColumns.budget && <div className="relative group/subcell flex-1 text-center text-text-primary font-normal">
-                            {formatCurrency(totals.budget, currencySettings)}
-                            <CommentButton rowId={rowId} columnId={`${columnIdBase}_budget`} rowName={`Total ${isEntree ? 'Entrées' : 'Sorties'}`} columnName={`${period.label} (Prév.)`} />
-                        </div>}
-                        {visibleColumns.actual && <div className="relative group/subcell flex-1 text-center">
-                            <button onClick={(e) => { e.stopPropagation(); if (totals.actual !== 0) handleActualClick({ type, period }); }} disabled={totals.actual === 0} className="text-text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-60 font-normal">
-                                {formatCurrency(totals.actual, currencySettings)}
-                            </button>
-                            <CommentButton rowId={rowId} columnId={`${columnIdBase}_actual`} rowName={`Total ${isEntree ? 'Entrées' : 'Sorties'}`} columnName={`${period.label} (Réel)`} />
-                        </div>}
-                        {visibleColumns.reste && <div className={`relative group/subcell flex-1 text-center font-normal ${getResteColor(reste, isEntree)}`}>
-                            {formatCurrency(reste, currencySettings)}
-                            <CommentButton rowId={rowId} columnId={`${columnIdBase}_reste`} rowName={`Total ${isEntree ? 'Entrées' : 'Sorties'}`} columnName={`${period.label} (Reste)`} />
-                        </div>}
-                    </div>
-                  )}
-                </td>
-                <td className="bg-surface"></td>
-              </React.Fragment>
-            );
-          })}
+            <td className="px-4 py-1 text-text-primary sticky left-0 bg-gray-200 z-20" style={{ width: columnWidths.category }}>
+                <div className="flex items-center gap-2 font-bold">
+                    <ChevronDown className={`w-4 h-4 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+                    <Icon className={`w-4 h-4 ${colorClass}`} />
+                    {isEntree ? 'Total Entrées' : 'Total Sorties'}
+                </div>
+            </td>
+            <td className="px-4 py-1 sticky bg-gray-200 z-20" style={{ left: `${supplierColLeft}px`, width: columnWidths.supplier }}></td>
+            {visibleColumns.description && <td className="px-4 py-1 sticky bg-gray-200 z-20" style={{ left: `${descriptionColLeft}px`, width: columnWidths.description }}></td>}
+            {(isConsolidated || isCustomConsolidated) && <td className="px-4 py-1 sticky bg-gray-200 z-20" style={{ left: `${projectColLeft}px`, width: columnWidths.project }}></td>}
+            
+            <td className="bg-surface" style={{ width: `${separatorWidth}px` }}></td>
+            {periods.map((period, periodIndex) => {
+                const totals = calculateGeneralTotals(mainCategories, period, type, expandedAndVatEntries, actualTransactions, hasOffBudgetRevenues, hasOffBudgetExpenses);
+                const reste = totals.budget - totals.actual;
+                const columnIdBase = period.startDate.toISOString();
+                const rowId = `total_${type}`;
+                return (
+                <React.Fragment key={periodIndex}>
+                    <td className="px-2 py-1">
+                    {numVisibleCols > 0 && (
+                        <div className="flex gap-2 justify-around text-sm">
+                            {visibleColumns.budget && <div className="relative group/subcell flex-1 text-center text-text-primary font-normal">
+                                {formatCurrency(totals.budget, currencySettings)}
+                                <CommentButton rowId={rowId} columnId={`${columnIdBase}_budget`} rowName={`Total ${isEntree ? 'Entrées' : 'Sorties'}`} columnName={`${period.label} (Prév.)`} />
+                            </div>}
+                            {visibleColumns.actual && <div className="relative group/subcell flex-1 text-center">
+                                <button onClick={(e) => { e.stopPropagation(); if (totals.actual !== 0) handleActualClick({ type, period }); }} disabled={totals.actual === 0} className="text-text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-60 font-normal">
+                                    {formatCurrency(totals.actual, currencySettings)}
+                                </button>
+                                <CommentButton rowId={rowId} columnId={`${columnIdBase}_actual`} rowName={`Total ${isEntree ? 'Entrées' : 'Sorties'}`} columnName={`${period.label} (Réel)`} />
+                            </div>}
+                            {visibleColumns.reste && <div className={`relative group/subcell flex-1 text-center font-normal ${getResteColor(reste, isEntree)}`}>
+                                {formatCurrency(reste, currencySettings)}
+                                <CommentButton rowId={rowId} columnId={`${columnIdBase}_reste`} rowName={`Total ${isEntree ? 'Entrées' : 'Sorties'}`} columnName={`${period.label} (Reste)`} />
+                            </div>}
+                        </div>
+                    )}
+                    </td>
+                    <td className="bg-surface"></td>
+                </React.Fragment>
+                );
+            })}
         </tr>
 
         {/* Rows for each Main Category and Entry */}
@@ -634,12 +807,15 @@ const BudgetTracker = () => {
           return (
             <React.Fragment key={mainCategory.id}>
               <tr onClick={() => toggleCollapse(mainCategory.id)} className="bg-gray-100 text-gray-700 cursor-pointer hover:bg-gray-200">
-                <td colSpan={(isConsolidated || isCustomConsolidated) ? 3 : 2} className="px-4 py-2 sticky left-0 z-10 bg-gray-100">
-                  <div className="flex items-center gap-2">
-                    <ChevronDown className={`w-4 h-4 transition-transform ${isMainCollapsed ? '-rotate-90' : ''}`} />
-                    {mainCategory.name}
-                  </div>
+                <td className="px-4 py-1 sticky left-0 bg-gray-100 z-20" style={{ width: columnWidths.category }}>
+                    <div className="flex items-center gap-2 text-xs font-semibold">
+                        <ChevronDown className={`w-4 h-4 transition-transform ${isMainCollapsed ? '-rotate-90' : ''}`} />
+                        {mainCategory.name}
+                    </div>
                 </td>
+                <td className="px-4 py-1 sticky bg-gray-100 z-20" style={{ left: `${supplierColLeft}px`, width: columnWidths.supplier }}></td>
+                {visibleColumns.description && <td className="px-4 py-1 sticky bg-gray-100 z-20" style={{ left: `${descriptionColLeft}px`, width: columnWidths.description }}></td>}
+                {(isConsolidated || isCustomConsolidated) && <td className="px-4 py-1 sticky bg-gray-100 z-20" style={{ left: `${projectColLeft}px`, width: columnWidths.project }}></td>}
                 <td className="bg-surface"></td>
                 {periods.map((period, periodIndex) => {
                   const totals = calculateMainCategoryTotals(mainCategory.entries, period, actualTransactions);
@@ -648,7 +824,7 @@ const BudgetTracker = () => {
                   const rowId = `main_cat_${mainCategory.id}`;
                   return (
                     <React.Fragment key={periodIndex}>
-                      <td className="px-2 py-2">
+                      <td className="px-2 py-1">
                         {numVisibleCols > 0 && (
                           <div className="flex gap-2 justify-around text-xs">
                             {visibleColumns.budget && <div className="relative group/subcell flex-1 text-center font-normal">
@@ -680,20 +856,16 @@ const BudgetTracker = () => {
                 const critConfig = criticalityConfig[criticality];
                 return (
                   <tr key={entry.id} className={`border-b border-gray-100 hover:bg-gray-50 group ${entry.is_vat_child ? 'bg-gray-50/50' : (entry.is_vat_payment || entry.is_tax_payment ? 'bg-blue-50/50' : '')}`}>
-                    <td className={`px-4 py-1 font-normal text-gray-800 sticky left-0 bg-white group-hover:bg-gray-50 z-10 ${entry.is_vat_child ? 'pl-8' : ''}`}>
+                    <td className={`px-4 py-1 font-normal text-gray-800 sticky left-0 bg-white group-hover:bg-gray-50 z-20 ${entry.is_vat_child ? 'pl-8' : ''}`} style={{ width: columnWidths.category }}>
                       <div className="flex items-center gap-2">
                         {critConfig && <span className={`w-2 h-2 rounded-full ${critConfig.color}`} title={`Criticité: ${critConfig.label}`}></span>}
+                        {entry.isProvision && <Lock className="w-3 h-3 text-indigo-500 shrink-0" />}
                         <span>{entry.category}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-1 text-gray-700 sticky bg-white group-hover:bg-gray-50 z-10" style={{ left: `${supplierColLeft}px` }}>
+                    <td className="px-4 py-1 text-gray-700 sticky bg-white group-hover:bg-gray-50 z-10" style={{ left: `${supplierColLeft}px`, width: columnWidths.supplier }}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 truncate" title={getFrequencyTitle(entry)}>
-                          {entry.isProvision && (
-                            <div title={`Provision en ${entry.payments?.length || 0} fois de ${formatCurrency((entry.payments && entry.payments.length > 0) ? entry.payments[0].amount : 0, settings)}`}>
-                                <Lock className="w-4 h-4 text-indigo-500 shrink-0" />
-                            </div>
-                          )}
                           <span className="truncate">{entry.supplier}</span>
                         </div>
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -702,7 +874,12 @@ const BudgetTracker = () => {
                         </div>
                       </div>
                     </td>
-                    {(isConsolidated || isCustomConsolidated) && <td className="px-4 py-1 text-gray-600 sticky bg-white group-hover:bg-gray-50 z-10" style={{ left: `${projectColLeft}px` }}><div className="flex items-center gap-2"><Folder className="w-4 h-4 text-blue-500" />{project?.name || 'N/A'}</div></td>}
+                    {visibleColumns.description && (
+                        <td className="px-4 py-1 text-gray-500 text-xs sticky bg-white group-hover:bg-gray-50 z-10 truncate" style={{ left: `${descriptionColLeft}px`, width: columnWidths.description }} title={entry.description}>
+                            {entry.description}
+                        </td>
+                    )}
+                    {(isConsolidated || isCustomConsolidated) && <td className="px-4 py-1 text-gray-600 sticky bg-white group-hover:bg-gray-50 z-10" style={{ left: `${projectColLeft}px`, width: columnWidths.project }}><div className="flex items-center gap-2"><Folder className="w-4 h-4 text-blue-500" />{project?.name || 'N/A'}</div></td>}
                     <td className="bg-surface"></td>
                     {periods.map((period, periodIndex) => {
                       const budget = getEntryAmountForPeriod(entry, period.startDate, period.endDate);
@@ -747,226 +924,312 @@ const BudgetTracker = () => {
   
   return (
     <>
-      <div className="mb-6 ">
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-                <div className="flex items-center gap-2">
-                    <button onClick={() => handlePeriodChange(-1)} className="p-1 text-gray-500 hover:text-gray-800 transition-colors" title="Période précédente"><ChevronLeft size={18} /></button>
-                    <span className="text-sm font-semibold text-gray-700 w-24 text-center" title="Décalage par rapport à la période actuelle">{periodLabel}</span>
-                    <button onClick={() => handlePeriodChange(1)} className="p-1 text-gray-500 hover:text-gray-800 transition-colors" title="Période suivante"><ChevronRight size={18} /></button>
-                </div>
-                <div className="relative" ref={periodMenuRef}>
-                    <button 
-                        onClick={() => setIsPeriodMenuOpen(p => !p)} 
-                        className="flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-blue-600 transition-colors"
-                    >
-                        <span>{selectedPeriodLabel}</span>
-                        <ChevronDown className={`w-4 h-4 transition-transform ${isPeriodMenuOpen ? 'rotate-180' : ''}`} />
-                    </button>
-                    <AnimatePresence>
-                        {isPeriodMenuOpen && (
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                                className="absolute left-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border z-20"
-                            >
-                                <ul className="p-1">
-                                    {quickPeriodOptions.map(option => (
-                                        <li key={option.id}>
-                                            <button
-                                                onClick={() => {
-                                                    handleQuickPeriodSelect(option.id);
-                                                    setIsPeriodMenuOpen(false);
-                                                }}
-                                                className={`w-full text-left px-3 py-1.5 text-sm rounded-md ${activeQuickSelect === option.id ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'}`}
-                                            >
-                                                {option.label}
-                                            </button>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
+      {isMobile ? (
+        <div className="p-4 space-y-6">
+          <div className="flex items-center justify-between">
+            <button onClick={() => setMobileMonthOffset(p => p - 1)} className="p-2 rounded-full hover:bg-gray-100"><ChevronLeft size={20} /></button>
+            <h2 className="text-lg font-semibold text-gray-800">{mobileData?.periodLabel}</h2>
+            <button onClick={() => setMobileMonthOffset(p => p + 1)} className="p-2 rounded-full hover:bg-gray-100"><ChevronRight size={20} /></button>
+          </div>
+
+          <div className="bg-white p-4 rounded-lg shadow-sm border">
+            <h3 className="text-lg font-bold text-green-600 mb-3">Entrées</h3>
+            <div className="grid grid-cols-3 gap-2 text-xs font-bold text-gray-500 pb-2 border-b mb-2">
+              <div className="col-span-1">Tiers</div>
+              <div className="col-span-1 text-right">Prévisionnel</div>
+              <div className="col-span-1 text-right">Réel</div>
             </div>
-            <div className="flex items-center gap-6">
-                <div className="flex items-center gap-4">
-                    <Eye className="w-4 h-4 text-gray-500"/>
-                    <button onClick={() => setVisibleColumns(p => ({...p, budget: !p.budget}))} className={`text-xs font-semibold transition-colors ${visibleColumns.budget ? 'text-blue-600' : 'text-gray-500 hover:text-gray-800'}`}>
-                        Prév.
-                    </button>
-                    <button onClick={() => setVisibleColumns(p => ({...p, actual: !p.actual}))} className={`text-xs font-semibold transition-colors ${visibleColumns.actual ? 'text-blue-600' : 'text-gray-500 hover:text-gray-800'}`}>
-                        Réel
-                    </button>
-                    <button onClick={() => setVisibleColumns(p => ({...p, reste: !p.reste}))} className={`text-xs font-semibold transition-colors ${visibleColumns.reste ? 'text-blue-600' : 'text-gray-500 hover:text-gray-800'}`}>
-                        Reste
-                    </button>
+            <div className="space-y-2">
+              {mobileData?.entrees.length > 0 ? mobileData.entrees.map(tier => (
+                <div key={tier.name} className="grid grid-cols-3 gap-2 text-sm items-center py-2 border-b last:border-b-0">
+                  <div className="col-span-1 font-medium text-gray-700 truncate">{tier.name}</div>
+                  <div className="col-span-1 text-right text-gray-600">{formatCurrency(tier.budget, currencySettings)}</div>
+                  <div className="col-span-1 text-right font-semibold text-gray-800">{formatCurrency(tier.actual, currencySettings)}</div>
                 </div>
-                <div className="flex items-center gap-4">
-                    <button 
-                        onClick={() => setTableauMode('lecture')}
-                        className={`flex items-center gap-2 text-sm font-semibold transition-colors ${tableauMode === 'lecture' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-800'}`}
-                    >
-                        <Table size={16} />
-                        Table
-                    </button>
-                    <button 
-                        onClick={() => setTableauMode('edition')}
-                        className={`flex items-center gap-2 text-sm font-semibold transition-colors ${tableauMode === 'edition' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-800'}`}
-                    >
-                        <TableProperties size={16} />
-                        TCD
-                    </button>
-                </div>
-                <button 
-                    onClick={handleNewBudget} 
-                    className="flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={isConsolidated || isCustomConsolidated}
-                >
-                    <Plus className="w-5 h-5" /> 
-                    Nouvelle Entrée
-                </button>
+              )) : <p className="text-xs text-gray-500 text-center py-2">Aucune entrée ce mois-ci.</p>}
             </div>
+            <div className="grid grid-cols-3 gap-2 text-sm items-center pt-3 mt-3 border-t-2">
+              <div className="col-span-1 font-bold text-gray-800">Total Entrées</div>
+              <div className="col-span-1 text-right font-bold text-gray-800">{formatCurrency(mobileData?.entrees.reduce((s, t) => s + t.budget, 0), currencySettings)}</div>
+              <div className="col-span-1 text-right font-bold text-green-600">{formatCurrency(mobileData?.entrees.reduce((s, t) => s + t.actual, 0), currencySettings)}</div>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-lg shadow-sm border">
+            <h3 className="text-lg font-bold text-red-600 mb-3">Sorties</h3>
+            <div className="grid grid-cols-3 gap-2 text-xs font-bold text-gray-500 pb-2 border-b mb-2">
+              <div className="col-span-1">Tiers</div>
+              <div className="col-span-1 text-right">Prévisionnel</div>
+              <div className="col-span-1 text-right">Réel</div>
+            </div>
+            <div className="space-y-2">
+              {mobileData?.sorties.length > 0 ? mobileData.sorties.map(tier => (
+                <div key={tier.name} className="grid grid-cols-3 gap-2 text-sm items-center py-2 border-b last:border-b-0">
+                  <div className="col-span-1 font-medium text-gray-700 truncate">{tier.name}</div>
+                  <div className="col-span-1 text-right text-gray-600">{formatCurrency(tier.budget, currencySettings)}</div>
+                  <div className="col-span-1 text-right font-semibold text-gray-800">{formatCurrency(tier.actual, currencySettings)}</div>
+                </div>
+              )) : <p className="text-xs text-gray-500 text-center py-2">Aucune sortie ce mois-ci.</p>}
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-sm items-center pt-3 mt-3 border-t-2">
+              <div className="col-span-1 font-bold text-gray-800">Total Sorties</div>
+              <div className="col-span-1 text-right font-bold text-gray-800">{formatCurrency(mobileData?.sorties.reduce((s, t) => s + t.budget, 0), currencySettings)}</div>
+              <div className="col-span-1 text-right font-bold text-red-600">{formatCurrency(mobileData?.sorties.reduce((s, t) => s + t.actual, 0), currencySettings)}</div>
+            </div>
+          </div>
+
+          <div className="bg-gray-800 text-white p-4 rounded-lg shadow-lg">
+            <div className="flex justify-between items-center">
+              <span className="font-bold text-lg">Solde du mois</span>
+              <div className="text-right">
+                <div className="text-xs opacity-80">Prév. {formatCurrency((mobileData?.entrees.reduce((s, t) => s + t.budget, 0) || 0) - (mobileData?.sorties.reduce((s, t) => s + t.budget, 0) || 0), currencySettings)}</div>
+                <div className="font-bold text-2xl">{formatCurrency((mobileData?.entrees.reduce((s, t) => s + t.actual, 0) || 0) - (mobileData?.sorties.reduce((s, t) => s + t.actual, 0) || 0), currencySettings)}</div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-      
-      {tableauMode === 'lecture' ? (
-        <LectureView 
-            entries={expandedAndVatEntries} 
-            periods={periods}
-            settings={currencySettings}
-            actuals={actualTransactions}
-            isConsolidated={isConsolidated || isCustomConsolidated}
-            projects={projects}
-            visibleColumns={visibleColumns}
-            CommentButton={CommentButton}
-            categories={categories}
-        />
       ) : (
-        <div className="bg-surface rounded-lg shadow-lg overflow-hidden">
-            <div ref={topScrollRef} className="overflow-x-auto overflow-y-hidden custom-scrollbar"><div style={{ width: `${totalTableWidth}px`, height: '1px' }}></div></div>
-            <div ref={mainScrollRef} className="overflow-x-auto custom-scrollbar">
-                <table className="w-full text-sm border-separate border-spacing-0">
-                    <thead className="sticky top-0 z-30">
-                    <tr>
-                        <ResizableTh id="category" width={columnWidths.category} onResize={handleResize} className="sticky left-0 z-40 bg-gray-100">
-                            <div className="flex items-center justify-between w-full">
-                                <span>Catégorie</span>
-                                <div className="flex items-center">
-                                    <button onClick={handleDrillUp} className="p-1 text-gray-500 hover:text-gray-800" title="Réduire tout"><ChevronUp size={16} /></button>
-                                    <button onClick={handleDrillDown} className="p-1 text-gray-500 hover:text-gray-800" title="Développer tout"><ChevronDown size={16} /></button>
-                                </div>
-                            </div>
-                        </ResizableTh>
-                        <ResizableTh id="supplier" width={columnWidths.supplier} onResize={handleResize} className="sticky z-20 bg-gray-100" style={{ left: `${supplierColLeft}px` }}>
-                            {isTierSearchOpen ? (
-                                <div ref={tierSearchRef} className="flex items-center gap-1 w-full">
-                                    <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Rechercher..." className="w-full px-2 py-1 border rounded-md text-sm bg-white" autoFocus onClick={(e) => e.stopPropagation()} />
-                                    <button onClick={() => { setSearchTerm(''); }} className="p-1 text-gray-500 hover:text-gray-800" title="Effacer"><XCircle size={16} /></button>
-                                </div>
-                            ) : (
+        <>
+          {showTemporalToolbar && (
+            <div className="mb-6">
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                  <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                      <div className="flex items-center gap-2">
+                          <button onClick={() => handlePeriodChange(-1)} className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors" title="Période précédente"><ChevronLeft size={18} /></button>
+                          <span className="text-sm font-semibold text-gray-700 w-24 text-center" title="Décalage par rapport à la période actuelle">{periodLabel}</span>
+                          <button onClick={() => handlePeriodChange(1)} className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors" title="Période suivante"><ChevronRight size={18} /></button>
+                      </div>
+                      <div className="relative" ref={periodMenuRef}>
+                          <button 
+                              onClick={() => setIsPeriodMenuOpen(p => !p)} 
+                              className="flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-blue-600 transition-colors"
+                          >
+                              <span>{selectedPeriodLabel}</span>
+                              <ChevronDown className={`w-4 h-4 transition-transform ${isPeriodMenuOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                          <AnimatePresence>
+                              {isPeriodMenuOpen && (
+                                  <motion.div
+                                      initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                                      exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                      className="absolute left-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border z-20"
+                                    >
+                                      <ul className="p-1">
+                                          {quickPeriodOptions.map(option => (
+                                              <li key={option.id}>
+                                                  <button
+                                                      onClick={() => {
+                                                          handleQuickPeriodSelect(option.id);
+                                                          setIsPeriodMenuOpen(false);
+                                                      }}
+                                                      className={`w-full text-left px-3 py-1.5 text-sm rounded-md ${activeQuickSelect === option.id ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'}`}
+                                                  >
+                                                      {option.label}
+                                                  </button>
+                                              </li>
+                                          ))}
+                                      </ul>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                      </div>
+                  </div>
+                  <div className="flex items-center gap-6">
+                      {showViewModeSwitcher && (
+                          <div className="flex items-center gap-4">
+                              <button 
+                                  onClick={() => setTableauMode('edition')}
+                                  className={`flex items-center gap-2 text-sm font-semibold transition-colors ${tableauMode === 'edition' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-800'}`}
+                              >
+                                  <TableProperties size={16} />
+                                  TCD
+                              </button>
+                          </div>
+                      )}
+                      {showNewEntryButton && (
+                          <button 
+                              onClick={handleNewBudget} 
+                              className="flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={isConsolidated || isCustomConsolidated}
+                          >
+                              <Plus className="w-5 h-5" /> 
+                              Nouvelle Entrée
+                          </button>
+                      )}
+                  </div>
+              </div>
+            </div>
+          )}
+          
+          {tableauMode === 'lecture' ? (
+            <LectureView 
+                entries={expandedAndVatEntries} 
+                periods={periods}
+                settings={currencySettings}
+                actuals={actualTransactions}
+                isConsolidated={isConsolidated || isCustomConsolidated}
+                projects={projects}
+                visibleColumns={visibleColumns}
+                CommentButton={CommentButton}
+                categories={categories}
+            />
+          ) : (
+            <div className="bg-surface rounded-lg shadow-lg overflow-hidden">
+                <div ref={topScrollRef} className="overflow-x-auto overflow-y-hidden custom-scrollbar"><div style={{ width: `${totalTableWidth}px`, height: '1px' }}></div></div>
+                <div ref={mainScrollRef} className="overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-sm border-collapse">
+                        <thead className="sticky top-0 z-30">
+                        <tr>
+                            <ResizableTh id="category" width={columnWidths.category} onResize={handleResize} className="sticky left-0 z-40 bg-gray-100">
                                 <div className="flex items-center justify-between w-full">
-                                    <span>Tiers</span>
-                                    <button onClick={() => setIsTierSearchOpen(true)} className="p-1 text-gray-500 hover:text-gray-800" title="Rechercher par tiers"><Search size={14} /></button>
+                                    <span>Catégorie</span>
+                                    <div className="flex items-center">
+                                        <button onClick={handleDrillUp} className="p-1 text-gray-500 hover:text-gray-800" title="Réduire tout"><ChevronUp size={16} /></button>
+                                        <button onClick={handleDrillDown} className="p-1 text-gray-500 hover:text-gray-800" title="Développer tout"><ChevronDown size={16} /></button>
+                                    </div>
                                 </div>
-                            )}
-                        </ResizableTh>
-                        {(isConsolidated || isCustomConsolidated) && (
-                            <ResizableTh id="project" width={columnWidths.project} onResize={handleResize} className="sticky z-20 bg-gray-100" style={{ left: `${projectColLeft}px` }}>
-                                {isProjectSearchOpen ? (
-                                    <div ref={projectSearchRef} className="flex items-center gap-1 w-full">
-                                        <input type="text" value={projectSearchTerm} onChange={(e) => setProjectSearchTerm(e.target.value)} placeholder="Rechercher..." className="w-full px-2 py-1 border rounded-md text-sm bg-white" autoFocus onClick={(e) => e.stopPropagation()} />
-                                        <button onClick={() => { setProjectSearchTerm(''); }} className="p-1 text-gray-500 hover:text-gray-800" title="Effacer">
-                                            <XCircle size={16} />
-                                        </button>
+                            </ResizableTh>
+                            <ResizableTh id="supplier" width={columnWidths.supplier} onResize={handleResize} className="sticky z-30 bg-gray-100" style={{ left: `${supplierColLeft}px` }}>
+                                {isTierSearchOpen ? (
+                                    <div ref={tierSearchRef} className="flex items-center gap-1 w-full">
+                                        <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Rechercher..." className="w-full px-2 py-1 border rounded-md text-sm bg-white" autoFocus onClick={(e) => e.stopPropagation()} />
+                                        <button onClick={() => { setSearchTerm(''); }} className="p-1 text-gray-500 hover:text-gray-800" title="Effacer"><XCircle size={16} /></button>
                                     </div>
                                 ) : (
                                     <div className="flex items-center justify-between w-full">
-                                        <span>Projet</span>
-                                        <button onClick={() => setIsProjectSearchOpen(true)} className="p-1 text-gray-500 hover:text-gray-800" title="Rechercher par projet">
-                                            <Search size={14} />
-                                        </button>
+                                        <span>Tiers</span>
+                                        <button onClick={() => setIsTierSearchOpen(true)} className="p-1 text-gray-500 hover:text-gray-800" title="Rechercher par tiers"><Search size={14} /></button>
                                     </div>
                                 )}
                             </ResizableTh>
-                        )}
-                        <th className="bg-surface border-b-2" style={{ width: `${separatorWidth}px` }}></th>
-                        {periods.map((period, periodIndex) => {
-                        const isPast = period.endDate <= today;
-                        const revenueTotals = calculateGeneralTotals(groupedData.entree || [], period, 'entree', expandedAndVatEntries, actualTransactions, hasOffBudgetRevenues, hasOffBudgetExpenses);
-                        const expenseTotals = calculateGeneralTotals(groupedData.sortie || [], period, 'sortie', expandedAndVatEntries, actualTransactions, hasOffBudgetRevenues, hasOffBudgetExpenses);
-                        const netBudget = revenueTotals.budget - expenseTotals.budget;
-                        const isNegativeFlow = netBudget < 0;
-                        return (
-                            <React.Fragment key={periodIndex}>
-                            <th className={`px-2 py-2 text-center font-medium border-b-2 ${isPast ? 'bg-gray-50' : 'bg-surface'} ${isNegativeFlow && !isPast ? 'bg-red-50' : ''}`} style={{ minWidth: `${periodColumnWidth}px` }}>
-                                <div className={`text-gray-700 mb-1 ${isNegativeFlow && !isPast ? 'text-red-700' : 'text-text-primary'}`}>{period.label}</div>
-                                {numVisibleCols > 0 && (
-                                <div className="flex gap-2 justify-around text-xs font-medium text-gray-700">
-                                    {visibleColumns.budget && <div className="flex-1">Prév.</div>}
-                                    {visibleColumns.actual && <div className="flex-1">Réel</div>}
-                                    {visibleColumns.reste && <div className="flex-1">Reste</div>}
-                                </div>
-                                )}
-                            </th>
+                            {visibleColumns.description && (
+                                <ResizableTh id="description" width={columnWidths.description} onResize={handleResize} className="sticky z-30 bg-gray-100" style={{ left: `${descriptionColLeft}px` }}>
+                                    Description
+                                </ResizableTh>
+                            )}
+                            {(isConsolidated || isCustomConsolidated) && (
+                                <ResizableTh id="project" width={columnWidths.project} onResize={handleResize} className="sticky z-30 bg-gray-100" style={{ left: `${projectColLeft}px` }}>
+                                    {isProjectSearchOpen ? (
+                                        <div ref={projectSearchRef} className="flex items-center gap-1 w-full">
+                                            <input type="text" value={projectSearchTerm} onChange={(e) => setProjectSearchTerm(e.target.value)} placeholder="Rechercher..." className="w-full px-2 py-1 border rounded-md text-sm bg-white" autoFocus onClick={(e) => e.stopPropagation()} />
+                                            <button onClick={() => { setProjectSearchTerm(''); }} className="p-1 text-gray-500 hover:text-gray-800" title="Effacer">
+                                                <XCircle size={16} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center justify-between w-full">
+                                            <span>Projet</span>
+                                            <button onClick={() => setIsProjectSearchOpen(true)} className="p-1 text-gray-500 hover:text-gray-800" title="Rechercher par projet">
+                                                <Search size={14} />
+                                            </button>
+                                        </div>
+                                    )}
+                                </ResizableTh>
+                            )}
                             <th className="bg-surface border-b-2" style={{ width: `${separatorWidth}px` }}></th>
-                            </React.Fragment>
-                        );
-                        })}
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <tr className="bg-gray-200 text-gray-800"><td colSpan={(isConsolidated || isCustomConsolidated) ? 3 : 2} className="px-4 py-2 bg-gray-200 sticky left-0 z-10 "><div className="flex items-center gap-2">Trésorerie début de période</div></td><td className="bg-surface"></td>{periods.map((_, periodIndex) => (<React.Fragment key={periodIndex}><td className="px-2 py-2 text-center font-normal" colSpan={1}>{formatCurrency(periodPositions[periodIndex]?.initial || 0, currencySettings)}</td><td className="bg-surface"></td></React.Fragment>))}</tr>
-                    <tr className="bg-surface text-gray-600"><td colSpan={totalCols} className="py-2"></td></tr>
-                    {renderBudgetRows('entree')}
-                    <tr className="bg-surface"><td colSpan={totalCols} className="py-2"></td></tr>
-                    {renderBudgetRows('sortie')}
-                    <tr className="bg-surface"><td colSpan={totalCols} className="py-2"></td></tr>
-                    <tr className="bg-gray-200 border-t-2 border-gray-300">
-                        <td colSpan={(isConsolidated || isCustomConsolidated) ? 3 : 2} className="px-4 py-2 text-gray-700 bg-gray-200 sticky left-0 z-10"><div className="flex items-center gap-2 text-gray-500"><ArrowRightLeft className="w-4 h-4" />Flux de trésorerie</div></td>
-                        <td className="bg-surface" style={{ width: `${separatorWidth}px` }}></td>
-                        {periods.map((period, periodIndex) => {
+                            {periods.map((period, periodIndex) => {
+                            const isPast = period.endDate <= today;
                             const revenueTotals = calculateGeneralTotals(groupedData.entree || [], period, 'entree', expandedAndVatEntries, actualTransactions, hasOffBudgetRevenues, hasOffBudgetExpenses);
                             const expenseTotals = calculateGeneralTotals(groupedData.sortie || [], period, 'sortie', expandedAndVatEntries, actualTransactions, hasOffBudgetRevenues, hasOffBudgetExpenses);
                             const netBudget = revenueTotals.budget - expenseTotals.budget;
-                            const netActual = revenueTotals.actual - expenseTotals.actual;
-                            const netReste = netBudget - netActual;
-                            const columnIdBase = period.startDate.toISOString();
-                            const rowId = 'net_flow';
+                            const isNegativeFlow = netBudget < 0;
                             return (
                                 <React.Fragment key={periodIndex}>
-                                    <td className="px-2 py-2">
-                                        {numVisibleCols > 0 && (
-                                            <div className="flex gap-2 justify-around text-sm">
-                                                {visibleColumns.budget && <div className={`relative group/subcell flex-1 text-center font-normal ${netBudget < 0 ? 'text-red-600' : 'text-text-primary'}`}>
-                                                    {formatCurrency(netBudget, currencySettings)}
-                                                    <CommentButton rowId={rowId} columnId={`${columnIdBase}_budget`} rowName="Flux de trésorerie" columnName={`${period.label} (Prév.)`} />
-                                                </div>}
-                                                {visibleColumns.actual && <div className="relative group/subcell flex-1 text-center font-normal">
-                                                    <button onClick={() => netActual !== 0 && handleActualClick({ type: 'net', period })} disabled={netActual === 0} className="text-text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-60">
-                                                        {formatCurrency(netActual, currencySettings)}
-                                                    </button>
-                                                    <CommentButton rowId={rowId} columnId={`${columnIdBase}_actual`} rowName="Flux de trésorerie" columnName={`${period.label} (Réel)`} />
-                                                </div>}
-                                                {visibleColumns.reste && <div className={`relative group/subcell flex-1 text-center font-normal ${getResteColor(netReste, true)}`}>
-                                                    {formatCurrency(netReste, currencySettings)}
-                                                    <CommentButton rowId={rowId} columnId={`${columnIdBase}_reste`} rowName="Flux de trésorerie" columnName={`${period.label} (Reste)`} />
-                                                </div>}
-                                            </div>
-                                        )}
+                                <th className={`px-2 py-2 text-center font-medium border-b-2 ${isPast ? 'bg-gray-50' : 'bg-surface'} ${isNegativeFlow && !isPast ? 'bg-red-50' : ''}`} style={{ minWidth: `${periodColumnWidth}px` }}>
+                                    <div className={`text-base mb-1 ${isNegativeFlow && !isPast ? 'text-red-700' : 'text-text-primary'}`}>{period.label}</div>
+                                    {numVisibleCols > 0 && (
+                                    <div className="flex gap-2 justify-around text-xs font-medium text-text-secondary">
+                                        {visibleColumns.budget && <div className="flex-1">Prév.</div>}
+                                        {visibleColumns.actual && <div className="flex-1">Réel</div>}
+                                        {visibleColumns.reste && <div className="flex-1">Reste</div>}
+                                    </div>
+                                    )}
+                                </th>
+                                <th className="bg-surface border-b-2" style={{ width: `${separatorWidth}px` }}></th>
+                                </React.Fragment>
+                            );
+                            })}
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr className="bg-gray-200 text-gray-800">
+                            <td className="px-4 py-2 sticky left-0 bg-gray-200 z-20 font-bold" style={{ width: columnWidths.category }}>Trésorerie début de période</td>
+                            <td className="px-4 py-2 sticky bg-gray-200 z-20" style={{ left: `${supplierColLeft}px`, width: columnWidths.supplier }}></td>
+                            {visibleColumns.description && <td className="px-4 py-2 sticky bg-gray-200 z-20" style={{ left: `${descriptionColLeft}px`, width: columnWidths.description }}></td>}
+                            {(isConsolidated || isCustomConsolidated) && <td className="px-4 py-2 sticky bg-gray-200 z-20" style={{ left: `${projectColLeft}px`, width: columnWidths.project }}></td>}
+                            <td className="bg-surface"></td>
+                            {periods.map((_, periodIndex) => (
+                                <React.Fragment key={periodIndex}>
+                                    <td className="px-2 py-2 text-center font-normal" colSpan={1}>
+                                        {formatCurrency(periodPositions[periodIndex]?.initial || 0, currencySettings)}
                                     </td>
                                     <td className="bg-surface"></td>
                                 </React.Fragment>
-                            );
-                        })}
-                    </tr>
-                    <tr className="bg-gray-300 text-gray-900"><td colSpan={(isConsolidated || isCustomConsolidated) ? 3 : 2} className="px-4 py-2 bg-gray-300 text-gray-600 sticky left-0 z-10"><div className="flex items-center gap-2">Trésorerie fin de période</div></td><td className="bg-surface"></td>{periods.map((_, periodIndex) => (<React.Fragment key={periodIndex}><td className="px-2 py-2 text-center font-normal" colSpan={1}>{formatCurrency(periodPositions[periodIndex]?.final || 0, currencySettings)}</td><td className="bg-surface"></td></React.Fragment>))}</tr>
-                    </tbody>
-                </table>
+                            ))}
+                        </tr>
+                        <tr className="bg-surface"><td colSpan={totalCols} className="py-2"></td></tr>
+                        {renderBudgetRows('entree')}
+                        <tr className="bg-surface"><td colSpan={totalCols} className="py-2"></td></tr>
+                        {renderBudgetRows('sortie')}
+                        <tr className="bg-surface"><td colSpan={totalCols} className="py-2"></td></tr>
+                        <tr className="bg-gray-200 border-t-2 border-gray-300">
+                            <td className="px-4 py-2 text-text-primary sticky left-0 bg-gray-200 z-20 font-bold" style={{ width: columnWidths.category }}>
+                                <div className="flex items-center gap-2"><ArrowRightLeft className="w-4 h-4" />Flux de trésorerie</div>
+                            </td>
+                            <td className="px-4 py-2 sticky bg-gray-200 z-20" style={{ left: `${supplierColLeft}px`, width: columnWidths.supplier }}></td>
+                            {visibleColumns.description && <td className="px-4 py-2 sticky bg-gray-200 z-20" style={{ left: `${descriptionColLeft}px`, width: columnWidths.description }}></td>}
+                            {(isConsolidated || isCustomConsolidated) && <td className="px-4 py-2 sticky bg-gray-200 z-20" style={{ left: `${projectColLeft}px`, width: columnWidths.project }}></td>}
+                            <td className="bg-surface" style={{ width: `${separatorWidth}px` }}></td>
+                            {periods.map((period, periodIndex) => {
+                                const revenueTotals = calculateGeneralTotals(groupedData.entree || [], period, 'entree', expandedAndVatEntries, actualTransactions, hasOffBudgetRevenues, hasOffBudgetExpenses);
+                                const expenseTotals = calculateGeneralTotals(groupedData.sortie || [], period, 'sortie', expandedAndVatEntries, actualTransactions, hasOffBudgetRevenues, hasOffBudgetExpenses);
+                                const netBudget = revenueTotals.budget - expenseTotals.budget;
+                                const netActual = revenueTotals.actual - expenseTotals.actual;
+                                const netReste = netBudget - netActual;
+                                const columnIdBase = period.startDate.toISOString();
+                                const rowId = 'net_flow';
+                                return (
+                                    <React.Fragment key={periodIndex}>
+                                        <td className="px-2 py-2">
+                                            {numVisibleCols > 0 && (
+                                                <div className="flex gap-2 justify-around text-sm">
+                                                    {visibleColumns.budget && <div className={`relative group/subcell flex-1 text-center font-normal ${netBudget < 0 ? 'text-red-600' : 'text-text-primary'}`}>
+                                                        {formatCurrency(netBudget, currencySettings)}
+                                                        <CommentButton rowId={rowId} columnId={`${columnIdBase}_budget`} rowName="Flux de trésorerie" columnName={`${period.label} (Prév.)`} />
+                                                    </div>}
+                                                    {visibleColumns.actual && <div className="relative group/subcell flex-1 text-center font-normal">
+                                                        <button onClick={() => netActual !== 0 && handleActualClick({ type: 'net', period })} disabled={netActual === 0} className="text-text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-60">
+                                                            {formatCurrency(netActual, currencySettings)}
+                                                        </button>
+                                                        <CommentButton rowId={rowId} columnId={`${columnIdBase}_actual`} rowName="Flux de trésorerie" columnName={`${period.label} (Réel)`} />
+                                                    </div>}
+                                                    {visibleColumns.reste && <div className={`relative group/subcell flex-1 text-center font-normal ${getResteColor(netReste, true)}`}>
+                                                        {formatCurrency(netReste, currencySettings)}
+                                                        <CommentButton rowId={rowId} columnId={`${columnIdBase}_reste`} rowName="Flux de trésorerie" columnName={`${period.label} (Reste)`} />
+                                                    </div>}
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td className="bg-surface"></td>
+                                    </React.Fragment>
+                                );
+                            })}
+                        </tr>
+                        <tr className="bg-gray-300 text-gray-900">
+                            <td className="px-4 py-2 sticky left-0 bg-gray-300 z-20 font-bold" style={{ width: columnWidths.category }}>Trésorerie fin de période</td>
+                            <td className="px-4 py-2 sticky bg-gray-300 z-20" style={{ left: `${supplierColLeft}px`, width: columnWidths.supplier }}></td>
+                            {visibleColumns.description && <td className="px-4 py-2 sticky bg-gray-300 z-20" style={{ left: `${descriptionColLeft}px`, width: columnWidths.description }}></td>}
+                            {(isConsolidated || isCustomConsolidated) && <td className="px-4 py-2 sticky bg-gray-300 z-20" style={{ left: `${projectColLeft}px`, width: columnWidths.project }}></td>}
+                            <td className="bg-surface"></td>
+                            {periods.map((_, periodIndex) => (<React.Fragment key={periodIndex}><td className="px-2 py-2 text-center font-normal" colSpan={1}>{formatCurrency(periodPositions[periodIndex]?.final || 0, currencySettings)}</td><td className="bg-surface"></td></React.Fragment>))}
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        </div>
+          )}
+        </>
       )}
       <TransactionDetailDrawer isOpen={drawerData.isOpen} onClose={handleCloseDrawer} transactions={drawerData.transactions} title={drawerData.title} currency={activeProject?.currency} />
     </>

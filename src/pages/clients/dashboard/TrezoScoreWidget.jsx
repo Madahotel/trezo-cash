@@ -106,7 +106,7 @@ const TrezoScoreWidget = ({ scoreData }) => {
   });
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-sm border">
+    <div className="bg-white p-6 rounded-lg shadow-md">
       <div className="flex flex-col lg:flex-row items-center justify-center gap-6">
         {/* Gauge Chart - Adjusted height */}
         <div className="relative w-full lg:w-2/3 max-w-lg mx-auto">

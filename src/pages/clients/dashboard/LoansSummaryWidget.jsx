@@ -11,7 +11,7 @@ const LoansSummaryWidget = ({
 }) => {
   if (!loans || loans.length === 0) {
     return (
-      <div className="bg-white p-6 rounded-lg shadow-sm border">
+      <div className="bg-white p-6 rounded-lg shadow-md">
         <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
           <Icon className="w-5 h-5 text-blue-600" />
           {title}

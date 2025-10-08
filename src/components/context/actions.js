@@ -74,6 +74,26 @@ const getLocalTiers = () => localTiers;
 const addLocalTier = (tier) => localTiers.push(tier);
 const findLocalTier = (name, type) => localTiers.find(t => t.name.toLowerCase() === name.toLowerCase() && t.type === type);
 
+
+export const updateProjectOnboardingStep = async ({ dataDispatch, uiDispatch }, { projectId, step }) => {
+  try {
+    const { data, error } = await supabase
+      .from('projects')
+      .update({ onboarding_step: step })
+      .eq('id', projectId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    dataDispatch({ type: 'UPDATE_PROJECT_ONBOARDING_STEP', payload: { projectId, step } });
+    uiDispatch({ type: 'ADD_TOAST', payload: { message: 'Étape validée !', type: 'success' } });
+  } catch (error) {
+    console.error('Error updating onboarding step:', error);
+    uiDispatch({ type: 'ADD_TOAST', payload: { message: `Erreur: ${error.message}`, type: 'error' } });
+  }
+};
+
 export const initializeProject = async ({ dataDispatch, uiDispatch }, payload, user, existingTiersData, allTemplates) => {
   try {
     const { projectName, projectStartDate, projectEndDate, isEndDateIndefinite, templateId, startOption } = payload;
