@@ -1,146 +1,46 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useData } from '../../../components/context/DataContext.jsx';
 import { useUI } from '../../../components/context/UIContext';
 import { formatCurrency, formatPaymentTerms } from '../../../utils/formatting.js';
-import { HandCoins, TrendingDown, Briefcase, Plus, Trash2, Folder, Search, Lock, Edit } from 'lucide-react';
+import { HandCoins, TrendingDown, Plus, Trash2, Search, Edit, ChevronDown, Loader } from 'lucide-react';
 import EmptyState from '../../../components/emptystate/EmptyState.jsx';
 import AddCategoryFlowModal from '../../../components/modal/AddCategoryFlowModal.jsx';
-import { deleteEntry } from '../../../components/context/actions';
+import { deleteEntry, saveEntry, updateSubCategoryCriticality } from '../../../components/context/actions'; // IMPORT MANQUANT AJOUTÉ
 import { expandVatEntries } from '../../../utils/budgetCalculations';
 import { useActiveProjectData } from '../../../utils/selectors.jsx';
+import CriticalityPicker from '../../../components/criticality/CriticalityPicker.jsx';
+import { motion, AnimatePresence } from 'framer-motion'; // IMPORT MANQUANT AJOUTÉ
 
-const criticalityConfig = {
-    critical: { label: 'Critique', color: 'bg-red-500' },
-    essential: { label: 'Essentiel', color: 'bg-yellow-500' },
-    discretionary: { label: 'Discrétionnaire', color: 'bg-blue-500' },
-};
-
-const LectureView = ({ entries, settings, tiers, categories, activeProject }) => {
-    const sortedEntries = useMemo(() => {
-        return [...entries].sort((a, b) => {
-            if (a.type !== b.type) {
-                return a.type === 'revenu' ? -1 : 1;
-            }
-            const dateA = a.startDate || a.date;
-            const dateB = b.startDate || b.date;
-            return new Date(dateA) - new Date(dateB);
-        });
-    }, [entries]);
-
-    const projectCurrency = activeProject?.currency || settings.currency;
-
-    const renderSection = (type) => {
-        const sectionEntries = sortedEntries.filter(e => e.type === type);
-        const title = type === 'revenu' ? 'Budget des encaissements' : 'Budget des décaissements';
-        const Icon = type === 'revenu' ? HandCoins : TrendingDown;
-
-        return (
-            <div className="mb-8">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                    <Icon className={`w-5 h-5 ${type === 'revenu' ? 'text-green-500' : 'text-red-500'}`} />
-                    {title}
-                </h2>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="border-b text-left text-xs text-gray-500 uppercase">
-                                <th className="py-3 px-4 w-[15%]">Sous-catégorie</th>
-                                <th className="py-3 px-4 w-[15%]">Tiers</th>
-                                <th className="py-3 px-4 w-[10%]">Délai de paiement</th>
-                                <th className="py-3 px-4 w-[15%]">Description</th>
-                                <th className="py-3 px-4 w-[10%]">Détails</th>
-                                <th className="py-3 px-4 w-[5%]">Fréquence</th>
-                                <th className="py-3 px-4 w-[10%]">Période</th>
-                                <th className="py-3 px-4 text-right w-[10%]">Montant (Origine)</th>
-                                <th className="py-3 px-4 text-right w-[10%]">Montant ({projectCurrency})</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {sectionEntries.length > 0 ? (
-                                sectionEntries.map(entry => {
-                                    const tier = tiers.find(t => t.name === entry.supplier && t.type === (entry.type === 'revenu' ? 'client' : 'fournisseur'));
-                                    const subCat = (entry.type === 'depense') 
-                                        ? categories.expense.flatMap(mc => mc.subCategories).find(sc => sc.name === entry.category) 
-                                        : null;
-                                    const criticality = subCat?.criticality;
-                                    const critConfig = criticalityConfig[criticality];
-                                    return (
-                                        <tr key={entry.id} className="border-b hover:bg-gray-50">
-                                            <td className="py-3 px-4 font-medium">
-                                                <div className="flex items-center gap-2">
-                                                    {critConfig && <span className={`w-2 h-2 rounded-full ${critConfig.color}`} title={`Criticité: ${critConfig.label}`}></span>}
-                                                    <span className="text-gray-800">{entry.category}</span>
-                                                </div>
-                                            </td>
-                                            <td className="py-3 px-4 text-gray-600">{entry.supplier}</td>
-                                            <td className="py-3 px-4 text-gray-500 text-xs">{formatPaymentTerms(tier?.payment_terms)}</td>
-                                            <td className="py-3 px-4 text-gray-500 text-xs italic">{entry.description || '-'}</td>
-                                            <td className="py-3 px-4 text-gray-600">
-                                                {entry.isProvision && (
-                                                    <div className="flex items-center gap-2 text-xs text-indigo-700">
-                                                        <Lock className="w-4 h-4" />
-                                                        <span>
-                                                            Provision en {entry.payments?.length || 0} fois de {formatCurrency((entry.payments && entry.payments.length > 0) ? entry.payments[0].amount : 0, settings)}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="py-3 px-4 text-gray-600">{entry.frequency}</td>
-                                            <td className="py-3 px-4 text-gray-600">
-                                                {entry.frequency === 'ponctuel' 
-                                                    ? new Date(entry.date).toLocaleDateString('fr-FR')
-                                                    : `${entry.startDate ? new Date(entry.startDate).toLocaleDateString('fr-FR') : ''} - ${entry.endDate ? new Date(entry.endDate).toLocaleDateString('fr-FR') : '...'}`
-                                                }
-                                            </td>
-                                            <td className="py-3 px-4 text-right text-sm text-gray-500">
-                                                {entry.currency && entry.currency !== projectCurrency && entry.original_amount != null ? 
-                                                    formatCurrency(entry.original_amount, { ...settings, currency: entry.currency }) : 
-                                                    '-'
-                                                }
-                                            </td>
-                                            <td className="py-3 px-4 text-right font-medium text-gray-700">
-                                                {formatCurrency(entry.amount, { ...settings, currency: projectCurrency })}
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            ) : (
-                                <tr>
-                                    <td colSpan="9" className="py-10">
-                                        <EmptyState
-                                            icon={Briefcase}
-                                            title="Pas encore de budget"
-                                            message="Cette section est vide. Commencez à construire votre budget."
-                                        />
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        );
-    };
-    
-    return (
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-            {renderSection('revenu')}
-            {renderSection('depense')}
-        </div>
-    );
-};
-
-const BudgetStateView = ({ mode = 'lecture', setMode, searchTerm }) => {
+const BudgetStateView = ({ searchTerm }) => {
     const { dataState, dataDispatch } = useData();
     const { uiState, uiDispatch } = useUI();
-    const { projects, categories, settings, consolidatedViews, tiers } = dataState;
+    const { projects, categories, settings, tiers, session } = dataState;
     
     const { activeProject, budgetEntries, isConsolidated } = useActiveProjectData(dataState, uiState);
     
     const [isAddCategoryFlowModalOpen, setIsAddCategoryFlowModalOpen] = useState(false);
     const [addCategoryFlowType, setAddCategoryFlowType] = useState(null);
+    const [openDropdownId, setOpenDropdownId] = useState(null);
+    const dropdownRef = useRef(null);
+
+    const toggleDropdown = (mainCatId) => {
+        setOpenDropdownId(prevId => (prevId === mainCatId ? null : mainCatId));
+    };
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setOpenDropdownId(null);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
 
     const expandedEntries = useMemo(() => {
+        if (!budgetEntries) return [];
         return expandVatEntries(budgetEntries, categories);
     }, [budgetEntries, categories]);
 
@@ -149,188 +49,297 @@ const BudgetStateView = ({ mode = 'lecture', setMode, searchTerm }) => {
             return expandedEntries;
         }
         return expandedEntries.filter(entry => 
-            entry.supplier.toLowerCase().includes(searchTerm.toLowerCase())
+            entry.supplier?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            entry.category?.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }, [expandedEntries, searchTerm]);
 
     const handleAddEntry = (categoryName, mainCategoryType, mainCategoryId) => {
-        uiDispatch({ type: 'OPEN_BUDGET_MODAL', payload: { category: categoryName, type: mainCategoryType, mainCategoryId } });
+        const onSave = (entryData) => {
+            if (!activeProject) {
+                uiDispatch({ type: 'ADD_TOAST', payload: { message: 'Erreur: Le projet actif n\'est pas défini.', type: 'error' } });
+                return;
+            }
+            saveEntry({ dataDispatch, uiDispatch, dataState }, {
+                entryData,
+                editingEntry: null,
+                user: dataState.session?.user,
+                tiers: dataState.tiers,
+                cashAccounts: dataState.allCashAccounts?.[activeProject.id] || [],
+                exchangeRates: dataState.exchangeRates,
+                activeProjectId: activeProject.id
+            });
+        };
+        uiDispatch({ type: 'OPEN_BUDGET_DRAWER', payload: { 
+            entry: { category: categoryName, type: mainCategoryType, mainCategoryId }, 
+            onSave 
+        }});
     };
 
     const handleEditEntry = (entry) => {
+        if (!activeProject) {
+            uiDispatch({ type: 'ADD_TOAST', payload: { message: 'Erreur: Le projet actif n\'est pas défini.', type: 'error' } });
+            return;
+        }
         const originalEntryId = entry.is_vat_child ? entry.id.replace('_vat', '') : entry.id;
         const originalEntry = budgetEntries.find(e => e.id === originalEntryId);
-        if (originalEntry) {
-            uiDispatch({ type: 'OPEN_BUDGET_MODAL', payload: originalEntry });
-        }
+        if (!originalEntry) return;
+
+        const onSave = (entryData) => {
+            saveEntry({ dataDispatch, uiDispatch, dataState }, {
+                entryData,
+                editingEntry: originalEntry,
+                user: dataState.session?.user,
+                tiers: dataState.tiers,
+                cashAccounts: dataState.allCashAccounts?.[activeProject.id] || [],
+                exchangeRates: dataState.exchangeRates,
+                activeProjectId: activeProject.id
+            });
+        };
+        const onDelete = () => {
+            deleteEntry({ dataDispatch, uiDispatch }, { entryId: originalEntry.id, entryProjectId: activeProject.id });
+        };
+        uiDispatch({ type: 'OPEN_BUDGET_DRAWER', payload: { entry: originalEntry, onSave, onDelete } });
     };
 
     const handleDeleteEntry = (entry) => {
+        if (!activeProject) {
+            uiDispatch({ type: 'ADD_TOAST', payload: { message: 'Erreur: Le projet actif n\'est pas défini.', type: 'error' } });
+            return;
+        }
         const originalEntryId = entry.is_vat_child ? entry.id.replace('_vat', '') : entry.id;
         const originalEntry = budgetEntries.find(e => e.id === originalEntryId);
         if (originalEntry) {
-            deleteEntry({dataDispatch, uiDispatch}, { entryId: originalEntry.id, entryProjectId: originalEntry.projectId });
+            deleteEntry({dataDispatch, uiDispatch}, { entryId: originalEntry.id, entryProjectId: activeProject.id });
         }
     };
 
     const handleCategorySelectedForNewEntry = (mainCategoryId) => {
         setIsAddCategoryFlowModalOpen(false);
-        uiDispatch({ type: 'OPEN_BUDGET_MODAL', payload: { type: addCategoryFlowType, mainCategoryId } });
+        const onSave = (entryData) => {
+            if (!activeProject) {
+                uiDispatch({ type: 'ADD_TOAST', payload: { message: 'Erreur: Le projet actif n\'est pas défini.', type: 'error' } });
+                return;
+            }
+            saveEntry({ dataDispatch, uiDispatch, dataState }, {
+                entryData,
+                editingEntry: null,
+                user: dataState.session?.user,
+                tiers: dataState.tiers,
+                cashAccounts: dataState.allCashAccounts?.[activeProject.id] || [],
+                exchangeRates: dataState.exchangeRates,
+                activeProjectId: activeProject.id
+            });
+        };
+        uiDispatch({ type: 'OPEN_BUDGET_DRAWER', payload: { 
+            entry: { type: addCategoryFlowType, mainCategoryId }, 
+            onSave 
+        }});
     };
+
+    const handleOpenDetailDrawer = (entry) => {
+        if (!activeProject) return;
+        const originalEntryId = entry.is_vat_child ? entry.id.replace('_vat', '') : entry.id;
+        const originalEntry = budgetEntries.find(e => e.id === originalEntryId);
+        if (originalEntry) {
+            uiDispatch({ type: 'OPEN_BUDGET_ENTRY_DETAIL_DRAWER', payload: { ...originalEntry, projectId: activeProject.id } });
+        }
+    };
+    
+    const handleCriticalityChange = (subCategoryId, newCriticality, type, parentId) => {
+        updateSubCategoryCriticality({ dataDispatch, uiDispatch }, { subCategoryId, newCriticality, type, parentId });
+    };
+
+    // Vérification du chargement
+    if (!dataState || !categories) {
+        return (
+            <div className="flex justify-center items-center p-12">
+                <Loader className="w-8 h-8 animate-spin text-blue-500" />
+                <span className="ml-2 text-gray-600">Chargement des données...</span>
+            </div>
+        );
+    }
+
+    if (isConsolidated) {
+        return <div className="text-center p-8 text-gray-500">L'état des lieux est disponible uniquement pour les projets individuels.</div>;
+    }
+
+    if (activeProject) {
+        return (
+            <div className="flex justify-center items-center p-12">
+                <Loader className="w-8 h-8 animate-spin text-blue-500" />
+                <span className="ml-2 text-gray-600">Chargement du projet...</span>
+            </div>
+        );
+    }
+
+    if (!budgetEntries) {
+        return (
+            <div className="flex justify-center items-center p-12">
+                <Loader className="w-8 h-8 animate-spin text-blue-500" />
+                <span className="ml-2 text-gray-600">Chargement des écritures budgétaires...</span>
+            </div>
+        );
+    }
 
     const renderSection = (type) => {
         const isRevenue = type === 'revenu';
-        const title = isRevenue ? 'Budget des encaissements' : 'Budget des décaissements';
+        const title = isRevenue ? 'Entrées' : 'Sorties';
         const Icon = isRevenue ? HandCoins : TrendingDown;
         const mainCategories = isRevenue ? categories.revenue : categories.expense;
 
+        // Vérification que les catégories existent
+        if (!mainCategories || !Array.isArray(mainCategories)) {
+            return null;
+        }
+
         const sectionEntries = filteredBudgetEntries.filter(e => e.type === type);
-        const totalAmount = sectionEntries.reduce((sum, e) => sum + e.amount, 0);
         
         const projectCurrency = activeProject?.currency || settings.currency;
         const currencySettingsForProject = { ...settings, currency: projectCurrency };
 
         return (
-            <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+            <div className="mb-8">
+                <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
                     <Icon className={`w-5 h-5 ${isRevenue ? 'text-green-500' : 'text-red-500'}`} />
                     {title}
                 </h2>
                 
-                <table className="w-full text-sm">
-                    <thead>
-                        <tr className="border-b text-left text-xs text-gray-500 uppercase">
-                            <th className="py-3 px-4 w-[15%]">Sous-catégorie</th>
-                            <th className="py-3 px-4 w-[15%]">Description</th>
-                            <th className="py-3 px-4 w-[15%]">Tiers</th>
-                            <th className="py-3 px-4 w-[15%]">Détails</th>
-                            <th className="py-3 px-4 w-[10%]">Fréquence</th>
-                            <th className="py-3 px-4 w-[8%]">Début</th>
-                            <th className="py-3 px-4 w-[8%]">Fin</th>
-                            <th className="py-3 px-4 text-right w-[9%]">Montant (Origine)</th>
-                            <th className="py-3 px-4 text-right w-[9%]">Montant ({projectCurrency})</th>
-                            <th className="py-3 px-4 text-right w-12">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {mainCategories.map(mainCat => {
-                            const entriesForMainCat = sectionEntries.filter(entry => 
-                                mainCat.subCategories.some(sc => sc && sc.name === entry.category) || (entry.is_vat_child && (entry.category === 'TVA collectée' || entry.category === 'TVA déductible') && mainCat.name === 'IMPÔTS & CONTRIBUTIONS')
-                            );
-                            if (entriesForMainCat.length === 0) return null;
+                <div className="space-y-1">
+                    {mainCategories.map(mainCat => {
+                        if (!mainCat || !mainCat.subCategories) return null;
+                        
+                        const entriesForMainCat = sectionEntries.filter(entry => 
+                            mainCat.subCategories.some(sc => sc && sc.name === entry.category) || (entry.is_vat_child && (entry.category === 'TVA collectée' || entry.category === 'TVA déductible') && mainCat.name === 'IMPÔTS & CONTRIBUTIONS')
+                        );
+                        if (entriesForMainCat.length === 0) return null;
 
-                            const mainCatTotal = entriesForMainCat.reduce((sum, e) => sum + e.amount, 0);
-                            const percentage = totalAmount > 0 ? (mainCatTotal / totalAmount) * 100 : 0;
-
-                            return (
-                                <React.Fragment key={mainCat.id}>
-                                    <tr className="bg-gray-100 font-semibold">
-                                        <td className="py-3 px-4" colSpan="8">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <Folder className="w-4 h-4 text-gray-600" />
-                                                    {mainCat.name}
+                        return (
+                            <div key={mainCat.id} className="py-2">
+                                <div className="flex items-center bg-gray-100 rounded-md p-2">
+                                    <div className="relative" ref={openDropdownId === mainCat.id ? dropdownRef : null}>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); toggleDropdown(mainCat.id); }}
+                                            className="flex items-center justify-center w-6 h-6 rounded bg-gray-300 hover:bg-blue-200 text-gray-600 hover:text-blue-700 transition-colors"
+                                            title="Ajouter une écriture"
+                                        >
+                                            <Plus size={16} />
+                                        </button>
+                                        <AnimatePresence>
+                                            {openDropdownId === mainCat.id && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                    exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                                    className="absolute left-0 top-full mt-2 w-64 bg-white rounded-lg shadow-lg border z-20"
+                                                >
+                                                    <ul className="p-1 max-h-60 overflow-y-auto">
+                                                        {mainCat.subCategories.filter(sc => sc && !sc.isFixed).map(sc => (
+                                                            <li key={sc.id}>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        handleAddEntry(sc.name, type, mainCat.id);
+                                                                        setOpenDropdownId(null);
+                                                                    }}
+                                                                    className="w-full text-left px-3 py-1.5 text-sm rounded-md text-gray-700 hover:bg-gray-100"
+                                                                >
+                                                                    {sc.name}
+                                                                </button>
+                                                            </li>
+                                                        ))}
+                                                        {mainCat.subCategories.filter(sc => sc && !sc.isFixed).length > 0 && <hr className="my-1" />}
+                                                        <li>
+                                                            <button
+                                                                onClick={() => {
+                                                                    handleAddEntry(null, type, mainCat.id);
+                                                                    setOpenDropdownId(null);
+                                                                }}
+                                                                className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm rounded-md font-semibold text-blue-600 hover:bg-blue-50"
+                                                            >
+                                                                <Plus size={14} />
+                                                                Nouvelle sous-catégorie
+                                                            </button>
+                                                        </li>
+                                                    </ul>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
+                                    <span className="font-bold text-gray-700 ml-3">{mainCat.name}</span>
+                                </div>
+                                
+                                <div className="pl-0 sm:pl-8 mt-1">
+                                    <div className="hidden sm:flex items-center border-b text-xs text-gray-500 font-medium px-2 py-2">
+                                        <div className="w-[25%] pr-4">Catégorie</div>
+                                        <div className="w-[20%] pr-4">Tiers</div>
+                                        <div className="w-[15%] pr-4">Fréquence</div>
+                                        <div className="w-[15%] pr-4">Date</div>
+                                        <div className="w-[20%] text-right pr-4">Montant</div>
+                                        <div className="w-[5%]"></div>
+                                    </div>
+                                    {entriesForMainCat.map(entry => {
+                                        const subCat = mainCat.subCategories.find(sc => sc && sc.name === entry.category);
+                                        const criticality = subCat?.criticality;
+                                        return (
+                                            <div key={entry.id} onClick={() => handleOpenDetailDrawer(entry)} className="border-b hover:bg-gray-50 group cursor-pointer">
+                                                {/* Mobile View */}
+                                                <div className="sm:hidden p-3">
+                                                    <div className="flex justify-between items-start">
+                                                        <span className="font-semibold text-gray-800 truncate pr-4">{entry.supplier}</span>
+                                                        <span className={`font-bold text-gray-800 whitespace-nowrap ${entry.type === 'revenu' ? 'text-green-600' : 'text-red-600'}`}>
+                                                            {formatCurrency(entry.original_amount ?? entry.amount, { ...settings, currency: entry.currency || projectCurrency })}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center mt-1 text-xs text-gray-500">
+                                                        <span>{entry.frequency}</span>
+                                                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <button onClick={(e) => { e.stopPropagation(); handleEditEntry(entry); }} className="p-1 text-blue-500 hover:text-blue-700" title="Modifier"><Edit size={14} /></button>
+                                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteEntry(entry); }} className="p-1 text-red-500 hover:text-red-700" title="Supprimer"><Trash2 size={14} /></button>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center gap-2 flex-wrap justify-end">
-                                                    {mainCat.subCategories.filter(sc => !sc.isFixed).map(sc => (
-                                                        <button key={sc.id} onClick={(e) => { e.stopPropagation(); handleAddEntry(sc.name, type, mainCat.id); }} className="flex items-center gap-1 px-2 py-1 bg-gray-200 rounded-full hover:bg-gray-300 text-xs font-normal">
-                                                            <Plus size={12} /> {sc.name}
-                                                        </button>
-                                                    ))}
-                                                    <button onClick={(e) => { e.stopPropagation(); handleAddEntry(null, type, mainCat.id); }} className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200 font-semibold text-xs">
-                                                        <Plus size={12} /> Nouvelle sous-catégorie
-                                                    </button>
+
+                                                {/* Desktop View */}
+                                                <div className="hidden sm:flex items-center py-3 px-2">
+                                                    <div className="w-[25%] flex items-center gap-2 pr-4">
+                                                        {criticality && entry.type === 'depense' && <CriticalityPicker value={criticality} onSelect={(newCrit) => handleCriticalityChange(subCat.id, newCrit, 'expense', mainCat.id)} />}
+                                                        <span className="text-gray-600 truncate">{entry.category}</span>
+                                                    </div>
+                                                    <div className="w-[20%] text-gray-600 truncate pr-4">{entry.supplier}</div>
+                                                    <div className="w-[15%] text-gray-600 truncate pr-4">{entry.frequency}</div>
+                                                    <div className="w-[15%] text-gray-600 truncate pr-4">{entry.startDate ? new Date(entry.startDate).toLocaleDateString('fr-FR') : (entry.date ? new Date(entry.date).toLocaleDateString('fr-FR') : '-')}</div>
+                                                    <div className="w-[20%] text-right text-gray-700 font-medium pr-4">
+                                                        {formatCurrency(entry.original_amount ?? entry.amount, { ...settings, currency: entry.currency || projectCurrency })}
+                                                    </div>
+                                                    <div className="w-[5%] flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button onClick={(e) => { e.stopPropagation(); handleEditEntry(entry); }} className="p-1 text-blue-500 hover:text-blue-700" title="Modifier"><Edit size={14} /></button>
+                                                        <button onClick={(e) => { e.stopPropagation(); handleDeleteEntry(entry); }} className="p-1 text-red-500 hover:text-red-700" title="Supprimer"><Trash2 size={14} /></button>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </td>
-                                        <td className="py-3 px-4 text-right">
-                                            {formatCurrency(mainCatTotal, currencySettingsForProject)}
-                                            {totalAmount > 0 && mainCatTotal > 0 && (
-                                                <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800">{percentage.toFixed(1)}%</span>
-                                            )}
-                                        </td>
-                                        <td></td>
-                                    </tr>
-                                    {entriesForMainCat.map(entry => {
-                                        const subCat = mainCat.subCategories.find(sc => sc.name === entry.category);
-                                        const criticality = subCat?.criticality;
-                                        const critConfig = criticalityConfig[criticality];
-                                        return (
-                                            <tr key={entry.id} className={`border-b hover:bg-gray-50 group ${entry.is_vat_child ? 'bg-gray-50/50' : ''}`}>
-                                                <td className="py-3 px-4 font-medium">
-                                                    <div className="flex items-center gap-2">
-                                                        {critConfig && entry.type === 'depense' && <span className={`w-2 h-2 rounded-full ${critConfig.color}`} title={`Criticité: ${critConfig.label}`}></span>}
-                                                        <span className="text-gray-600">{entry.category}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="py-3 px-4 text-gray-500 text-xs italic">{entry.description || '-'}</td>
-                                                <td className="py-3 px-4 text-gray-600">{entry.supplier}</td>
-                                                <td className="py-3 px-4 text-gray-600">
-                                                    {entry.isProvision && (
-                                                        <div className="flex items-center gap-2 text-xs text-indigo-700">
-                                                            <Lock className="w-4 h-4" />
-                                                            <span>
-                                                                Provision en {entry.payments?.length || 0} fois de {formatCurrency((entry.payments && entry.payments.length > 0) ? entry.payments[0].amount : 0, settings)}
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td className="py-3 px-4 text-gray-600">{entry.frequency}</td>
-                                                <td className="py-3 px-4 text-gray-600">{entry.startDate ? new Date(entry.startDate).toLocaleDateString('fr-FR') : (entry.date ? new Date(entry.date).toLocaleDateString('fr-FR') : '-')}</td>
-                                                <td className="py-3 px-4 text-gray-600">{entry.endDate ? new Date(entry.endDate).toLocaleDateString('fr-FR') : 'Indéterminée'}</td>
-                                                <td className="py-3 px-4 text-right text-sm text-gray-500">
-                                                    {entry.currency && entry.currency !== projectCurrency && entry.original_amount != null ? 
-                                                        formatCurrency(entry.original_amount, { ...settings, currency: entry.currency }) : 
-                                                        '-'
-                                                    }
-                                                </td>
-                                                <td className="py-3 px-4 text-right font-medium text-gray-700">
-                                                    {formatCurrency(entry.amount, currencySettingsForProject)}
-                                                </td>
-                                                <td className="py-3 px-4 text-right">
-                                                    <div className="flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button onClick={() => handleEditEntry(entry)} className="p-1 text-blue-500 hover:text-blue-700" title="Modifier">
-                                                            <Edit size={14} />
-                                                        </button>
-                                                        <button onClick={() => handleDeleteEntry(entry)} className="p-1 text-red-500 hover:text-red-700" title="Supprimer">
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
                                         );
                                     })}
-                                </React.Fragment>
-                            );
-                        })}
-                        <tr className="border-b">
-                            <td colSpan="11" className="py-4 px-4 text-center">
-                                <button onClick={() => { setAddCategoryFlowType(type); setIsAddCategoryFlowModalOpen(true); }} className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 font-medium mx-auto">
-                                    <Plus size={16} /> Ajouter une écriture dans une autre catégorie
-                                </button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                                </div>
+                            </div>
+                        );
+                    })}
+                    <div className="text-center mt-4">
+                        <button onClick={() => { setAddCategoryFlowType(type); setIsAddCategoryFlowModalOpen(true); }} className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 font-normal mx-auto">
+                            <Plus size={16} /> Ajouter une écriture dans une autre catégorie
+                        </button>
+                    </div>
+                </div>
             </div>
         );
     };
-
-    if (isConsolidated) {
-        return <div className="text-center p-8 text-gray-500">L'état des lieux est disponible uniquement pour les projets individuels.</div>;
-    }
     
-    if (mode === 'lecture') {
-        return <LectureView entries={filteredBudgetEntries} settings={settings} tiers={tiers} setMode={setMode} categories={categories} activeProject={activeProject} />;
-    }
-
     return (
         <div>
             {searchTerm && filteredBudgetEntries.length === 0 ? (
                 <EmptyState 
                     icon={Search} 
                     title="Aucun résultat" 
-                    message={`Aucune entrée trouvée pour le tiers "${searchTerm}".`} 
+                    message={`Aucune entrée trouvée pour "${searchTerm}".`} 
                 />
             ) : (
                 <>

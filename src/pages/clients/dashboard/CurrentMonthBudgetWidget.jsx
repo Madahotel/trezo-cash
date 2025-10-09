@@ -29,7 +29,7 @@ const CurrentMonthBudgetWidget = ({
   const monthName = new Date().toLocaleString("fr-FR", { month: "long" });
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-sm border">
+    <div className="bg-white p-6 rounded-lg shadow-md">
       <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
         <BarChart2 className="w-5 h-5 text-blue-600" />
         Budget de {monthName.charAt(0).toUpperCase() + monthName.slice(1)}

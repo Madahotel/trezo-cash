@@ -25,10 +25,10 @@ const ResizableTh = ({ children, width, onResize, id, className, style }) => {
   return (
     <th
       ref={thRef}
-      className={`px-4 py-3 text-left font-semibold text-gray-900 bg-gray-100 border-b-2 border-r border-gray-200 relative ${className}`}
+      className={`px-4 py-3 text-left font-semibold text-gray-900 bg-gray-100 border-b-2 border-r border-gray-200 ${className}`}
       style={{ ...style, width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
     >
-      <div className="flex justify-between items-center h-full">
+      <div className="relative flex justify-between items-center h-full">
         <div className="flex-grow truncate">{children}</div>
         <div
           onMouseDown={handleMouseDown}
