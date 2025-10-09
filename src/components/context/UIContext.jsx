@@ -153,6 +153,13 @@ const uiReducer = (state, action) => {
             return { ...state, isNavDrawerOpen: true };
         case 'CLOSE_NAV_DRAWER':
             return { ...state, isNavDrawerOpen: false };
+
+        case 'OPEN_CUSTOMIZATION_DRAWER':
+        return {
+            ...state,
+            isCustomizationDrawerOpen: true,
+            customizationDrawerType: action.payload
+        };
         
         default:
             return state;
