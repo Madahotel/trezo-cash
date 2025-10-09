@@ -1,0 +1,39 @@
+{
+  "data": [
+    {
+      "id": "personal-basic",
+      "user_id": 1,
+      "name": "Budget Personnel Basique",
+      "type": "personal",
+      "structure": {
+        "cashAccounts": [
+          {
+            "mainCategoryId": "bank",
+            "name": "Compte Courant",
+            "initialBalance": 0
+          }
+        ],
+        "entries": [
+          {
+            "type": "revenu",
+            "category": "rev-main-1.sal-salaire",
+            "frequency": "mensuel",
+            "amount": 2000,
+            "supplier": "Employeur",
+            "description": "Salaire mensuel"
+          },
+          {
+            "type": "depense",
+            "category": "exp-main-1.log-loyer",
+            "frequency": "mensuel",
+            "amount": 700,
+            "supplier": "Propriétaire",
+            "description": "Loyer"
+          }
+        ]
+      },
+      "created_at": "2024-01-01T10:00:00Z",
+      "updated_at": "2024-01-01T10:00:00Z"
+    }
+  ]
+}

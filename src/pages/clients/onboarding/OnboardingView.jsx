@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from "react-router-dom";
 import { useData } from '../../../components/context/DataContext';
 import { useUI } from '../../../components/context/UIContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,38 +18,13 @@ const OnboardingProgress = ({ current, total }) => (
 );
 
 const OnboardingView = () => {
+  const navigate = useNavigate();
   const { dataState, dataDispatch } = useData();
   const { uiDispatch } = useUI();
   const { projects, session, tiers, templates: userAndCommunityTemplates } = dataState;
 
-  // Vérification que session et session.user existent AVANT les hooks
+  // Hooks toujours au top
   const currentUser = session?.user;
-  
-  // Si pas d'utilisateur connecté, afficher un message d'erreur
-  // Cette vérification doit être APRÈS tous les hooks
-  if (!session || !currentUser) {
-    return (
-      <div className="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-xl text-center">
-          <TrezocashLogo className="w-24 h-24 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-800 mb-4">Erreur de session</h1>
-          <p className="text-gray-600 mb-6">Vous devez être connecté pour créer un projet.</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-          >
-            Recharger la page
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // MAINTENANT on peut utiliser tous les hooks
-  const hasExistingProjects = useMemo(() => {
-    if (!projects) return false;
-    return projects.filter(p => !p.isArchived).length > 0;
-  }, [projects]);
 
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
@@ -61,9 +37,47 @@ const OnboardingView = () => {
     templateId: 'blank',
     startOption: 'blank',
   });
-
   const [activeTab, setActiveTab] = useState('official');
   const [searchTerm, setSearchTerm] = useState('');
+
+  const hasExistingProjects = useMemo(() => {
+    if (!projects) return false;
+    return projects.filter(p => !p.isArchived).length > 0;
+  }, [projects]);
+
+  const allOfficialTemplates = useMemo(() => {
+    const blankTemplate = {
+      id: 'blank',
+      name: 'Projet Vierge',
+      description: 'Commencez avec une structure de base sans aucune donnée pré-remplie.',
+      icon: 'FilePlus',
+      color: 'gray',
+    };
+    return [blankTemplate, ...officialTemplates.personal, ...officialTemplates.professional];
+  }, []);
+
+  const communityTemplates = useMemo(() => {
+    if (!userAndCommunityTemplates) return [];
+    return userAndCommunityTemplates.filter(t => t.isPublic);
+  }, [userAndCommunityTemplates]);
+
+  const myTemplates = useMemo(() => {
+    if (!userAndCommunityTemplates || !currentUser) return [];
+    return userAndCommunityTemplates.filter(t => t.userId === currentUser.id);
+  }, [userAndCommunityTemplates, currentUser]);
+
+  const filteredTemplates = useMemo(() => {
+    let currentList = [];
+    if (activeTab === 'official') currentList = allOfficialTemplates;
+    else if (activeTab === 'community') currentList = communityTemplates;
+    else currentList = myTemplates;
+
+    if (!searchTerm) return currentList;
+    return currentList.filter(t =>
+      t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      t.description.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [activeTab, searchTerm, allOfficialTemplates, communityTemplates, myTemplates]);
 
   const steps = [
     { id: 'details', title: 'Détails de votre projet' },
@@ -73,12 +87,18 @@ const OnboardingView = () => {
   ];
   const currentStepInfo = steps[step];
 
+  const variants = {
+    enter: (direction) => ({ x: direction > 0 ? 100 : -100, opacity: 0 }),
+    center: { zIndex: 1, x: 0, opacity: 1 },
+    exit: (direction) => ({ zIndex: 0, x: direction < 0 ? 100 : -100, opacity: 0 }),
+  };
+
   const handleNext = () => {
     if (step === 0 && !data.projectName.trim()) {
       uiDispatch({ type: 'ADD_TOAST', payload: { message: "Le nom du projet est obligatoire.", type: 'error' } });
       return;
     }
-    
+
     if (step === 1 && data.templateId === 'blank') {
       setData(prev => ({ ...prev, startOption: 'blank' }));
       setDirection(1);
@@ -94,75 +114,55 @@ const OnboardingView = () => {
 
   const handleBack = () => {
     if (step === 3 && data.templateId === 'blank') {
-        setDirection(-1);
-        setStep(1); // Go back to template selection
-        return;
+      setDirection(-1);
+      setStep(1); // Go back to template selection
+      return;
     }
     if (step > 0) {
       setDirection(-1);
       setStep(step - 1);
     }
   };
-  
+
   const handleCancel = () => uiDispatch({ type: 'CANCEL_ONBOARDING' });
 
   const handleFinish = async () => {
     setIsLoading(true);
     try {
-      await initializeProject({ 
-        dataDispatch, 
-        uiDispatch 
-      }, 
-      data, 
-      currentUser, // Utiliser currentUser au lieu de session.user
-      tiers, 
-      userAndCommunityTemplates
+      await initializeProject(
+        { dataDispatch, uiDispatch },
+        data,
+        currentUser,
+        tiers,
+        userAndCommunityTemplates
       );
+      navigate("/client/dashboard"); // Navigation automatique
     } catch (error) {
+      console.error(error);
       setIsLoading(false);
     }
   };
 
-  const allOfficialTemplates = useMemo(() => {
-    const blankTemplate = {
-        id: 'blank',
-        name: 'Projet Vierge',
-        description: 'Commencez avec une structure de base sans aucune donnée pré-remplie.',
-        icon: 'FilePlus',
-        color: 'gray',
-    };
-    return [blankTemplate, ...officialTemplates.personal, ...officialTemplates.professional];
-  }, []);
-
-  const communityTemplates = useMemo(() => {
-    if (!userAndCommunityTemplates) return [];
-    return userAndCommunityTemplates.filter(t => t.isPublic);
-  }, [userAndCommunityTemplates]);
-
-  const myTemplates = useMemo(() => {
-    if (!userAndCommunityTemplates) return [];
-    return userAndCommunityTemplates.filter(t => t.userId === currentUser.id);
-  }, [userAndCommunityTemplates, currentUser.id]);
-
-  const filteredTemplates = useMemo(() => {
-    let currentList = [];
-    if (activeTab === 'official') currentList = allOfficialTemplates;
-    else if (activeTab === 'community') currentList = communityTemplates;
-    else currentList = myTemplates;
-
-    if (!searchTerm) return currentList;
-    return currentList.filter(t => 
-      t.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      t.description.toLowerCase().includes(searchTerm.toLowerCase())
+  // ✅ Early return pour session après tous les hooks
+  if (!session || !currentUser) {
+    return (
+      <div className="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
+        <div className="bg-white p-8 rounded-2xl shadow-xl text-center">
+          <TrezocashLogo className="w-24 h-24 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-800 mb-4">Erreur de session</h1>
+          <p className="text-gray-600 mb-6">Vous devez être connecté pour créer un projet.</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+          >
+            Recharger la page
+          </button>
+        </div>
+      </div>
     );
-  }, [activeTab, searchTerm, allOfficialTemplates, communityTemplates, myTemplates]);
+  }
 
-  const variants = {
-    enter: (direction) => ({ x: direction > 0 ? 100 : -100, opacity: 0 }),
-    center: { zIndex: 1, x: 0, opacity: 1 },
-    exit: (direction) => ({ zIndex: 0, x: direction < 0 ? 100 : -100, opacity: 0 }),
-  };
-
+  // Render dynamique des steps
   const renderStepContent = () => {
     switch (currentStepInfo.id) {
       case 'details':
@@ -172,16 +172,16 @@ const OnboardingView = () => {
             <div className="space-y-6 max-w-md mx-auto">
               <div>
                 <label className="block text-sm font-medium text-gray-700 text-left mb-1">Nom du projet *</label>
-                <input type="text" value={data.projectName} onChange={(e) => setData(prev => ({ ...prev, projectName: e.target.value }))} placeholder="Ex: Mon Budget 2025" className="w-full text-lg p-2 border-b-2 focus:border-blue-500 outline-none transition bg-transparent" autoFocus required />
+                <input type="text" value={data.projectName} onChange={(e) => setData(prev => ({ ...prev, projectName: e.target.value }))} placeholder="Ex: Mon Budget 2025" className="w-full text-lg p-2 border-b-2 focus:border-blue-500 outline-none transition bg-transparent text-gray-700" autoFocus required />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 text-left mb-1">Date de début</label>
-                    <input type="date" value={data.projectStartDate} onChange={(e) => setData(prev => ({ ...prev, projectStartDate: e.target.value }))} className="w-full text-lg p-2 border-b-2 focus:border-blue-500 outline-none transition bg-transparent" />
+                  <label className="block text-sm font-medium text-gray-700 text-left mb-1">Date de début</label>
+                  <input type="date" value={data.projectStartDate} onChange={(e) => setData(prev => ({ ...prev, projectStartDate: e.target.value }))} className="w-full text-lg p-2 border-b-2 focus:border-blue-500 outline-none transition bg-transparent text-gray-700" />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 text-left mb-1">Date de fin</label>
-                    <input type="date" value={data.projectEndDate} onChange={(e) => setData(prev => ({ ...prev, projectEndDate: e.target.value }))} className="w-full text-lg p-2 border-b-2 focus:border-blue-500 outline-none transition bg-transparent disabled:bg-gray-100" disabled={data.isEndDateIndefinite} min={data.projectStartDate} />
+                  <label className="block text-sm font-medium text-gray-700 text-left mb-1">Date de fin</label>
+                  <input type="date" value={data.projectEndDate} onChange={(e) => setData(prev => ({ ...prev, projectEndDate: e.target.value }))} className="w-full text-lg p-2 border-b-2 focus:border-blue-500 outline-none transition bg-transparent disabled:bg-gray-100 text-gray-700" disabled={data.isEndDateIndefinite} min={data.projectStartDate} />
                 </div>
               </div>
               <div className="flex items-center justify-end">
@@ -196,7 +196,7 @@ const OnboardingView = () => {
           <div className="text-center">
             <h2 className="text-2xl font-bold text-gray-800 mb-2">{currentStepInfo.title}</h2>
             <p className="text-gray-600 mb-6">Commencez avec un projet vierge ou choisissez un modèle pour démarrer plus rapidement.</p>
-            
+
             <div className="flex justify-center border-b mb-6">
               <button onClick={() => setActiveTab('official')} className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 ${activeTab === 'official' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}><Star className="w-4 h-4"/>Modèles Officiels</button>
               <button onClick={() => setActiveTab('community')} className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 ${activeTab === 'community' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}><Users className="w-4 h-4"/>Communauté</button>
@@ -205,7 +205,7 @@ const OnboardingView = () => {
 
             <div className="relative max-w-md mx-auto mb-6">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input type="text" placeholder="Rechercher un modèle..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border rounded-full" />
+              <input type="text" placeholder="Rechercher un modèle..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border rounded-full text-gray-700" />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 max-h-[300px] overflow-y-auto p-2">
