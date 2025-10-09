@@ -1,0 +1,90 @@
+{
+  "data": [
+    {
+      "id": "rev-main-1",
+      "user_id": 1,
+      "name": "Salaires",
+      "type": "revenu",
+      "is_fixed": true,
+      "sub_categories": [
+        {
+          "id": "sal-salaire",
+          "name": "Salaire principal",
+          "is_fixed": true,
+          "criticality": "essential"
+        },
+        {
+          "id": "sal-prime",
+          "name": "Primes",
+          "is_fixed": false,
+          "criticality": "non_essential"
+        }
+      ],
+      "created_at": "2024-01-01T10:00:00Z",
+      "updated_at": "2024-01-01T10:00:00Z"
+    },
+    {
+      "id": "rev-main-2",
+      "user_id": 1,
+      "name": "Freelance",
+      "type": "revenu",
+      "is_fixed": false,
+      "sub_categories": [
+        {
+          "id": "fre-freelance",
+          "name": "Prestations freelance",
+          "is_fixed": false,
+          "criticality": "essential"
+        }
+      ],
+      "created_at": "2024-01-01T10:00:00Z",
+      "updated_at": "2024-01-01T10:00:00Z"
+    },
+    {
+      "id": "exp-main-1",
+      "user_id": 1,
+      "name": "Logement",
+      "type": "depense",
+      "is_fixed": true,
+      "sub_categories": [
+        {
+          "id": "log-loyer",
+          "name": "Loyer ou crédit",
+          "is_fixed": true,
+          "criticality": "essential"
+        },
+        {
+          "id": "log-charge",
+          "name": "Charges",
+          "is_fixed": true,
+          "criticality": "essential"
+        }
+      ],
+      "created_at": "2024-01-01T10:00:00Z",
+      "updated_at": "2024-01-01T10:00:00Z"
+    },
+    {
+      "id": "exp-main-2",
+      "user_id": 1,
+      "name": "Alimentation",
+      "type": "depense",
+      "is_fixed": false,
+      "sub_categories": [
+        {
+          "id": "ali-course",
+          "name": "Courses alimentaires",
+          "is_fixed": false,
+          "criticality": "essential"
+        },
+        {
+          "id": "ali-resto",
+          "name": "Restaurants",
+          "is_fixed": false,
+          "criticality": "non_essential"
+        }
+      ],
+      "created_at": "2024-01-01T10:00:00Z",
+      "updated_at": "2024-01-01T10:00:00Z"
+    }
+  ]
+}

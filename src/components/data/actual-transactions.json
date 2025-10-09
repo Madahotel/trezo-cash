@@ -1,0 +1,69 @@
+{
+  "data": [
+    {
+      "id": 1,
+      "budget_id": 1,
+      "project_id": 1,
+      "user_id": 1,
+      "type": "receivable",
+      "category": "rev-main-1.sal-salaire",
+      "third_party": "Mon Employeur",
+      "description": "Salaire janvier 2024",
+      "date": "2024-01-31",
+      "amount": 2500.00,
+      "status": "received",
+      "is_off_budget": false,
+      "payments": [
+        {
+          "id": 1,
+          "date": "2024-01-31",
+          "paid_amount": 2500.00,
+          "is_final_payment": true
+        }
+      ],
+      "created_at": "2024-01-01T10:00:00Z",
+      "updated_at": "2024-01-31T10:00:00Z"
+    },
+    {
+      "id": 2,
+      "budget_id": 2,
+      "project_id": 1,
+      "user_id": 1,
+      "type": "payable",
+      "category": "exp-main-1.log-loyer",
+      "third_party": "Propriétaire",
+      "description": "Loyer janvier 2024",
+      "date": "2024-01-05",
+      "amount": 800.00,
+      "status": "paid",
+      "is_off_budget": false,
+      "payments": [
+        {
+          "id": 2,
+          "date": "2024-01-05",
+          "paid_amount": 800.00,
+          "is_final_payment": true
+        }
+      ],
+      "created_at": "2024-01-01T10:00:00Z",
+      "updated_at": "2024-01-05T10:00:00Z"
+    },
+    {
+      "id": 3,
+      "budget_id": 3,
+      "project_id": 2,
+      "user_id": 1,
+      "type": "receivable",
+      "category": "rev-main-2.fre-freelance",
+      "third_party": "Client A",
+      "description": "Facture Projet Dev Web",
+      "date": "2024-02-01",
+      "amount": 1500.00,
+      "status": "pending",
+      "is_off_budget": false,
+      "payments": [],
+      "created_at": "2024-01-15T10:00:00Z",
+      "updated_at": "2024-01-15T10:00:00Z"
+    }
+  ]
+}
