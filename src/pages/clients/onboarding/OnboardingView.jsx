@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useData } from '../../../components/context/DataContext';
 import { useUI } from '../../../components/context/UIContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, ArrowLeft, Sparkles, Loader, Search, Star, Users, LayoutTemplate, FilePlus } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Sparkles, Loader, Search, Star, Users, LayoutTemplate, FilePlus, DollarSign } from 'lucide-react';
 import TrezocashLogo from '../../../components/logo/TrezocashLogo';
 import { initializeProject } from '../../../components/context/actions';
 import { templates as officialTemplates } from '../../../utils/templates';
@@ -148,7 +148,7 @@ const OnboardingView = () => {
     return (
       <div className="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
         <div className="bg-white p-8 rounded-2xl shadow-xl text-center">
-          <TrezocashLogo className="w-24 h-24 mx-auto mb-4" />
+          <DollarSign className="w-24 h-24 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-800 mb-4">Erreur de session</h1>
           <p className="text-gray-600 mb-6">Vous devez être connecté pour créer un projet.</p>
           <button
@@ -257,8 +257,21 @@ const OnboardingView = () => {
   return (
     <div className="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4 antialiased">
       <div className="flex flex-col items-center mb-6">
-        <TrezocashLogo className="w-24 h-24" />
-        <h1 className="mt-4 text-5xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-500" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.2)' }}>Trezocash</h1>
+        {/* Icône avec dégradé bleu */}
+        <div className="w-12 h-12 bg-gradient-to-r from-blue-400 to-blue-700 text-white rounded-full flex items-center justify-center">
+          <DollarSign className="w-6 h-6" />
+        </div>
+
+
+        {/* Texte avec dégradé bleu */}
+        <div className="flex items-center gap-2 mt-4">
+          <h1 
+            className="text-5xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500"
+            style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.2)' }}
+          >
+            Trezocash
+          </h1>
+        </div>
       </div>
       <div className="w-full max-w-4xl mx-auto bg-white rounded-2xl shadow-xl flex flex-col" style={{ minHeight: '600px' }}>
         <div className="p-8 border-b">

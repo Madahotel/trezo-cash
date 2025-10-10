@@ -7,7 +7,8 @@ import {
     LayoutDashboard, ListChecks, Table, AreaChart, Calendar, Layers, PieChart, AlertTriangle,
     ChevronDown, ChevronsLeftRight, Wallet, LogOut, User, Shield, CreditCard, FileText, 
     HelpCircle, Trash2, FolderCog, Hash, Banknote, LayoutTemplate, Lock, FolderKanban, 
-    Users as UsersIcon, Archive, Settings
+    Users as UsersIcon, Archive, Settings,
+    DollarSign
 } from 'lucide-react';
 import NavTooltip from './NavTooltip';
 import { useActiveProjectData, useScheduleData } from '../../utils/selectors';
@@ -199,10 +200,10 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
                     isCollapsed ? 'w-10' : 'w-full'
                 }`}>
                     <NavLink 
-                        to="/client/projets" 
-                        className="flex items-center justify-center rounded-xl text-gray-900 shrink-0 transition-transform hover:scale-105"
+                        to="/client/dashboard" 
+                        className="w-12 h-12 bg-gradient-to-r from-blue-400 to-blue-700 text-white rounded-full flex items-center justify-center"
                     >
-                        <TrezocashLogo className="w-8 h-8" />
+                        <DollarSign className="w-8 h-8" />
                     </NavLink>
                     <AnimatePresence>
                         {!isCollapsed && (
@@ -211,7 +212,8 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: -20 }}
                                 transition={{ duration: 0.2 }}
-                                className="text-xl font-bold text-gray-900 whitespace-nowrap"
+                                 className="text-2xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 "
+                                 style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.2)' }}
                             >
                                 Trezocash
                             </motion.span>
