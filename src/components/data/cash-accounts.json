@@ -1,0 +1,43 @@
+{
+  "data": [
+    {
+      "id": 1,
+      "project_id": 1,
+      "user_id": 1,
+      "main_category_id": "bank",
+      "name": "Compte Courant Principal",
+      "initial_balance": 2500.00,
+      "initial_balance_date": "2024-01-01",
+      "is_closed": false,
+      "closure_date": null,
+      "created_at": "2024-01-01T10:00:00Z",
+      "updated_at": "2024-01-01T10:00:00Z"
+    },
+    {
+      "id": 2,
+      "project_id": 1,
+      "user_id": 1,
+      "main_category_id": "savings",
+      "name": "Livret A",
+      "initial_balance": 5000.00,
+      "initial_balance_date": "2024-01-01",
+      "is_closed": false,
+      "closure_date": null,
+      "created_at": "2024-01-01T10:00:00Z",
+      "updated_at": "2024-01-01T10:00:00Z"
+    },
+    {
+      "id": 3,
+      "project_id": 2,
+      "user_id": 1,
+      "main_category_id": "bank",
+      "name": "Compte Pro",
+      "initial_balance": 1500.00,
+      "initial_balance_date": "2024-01-15",
+      "is_closed": false,
+      "closure_date": null,
+      "created_at": "2024-01-15T10:00:00Z",
+      "updated_at": "2024-01-15T10:00:00Z"
+    }
+  ]
+}

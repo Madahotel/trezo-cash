@@ -19,6 +19,7 @@ import BudgetModal from "../../../components/modal/ScenarioBudgetModal";
 import EmptyState from "./EmptyState";
 import ScenarioModal from "../../../components/modal/ScenarioModal";
 import ConfirmationModal from "../../../components/modal/ConfirmationModal";
+import { formatCurrency } from "../../../utils/formatting";
 
 // Couleurs des scénarios
 const colorMap = {
@@ -110,56 +111,6 @@ const ScenarioView = () => {
     { id: "3m", label: "3 Mois" },
     { id: "6m", label: "6 Mois" },
   ];
-  // Graphique
-  const getChartOptions = () => {
-    const series = [
-      {
-        name: "Solde Réel (Base)",
-        type: "line",
-        data: testBaseBalance,
-        lineStyle: { width: 2 },
-        itemStyle: { color: "#3b82f6" },
-      },
-      ...testScenarioBalance.map((sc) => ({
-        name: `Scénario: ${sc.name}`,
-        type: "line",
-        data: sc.data,
-        lineStyle: { width: 2, type: "dashed" },
-        itemStyle: { color: sc.color },
-      })),
-    ];
-
-    return {
-      tooltip: { trigger: "axis" },
-      legend: { data: series.map((s) => s.name), top: "bottom" },
-      grid: {
-        left: 70, // espace à gauche (évite que les nombres de Y collent)
-        right: 40, // espace à droite
-        top: 40, // espace en haut
-        bottom: 60, // espace en bas (évite que les labels X collent)
-        containLabel: true, // 👈 très important : garde les labels dans la zone
-      },
-      xAxis: {
-        type: "category",
-        data: testPeriods,
-        axisLabel: {
-          rotate: 30,
-          interval: 0,
-          fontSize: 12,
-        },
-      },
-      yAxis: {
-        type: "value",
-        splitNumber: 6,
-        minInterval: 100,
-        axisLabel: {
-          fontSize: 12,
-          margin: 20,
-        },
-      },
-      series,
-    };
-  };
 
   // Gestion modale / drawer
   const handleOpenScenarioModal = (entry = null) => {
@@ -258,7 +209,79 @@ const ScenarioView = () => {
       direction === -1 ? "Période Précédente" : "Période Suivante"
     );
   };
+  // --- Données dynamiques pour le graphique ---
+  const chartData = useMemo(() => {
+    return {
+      labels: currentPeriods,
+      series: [
+        {
+          name: "Solde de base",
+          type: "line",
+          data: currentBaseData,
+          smooth: true,
+          lineStyle: { width: 3 },
+          itemStyle: { color: "#3b82f6" }, // bleu
+        },
+        ...currentScenarioData.map((sc) => ({
+          name: sc.name,
+          type: "line",
+          data: sc.data,
+          smooth: true,
+          lineStyle: { width: 2, color: sc.color },
+          itemStyle: { color: sc.color },
+        })),
+      ],
+    };
+  }, [currentPeriods, currentBaseData, currentScenarioData]);
 
+  const settings = {};
+  const getChartOptions = () => {
+    if (!chartData || chartData.series.length === 0) {
+      return {
+        title: {
+          text: "Aucune donnée à afficher",
+          subtext: "Sélectionnez un projet individuel pour voir les scénarios.",
+          left: "center",
+          top: "center",
+        },
+      };
+    }
+    const allDataPoints = chartData.series
+      .flatMap((s) => s.data)
+      .filter((d) => d !== null && !isNaN(d));
+    if (allDataPoints.length === 0) {
+      return {
+        title: {
+          text: "Aucune donnée numérique à afficher",
+          left: "center",
+          top: "center",
+        },
+      };
+    }
+    const dataMin = Math.min(...allDataPoints);
+    const dataMax = Math.max(...allDataPoints);
+    const range = dataMax - dataMin;
+    const buffer = range === 0 ? Math.abs(dataMax * 0.1) || 100 : range * 0.2;
+    const yAxisMin = dataMin - buffer;
+    const yAxisMax = dataMax + buffer;
+    return {
+      tooltip: { trigger: "axis" },
+      legend: {
+        data: chartData.series.map((s) => s.name),
+        bottom: 0,
+        type: "scroll",
+      },
+      grid: { left: "3%", right: "4%", bottom: "15%", containLabel: true },
+      xAxis: { type: "category", data: chartData.labels, boundaryGap: false },
+      yAxis: {
+        type: "value",
+        axisLabel: { formatter: (value) => formatCurrency(value, settings) },
+        min: yAxisMin,
+        max: yAxisMax,
+      },
+      series: chartData.series,
+    };
+  };
   return (
     <>
       <div className="p-6 max-w-full flex flex-col h-full">
@@ -426,11 +449,14 @@ const ScenarioView = () => {
             </div>
           </div>
           <div className="flex-grow min-h-0">
-            {/* <ScenarioChart
-              periods={currentPeriods}
-              baseData={currentBaseData}
-              scenarioData={currentScenarioData}
-            /> */}
+            <div className="flex-grow min-h-[400px]">
+              <ReactECharts
+                option={getChartOptions()}
+                style={{ height: "600px", width: "100%" }}
+                notMerge={true}
+                lazyUpdate={true}
+              />
+            </div>
           </div>
         </div>
 

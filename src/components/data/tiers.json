@@ -1,0 +1,40 @@
+{
+  "data": [
+    {
+      "id": 1,
+      "name": "Mon Employeur",
+      "type": "client",
+      "user_id": 1,
+      "payment_terms": 30,
+      "created_at": "2024-01-01T10:00:00Z",
+      "updated_at": "2024-01-01T10:00:00Z"
+    },
+    {
+      "id": 2,
+      "name": "Propriétaire",
+      "type": "fournisseur",
+      "user_id": 1,
+      "payment_terms": 0,
+      "created_at": "2024-01-01T10:00:00Z",
+      "updated_at": "2024-01-01T10:00:00Z"
+    },
+    {
+      "id": 3,
+      "name": "Client A",
+      "type": "client",
+      "user_id": 1,
+      "payment_terms": 45,
+      "created_at": "2024-01-15T10:00:00Z",
+      "updated_at": "2024-01-15T10:00:00Z"
+    },
+    {
+      "id": 4,
+      "name": "EDF",
+      "type": "fournisseur",
+      "user_id": 1,
+      "payment_terms": 30,
+      "created_at": "2024-01-01T10:00:00Z",
+      "updated_at": "2024-01-01T10:00:00Z"
+    }
+  ]
+}

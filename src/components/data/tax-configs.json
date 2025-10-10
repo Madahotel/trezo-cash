@@ -1,0 +1,26 @@
+{
+  "data": [
+    {
+      "id": 1,
+      "user_id": 1,
+      "name": "TVA 20%",
+      "rate": 20.0,
+      "type": "vat",
+      "country": "FR",
+      "is_active": true,
+      "created_at": "2024-01-01T10:00:00Z",
+      "updated_at": "2024-01-01T10:00:00Z"
+    },
+    {
+      "id": 2,
+      "user_id": 1,
+      "name": "Impôt sur le revenu",
+      "rate": 0.0,
+      "type": "income_tax",
+      "country": "FR",
+      "is_active": true,
+      "created_at": "2024-01-01T10:00:00Z",
+      "updated_at": "2024-01-01T10:00:00Z"
+    }
+  ]
+}
