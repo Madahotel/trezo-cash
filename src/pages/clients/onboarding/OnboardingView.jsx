@@ -1,10 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
 import { useData } from '../../../components/context/DataContext';
 import { useUI } from '../../../components/context/UIContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, ArrowLeft, Sparkles, Loader, Search, Star, Users, LayoutTemplate, FilePlus, DollarSign } from 'lucide-react';
-import TrezocashLogo from '../../../components/logo/TrezocashLogo';
 import { initializeProject } from '../../../components/context/actions';
 import { templates as officialTemplates } from '../../../utils/templates';
 import TemplateIcon from '../template/TemplateIcon';
@@ -40,11 +39,17 @@ const OnboardingView = () => {
   const [activeTab, setActiveTab] = useState('official');
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Chargement initial des données si nécessaire
+  useEffect(() => {
+    // Vous pouvez charger des données supplémentaires ici si besoin
+  }, []);
+
   const hasExistingProjects = useMemo(() => {
     if (!projects) return false;
     return projects.filter(p => !p.isArchived).length > 0;
   }, [projects]);
 
+  // Transformation des templates officiels pour correspondre à votre structure
   const allOfficialTemplates = useMemo(() => {
     const blankTemplate = {
       id: 'blank',
@@ -52,18 +57,53 @@ const OnboardingView = () => {
       description: 'Commencez avec une structure de base sans aucune donnée pré-remplie.',
       icon: 'FilePlus',
       color: 'gray',
+      type: 'blank'
     };
-    return [blankTemplate, ...officialTemplates.personal, ...officialTemplates.professional];
+    
+    // Transformation des templates officiels pour correspondre à votre structure API
+    const transformedOfficialTemplates = [
+      ...officialTemplates.personal.map(template => ({
+        ...template,
+        type: 'personal',
+        structure: template.data?.structure || template.structure
+      })),
+      ...officialTemplates.professional.map(template => ({
+        ...template,
+        type: 'professional',
+        structure: template.data?.structure || template.structure
+      }))
+    ];
+
+    return [blankTemplate, ...transformedOfficialTemplates];
   }, []);
 
+  // Transformation des templates de communauté
   const communityTemplates = useMemo(() => {
     if (!userAndCommunityTemplates) return [];
-    return userAndCommunityTemplates.filter(t => t.isPublic);
+    
+    // Si vos données viennent avec une structure { data: [...] }
+    const templatesData = userAndCommunityTemplates.data || userAndCommunityTemplates;
+    
+    return templatesData
+      .filter(t => t.isPublic || t.type === 'community')
+      .map(template => ({
+        ...template,
+        structure: template.data?.structure || template.structure
+      }));
   }, [userAndCommunityTemplates]);
 
+  // Transformation de vos templates personnels
   const myTemplates = useMemo(() => {
     if (!userAndCommunityTemplates || !currentUser) return [];
-    return userAndCommunityTemplates.filter(t => t.userId === currentUser.id);
+    
+    const templatesData = userAndCommunityTemplates.data || userAndCommunityTemplates;
+    
+    return templatesData
+      .filter(t => t.user_id === currentUser.id || t.userId === currentUser.id)
+      .map(template => ({
+        ...template,
+        structure: template.data?.structure || template.structure
+      }));
   }, [userAndCommunityTemplates, currentUser]);
 
   const filteredTemplates = useMemo(() => {
@@ -75,7 +115,7 @@ const OnboardingView = () => {
     if (!searchTerm) return currentList;
     return currentList.filter(t =>
       t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.description.toLowerCase().includes(searchTerm.toLowerCase())
+      t.description?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [activeTab, searchTerm, allOfficialTemplates, communityTemplates, myTemplates]);
 
@@ -136,9 +176,16 @@ const OnboardingView = () => {
         tiers,
         userAndCommunityTemplates
       );
-      navigate("/client/dashboard"); // Navigation automatique
+      navigate("/client/dashboard");
     } catch (error) {
-      console.error(error);
+      console.error("Erreur lors de la création du projet:", error);
+      uiDispatch({
+        type: 'ADD_TOAST', 
+        payload: { 
+          message: `Erreur lors de la création: ${error.message}`, 
+          type: 'error' 
+        }
+      });
       setIsLoading(false);
     }
   };
@@ -148,7 +195,9 @@ const OnboardingView = () => {
     return (
       <div className="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
         <div className="bg-white p-8 rounded-2xl shadow-xl text-center">
-          <DollarSign className="w-24 h-24 mx-auto mb-4" />
+          <div className="w-12 h-12 bg-gradient-to-r from-blue-400 to-blue-700 text-white rounded-full flex items-center justify-center mx-auto mb-4">
+            <DollarSign className="w-6 h-6" />
+          </div>
           <h1 className="text-2xl font-bold text-gray-800 mb-4">Erreur de session</h1>
           <p className="text-gray-600 mb-6">Vous devez être connecté pour créer un projet.</p>
           <button
@@ -172,21 +221,53 @@ const OnboardingView = () => {
             <div className="space-y-6 max-w-md mx-auto">
               <div>
                 <label className="block text-sm font-medium text-gray-700 text-left mb-1">Nom du projet *</label>
-                <input type="text" value={data.projectName} onChange={(e) => setData(prev => ({ ...prev, projectName: e.target.value }))} placeholder="Ex: Mon Budget 2025" className="w-full text-lg p-2 border-b-2 focus:border-blue-500 outline-none transition bg-transparent text-gray-700" autoFocus required />
+                <input 
+                  type="text" 
+                  value={data.projectName} 
+                  onChange={(e) => setData(prev => ({ ...prev, projectName: e.target.value }))} 
+                  placeholder="Ex: Mon Budget 2025" 
+                  className="w-full text-lg p-2 border-b-2 focus:border-blue-500 outline-none transition bg-transparent text-gray-700" 
+                  autoFocus 
+                  required 
+                />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 text-left mb-1">Date de début</label>
-                  <input type="date" value={data.projectStartDate} onChange={(e) => setData(prev => ({ ...prev, projectStartDate: e.target.value }))} className="w-full text-lg p-2 border-b-2 focus:border-blue-500 outline-none transition bg-transparent text-gray-700" />
+                  <input 
+                    type="date" 
+                    value={data.projectStartDate} 
+                    onChange={(e) => setData(prev => ({ ...prev, projectStartDate: e.target.value }))} 
+                    className="w-full text-lg p-2 border-b-2 focus:border-blue-500 outline-none transition bg-transparent text-gray-700" 
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 text-left mb-1">Date de fin</label>
-                  <input type="date" value={data.projectEndDate} onChange={(e) => setData(prev => ({ ...prev, projectEndDate: e.target.value }))} className="w-full text-lg p-2 border-b-2 focus:border-blue-500 outline-none transition bg-transparent disabled:bg-gray-100 text-gray-700" disabled={data.isEndDateIndefinite} min={data.projectStartDate} />
+                  <input 
+                    type="date" 
+                    value={data.projectEndDate} 
+                    onChange={(e) => setData(prev => ({ ...prev, projectEndDate: e.target.value }))} 
+                    className="w-full text-lg p-2 border-b-2 focus:border-blue-500 outline-none transition bg-transparent disabled:bg-gray-100 text-gray-700" 
+                    disabled={data.isEndDateIndefinite} 
+                    min={data.projectStartDate} 
+                  />
                 </div>
               </div>
               <div className="flex items-center justify-end">
-                <input type="checkbox" id="indefinite-date" checked={data.isEndDateIndefinite} onChange={(e) => setData(prev => ({ ...prev, isEndDateIndefinite: e.target.checked, projectEndDate: e.target.checked ? '' : prev.projectEndDate }))} className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-                <label htmlFor="indefinite-date" className="ml-2 block text-sm text-gray-900">Durée indéterminée</label>
+                <input 
+                  type="checkbox" 
+                  id="indefinite-date" 
+                  checked={data.isEndDateIndefinite} 
+                  onChange={(e) => setData(prev => ({ 
+                    ...prev, 
+                    isEndDateIndefinite: e.target.checked, 
+                    projectEndDate: e.target.checked ? '' : prev.projectEndDate 
+                  }))} 
+                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" 
+                />
+                <label htmlFor="indefinite-date" className="ml-2 block text-sm text-gray-900">
+                  Durée indéterminée
+                </label>
               </div>
             </div>
           </div>
@@ -198,27 +279,62 @@ const OnboardingView = () => {
             <p className="text-gray-600 mb-6">Commencez avec un projet vierge ou choisissez un modèle pour démarrer plus rapidement.</p>
 
             <div className="flex justify-center border-b mb-6">
-              <button onClick={() => setActiveTab('official')} className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 ${activeTab === 'official' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}><Star className="w-4 h-4"/>Modèles Officiels</button>
-              <button onClick={() => setActiveTab('community')} className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 ${activeTab === 'community' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}><Users className="w-4 h-4"/>Communauté</button>
-              <button onClick={() => setActiveTab('my-templates')} className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 ${activeTab === 'my-templates' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}><LayoutTemplate className="w-4 h-4"/>Mes Modèles</button>
+              <button 
+                onClick={() => setActiveTab('official')} 
+                className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 ${activeTab === 'official' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}
+              >
+                <Star className="w-4 h-4"/>Modèles Officiels
+              </button>
+              <button 
+                onClick={() => setActiveTab('community')} 
+                className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 ${activeTab === 'community' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}
+              >
+                <Users className="w-4 h-4"/>Communauté
+              </button>
+              <button 
+                onClick={() => setActiveTab('my-templates')} 
+                className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 ${activeTab === 'my-templates' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}
+              >
+                <LayoutTemplate className="w-4 h-4"/>Mes Modèles
+              </button>
             </div>
 
             <div className="relative max-w-md mx-auto mb-6">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input type="text" placeholder="Rechercher un modèle..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border rounded-full text-gray-700" />
+              <input 
+                type="text" 
+                placeholder="Rechercher un modèle..." 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)} 
+                className="w-full pl-10 pr-4 py-2 border rounded-full text-gray-700" 
+              />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 max-h-[300px] overflow-y-auto p-2">
-              {filteredTemplates.map(template => {
-                const isSelected = data.templateId === template.id;
-                return (
-                  <button key={template.id} onClick={() => setData(prev => ({...prev, templateId: template.id}))} className={`p-4 border-2 rounded-lg text-left transition-all ${isSelected ? 'border-blue-500 bg-blue-50' : 'hover:border-blue-400'}`}>
-                    <TemplateIcon icon={template.icon} color={template.color} className="w-7 h-7 mb-2" />
-                    <h4 className="font-semibold text-gray-800">{template.name}</h4>
-                    <p className="text-xs text-gray-500">{template.description}</p>
-                  </button>
-                );
-              })}
+              {filteredTemplates.length > 0 ? (
+                filteredTemplates.map(template => {
+                  const isSelected = data.templateId === template.id;
+                  return (
+                    <button 
+                      key={template.id} 
+                      onClick={() => setData(prev => ({...prev, templateId: template.id}))} 
+                      className={`p-4 border-2 rounded-lg text-left transition-all ${isSelected ? 'border-blue-500 bg-blue-50' : 'hover:border-blue-400'}`}
+                    >
+                      <TemplateIcon icon={template.icon} color={template.color} className="w-7 h-7 mb-2" />
+                      <h4 className="font-semibold text-gray-800">{template.name}</h4>
+                      <p className="text-xs text-gray-500">{template.description}</p>
+                      <div className="mt-2 flex justify-between items-center text-xs text-gray-400">
+                        <span>{template.type}</span>
+                        <span>{template.user_id === currentUser.id ? 'Personnel' : 'Communauté'}</span>
+                      </div>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="col-span-3 text-center py-8 text-gray-500">
+                  Aucun modèle trouvé
+                </div>
+              )}
             </div>
           </div>
         );
@@ -227,11 +343,17 @@ const OnboardingView = () => {
           <div className="text-center">
             <h2 className="text-2xl font-bold text-gray-800 mb-6">Comment voulez-vous commencer ?</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
-              <button onClick={() => { setData(prev => ({...prev, startOption: 'populated'})); handleNext(); }} className="p-6 border rounded-lg hover:bg-blue-50 hover:border-blue-400 transition-all text-left">
+              <button 
+                onClick={() => { setData(prev => ({...prev, startOption: 'populated'})); handleNext(); }} 
+                className="p-6 border rounded-lg hover:bg-blue-50 hover:border-blue-400 transition-all text-left"
+              >
                 <h3 className="font-semibold text-lg">Avec des données d'exemple</h3>
                 <p className="text-sm text-gray-600">Idéal pour démarrer vite avec des exemples concrets que vous pourrez modifier.</p>
               </button>
-              <button onClick={() => { setData(prev => ({...prev, startOption: 'blank'})); handleNext(); }} className="p-6 border rounded-lg hover:bg-gray-100 hover:border-gray-400 transition-all text-left">
+              <button 
+                onClick={() => { setData(prev => ({...prev, startOption: 'blank'})); handleNext(); }} 
+                className="p-6 border rounded-lg hover:bg-gray-100 hover:border-gray-400 transition-all text-left"
+              >
                 <h3 className="font-semibold text-lg">Avec une structure vierge</h3>
                 <p className="text-sm text-gray-600">Parfait si vous préférez tout configurer vous-même de A à Z.</p>
               </button>
@@ -244,8 +366,16 @@ const OnboardingView = () => {
             <Sparkles className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Tout est prêt !</h2>
             <p className="text-gray-600 mb-8">Votre projet est sur le point d'être créé. Prêt à prendre le contrôle ?</p>
-            <button onClick={handleFinish} disabled={isLoading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition-transform hover:scale-105 disabled:bg-gray-400 disabled:cursor-wait">
-              {isLoading ? (<span className="flex items-center gap-2"><Loader className="animate-spin" /> Création en cours...</span>) : "Lancer l'application"}
+            <button 
+              onClick={handleFinish} 
+              disabled={isLoading} 
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition-transform hover:scale-105 disabled:bg-gray-400 disabled:cursor-wait"
+            >
+              {isLoading ? (
+                <span className="flex items-center gap-2">
+                  <Loader className="animate-spin" /> Création en cours...
+                </span>
+              ) : "Lancer l'application"}
             </button>
           </div>
         );
@@ -261,7 +391,6 @@ const OnboardingView = () => {
         <div className="w-12 h-12 bg-gradient-to-r from-blue-400 to-blue-700 text-white rounded-full flex items-center justify-center">
           <DollarSign className="w-6 h-6" />
         </div>
-
 
         {/* Texte avec dégradé bleu */}
         <div className="flex items-center gap-2 mt-4">
@@ -280,23 +409,44 @@ const OnboardingView = () => {
         <div className="flex-grow flex flex-col items-center justify-center p-8">
           <div className="w-full">
             <AnimatePresence mode="wait" custom={direction}>
-              <motion.div key={step} custom={direction} variants={variants} initial="enter" animate="center" exit="exit" transition={{ type: "spring", stiffness: 300, damping: 30 }} className="w-full">
+              <motion.div 
+                key={step} 
+                custom={direction} 
+                variants={variants} 
+                initial="enter" 
+                animate="center" 
+                exit="exit" 
+                transition={{ type: "spring", stiffness: 300, damping: 30 }} 
+                className="w-full"
+              >
                 {renderStepContent()}
               </motion.div>
             </AnimatePresence>
           </div>
         </div>
         <div className="p-6 bg-gray-50 border-t flex justify-between items-center">
-          <button onClick={handleBack} disabled={step === 0 || isLoading} className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed">
+          <button 
+            onClick={handleBack} 
+            disabled={step === 0 || isLoading} 
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <ArrowLeft className="w-4 h-4" /> Précédent
           </button>
           {hasExistingProjects && (
-            <button onClick={handleCancel} disabled={isLoading} className="px-4 py-2 rounded-lg text-red-600 hover:bg-red-100 font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+            <button 
+              onClick={handleCancel} 
+              disabled={isLoading} 
+              className="px-4 py-2 rounded-lg text-red-600 hover:bg-red-100 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               Annuler
             </button>
           )}
           {step < steps.length - 1 && (
-            <button onClick={handleNext} disabled={isLoading || (step === 0 && !data.projectName.trim()) || (step === 1 && !data.templateId)} className="flex items-center gap-2 px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-semibold disabled:bg-gray-400">
+            <button 
+              onClick={handleNext} 
+              disabled={isLoading || (step === 0 && !data.projectName.trim()) || (step === 1 && !data.templateId)} 
+              className="flex items-center gap-2 px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-semibold disabled:bg-gray-400"
+            >
               Suivant <ArrowRight className="w-4 h-4" />
             </button>
           )}
