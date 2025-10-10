@@ -7,7 +7,8 @@ import {
     LayoutDashboard, ListChecks, Table, AreaChart, Calendar, Layers, PieChart, AlertTriangle,
     ChevronDown, ChevronsLeftRight, Wallet, LogOut, User, Shield, CreditCard, FileText,
     HelpCircle, Trash2, FolderCog, Hash, Banknote, LayoutTemplate, Lock, FolderKanban,
-    Users as UsersIcon, Archive, Settings
+    Users as UsersIcon, Archive, Settings,
+    DollarSign
 } from 'lucide-react';
 import NavTooltip from './NavTooltip';
 import { useActiveProjectData, useScheduleData } from '../../utils/selectors';
@@ -224,12 +225,12 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
                 <div className={`flex items-center gap-3 overflow-hidden transition-all duration-300 ${isCollapsed ? 'w-10' : 'w-full'
                     }`}>
                     <NavLink 
-            to="/client/projets" 
+            to="/client/dashboard" 
             // Utilisez le style en ligne pour la couleur de texte dynamique
             className="flex items-center justify-center rounded-xl text-gray-900 shrink-0 transition-transform hover:scale-105"
             style={{ color: themeActive }} 
           >
-            <TrezocashLogo 
+            <DollarSign 
               className="w-8 h-8" 
              
               style={{ color: themeActive }} 

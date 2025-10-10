@@ -16,7 +16,7 @@ import ReactECharts from "echarts-for-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ScenarioEntriesDrawer from "./ScenarioEntriesDrawer";
 import BudgetModal from "../../../components/modal/ScenarioBudgetModal";
-import EmptyState from "./EmptyState";
+import EmptyState from "../../../components/emptystate/EmptyState";
 import ScenarioModal from "../../../components/modal/ScenarioModal";
 import ConfirmationModal from "../../../components/modal/ConfirmationModal";
 import { formatCurrency } from "../../../utils/formatting";
