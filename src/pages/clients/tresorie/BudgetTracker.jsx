@@ -56,7 +56,7 @@ const LectureView = ({ entries, periods, settings, actuals, isConsolidated, proj
                         <th className="py-3 px-4">Tiers</th>
                         {visibleColumns.description && <th className="py-3 px-4">Description</th>}
                         {periods.map(p => (
-                            <th key={p.label} className="py-3 px-4 text-center">
+                            <th key={p.label} className="py-3 px-4 text-center  text-grey-600">
                                 <div className="font-semibold">{p.label}</div>
                                 <div className="flex justify-around font-normal text-gray-400 mt-1">
                                     {visibleColumns.budget && <div className="w-1/3">Prév.</div>}
@@ -1137,9 +1137,9 @@ const BudgetTracker = ({
                             return (
                                 <React.Fragment key={periodIndex}>
                                 <th className={`px-2 py-2 text-center font-medium border-b-2 ${isPast ? 'bg-gray-50' : 'bg-surface'} ${isNegativeFlow && !isPast ? 'bg-red-50' : ''}`} style={{ minWidth: `${periodColumnWidth}px` }}>
-                                    <div className={`text-base mb-1 ${isNegativeFlow && !isPast ? 'text-red-700' : 'text-text-primary'}`}>{period.label}</div>
+                                    <div className={`text-base mb-1 ${isNegativeFlow && !isPast ? 'text-red-700' : 'text-gray-600'}`}>{period.label}</div>
                                     {numVisibleCols > 0 && (
-                                    <div className="flex gap-2 justify-around text-xs font-medium text-text-secondary">
+                                    <div className="flex gap-2 justify-around text-xs font-medium text-gray-600">
                                         {visibleColumns.budget && <div className="flex-1">Prév.</div>}
                                         {visibleColumns.actual && <div className="flex-1">Réel</div>}
                                         {visibleColumns.reste && <div className="flex-1">Reste</div>}
