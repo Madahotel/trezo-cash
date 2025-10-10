@@ -23,6 +23,7 @@ import { path } from "framer-motion/client";
 import Aide from "../pages/clients/aide/Aide";
 import SubscriptionPage from "../pages/clients/abonnement/SubscriptionPage";
 import OnboardingView from "../pages/clients/onboarding/OnboardingView";
+import ReferralPage from "../pages/clients/ambassador/ReferralPage";
 
 const ClientRoute = {
   path: "/client",
@@ -120,6 +121,10 @@ const ClientRoute = {
     {
       path: "onboarding",
       element: <OnboardingView />,
+    },
+    {
+      path: "parrainage",
+      element: <ReferralPage />,
     },
   ],
 };
