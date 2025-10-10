@@ -5,7 +5,6 @@ import {
   Upload,
   Filter,
   Calendar,
-  Repeat,
   MoreVertical,
   Edit,
   Trash2,
@@ -14,7 +13,12 @@ import {
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import {
+  SimpleTabs,
+  SimpleTabsList,
+  SimpleTabsTrigger,
+  SimpleTabsContent,
+} from "./ui/tabs";
 import { Badge } from "./ui/badge";
 import {
   DropdownMenu,
@@ -47,6 +51,19 @@ const BudgetPage = () => {
   const [selectedLine, setSelectedLine] = useState(null);
   const { language, currency, formatCurrency } = useSettings();
   const { t } = useTranslation(language);
+
+  // Fonction pour obtenir les classes de couleur
+  const getColorClasses = (color) => {
+    const colorClasses = {
+      green: { bg: "bg-green-100", text: "text-green-600" },
+      orange: { bg: "bg-orange-100", text: "text-orange-600" },
+      indigo: { bg: "bg-indigo-100", text: "text-indigo-600" },
+      emerald: { bg: "bg-emerald-100", text: "text-emerald-600" },
+      stone: { bg: "bg-stone-100", text: "text-stone-600" },
+      red: { bg: "bg-red-100", text: "text-red-600" },
+    };
+    return colorClasses[color] || { bg: "bg-gray-100", text: "text-gray-600" };
+  };
 
   const [budgetData, setBudgetData] = useState({
     revenus: [
@@ -191,7 +208,6 @@ const BudgetPage = () => {
 
   const handleSaveBudgetLine = (lineData) => {
     if (editingLine) {
-      // Edit existing line
       const type = lineData.type === "revenue" ? "revenus" : "depenses";
       setBudgetData((prev) => ({
         ...prev,
@@ -218,7 +234,6 @@ const BudgetPage = () => {
       }));
       setEditingLine(null);
     } else {
-      // Add new line
       const type = lineData.type === "revenue" ? "revenus" : "depenses";
       const newLine = {
         id: budgetData[type].length + 1,
@@ -322,7 +337,7 @@ const BudgetPage = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-10 space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -474,13 +489,13 @@ const BudgetPage = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="revenus">Revenus</TabsTrigger>
-              <TabsTrigger value="depenses">Dépenses</TabsTrigger>
-            </TabsList>
+          <SimpleTabs defaultTab="revenus">
+            <SimpleTabsList className="grid grid-cols-2">
+              <SimpleTabsTrigger value="revenus">Revenus</SimpleTabsTrigger>
+              <SimpleTabsTrigger value="depenses">Dépenses</SimpleTabsTrigger>
+            </SimpleTabsList>
 
-            <TabsContent value="revenus" className="mt-4">
+            <SimpleTabsContent value="revenus">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -512,14 +527,8 @@ const BudgetPage = () => {
                     {budgetData.revenus
                       .filter((item) => !item.archived)
                       .map((item) => {
-                        const categoryType = "income";
-                        const category = item.mainCategory
-                          ? categoryService.getCategoryById(
-                              item.mainCategory,
-                              categoryType
-                            )
-                          : null;
-                        const IconComponent = category?.icon || Tag;
+                        const colorClass = getColorClasses(item.categoryColor);
+                        const IconComponent = Tag; // Simplifié pour le test
 
                         return (
                           <tr
@@ -529,19 +538,15 @@ const BudgetPage = () => {
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-3">
                                 <div
-                                  className={`p-1.5 rounded-lg bg-${
-                                    item.categoryColor || "gray"
-                                  }-100 flex-shrink-0`}
+                                  className={`p-1.5 rounded-lg ${colorClass.bg} flex-shrink-0`}
                                 >
                                   <IconComponent
-                                    className={`w-4 h-4 text-${
-                                      item.categoryColor || "gray"
-                                    }-600`}
+                                    className={`w-4 h-4 ${colorClass.text}`}
                                   />
                                 </div>
                                 <div className="flex flex-col">
                                   <div className="font-medium text-gray-900">
-                                    {item.categoryName || item.categorie}
+                                    {item.categoryName}
                                   </div>
                                   <div className="text-sm text-gray-500">
                                     {item.subcategoryName}
@@ -552,14 +557,6 @@ const BudgetPage = () => {
                                     </div>
                                   )}
                                 </div>
-                                {item.archived && (
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-xs"
-                                  >
-                                    {t("archived")}
-                                  </Badge>
-                                )}
                               </div>
                             </td>
                             <td className="py-3 px-4 text-center">
@@ -659,9 +656,9 @@ const BudgetPage = () => {
                   </tbody>
                 </table>
               </div>
-            </TabsContent>
+            </SimpleTabsContent>
 
-            <TabsContent value="depenses" className="mt-4">
+            <SimpleTabsContent value="depenses">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -693,14 +690,8 @@ const BudgetPage = () => {
                     {budgetData.depenses
                       .filter((item) => !item.archived)
                       .map((item) => {
-                        const categoryType = "expense";
-                        const category = item.mainCategory
-                          ? categoryService.getCategoryById(
-                              item.mainCategory,
-                              categoryType
-                            )
-                          : null;
-                        const IconComponent = category?.icon || Tag;
+                        const colorClass = getColorClasses(item.categoryColor);
+                        const IconComponent = Tag; // Simplifié pour le test
 
                         return (
                           <tr
@@ -710,19 +701,15 @@ const BudgetPage = () => {
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-3">
                                 <div
-                                  className={`p-1.5 rounded-lg bg-${
-                                    item.categoryColor || "gray"
-                                  }-100 flex-shrink-0`}
+                                  className={`p-1.5 rounded-lg ${colorClass.bg} flex-shrink-0`}
                                 >
                                   <IconComponent
-                                    className={`w-4 h-4 text-${
-                                      item.categoryColor || "gray"
-                                    }-600`}
+                                    className={`w-4 h-4 ${colorClass.text}`}
                                   />
                                 </div>
                                 <div className="flex flex-col">
                                   <div className="font-medium text-gray-900">
-                                    {item.categoryName || item.categorie}
+                                    {item.categoryName}
                                   </div>
                                   <div className="text-sm text-gray-500">
                                     {item.subcategoryName}
@@ -733,14 +720,6 @@ const BudgetPage = () => {
                                     </div>
                                   )}
                                 </div>
-                                {item.archived && (
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-xs"
-                                  >
-                                    {t("archived")}
-                                  </Badge>
-                                )}
                               </div>
                             </td>
                             <td className="py-3 px-4 text-center">
@@ -840,8 +819,8 @@ const BudgetPage = () => {
                   </tbody>
                 </table>
               </div>
-            </TabsContent>
-          </Tabs>
+            </SimpleTabsContent>
+          </SimpleTabs>
         </CardContent>
       </Card>
     </div>
