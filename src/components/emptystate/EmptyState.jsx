@@ -1,5 +1,4 @@
 import React from 'react';
-
 const EmptyState = ({ icon: Icon, title, message, actionText, onActionClick }) => {
   return (
     <div className="text-center p-8 sm:p-12 bg-gray-50/50 rounded-lg">
