@@ -183,8 +183,12 @@ const initialCategories = {
         { id: 'exp-sub-15-11', name: 'Dette associatives', criticality: 'essential' },
         { id: 'exp-sub-15-12', name: 'Découvert bancaire', criticality: 'critical' },
     ]},
+    
   ]
 };
+
+
+
 
 const initialSettings = { 
   displayUnit: 'standard', decimalPlaces: 2, currency: 'EUR', exchangeRates: {}, timezoneOffset: 0,
@@ -236,6 +240,8 @@ const getInitialDataState = () => ({
     taxConfigs: [], 
     exchangeRates: null,
 });
+
+
 
 const dataReducer = (state, action) => {
     switch (action.type) {
