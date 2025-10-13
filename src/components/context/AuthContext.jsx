@@ -12,16 +12,29 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const initializeAuth = async () => {
       const savedToken = localStorage.getItem("auth_token");
+      const savedUser = localStorage.getItem("user");
 
       if (savedToken) {
         try {
           console.log("🔄 Vérification du token...");
+          
           // Configure le token pour les requêtes suivantes
           axios.defaults.headers.Authorization = `Bearer ${savedToken}`;
           
-          // Ici vous devrez peut-être appeler un endpoint pour récupérer les infos utilisateur
-          // Pour l'instant, on va simplement valider que le token existe
-          setUser({ name: "Utilisateur" }); // Placeholder
+          // Si on a des infos utilisateur sauvegardées, on les utilise
+          if (savedUser) {
+            try {
+              const userData = JSON.parse(savedUser);
+              setUser(userData);
+            } catch (e) {
+              console.error("❌ Erreur parsing user data:", e);
+            }
+          }
+          
+          // Optionnel: Appeler un endpoint pour vérifier le token et récupérer les infos utilisateur
+          // const userResponse = await axios.get("/user");
+          // setUser(userResponse.data);
+          
           setToken(savedToken);
           setError(null);
         } catch (error) {
@@ -41,7 +54,7 @@ export const AuthProvider = ({ children }) => {
       setError(null);
 
       console.log("🔑 Tentative de connexion...");
-      const response = await axios.post("/login", { // Changé de "/auth/login" à "/login"
+      const response = await axios.post("/login", {
         email,
         password,
       });
@@ -55,7 +68,6 @@ export const AuthProvider = ({ children }) => {
       }
 
       localStorage.setItem("auth_token", receivedToken);
-      // Stocker aussi les infos utilisateur si nécessaire
       localStorage.setItem("user", JSON.stringify(userData));
       
       setToken(receivedToken);
@@ -79,7 +91,7 @@ export const AuthProvider = ({ children }) => {
       setError(null);
 
       console.log("📝 Tentative d'inscription...");
-      const response = await axios.post("/register", { // Changé de "/auth/register" à "/register"
+      const response = await axios.post("/register", {
         name,
         email,
         password,
@@ -88,8 +100,6 @@ export const AuthProvider = ({ children }) => {
 
       console.log("✅ Réponse register:", response.data);
 
-      // Note: Votre AXIOS register ne retourne pas de token ni user
-      // Seulement un message de succès
       if (response.data.status === 200) {
         setError(null);
         return { 
@@ -112,7 +122,7 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       if (token) {
-        await axios.post("/logout"); // Changé de "/auth/logout" à "/logout"
+        await axios.post("/logout");
       }
     } catch (error) {
       console.error("Erreur logout:", error);

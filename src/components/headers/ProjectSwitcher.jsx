@@ -2,20 +2,34 @@ import React, { useState, useRef, useEffect } from "react";
 import { ChevronsUpDown, Check, Plus, Layers } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useUI } from "../context/UIContext";
+import { useData } from "../context/DataContext"; // Import du contexte Data
 import ConsolidatedViewModal from "../modal/ConsolidatedViewModal";
 
 const ProjectSwitcher = () => {
   const [activeProjectId, setActiveProjectId] = useState(null);
   const { uiDispatch } = useUI();
+  const { dataState } = useData(); // Accès au contexte Data
   const [isConsolidatedViewModalOpen, setIsConsolidatedViewModalOpen] = useState(false);
   const navigate = useNavigate();
 
-  const myProjects = [
-    { id: "p1", name: "Projet Maison" },
-    { id: "p2", name: "Projet Voiture" },
-  ];
+  // Récupération des projets depuis le contexte Data
+  const projects = dataState?.projects || [];
+  
+  // Filtrage des projets (exclure les projets archivés et les projets temporaires)
+  const activeProjects = projects.filter(project => 
+    !project.isArchived && !project.is_temp
+  );
 
-  const sharedProjects = [{ id: "p3", name: "Projet Entreprise" }];
+  // Séparation des projets personnels et partagés
+  const myProjects = activeProjects.filter(project => 
+    project.user_id === dataState?.session?.user?.id || 
+    project.user_subscriber_id === dataState?.session?.user?.id
+  );
+
+  const sharedProjects = activeProjects.filter(project => 
+    project.user_id !== dataState?.session?.user?.id && 
+    project.user_subscriber_id !== dataState?.session?.user?.id
+  );
 
   const consolidatedViews = [
     { id: "1", name: "Vue globale finances" },
@@ -36,11 +50,19 @@ const ProjectSwitcher = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const isConsolidated = activeProjectId === "consolidated";
-  const isCustomConsolidated =
-    activeProjectId?.startsWith("consolidated_view_");
+  // Définir le projet actif au chargement si aucun n'est sélectionné
+  useEffect(() => {
+    if (!activeProjectId && myProjects.length > 0) {
+      setActiveProjectId(myProjects[0].id);
+    }
+  }, [activeProjectId, myProjects]);
 
+  const isConsolidated = activeProjectId === "consolidated";
+  const isCustomConsolidated = activeProjectId?.startsWith("consolidated_view_");
+
+  // Fonction pour obtenir le nom d'affichage
   let displayName = "Sélectionner un projet";
+  
   if (isConsolidated) {
     displayName = "Mes projets consolidés";
   } else if (isCustomConsolidated) {
@@ -57,18 +79,48 @@ const ProjectSwitcher = () => {
   const handleSelect = (id) => {
     setActiveProjectId(id);
     setIsListOpen(false);
+    
+    // Optionnel : Dispatch une action pour mettre à jour le projet actif dans le contexte
+    if (id !== "consolidated" && !id.startsWith("consolidated_view_")) {
+      const selectedProject = [...myProjects, ...sharedProjects].find(p => p.id === id);
+      if (selectedProject) {
+        // Dispatch pour mettre à jour le projet actif dans le contexte global
+        // uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: selectedProject });
+      }
+    }
   };
 
   const handleAddProject = () => {
     navigate("/client/onboarding");
     setIsListOpen(false);
   };
-const closeConsolidatedViewModal = () => {
-setIsConsolidatedViewModalOpen(false);
-}
+
+  const closeConsolidatedViewModal = () => {
+    setIsConsolidatedViewModalOpen(false);
+  };
+
   const handleCreateConsolidatedView = () => {
     setIsConsolidatedViewModalOpen(true);
     setIsListOpen(false);
+  };
+
+  // Fonction pour obtenir l'initiale du projet
+  const getProjectInitial = (projectName) => {
+    return projectName ? projectName[0].toUpperCase() : '?';
+  };
+
+  // Fonction pour obtenir la couleur de l'avatar basée sur l'ID du projet
+  const getAvatarColor = (projectId) => {
+    const colors = [
+      'bg-blue-200 text-blue-700',
+      'bg-green-200 text-green-700', 
+      'bg-purple-200 text-purple-700',
+      'bg-orange-200 text-orange-700',
+      'bg-pink-200 text-pink-700',
+      'bg-indigo-200 text-indigo-700'
+    ];
+    const index = Math.abs(projectId.toString().split('').reduce((a, b) => a + b.charCodeAt(0), 0)) % colors.length;
+    return colors[index];
   };
 
   return (
@@ -123,7 +175,7 @@ setIsConsolidatedViewModalOpen(false);
               {/* Mes projets */}
               {myProjects.length > 0 && (
                 <div className="px-3 pt-2 pb-1 text-xs font-semibold text-gray-400 uppercase">
-                  Mes Projets
+                  Mes Projets ({myProjects.length})
                 </div>
               )}
               {myProjects.map((project) => (
@@ -133,8 +185,8 @@ setIsConsolidatedViewModalOpen(false);
                     className="flex items-center justify-between w-full px-3 py-2 text-sm text-left text-gray-700 rounded-md hover:bg-gray-100"
                   >
                     <span className="flex items-center gap-2 truncate">
-                      <div className="w-5 h-5 rounded-md bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
-                        {project.name[0].toUpperCase()}
+                      <div className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold ${getAvatarColor(project.id)}`}>
+                        {getProjectInitial(project.name)}
                       </div>
                       <span className="truncate">{project.name}</span>
                     </span>
@@ -145,10 +197,24 @@ setIsConsolidatedViewModalOpen(false);
                 </li>
               ))}
 
+              {/* Message si aucun projet */}
+              {myProjects.length === 0 && sharedProjects.length === 0 && (
+                <div className="px-3 py-4 text-center text-sm text-gray-500">
+                  Aucun projet trouvé
+                  <br />
+                  <button
+                    onClick={handleAddProject}
+                    className="text-blue-600 hover:text-blue-800 font-medium mt-1"
+                  >
+                    Créer votre premier projet
+                  </button>
+                </div>
+              )}
+
               {/* Projets partagés */}
               {sharedProjects.length > 0 && (
                 <div className="px-3 pt-2 pb-1 text-xs font-semibold text-gray-400 uppercase">
-                  Projets partagés avec moi
+                  Projets partagés avec moi ({sharedProjects.length})
                 </div>
               )}
               {sharedProjects.map((project) => (
@@ -158,16 +224,16 @@ setIsConsolidatedViewModalOpen(false);
                     className="flex items-center justify-between w-full px-3 py-2 text-sm text-left text-gray-700 rounded-md hover:bg-gray-100"
                   >
                     <span className="flex items-center gap-2 truncate">
-                      <div className="w-5 h-5 rounded-md bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
-                        {project.name[0].toUpperCase()}
+                      <div className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold ${getAvatarColor(project.id)}`}>
+                        {getProjectInitial(project.name)}
                       </div>
                       <span className="truncate">{project.name}</span>
-                      <span className="px-1.5 py-0.5 text-xs font-semibold text-purple-700 bg-purple-100 rounded-full">
+                      <span className="px-1.5 py-0.5 text-xs font-semibold text-purple-700 bg-purple-100 rounded-full shrink-0">
                         Partagé
                       </span>
                     </span>
                     {project.id === activeProjectId && (
-                      <Check className="w-4 h-4 text-blue-600" />
+                      <Check className="w-4 h-4 text-blue-600 shrink-0" />
                     )}
                   </button>
                 </li>
@@ -194,18 +260,17 @@ setIsConsolidatedViewModalOpen(false);
           </div>
         </div>
       )}
-      {
-        isConsolidatedViewModalOpen && <ConsolidatedViewModal
+      
+      {/* Modal pour les vues consolidées */}
+      {isConsolidatedViewModalOpen && (
+        <ConsolidatedViewModal
           isOpen={isConsolidatedViewModalOpen}
           onClose={closeConsolidatedViewModal}
-        //  onSave={handleSaveConsolidatedView} 
-        //  editingView={editingConsolidatedView} 
+          // onSave={handleSaveConsolidatedView} 
+          // editingView={editingConsolidatedView} 
         />
-      }
-
+      )}
     </div>
-
-
   );
 };
 

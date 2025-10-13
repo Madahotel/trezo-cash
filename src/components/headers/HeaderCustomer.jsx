@@ -16,6 +16,7 @@ import {
     DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import { Button } from '../ui/Button';
+
 const HeaderCustomer = () => {
     const { dataState } = useData();
     const { uiState, uiDispatch } = useUI();
@@ -24,6 +25,7 @@ const HeaderCustomer = () => {
     const { activeProjectId } = uiState;
     const navigate = useNavigate();
     const location = useLocation();
+
     const handleOpenMobileNav = () => {
         uiDispatch({ type: 'OPEN_NAV_DRAWER' });
     };
@@ -83,38 +85,36 @@ const HeaderCustomer = () => {
         return `${prefix} ${projectTypeLabel} : "${projectName}"`;
     }, [activeProjectOrView, location.pathname, profile]);
 
+    // CORRECTION : Gérer les valeurs undefined
     const canShareProject = useMemo(() => {
-        if (!activeProjectOrView || activeProjectId === 'consolidated' || activeProjectId.startsWith('consolidated_view_')) {
+        if (!activeProjectOrView || 
+            activeProjectId === 'consolidated' || 
+            activeProjectId.startsWith('consolidated_view_') ||
+            !session?.user?.id) {
             return false;
         }
-        return activeProjectOrView.user_id === session?.user?.id;
+        return activeProjectOrView.user_id === session.user.id;
     }, [activeProjectOrView, activeProjectId, session]);
 
     const handleShareClick = () => {
-        // CORRECTION : Utilisez la bonne route pour les collaborateurs
-        // Essayez l'une de ces routes selon votre configuration :
-
-        // Option 1 : Si vous avez une page dédiée aux collaborateurs
+        if (!canShareProject) return;
+        
+        // Utilisez la route appropriée selon votre configuration
         navigate('/app/collaborateurs');
-
-        // Option 2 : Si c'est dans les paramètres du projet
-        // navigate('/app/parametres-projet?tab=collaborateurs');
-
-        // Option 3 : Ouvrir un modal/drawer directement
-        // uiDispatch({ type: 'OPEN_COLLABORATORS_MODAL' });
-
-        // Option 4 : Pour debugger, affichez dans la console
+        
+        // Pour debug
         console.log('Share clicked - Active project:', activeProjectOrView);
-        console.log('Current path:', location.pathname);
+        console.log('User can share:', canShareProject);
     };
 
-    // Pour debugger, affichez les informations dans la console
+    // Pour debugger
     useEffect(() => {
         console.log('Header Debug:');
         console.log('- Active Project:', activeProjectOrView);
         console.log('- Can Share:', canShareProject);
         console.log('- Session User ID:', session?.user?.id);
         console.log('- Project User ID:', activeProjectOrView?.user_id);
+        console.log('- Session object:', session);
     }, [activeProjectOrView, canShareProject, session]);
 
     return (

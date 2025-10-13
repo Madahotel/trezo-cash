@@ -1,5 +1,6 @@
 import { deriveActualsFromEntry } from "../../utils/scenarioCalculations";
 import { templates as officialTemplatesData } from "../../utils/templates";
+import axios from "../config/Axios";
 
 // Configuration de l'API
 // const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
@@ -103,6 +104,7 @@ export const updateProjectOnboardingStep = async (
   }
 };
 
+
 export const initializeProject = async (
   { dataDispatch, uiDispatch },
   payload,
@@ -111,6 +113,8 @@ export const initializeProject = async (
   allTemplates
 ) => {
   try {
+    uiDispatch({ type: 'SET_LOADING', payload: true });
+
     const {
       projectName,
       projectStartDate,
@@ -118,101 +122,154 @@ export const initializeProject = async (
       isEndDateIndefinite,
       templateId,
       startOption,
+      projectTypeId = 1,
+      description = ''
     } = payload;
 
+    console.log('📥 Données reçues:', payload);
+
+    // CORRECTION : Gestion plus robuste des templates
+    let finalTemplateId = null;
+    
+    if (templateId && templateId !== 'blank' && templateId !== 'null') {
+      try {
+        // Si templateId est numérique, l'utiliser directement
+        if (!isNaN(templateId)) {
+          finalTemplateId = parseInt(templateId);
+          console.log(`✅ Template ID numérique: ${finalTemplateId}`);
+        } else {
+          // Sinon chercher par nom
+          const templatesResponse = await axios.get('/templates');
+          if (templatesResponse.data.status === 200) {
+            const apiData = templatesResponse.data.templates;
+            const templatesList = [
+              ...(apiData.officials?.template_official_items?.data || []),
+              ...(apiData.personals?.template_personal_items?.data || []),
+              ...(apiData.communities?.template_community_items?.data || [])
+            ];
+            
+            const foundTemplate = templatesList.find(t => 
+              t.id && (t.id.toString() === templateId.toString() || 
+              t.name?.toLowerCase() === templateId.toLowerCase())
+            );
+            
+            if (foundTemplate) {
+              finalTemplateId = foundTemplate.id;
+              console.log(`✅ Template trouvé: ${foundTemplate.name} (ID: ${foundTemplate.id})`);
+            }
+          }
+        }
+      } catch (templateError) {
+        console.warn('⚠️ Erreur chargement templates:', templateError);
+        // Continuer sans template plutôt que d'échouer
+      }
+    }
+
+    // CORRECTION : Préparer les données avec validation
     const projectData = {
-      user_id: user.id,
       name: projectName,
+      description: description,
       start_date: projectStartDate,
-      end_date: isEndDateIndefinite ? null : projectEndDate,
-      currency: "EUR",
-      currency_symbol: "€",
-      expense_targets: getDefaultExpenseTargets(),
+      end_date: isEndDateIndefinite ? null : (projectEndDate || null),
+      is_duration_undetermined: isEndDateIndefinite ? 1 : 0,
+      template_id: finalTemplateId,
+      project_type_id: projectTypeId
     };
 
-    if (startOption === "blank" || templateId === "blank") {
-      // Création d'un projet vide avec compte par défaut
-      const response = await api.post(
-        `${apiEndpoints.projects}/initialize-blank`,
-        {
-          project: projectData,
-          user_id: user.id,
-        }
-      );
+        const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Timeout: La création du projet a pris trop de temps')), 30000);
+    });
 
-      const { project, cash_accounts, entries, actuals, tiers } = response.data;
+    console.log('📤 Données envoyées à l\'API:', projectData);
+    // Validation côté client avant envoi
+    if (!projectData.name || projectData.name.length < 2) {
+      throw new Error('Le nom du projet doit contenir au moins 2 caractères');
+    }
 
+    if (!projectData.start_date) {
+      throw new Error('La date de début est requise');
+    }
+
+    console.log('📤 Données envoyées à l\'API:', projectData);
+
+    // Appel API pour créer le projet
+    const response = await axios.post('/projects', projectData);
+    console.log('✅ Réponse API création projet:', response.data);
+
+    // CORRECTION : Vérification plus robuste de la réponse
+    if (response.data && (response.data.status === 200 || response.data.project_id)) {
+      const projectId = response.data.project_id || response.data.id;
+      
+      console.log(`✅ Projet créé avec succès. ID: ${projectId}`);
+      
+      // Créer l'objet projet minimal
+      const minimalProject = {
+        id: projectId,
+        name: projectName,
+        start_date: projectStartDate,
+        description: description,
+        project_type_id: projectTypeId,
+        template_id: finalTemplateId,
+        is_duration_undetermined: isEndDateIndefinite ? 1 : 0,
+        end_date: isEndDateIndefinite ? null : (projectEndDate || null)
+      };
+
+      // Dispatch immédiat pour débloquer l'UI
       dataDispatch({
-        type: "INITIALIZE_PROJECT_SUCCESS",
+        type: 'INITIALIZE_PROJECT_SUCCESS',
         payload: {
-          newProject: project,
-          finalCashAccounts: cash_accounts,
-          newAllEntries: entries,
-          newAllActuals: actuals,
-          newTiers: tiers,
+          newProject: minimalProject,
+          finalCashAccounts: [],
+          newAllEntries: [],
+          newAllActuals: [],
+          newTiers: [],
           newLoans: [],
           newCategories: null,
-        },
+        }
       });
-      uiDispatch({ type: "CANCEL_ONBOARDING" });
-      return;
-    }
 
-    // Création avec template
-    const officialTemplate = [
-      ...officialTemplatesData.personal,
-      ...officialTemplatesData.professional,
-    ].find((t) => t.id === templateId);
-    const customTemplate = allTemplates.find((t) => t.id === templateId);
+      uiDispatch({ 
+        type: 'ADD_TOAST', 
+        payload: { 
+          message: response.data.message || 'Projet créé avec succès!', 
+          type: 'success' 
+        } 
+      });
+      
+      uiDispatch({ type: 'CANCEL_ONBOARDING' });
 
-    let templateData;
-    let newCategories = null;
-    if (officialTemplate) {
-      templateData = officialTemplate.data;
-    } else if (customTemplate) {
-      templateData = customTemplate.structure;
-      newCategories = customTemplate.structure.categories;
+      return { success: true, projectId };
+
     } else {
-      throw new Error("Template not found");
+      throw new Error(response.data.message || 'Réponse invalide du serveur');
     }
 
-    const response = await api.post(
-      `${apiEndpoints.projects}/initialize-with-template`,
-      {
-        project: projectData,
-        template_data: templateData,
-        user_id: user.id,
-        template_id: templateId,
-      }
-    );
-
-    const { project, cash_accounts, entries, actuals, tiers } = response.data;
-
-    dataDispatch({
-      type: "INITIALIZE_PROJECT_SUCCESS",
-      payload: {
-        newProject: project,
-        finalCashAccounts: cash_accounts,
-        newAllEntries: entries,
-        newAllActuals: actuals,
-        newTiers: tiers,
-        newLoans: [],
-        newCategories,
-      },
-    });
-    uiDispatch({ type: "CANCEL_ONBOARDING" });
   } catch (error) {
-    console.error("Onboarding failed:", error);
-    uiDispatch({
-      type: "ADD_TOAST",
-      payload: {
-        message: `Erreur lors de la création du projet: ${error.message}`,
-        type: "error",
-      },
+    console.error('❌ Erreur création projet:', error);
+    
+    let errorMessage = 'Erreur lors de la création du projet';
+    
+    if (error.response?.data?.errors) {
+      const validationErrors = error.response.data.errors;
+      errorMessage = 'Erreurs de validation: ' + Object.values(validationErrors).flat().join(', ');
+    } else if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    uiDispatch({ 
+      type: 'ADD_TOAST', 
+      payload: { message: errorMessage, type: 'error' } 
     });
+    
+    // Relancer l'erreur pour que le composant puisse la gérer
     throw error;
+  } finally {
+    uiDispatch({ type: 'SET_LOADING', payload: false });
   }
 };
+
 
 export const updateProjectSettings = async (
   { dataDispatch, uiDispatch },
@@ -254,6 +311,7 @@ export const updateProjectSettings = async (
     });
   }
 };
+
 
 export const saveEntry = async (
   { dataDispatch, uiDispatch },
@@ -942,65 +1000,163 @@ export const addComment = async (
   }
 };
 
-export const deleteTemplate = async (
-  { dataDispatch, uiDispatch },
-  templateId
-) => {
+// Dans votre fichier actions.js
+export const saveTemplate = async ({ dataDispatch, uiDispatch }, { templateData, editingTemplate, projectStructure, user }) => {
   try {
-    await api.delete(`${apiEndpoints.templates}/${templateId}`);
-    dataDispatch({ type: "DELETE_TEMPLATE_SUCCESS", payload: templateId });
-    uiDispatch({
-      type: "ADD_TOAST",
-      payload: { message: "Modèle supprimé.", type: "success" },
-    });
-  } catch (error) {
-    console.error("Error deleting template:", error);
-    uiDispatch({
-      type: "ADD_TOAST",
-      payload: { message: `Erreur: ${error.message}`, type: "error" },
-    });
-  }
-};
+    uiDispatch({ type: 'SET_LOADING', payload: true });
 
-export const saveTemplate = async (
-  { dataDispatch, uiDispatch },
-  { templateData, editingTemplate, projectStructure, user }
-) => {
-  try {
-    const dataToSave = {
-      ...templateData,
-      user_id: user.id,
-      structure: projectStructure,
+    const payload = {
+      name: templateData.name,
+      description: templateData.description,
+      icon: templateData.icon,
+      color: templateData.color,
+      is_public: templateData.is_public,
+      purpose: templateData.purpose,
+      structure: projectStructure // Ajout de la structure du projet
     };
 
     let response;
     if (editingTemplate) {
-      response = await api.put(
-        `${apiEndpoints.templates}/${editingTemplate.id}`,
-        dataToSave
-      );
-      dataDispatch({ type: "UPDATE_TEMPLATE_SUCCESS", payload: response.data });
-      uiDispatch({
-        type: "ADD_TOAST",
-        payload: { message: "Modèle mis à jour.", type: "success" },
-      });
+      // Pour l'édition (si vous avez cette route)
+      response = await axios.put(`/templates/${editingTemplate.id}`, payload);
     } else {
-      response = await api.post(apiEndpoints.templates, dataToSave);
-      dataDispatch({ type: "ADD_TEMPLATE_SUCCESS", payload: response.data });
-      uiDispatch({
-        type: "ADD_TOAST",
-        payload: { message: "Modèle créé.", type: "success" },
-      });
+      // Pour la création
+      response = await axios.post('/templates', payload);
     }
-    uiDispatch({ type: "CLOSE_SAVE_TEMPLATE_MODAL" });
+
+    if (response.data.status === 200) {
+      // Rafraîchir la liste des templates
+      await fetchTemplates({ dataDispatch, uiDispatch });
+      
+      uiDispatch({ 
+        type: 'ADD_TOAST', 
+        payload: { 
+          message: editingTemplate ? 'Modèle modifié avec succès!' : 'Modèle créé avec succès!', 
+          type: 'success' 
+        } 
+      });
+      
+      return { success: true };
+    }
   } catch (error) {
-    console.error("Error saving template:", error);
-    uiDispatch({
-      type: "ADD_TOAST",
-      payload: { message: `Erreur: ${error.message}`, type: "error" },
+    console.error('Erreur sauvegarde template:', error);
+    uiDispatch({ 
+      type: 'ADD_TOAST', 
+      payload: { 
+        message: error.response?.data?.message || 'Erreur lors de la sauvegarde', 
+        type: 'error' 
+      } 
     });
+    return { success: false };
+  } finally {
+    uiDispatch({ type: 'SET_LOADING', payload: false });
   }
 };
+
+// Version alternative plus performante
+export const fetchTemplates = async ({ dataDispatch, uiDispatch }) => {
+  try {
+    uiDispatch({ type: 'SET_LOADING', payload: true });
+    
+    const response = await axios.get('/templates');
+    console.log('📡 Réponse API templates:', response.data);
+    
+    if (response.data.status === 200) {
+      const apiData = response.data.templates;
+      
+      // Extraire les données de la structure paginée
+      const allTemplates = [
+        ...(apiData.officials?.template_official_items?.data || []),
+        ...(apiData.personals?.template_personal_items?.data || []),
+        ...(apiData.communities?.template_community_items?.data || [])
+      ];
+      
+      console.log('📦 Templates extraits:', allTemplates);
+      
+      // Éliminer les doublons avec Map (plus performant)
+      const templateMap = new Map();
+      const duplicates = [];
+      
+      allTemplates.forEach(template => {
+        if (templateMap.has(template.id)) {
+          duplicates.push(template.id);
+          console.log(`⚠️ Template dupliqué: ID ${template.id} - ${template.name}`);
+        } else {
+          templateMap.set(template.id, template);
+        }
+      });
+      
+      const uniqueTemplates = Array.from(templateMap.values());
+      
+      console.log('✨ Templates uniques:', uniqueTemplates);
+      if (duplicates.length > 0) {
+        console.log(`🗑️ Doublons ignorés: ${duplicates.join(', ')}`);
+      }
+      
+      dataDispatch({ 
+        type: 'SET_TEMPLATES', 
+        payload: uniqueTemplates 
+      });
+      
+      uiDispatch({ 
+        type: 'ADD_TOAST', 
+        payload: { 
+          message: `Modèles chargés (${uniqueTemplates.length} uniques, ${duplicates.length} doublons ignorés)`, 
+          type: 'success' 
+        } 
+      });
+    } else if (response.data.status === 204) {
+      console.log('ℹ️ Aucun template trouvé');
+      dataDispatch({ 
+        type: 'SET_TEMPLATES', 
+        payload: [] 
+      });
+    }
+  } catch (error) {
+    console.error('❌ Erreur chargement templates:', error);
+    uiDispatch({ 
+      type: 'ADD_TOAST', 
+      payload: { 
+        message: error.response?.data?.message || 'Erreur lors du chargement des templates', 
+        type: 'error' 
+      } 
+    });
+  } finally {
+    uiDispatch({ type: 'SET_LOADING', payload: false });
+  }
+};
+export const deleteTemplate = async ({ dataDispatch, uiDispatch }, templateId) => {
+  try {
+    uiDispatch({ type: 'SET_LOADING', payload: true });
+    
+    const response = await axios.delete(`/templates/${templateId}`);
+    
+    if (response.data.status === 200) {
+      // Rafraîchir la liste
+      await fetchTemplates({ dataDispatch, uiDispatch });
+      
+      uiDispatch({ 
+        type: 'ADD_TOAST', 
+        payload: { 
+          message: 'Template supprimé avec succès!', 
+          type: 'success' 
+        } 
+      });
+    }
+  } catch (error) {
+    console.error('Erreur suppression template:', error);
+    uiDispatch({ 
+      type: 'ADD_TOAST', 
+      payload: { 
+        message: error.response?.data?.message || 'Erreur lors de la suppression', 
+        type: 'error' 
+      } 
+    });
+  } finally {
+    uiDispatch({ type: 'SET_LOADING', payload: false });
+  }
+};
+
 
 // Fonctions pour charger les données initiales
 export const loadInitialData = async (user) => {

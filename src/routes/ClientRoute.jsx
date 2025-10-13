@@ -25,107 +25,40 @@ import SubscriptionPage from "../pages/clients/abonnement/SubscriptionPage";
 import OnboardingView from "../pages/clients/onboarding/OnboardingView";
 import ReferralPage from "../pages/clients/ambassador/ReferralPage";
 
+import ProtectedRoute from "../routes/ProtectedRoute"; // Ataovy araka ny làlana marina
+
 const ClientRoute = {
   path: "/client",
-  element: <ProjetLayoutClient />,
+  element: (
+    <ProtectedRoute>
+      <ProjetLayoutClient />
+    </ProtectedRoute>
+  ),
   children: [
-    {
-      index: true,
-      element: <div>HomePage client</div>,
-    },
-    {
-      path: "projet",
-      element: <ProjetClient />,
-    },
-    {
-      path: "dashboard",
-      element: <DashboardView />,
-    },
-    {
-      path: "trezo",
-      element: <TrezoPage />,
-    },
-    {
-      path: "budget",
-      element: <BudgetPage />,
-    },
-    {
-      path: "scenarios",
-      element: <ScenarioView />,
-    },
-    {
-      path: "flux",
-      element: <CashflowView />,
-    },
-
-    {
-      path: "echeancier",
-      element: <ScheduleView />,
-    },
-    {
-      path: "analyse",
-      element: <ExpenseAnalysisView />,
-    },
-    {
-      path: "templates",
-      element: <MyTemplatesPage />,
-    },
-    {
-      path: "parametres-projet",
-      element: <ProjectSettingsPage />,
-    },
-    {
-      path: "provisions",
-      element: <ProvisionsPage />,
-    },
-    {
-      path: "categories",
-      element: <CategoryManagementPage />,
-    },
-    {
-      path: "tiers",
-      element: <TiersManagementPage />,
-    },
-    {
-      path: "comptes",
-      element: <CashAccountsPage />,
-    },
-    {
-      path: "timezoneSettings",
-      element: <TimezoneSettingsPage />,
-    },
-    {
-      path: "archives",
-      element: <ArchivesPage />,
-    },
-    {
-      path: "profil",
-      element: <ProfilePage />,
-    },
-    {
-      path: "securite",
-      element: <SecurityPage />,
-    },
-    {
-      path: "factures",
-      element: <UnderConstructionView />,
-    },
-    {
-      path: "aide",
-      element: <Aide title="Centre d'aide" />,
-    },
-    {
-      path: "abonnement",
-      element: <SubscriptionPage />,
-    },
-    {
-      path: "onboarding",
-      element: <OnboardingView />,
-    },
-    {
-      path: "parrainage",
-      element: <ReferralPage />,
-    },
+    { index: true, element: <div>HomePage client</div> },
+    { path: "projet", element: <ProjetClient /> },
+    { path: "dashboard", element: <DashboardView /> },
+    { path: "trezo", element: <TrezoPage /> },
+    { path: "budget", element: <BudgetPage /> },
+    { path: "scenarios", element: <ScenarioView /> },
+    { path: "flux", element: <CashflowView /> },
+    { path: "echeancier", element: <ScheduleView /> },
+    { path: "analyse", element: <ExpenseAnalysisView /> },
+    { path: "templates", element: <MyTemplatesPage /> },
+    { path: "parametres-projet", element: <ProjectSettingsPage /> },
+    { path: "provisions", element: <ProvisionsPage /> },
+    { path: "categories", element: <CategoryManagementPage /> },
+    { path: "tiers", element: <TiersManagementPage /> },
+    { path: "comptes", element: <CashAccountsPage /> },
+    { path: "timezoneSettings", element: <TimezoneSettingsPage /> },
+    { path: "archives", element: <ArchivesPage /> },
+    { path: "profil", element: <ProfilePage /> },
+    { path: "securite", element: <SecurityPage /> },
+    { path: "factures", element: <UnderConstructionView /> },
+    { path: "aide", element: <Aide title="Centre d'aide" /> },
+    { path: "abonnement", element: <SubscriptionPage /> },
+    { path: "onboarding", element: <OnboardingView /> },
+    { path: "parrainage", element: <ReferralPage /> },
   ],
 };
 
