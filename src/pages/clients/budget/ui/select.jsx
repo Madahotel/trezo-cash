@@ -1,122 +1,112 @@
-import React, { useState, useRef, forwardRef } from "react";
-
-// Utilitaire cn pour concaténer les classes
-const cn = (...classes) => classes.filter(Boolean).join(" ");
+import React, { useState, useRef, forwardRef, useEffect } from "react";
+import { Check, ChevronDown } from "lucide-react";
 
 // Composant Select principal
-const Select = ({ children, value: controlledValue, onValueChange }) => {
-  const [open, setOpen] = useState(false);
-  const [selectedValue, setSelectedValue] = useState(controlledValue || "");
-  const triggerRef = useRef(null);
+const Select = ({
+  children,
+  value,
+  onValueChange,
+  placeholder = "Select...",
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectRef = useRef(null);
 
-  const handleSelect = (val) => {
-    setSelectedValue(val);
-    onValueChange?.(val);
-    setOpen(false);
+  // Ferme le menu si on clique en dehors
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (selectRef.current && !selectRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [isOpen]);
+
+  const handleSelect = (selectedValue) => {
+    onValueChange?.(selectedValue);
+    setIsOpen(false);
   };
 
   return (
-    <div className="relative inline-block w-full text-left">
-      <SelectTrigger ref={triggerRef} onClick={() => setOpen(!open)}>
-        {selectedValue || "Select..."}
-      </SelectTrigger>
+    <div ref={selectRef} className="relative w-full">
+      {/* Bouton principal */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex h-10 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <span className="truncate">{value || placeholder}</span>
+        <ChevronDown className="h-4 w-4 text-gray-500" />
+      </button>
 
-      {open && (
-        <SelectContent>
+      {/* Menu déroulant */}
+      {isOpen && (
+        <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-lg">
           {React.Children.map(children, (child) =>
             React.isValidElement(child)
               ? React.cloneElement(child, {
+                  isSelected: child.props.value === value,
                   onSelect: handleSelect,
-                  selectedValue,
                 })
               : child
           )}
-        </SelectContent>
+        </div>
       )}
     </div>
   );
 };
 
-// Trigger du Select
-const SelectTrigger = forwardRef(({ children, className, ...props }, ref) => (
-  <button
-    ref={ref}
-    className={cn(
-      "flex h-9 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500",
-      className
-    )}
-    {...props}
-  >
-    <span className="truncate">{children}</span>
-    <span className="ml-2">▼</span>
-  </button>
-));
-
-// Content du Select
-const SelectContent = forwardRef(({ children, className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn(
-      "absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border bg-white shadow-md",
-      className
-    )}
-    {...props}
-  >
-    {children}
-  </div>
-));
-
-// Value du Select
-const SelectValue = ({ value, placeholder = "Select..." }) => (
-  <span>{value || placeholder}</span>
-);
-
-// Item du Select
+// Option du Select
 const SelectItem = ({
   children,
   value,
+  isSelected,
   onSelect,
-  selectedValue,
-  className,
+  disabled = false,
 }) => {
-  const isSelected = selectedValue === value;
+  const handleClick = () => {
+    if (!disabled && onSelect) {
+      onSelect(value);
+    }
+  };
+
   return (
     <div
-      onClick={() => onSelect(value)}
-      className={cn(
-        "relative flex cursor-pointer items-center rounded-sm py-1.5 pl-2 pr-8 text-sm hover:bg-gray-100",
-        isSelected && "bg-blue-500 text-white",
-        className
-      )}
+      onClick={handleClick}
+      className={`
+        relative flex cursor-pointer items-center py-2 px-3 text-sm
+        ${isSelected ? "bg-blue-500 text-white" : "hover:bg-gray-100"}
+        ${disabled ? "cursor-not-allowed opacity-50" : ""}
+      `}
     >
-      <span className="absolute right-2">{isSelected ? "✔" : ""}</span>
-      {children}
+      <span className="flex-1">{children}</span>
+      {isSelected && <Check className="h-4 w-4 ml-2" />}
     </div>
   );
 };
 
-// Label du Select
-const SelectLabel = ({ children, className }) => (
-  <div className={cn("px-2 py-1.5 text-sm font-semibold", className)}>
+// Label pour grouper des options
+const SelectLabel = ({ children }) => (
+  <div className="px-3 py-2 text-sm font-semibold text-gray-700 bg-gray-50">
     {children}
   </div>
 );
 
-// Separator du Select
-const SelectSeparator = ({ className }) => (
-  <div className={cn("-mx-1 my-1 h-px bg-gray-300", className)} />
-);
+// Séparateur entre les options
+const SelectSeparator = () => <div className="h-px bg-gray-200 my-1" />;
 
-// Scroll buttons (dummy pour compatibilité)
-const SelectScrollUpButton = ({ className }) => (
-  <div className={cn("hidden", className)} />
-);
-const SelectScrollDownButton = ({ className }) => (
-  <div className={cn("hidden", className)} />
-);
+// Group pour organiser les options
+const SelectGroup = ({ children }) => <div className="py-1">{children}</div>;
 
-// Group (dummy pour compatibilité)
-const SelectGroup = ({ children }) => <div>{children}</div>;
+// Composants de compatibilité (simplifiés)
+const SelectValue = ({ children }) => <span>{children}</span>;
+const SelectTrigger = ({ children }) => <>{children}</>;
+const SelectContent = ({ children }) => <>{children}</>;
+const SelectScrollUpButton = () => null;
+const SelectScrollDownButton = () => null;
 
 export {
   Select,

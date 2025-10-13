@@ -1,98 +1,274 @@
-import React, { useState, createContext, useContext } from "react";
-import { Check, ChevronRight, Circle } from "lucide-react";
+import React, {
+  useState,
+  createContext,
+  useContext,
+  forwardRef,
+  useEffect,
+  useRef,
+} from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 // Contexte pour partager l'état du menu
 const DropdownContext = createContext();
 
 const DropdownMenu = ({ children }) => {
   const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState("bottom"); // 'bottom' ou 'top'
+  const menuRef = useRef(null);
+  const triggerRef = useRef(null);
+
+  // Fermer le menu quand on clique en dehors
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+
+    // Fermer avec la touche Échap
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    };
+
+    if (open) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleEscape);
+
+      // Calculer la position optimale
+      if (triggerRef.current) {
+        const triggerRect = triggerRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - triggerRect.bottom;
+        const spaceAbove = triggerRect.top;
+        const menuHeight = 200; // Hauteur estimée du menu
+
+        if (spaceBelow < menuHeight && spaceAbove > spaceBelow) {
+          setPosition("top");
+        } else {
+          setPosition("bottom");
+        }
+      }
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [open]);
 
   return (
-    <DropdownContext.Provider value={{ open, setOpen }}>
-      <div className="relative inline-block text-left">{children}</div>
+    <DropdownContext.Provider value={{ open, setOpen, position, triggerRef }}>
+      <div ref={menuRef} className="relative inline-block text-left">
+        {children}
+      </div>
     </DropdownContext.Provider>
   );
 };
 
-const DropdownMenuTrigger = ({ children }) => {
-  const { open, setOpen } = useContext(DropdownContext);
+const DropdownMenuTrigger = forwardRef(
+  ({ children, className = "", asChild = false, ...props }, ref) => {
+    const { open, setOpen, triggerRef } = useContext(DropdownContext);
 
-  return (
-    <button
-      onClick={() => setOpen(!open)}
-      className="inline-flex items-center justify-center rounded-md px-3 py-1 text-sm font-medium bg-muted text-muted-foreground"
-    >
-      {children}
-      <ChevronRight className="ml-2 h-4 w-4" />
-    </button>
-  );
-};
+    // Combiner les refs
+    const combinedRef = (node) => {
+      if (ref) {
+        if (typeof ref === "function") {
+          ref(node);
+        } else {
+          ref.current = node;
+        }
+      }
+      triggerRef.current = node;
+    };
 
-const DropdownMenuContent = ({ children, className = "" }) => {
-  const { open } = useContext(DropdownContext);
+    if (asChild) {
+      return React.cloneElement(React.Children.only(children), {
+        ref: combinedRef,
+        onClick: () => setOpen(!open),
+        ...props,
+      });
+    }
 
-  if (!open) return null;
-
-  return (
-    <div
-      className={`absolute left-0 mt-2 min-w-[8rem] rounded-md border bg-popover p-1 shadow-md ${className}`}
-    >
-      {children}
-    </div>
-  );
-};
-
-const DropdownMenuItem = ({ children, onClick, className = "" }) => (
-  <div
-    onClick={onClick}
-    className={`flex items-center px-2 py-1.5 text-sm rounded-sm cursor-pointer hover:bg-accent hover:text-accent-foreground ${className}`}
-  >
-    {children}
-  </div>
+    return (
+      <button
+        ref={combinedRef}
+        onClick={() => setOpen(!open)}
+        className={`inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none data-[state=open]:bg-accent ${className}`}
+        {...props}
+      >
+        {children}
+      </button>
+    );
+  }
 );
+DropdownMenuTrigger.displayName = "DropdownMenuTrigger";
 
-const DropdownMenuCheckboxItem = ({ children, checked, onClick }) => (
-  <DropdownMenuItem onClick={onClick} className="pl-8 relative">
-    <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-      {checked && <Check className="h-4 w-4" />}
-    </span>
-    {children}
-  </DropdownMenuItem>
-);
+const DropdownMenuContent = forwardRef(
+  (
+    { children, className = "", sideOffset = 4, align = "start", ...props },
+    ref
+  ) => {
+    const { open, position } = useContext(DropdownContext);
+    const contentRef = useRef(null);
 
-const DropdownMenuRadioItem = ({ children, selected, onClick }) => (
-  <DropdownMenuItem onClick={onClick} className="pl-8 relative">
-    <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-      {selected && <Circle className="h-2 w-2 fill-current" />}
-    </span>
-    {children}
-  </DropdownMenuItem>
-);
+    // Combiner les refs
+    const combinedRef = (node) => {
+      if (ref) {
+        if (typeof ref === "function") {
+          ref(node);
+        } else {
+          ref.current = node;
+        }
+      }
+      contentRef.current = node;
+    };
 
-const DropdownMenuLabel = ({ children, className = "" }) => (
-  <div className={`px-2 py-1.5 text-sm font-semibold ${className}`}>
-    {children}
-  </div>
-);
+    // Gérer le focus quand le menu s'ouvre
+    useEffect(() => {
+      if (open && contentRef.current) {
+        const firstFocusable = contentRef.current.querySelector(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (firstFocusable) {
+          firstFocusable.focus();
+        }
+      }
+    }, [open]);
 
-const DropdownMenuSeparator = ({ className = "" }) => (
-  <div className={`-mx-1 my-1 h-px bg-muted ${className}`} />
-);
+    const alignmentClasses = {
+      start: "left-0",
+      center: "left-1/2 transform -translate-x-1/2",
+      end: "right-0",
+    };
 
-const DropdownMenuShortcut = ({ children, className = "" }) => (
-  <span className={`ml-auto text-xs tracking-widest opacity-60 ${className}`}>
-    {children}
-  </span>
+    const positionClasses = {
+      bottom: "top-full mt-2",
+      top: "bottom-full mb-2",
+    };
+
+    const dropdownVariants = {
+      hidden: {
+        opacity: 0,
+        scale: 0.95,
+        y: position === "bottom" ? -8 : 8,
+      },
+      visible: {
+        opacity: 1,
+        scale: 1,
+        y: 0,
+        transition: {
+          duration: 0.1,
+          ease: "easeOut",
+        },
+      },
+      exit: {
+        opacity: 0,
+        scale: 0.95,
+        y: position === "bottom" ? -8 : 8,
+        transition: {
+          duration: 0.075,
+          ease: "easeIn",
+        },
+      },
+    };
+
+    const slideAnimation = {
+      bottom: {
+        slideIn: "data-[side=bottom]:slide-in-from-top-2",
+        slideOut: "data-[side=bottom]:slide-out-to-top-2",
+      },
+      top: {
+        slideIn: "data-[side=top]:slide-in-from-bottom-2",
+        slideOut: "data-[side=top]:slide-out-to-bottom-2",
+      },
+    };
+
+    return (
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            ref={combinedRef}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            variants={dropdownVariants}
+            className={`
+            z-50 max-h-[300px] min-w-[8rem] 
+            overflow-y-auto overflow-x-hidden rounded-md border border-gray-200 bg-white p-1 text-gray-900 shadow-lg
+            absolute ${positionClasses[position]}
+            ${alignmentClasses[align]}
+            ${slideAnimation[position].slideIn}
+            ${slideAnimation[position].slideOut}
+            ${className}
+          `.trim()}
+            style={{
+              "--radix-dropdown-menu-content-available-height": "300px",
+            }}
+            role="menu"
+            aria-orientation="vertical"
+            {...props}
+          >
+            {children}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
+  }
 );
+DropdownMenuContent.displayName = "DropdownMenuContent";
+
+const DropdownMenuItem = forwardRef(
+  ({ className = "", inset, children, onClick, ...props }, ref) => {
+    const { setOpen } = useContext(DropdownContext);
+
+    const handleClick = (event) => {
+      onClick?.(event);
+      setOpen(false);
+    };
+
+    return (
+      <motion.button
+        ref={ref}
+        onClick={handleClick}
+        whileHover={{ backgroundColor: "rgb(248 250 252)" }}
+        whileTap={{ scale: 0.98 }}
+        className={`
+        relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm 
+        outline-none transition-colors focus:bg-slate-50 focus:text-gray-900 
+        data-[disabled]:pointer-events-none data-[disabled]:opacity-50 
+        [&>svg]:size-4 [&>svg]:shrink-0 w-full text-left
+        ${inset ? "pl-8" : ""}
+        ${className}
+      `.trim()}
+        role="menuitem"
+        {...props}
+      >
+        {children}
+      </motion.button>
+    );
+  }
+);
+DropdownMenuItem.displayName = "DropdownMenuItem";
+
+const DropdownMenuSeparator = forwardRef(
+  ({ className = "", ...props }, ref) => (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className={`-mx-1 my-1 h-px bg-gray-200 ${className}`}
+      role="separator"
+      {...props}
+    />
+  )
+);
+DropdownMenuSeparator.displayName = "DropdownMenuSeparator";
 
 export {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuCheckboxItem,
-  DropdownMenuRadioItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
 };

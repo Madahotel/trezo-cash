@@ -1,22 +1,27 @@
 import React, { forwardRef } from "react";
 
 const Checkbox = forwardRef(
-  ({ className = "", checked, onChange, ...props }, ref) => {
+  ({ className = "", checked, onCheckedChange, ...props }, ref) => {
     return (
       <label className="inline-flex items-center cursor-pointer">
         <input
           type="checkbox"
           ref={ref}
           checked={checked}
-          onChange={onChange}
-          className={`peer h-4 w-4 shrink-0 rounded-sm border border-primary shadow focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50
-          ${checked ? "bg-primary text-white" : "bg-white"} ${className}`}
+          onChange={(e) => onCheckedChange?.(e.target.checked)}
+          className={`
+            peer h-4 w-4 shrink-0 rounded-sm border border-gray-300 shadow 
+            focus:outline-none focus:ring-2 focus:ring-blue-500 
+            disabled:cursor-not-allowed disabled:opacity-50
+            ${checked ? "bg-blue-600 border-blue-600" : "bg-white"} 
+            ${className}
+          `}
           {...props}
         />
-        <span className="absolute flex h-4 w-4 items-center justify-center pointer-events-none">
+        <span className="absolute pointer-events-none flex h-4 w-4 items-center justify-center text-white">
           {checked && (
             <svg
-              className="h-4 w-4"
+              className="h-3 w-3"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"

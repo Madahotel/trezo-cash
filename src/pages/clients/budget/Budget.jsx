@@ -27,32 +27,20 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "./ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "./ui/alert-dialog";
+
 import BudgetLineDialog from "./BudgetLineDialog";
 import { useSettings } from "../../../contexts/SettingsContext";
 import { useTranslation } from "../../../i18n/translations";
-import categoryService from "../../../service/categoryService";
-
+import ConfirmationModal from "./ui/alert-dialog";
 const BudgetPage = () => {
-  const [activeTab, setActiveTab] = useState("revenus");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLine, setEditingLine] = useState(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
-  const [selectedLine, setSelectedLine] = useState(null);
   const { language, currency, formatCurrency } = useSettings();
   const { t } = useTranslation(language);
-
-  // Fonction pour obtenir les classes de couleur
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [archiveModalOpen, setArchiveModalOpen] = useState(false);
+  const [selectedLine, setSelectedLine] = useState(null);
+  // Fonction pour obtenir les classes de couleur (identique à celle du dialog)
   const getColorClasses = (color) => {
     const colorClasses = {
       green: { bg: "bg-green-100", text: "text-green-600" },
@@ -61,6 +49,10 @@ const BudgetPage = () => {
       emerald: { bg: "bg-emerald-100", text: "text-emerald-600" },
       stone: { bg: "bg-stone-100", text: "text-stone-600" },
       red: { bg: "bg-red-100", text: "text-red-600" },
+      blue: { bg: "bg-blue-100", text: "text-blue-600" },
+      yellow: { bg: "bg-yellow-100", text: "text-yellow-600" },
+      purple: { bg: "bg-purple-100", text: "text-purple-600" },
+      pink: { bg: "bg-pink-100", text: "text-pink-600" },
     };
     return colorClasses[color] || { bg: "bg-gray-100", text: "text-gray-600" };
   };
@@ -207,7 +199,10 @@ const BudgetPage = () => {
   };
 
   const handleSaveBudgetLine = (lineData) => {
+    console.log("Saving budget line:", lineData); // Debug
+
     if (editingLine) {
+      // Edit existing line
       const type = lineData.type === "revenue" ? "revenus" : "depenses";
       setBudgetData((prev) => ({
         ...prev,
@@ -234,9 +229,10 @@ const BudgetPage = () => {
       }));
       setEditingLine(null);
     } else {
+      // Add new line
       const type = lineData.type === "revenue" ? "revenus" : "depenses";
       const newLine = {
-        id: budgetData[type].length + 1,
+        id: Date.now(), // Utiliser timestamp pour éviter les doublons
         type: lineData.type,
         mainCategory: lineData.mainCategory,
         subcategory: lineData.subcategory,
@@ -260,9 +256,12 @@ const BudgetPage = () => {
         [type]: [...prev[type], newLine],
       }));
     }
+
+    setIsDialogOpen(false);
   };
 
   const handleEditLine = (line, type) => {
+    console.log("Editing line:", line); // Debug
     setEditingLine({
       ...line,
       type: type === "revenus" ? "revenue" : "expense",
@@ -273,36 +272,28 @@ const BudgetPage = () => {
 
   const handleDeleteLine = (line, type) => {
     setSelectedLine({ ...line, type });
-    setDeleteDialogOpen(true);
-  };
-
-  const confirmDelete = () => {
-    if (selectedLine) {
-      setBudgetData((prev) => ({
-        ...prev,
-        [selectedLine.type]: prev[selectedLine.type].filter(
-          (item) => item.id !== selectedLine.id
-        ),
-      }));
-      setDeleteDialogOpen(false);
-      setSelectedLine(null);
-    }
+    setDeleteModalOpen(true);
   };
 
   const handleArchiveLine = (line, type) => {
     setSelectedLine({ ...line, type });
-    setArchiveDialogOpen(true);
+    setArchiveModalOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (selectedLine) {
+      // Logique de suppression
+      console.log("Suppression de:", selectedLine);
+      setDeleteModalOpen(false);
+      setSelectedLine(null);
+    }
   };
 
   const confirmArchive = () => {
     if (selectedLine) {
-      setBudgetData((prev) => ({
-        ...prev,
-        [selectedLine.type]: prev[selectedLine.type].map((item) =>
-          item.id === selectedLine.id ? { ...item, archived: true } : item
-        ),
-      }));
-      setArchiveDialogOpen(false);
+      // Logique d'archivage
+      console.log("Archivage de:", selectedLine);
+      setArchiveModalOpen(false);
       setSelectedLine(null);
     }
   };
@@ -329,11 +320,7 @@ const BudgetPage = () => {
       annual: { label: t("annual"), color: "bg-cyan-100 text-cyan-700" },
     };
     const freq = frequencyMap[frequency] || frequencyMap.monthly;
-    return (
-      <Badge className={`${freq.color} hover:${freq.color}`}>
-        {freq.label}
-      </Badge>
-    );
+    return <Badge className={`${freq.color}`}>{freq.label}</Badge>;
   };
 
   return (
@@ -353,7 +340,12 @@ const BudgetPage = () => {
             <Download className="w-4 h-4 mr-2" />
             {t("export")}
           </Button>
-          <Button onClick={() => setIsDialogOpen(true)}>
+          <Button
+            onClick={() => {
+              console.log("Opening dialog..."); // Debug
+              setIsDialogOpen(true);
+            }}
+          >
             <Plus className="w-4 h-4 mr-2" />
             {t("newLine")}
           </Button>
@@ -368,55 +360,26 @@ const BudgetPage = () => {
         editLine={editingLine}
       />
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("confirmDelete")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("deleteConfirmationMessage")}
-              {selectedLine && (
-                <div className="mt-2 font-medium">
-                  {selectedLine.categoryName || selectedLine.categorie}
-                </div>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {t("delete")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmationModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={confirmDelete}
+        title="Confirmer la suppression"
+        description="Êtes-vous sûr de vouloir supprimer cette ligne budgétaire ? Cette action est irréversible."
+        confirmText="Supprimer"
+        confirmColor="bg-red-600 hover:bg-red-700"
+      />
 
-      {/* Archive Confirmation Dialog */}
-      <AlertDialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("confirmArchive")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("archiveConfirmationMessage")}
-              {selectedLine && (
-                <div className="mt-2 font-medium">
-                  {selectedLine.categoryName || selectedLine.categorie}
-                </div>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmArchive}>
-              {t("archive")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
+      {/* Modal d'archivage */}
+      <ConfirmationModal
+        isOpen={archiveModalOpen}
+        onClose={() => setArchiveModalOpen(false)}
+        onConfirm={confirmArchive}
+        title="Confirmer l'archivage"
+        description="Êtes-vous sûr de vouloir archiver cette ligne budgétaire ?"
+        confirmText="Archiver"
+        confirmColor="bg-blue-600 hover:bg-blue-700"
+      />
       {/* Summary Cards */}
       <div className="grid md:grid-cols-3 gap-4">
         <Card>
@@ -803,7 +766,10 @@ const BudgetPage = () => {
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
                                     onClick={() =>
-                                      handleDeleteLine(item, "depenses")
+                                      handleDeleteLine(
+                                        { id: 1, name: "Exemple" },
+                                        "revenus"
+                                      )
                                     }
                                     className="text-red-600"
                                   >
