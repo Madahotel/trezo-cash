@@ -33,7 +33,7 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
     const avatarMenuRef = useRef(null);
     const [themeActive, setThemeActive] = useState("");
     // Close menu when clicking outside
-   
+
 
     useEffect(() => {
         const selectedTheme = getAllThemes().find(themeOption => theme === themeOption.id);
@@ -179,10 +179,10 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
         return { text: 'Essai terminé', color: 'text-red-600', bgColor: 'bg-red-100' };
     }, [profile]);
 
-    
+
     // Enhanced navigation link classes with light theme
     const navLinkClasses = ({ isActive }) => {
-       
+
         const baseClasses = `flex items-center w-full h-12 rounded-xl transition-all duration-200 group relative overflow-hidden ${isCollapsed ? 'justify-center' : 'px-3'
             }`;
 
@@ -198,7 +198,7 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
             ? `${inactiveBgClass} hover:bg-white hover:text-blue-600 border border-transparent hover:border-blue-200`
             : '';
 
-       
+
         const activeStateClasses = isActive ? 'bg-transparent' : inactiveStateClasses; // Utilisez `bg-transparent` si actif pour éviter toute classe `bg-*`
 
         return `${baseClasses} ${activeText} ${activeShadow} ${activeStateClasses}`;
@@ -214,42 +214,40 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
         }`;
 
     return (
+        // Dans Sidebar.jsx
         <motion.div
             initial={false}
-            animate={{ width: isCollapsed ? 80 : 280 }}
+            animate={{ width: isCollapsed ? 80 : 280 }} // <-- Ici, la largeur dépliée est 280
             className="fixed top-0 left-0 h-full bg-gray-100 z-40 flex flex-col transition-all duration-300 border-r border-gray-200 shadow-lg"
         >
-
             {/* Header Section */}
-            <div className="flex items-center justify-between h-20 px-4 border-b border-gray-200 bg-white/50 backdrop-blur-sm">
+            <div className="flex items-center justify-between h-19 px-4 py-4 border-b border-gray-200 bg-white/50 backdrop-blur-sm">
                 <div className={`flex items-center gap-3 overflow-hidden transition-all duration-300 ${isCollapsed ? 'w-10' : 'w-full'
                     }`}>
-                    <NavLink 
-            to="/client/dashboard" 
-            // Utilisez le style en ligne pour la couleur de texte dynamique
-            className="flex items-center justify-center rounded-xl text-gray-900 shrink-0 transition-transform hover:scale-105"
-            style={{ color: themeActive }} 
-          >
-            <DollarSign 
-              className="w-8 h-8" 
-             
-              style={{ color: themeActive }} 
-            />
-          </NavLink>
-          <AnimatePresence>
-            {!isCollapsed && (
-              <motion.span 
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.2 }}
-                className="text-xl font-bold whitespace-nowrap"
-                style={{ color: themeActive }} // 👈 Le changement principal pour le texte
-              >
-                Trezocash
-              </motion.span>
-            )}
-          </AnimatePresence>
+                    <NavLink
+                        to="/client/dashboard"
+                        className="flex items-center justify-center rounded-xl text-gray-900 shrink-0 transition-transform hover:scale-105"
+                        style={{ color: themeActive }}
+                    >
+                        <DollarSign
+                            className="w-8 h-8"
+                            style={{ color: themeActive }}
+                        />
+                    </NavLink>
+                    <AnimatePresence>
+                        {!isCollapsed && (
+                            <motion.span
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                transition={{ duration: 0.2 }}
+                                className="text-xl font-bold whitespace-nowrap"
+                                style={{ color: themeActive }}
+                            >
+                                Trezocash
+                            </motion.span>
+                        )}
+                    </AnimatePresence>
                 </div>
 
                 {!isCollapsed && (
@@ -308,8 +306,8 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
                                 {/* Active indicator */}
                                 <motion.div
                                     className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full ${navLinkClasses({ isActive: false }).includes('bg-blue-500')
-                                            ? 'bg-blue-500'
-                                            : 'bg-transparent'
+                                        ? 'bg-blue-500'
+                                        : 'bg-transparent'
                                         }`}
                                     initial={false}
                                     animate={{
@@ -455,8 +453,8 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
                                             whileHover={{ x: 4 }}
                                             onClick={() => handleNavigate(item.path)}
                                             className={`w-full text-left flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-all duration-150 ${item.isDestructive
-                                                    ? 'text-red-600 hover:bg-red-50'
-                                                    : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700'
+                                                ? 'text-red-600 hover:bg-red-50'
+                                                : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700'
                                                 }`}
                                         >
                                             <item.icon className="w-4 h-4 shrink-0" />
