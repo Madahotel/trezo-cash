@@ -1,24 +1,60 @@
 import React, { useState, useMemo } from 'react';
-import { Wallet, Edit, Plus, Trash2, AlertTriangle, Archive, ArchiveRestore, X, Save, ArrowRightLeft } from 'lucide-react';
+import { Wallet, Edit, Plus, Trash2, AlertTriangle, Archive, ArchiveRestore, ArrowRightLeft } from 'lucide-react';
 import { formatCurrency } from '../../../utils/formatting';
 import { useData, mainCashAccountCategories } from '../../../components/context/DataContext';
 import { useUI } from '../../../components/context/UIContext';
 import AddAccountForm from './AddAccountForm';
 import EmptyState from '../../../components/emptystate/EmptyState.jsx';
+import TransferModal from '../../../components/modal/TransferModal.jsx';
 import { updateUserCashAccount, addUserCashAccount } from '../../../components/context/actions';
-import { useAccountBalances } from '../../../utils/selectors.jsx';
+
+// Données statiques pour simuler les comptes (à remplacer par vos données réelles)
+const mockAccounts = [
+  {
+    id: 'acc1',
+    name: 'Compte Bancaire Principal',
+    mainCategoryId: 'bank',
+    initialBalance: 5000,
+    initialBalanceDate: '2025-01-01',
+    balance: 7500.25,
+    isClosed: false,
+  },
+  {
+    id: 'acc2',
+    name: 'Caisse Espèces',
+    mainCategoryId: 'cash',
+    initialBalance: 1000,
+    initialBalanceDate: '2025-02-01',
+    balance: 850.75,
+    isClosed: true,
+    closureDate: '2025-09-15',
+  },
+  {
+    id: 'acc3',
+    name: 'Compte Épargne',
+    mainCategoryId: 'savings',
+    initialBalance: 10000,
+    initialBalanceDate: '2025-03-01',
+    balance: 10250.50,
+    isClosed: false,
+  },
+];
+
+// Pour utiliser vos données réelles, remplacez mockAccounts par useAccountBalances comme suit :
+// const accountBalances = useAccountBalances(allCashAccounts, allActuals, activeProjectId, isConsolidated, isCustomConsolidated, consolidatedViews);
 
 const CashAccountsView = () => {
   const { dataState, dataDispatch } = useData();
   const { uiState, uiDispatch } = useUI();
-  const { allCashAccounts, settings, allActuals, projects, session, consolidatedViews } = dataState;
+  const { settings, allActuals, projects, session, consolidatedViews } = dataState;
   const { activeProjectId } = uiState;
   const activeProject = useMemo(() => projects.find(p => p.id === activeProjectId), [projects, activeProjectId]);
   
   const isConsolidated = activeProjectId === 'consolidated';
   const isCustomConsolidated = activeProjectId?.startsWith('consolidated_view_');
 
-  const accountBalances = useAccountBalances(allCashAccounts, allActuals, activeProjectId, isConsolidated, isCustomConsolidated, consolidatedViews);
+  // Utilisation des données statiques pour les tests (remplacez par useAccountBalances pour les données réelles)
+  const accountBalances = mockAccounts;
 
   const accountTypeMap = useMemo(() => 
     new Map(mainCashAccountCategories.map(cat => [cat.id, cat.name])), 
@@ -26,6 +62,7 @@ const CashAccountsView = () => {
 
   const [editingAccount, setEditingAccount] = useState(null);
   const [isAddingAccount, setIsAddingAccount] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
 
   const isAccountUsed = (accountId) => {
     const projectActuals = allActuals[activeProjectId] || [];
@@ -69,7 +106,8 @@ const CashAccountsView = () => {
       name: formData.name.trim(),
       initialBalance: parseFloat(formData.initialBalance) || 0,
       initialBalanceDate: formData.initialBalanceDate || new Date().toISOString().split('T')[0],
-      user: session.user
+      user: session.user,
+      currency: formData.currency
     });
     setIsAddingAccount(false);
   };
@@ -96,10 +134,25 @@ const CashAccountsView = () => {
   const handleReopen = (accountId) => {
     dataDispatch({ type: 'REOPEN_CASH_ACCOUNT', payload: { projectId: activeProjectId, accountId } });
   };
+
+  const handleTransferSave = (transferData) => {
+    dataDispatch({
+      type: 'CREATE_TRANSFER',
+      payload: {
+        projectId: activeProjectId,
+        sourceAccountId: transferData.sourceAccountId,
+        destinationAccountId: transferData.destinationAccountId,
+        amount: transferData.amount,
+        date: transferData.date,
+        description: transferData.description
+      }
+    });
+    setIsTransferModalOpen(false);
+  };
   
   if (isConsolidated || isCustomConsolidated) {
     return (
-      <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg flex items-start gap-3">
+      <div className="bg-yellow-50 border border-yellow-200 border-opacity-50 text-yellow-800 p-4 rounded-lg flex items-start gap-3">
         <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
         <div>
           <h4 className="font-bold">Vue Consolidée</h4>
@@ -112,11 +165,11 @@ const CashAccountsView = () => {
   return (
     <>
       <div className="space-y-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 border-opacity-50">
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold text-lg text-gray-800">Vos Comptes</h3>
             <button 
-              onClick={() => uiDispatch({ type: 'OPEN_TRANSFER_MODAL' })}
+              onClick={() => setIsTransferModalOpen(true)}
               className="bg-purple-100 text-purple-700 hover:bg-purple-200 px-3 py-1.5 rounded-md font-medium flex items-center gap-2 text-sm"
             >
               <ArrowRightLeft className="w-4 h-4" />
@@ -124,7 +177,7 @@ const CashAccountsView = () => {
             </button>
           </div>
           {accountBalances.length > 0 ? (
-            <ul className="divide-y divide-gray-200">
+            <ul className="divide-y divide-gray-200 divide-opacity-50">
               {accountBalances.map(account => (
                 <li key={account.id} className={`py-4 ${account.isClosed ? 'opacity-60' : ''}`}>
                   {editingAccount?.id === account.id ? (
@@ -132,17 +185,17 @@ const CashAccountsView = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="text-xs font-medium text-gray-500">Nom du compte</label>
-                          <input type="text" value={editingAccount.name || ''} onChange={(e) => setEditingAccount(d => ({ ...d, name: e.target.value }))} className="w-full px-3 py-1 border rounded-md font-medium" autoFocus />
+                          <input type="text" value={editingAccount.name || ''} onChange={(e) => setEditingAccount(d => ({ ...d, name: e.target.value }))} className="w-full px-3 py-1 border border-gray-200 border-opacity-50 rounded-md font-medium text-gray-900 text-base" autoFocus />
                         </div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="text-xs font-medium text-gray-500">Solde initial</label>
-                          <input type="number" value={editingAccount.initialBalance || ''} onChange={(e) => setEditingAccount(d => ({ ...d, initialBalance: e.target.value }))} className="w-full px-3 py-1 border rounded-md" />
+                          <input type="number" value={editingAccount.initialBalance || ''} onChange={(e) => setEditingAccount(d => ({ ...d, initialBalance: e.target.value }))} className="w-full px-3 py-1 border border-gray-200 border-opacity-50 rounded-md text-gray-900 text-base" />
                         </div>
                         <div>
                           <label className="text-xs font-medium text-gray-500">Date du solde</label>
-                          <input type="date" value={editingAccount.initialBalanceDate || ''} onChange={(e) => setEditingAccount(d => ({ ...d, initialBalanceDate: e.target.value }))} className="w-full px-3 py-1 border rounded-md" min={activeProject?.startDate} />
+                          <input type="date" value={editingAccount.initialBalanceDate || ''} onChange={(e) => setEditingAccount(d => ({ ...d, initialBalanceDate: e.target.value }))} className="w-full px-3 py-1 border border-gray-200 border-opacity-50 rounded-md text-gray-900 text-base" min={activeProject?.startDate} />
                         </div>
                       </div>
                       <div className="flex justify-end gap-2 mt-2">
@@ -204,6 +257,12 @@ const CashAccountsView = () => {
           </div>
         ) : null}
       </div>
+
+      <TransferModal 
+        isOpen={isTransferModalOpen} 
+        onClose={() => setIsTransferModalOpen(false)} 
+        onSave={handleTransferSave} 
+      />
     </>
   );
 };

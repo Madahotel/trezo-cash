@@ -1,6 +1,4 @@
 import React, { useState } from "react";
-import { useData } from "../../../components/context/DataContext";
-import { useUI } from "../../../components/context/UIContext";
 import { formatCurrency } from "../../../utils/formatting.js";
 import {
   Wallet,
@@ -21,13 +19,6 @@ import {
   AlertTriangle,
   Settings,
 } from "lucide-react";
-import {
-  useActiveProjectData,
-  useDashboardKpis,
-  useTrezoScore,
-  useDailyForecast,
-  useLoanSummary,
-} from "../../../utils/selectors.jsx";
 import TrezoScoreWidget from "./TrezoScoreWidget";
 import CurrentMonthBudgetWidget from "./CurrentMonthBudgetWidget";
 import ThirtyDayForecastWidget from "./ThirtyDayForecastWidget";
@@ -35,9 +26,165 @@ import LoansSummaryWidget from "./LoansSummaryWidget";
 import { useNavigate } from "react-router-dom";
 import ActionCard from "./ActionCard";
 import IntelligentAlertWidget from "./IntelligentAlertWidget";
-import WidgetIcon from "./WidgetIcon";
 import AmbassadorWidget from "./AmbassadorWidget";
-import DashboardSettingsDrawer from "../../../components/drawer/DashboardSettingsDrawer.jsx";
+import DashboardSettingsDrawer from "../../../components/drawer/DashboardSettingsDrawer";
+
+// Données statiques complètes
+const staticSettings = {
+  currency: "EUR",
+  displayUnit: "k",
+  decimalPlaces: 0,
+};
+
+const staticProfile = {
+  fullName: "Jean Dupont",
+};
+
+const staticProjects = [
+  {
+    id: 1,
+    name: "Projet Principal",
+    currency: "EUR",
+    dashboard_widgets: {},
+  },
+];
+
+const staticOverdueItems = [
+  {
+    id: 1,
+    projectId: 1,
+    type: "payable",
+    thirdParty: "Fournisseur ABC",
+    date: "2024-01-15",
+    remainingAmount: 2500,
+  },
+  {
+    id: 2,
+    projectId: 1,
+    type: "receivable",
+    thirdParty: "Client XYZ",
+    date: "2024-01-10",
+    remainingAmount: 3800,
+  },
+  {
+    id: 3,
+    projectId: 1,
+    type: "payable",
+    thirdParty: "Service Énergie",
+    date: "2024-01-05",
+    remainingAmount: 1200,
+  },
+];
+
+const staticLoans = {
+  borrowings: [
+    {
+      id: 1,
+      name: "Prêt bancaire",
+      remainingAmount: 15000,
+      nextDueDate: "2024-02-01",
+      interestRate: 3.5,
+      totalAmount: 20000,
+      startDate: "2023-01-01",
+      endDate: "2025-12-31",
+    },
+    {
+      id: 2,
+      name: "Crédit voiture",
+      remainingAmount: 8000,
+      nextDueDate: "2024-02-15",
+      interestRate: 4.2,
+      totalAmount: 12000,
+      startDate: "2023-06-01",
+      endDate: "2024-12-31",
+    },
+  ],
+  lendings: [
+    {
+      id: 1,
+      name: "Prêt à Paul",
+      remainingAmount: 5000,
+      nextDueDate: "2024-03-15",
+      interestRate: 2.0,
+      totalAmount: 8000,
+      startDate: "2023-03-01",
+      endDate: "2024-09-30",
+    },
+    {
+      id: 2,
+      name: "Avance à Sophie",
+      remainingAmount: 2000,
+      nextDueDate: "2024-04-01",
+      interestRate: 0,
+      totalAmount: 2000,
+      startDate: "2024-01-01",
+      endDate: "2024-06-30",
+    },
+  ],
+};
+
+const staticTrezoScoreData = {
+  score: 75,
+  trend: "up",
+  changes: [
+    { category: "Trésorerie", change: 5 },
+    { category: "Dettes", change: -2 },
+    { category: "Épargne", change: 3 },
+    { category: "Investissements", change: 1 },
+  ],
+  history: [
+    { date: "2024-01", score: 70 },
+    { date: "2023-12", score: 68 },
+    { date: "2023-11", score: 65 },
+    { date: "2023-10", score: 72 },
+    { date: "2023-09", score: 69 },
+  ],
+};
+
+// Données de forecast pour les autres widgets (format objet)
+const staticForecastDataArray = Array.from({ length: 30 }, (_, i) => {
+  const date = new Date();
+  date.setDate(date.getDate() + i);
+
+  // Simulation de variations de trésorerie
+  const baseBalance = 5000;
+  const variation = Math.sin(i * 0.3) * 2000 + Math.random() * 1000 - 500;
+  const balance = Math.max(500, baseBalance + variation);
+
+  return {
+    date: date.toISOString().split("T")[0],
+    balance: Math.round(balance),
+    inflows: Math.round(Math.random() * 3000 + 1000),
+    outflows: Math.round(Math.random() * 2500 + 800),
+  };
+});
+
+// Données pour les alertes intelligentes
+const staticAlertData = {
+  criticalDays: staticForecastDataArray.filter((day) => day.balance < 1000)
+    .length,
+  lowestBalance: Math.min(...staticForecastDataArray.map((d) => d.balance)),
+  negativeDays: staticForecastDataArray.filter((day) => day.balance < 0).length,
+  trend:
+    staticForecastDataArray[29].balance > staticForecastDataArray[0].balance
+      ? "up"
+      : "down",
+};
+
+// Données pour le budget du mois courant
+const staticBudgetData = {
+  month: "Janvier 2024",
+  totalBudget: 15000,
+  currentSpending: 8200,
+  categories: [
+    { name: "Salaires", budget: 6000, spent: 6000 },
+    { name: "Loyer", budget: 2000, spent: 2000 },
+    { name: "Fournitures", budget: 1500, spent: 800 },
+    { name: "Marketing", budget: 2000, spent: 1200 },
+    { name: "Divers", budget: 3500, spent: 1200 },
+  ],
+  remaining: 6800,
+};
 
 const defaultWidgetSettings = {
   kpi_actionable_balance: true,
@@ -59,55 +206,34 @@ const defaultWidgetSettings = {
 };
 
 const DashboardView = () => {
-  const { dataState } = useData();
-  const { uiState, uiDispatch } = useUI();
-  const { settings, projects, profile } = dataState;
   const navigate = useNavigate();
-
-  const { activeProject, isConsolidated } = useActiveProjectData(
-    dataState,
-    uiState
-  );
-  const {
-    totalActionableBalance,
-    totalOverduePayables,
-    totalOverdueReceivables,
-    overdueItems,
-    totalSavings,
-    totalProvisions,
-    totalBorrowings,
-    totalLendings,
-  } = useDashboardKpis(dataState, uiState);
-  const trezoScoreData = useTrezoScore(dataState, uiState);
-  const dailyForecastData = useDailyForecast(dataState, uiState, 30);
-  const { borrowings, lendings } = useLoanSummary(dataState, uiState);
-
-  const widgetVisibility = {
-    ...defaultWidgetSettings,
-    ...(activeProject?.dashboard_widgets || {}),
-  };
-
   const [isSettingsDrawerOpen, setIsSettingsDrawerOpen] = useState(false);
+  const [widgetVisibility, setWidgetVisibility] = useState(defaultWidgetSettings);
+
+  // Utilisation des données statiques
+  const settings = staticSettings;
+  const profile = staticProfile;
+  const projects = staticProjects;
+  const overdueItems = staticOverdueItems;
+  const { borrowings, lendings } = staticLoans;
+  const trezoScoreData = staticTrezoScoreData;
+  const dailyForecastData = staticForecastDataArray;
+  const budgetData = staticBudgetData;
+  const alertData = staticAlertData;
+
+  const isConsolidated = false;
+  const activeProject = projects[0];
 
   const handleOpenSettings = () => {
     setIsSettingsDrawerOpen(true);
   };
 
+  // Sauvegarde automatique quand les paramètres changent
   const handleSaveSettings = (newSettings) => {
-    console.log("Sauvegarde des paramètres:", newSettings);
-
-    if (activeProject && !isConsolidated) {
-      // Votre logique de sauvegarde ici
-    }
-
-    setIsSettingsDrawerOpen(false);
-    uiDispatch({
-      type: "ADD_TOAST",
-      payload: {
-        message: "Paramètres sauvegardés avec succès",
-        type: "success",
-      },
-    });
+    console.log("Sauvegarde automatique des paramètres:", newSettings);
+    setWidgetVisibility(newSettings);
+    // Ici vous pouvez ajouter un appel API pour sauvegarder en base de données
+    // await api.saveDashboardSettings(newSettings);
   };
 
   const currencySettings = {
@@ -117,10 +243,8 @@ const DashboardView = () => {
   };
 
   const handleActionClick = (e, item) => {
-    uiDispatch({
-      type: "OPEN_TRANSACTION_ACTION_MENU",
-      payload: { x: e.clientX, y: e.clientY, transaction: item },
-    });
+    console.log("Action click:", item);
+    // Simuler l'ouverture du menu d'action
   };
 
   const greetingMessage = () => {
@@ -215,7 +339,7 @@ const DashboardView = () => {
       icon: Wallet,
       color: "green",
       label: "Trésorerie Actionnable",
-      value: "400",
+      value: "12500",
       textColor: "text-gray-800",
       gradient: "from-green-50 to-emerald-50",
     },
@@ -224,7 +348,7 @@ const DashboardView = () => {
       icon: TrendingDown,
       color: "red",
       label: "Dettes en Retard",
-      value: "5000",
+      value: "3700",
       textColor: "text-red-600",
       gradient: "from-red-50 to-rose-50",
     },
@@ -233,7 +357,7 @@ const DashboardView = () => {
       icon: HandCoins,
       color: "yellow",
       label: "Créances en Retard",
-      value: "8006",
+      value: "3800",
       textColor: "text-yellow-600",
       gradient: "from-yellow-50 to-amber-50",
     },
@@ -242,7 +366,7 @@ const DashboardView = () => {
       icon: PiggyBank,
       color: "teal",
       label: "Épargne",
-      value: "4500",
+      value: "12500",
       textColor: "text-gray-800",
       gradient: "from-teal-50 to-cyan-50",
     },
@@ -260,7 +384,7 @@ const DashboardView = () => {
       icon: Banknote,
       color: "red",
       label: "Emprunts à rembourser",
-      value: 4000,
+      value: 23000,
       textColor: "text-gray-800",
       gradient: "from-orange-50 to-red-50",
     },
@@ -269,11 +393,52 @@ const DashboardView = () => {
       icon: Coins,
       color: "green",
       label: "Prêts à recevoir",
-      value: 70000,
+      value: 7000,
       textColor: "text-gray-800",
       gradient: "from-lime-50 to-green-50",
     },
   ];
+
+  // Alternative avec des données plus réalistes et une tendance claire
+  const staticForecastDataAlternative = {
+    labels: [
+      "01/01",
+      "02/01",
+      "03/01",
+      "04/01",
+      "05/01",
+      "06/01",
+      "07/01",
+      "08/01",
+      "09/01",
+      "10/01",
+      "11/01",
+      "12/01",
+      "13/01",
+      "14/01",
+      "15/01",
+      "16/01",
+      "17/01",
+      "18/01",
+      "19/01",
+      "20/01",
+      "21/01",
+      "22/01",
+      "23/01",
+      "24/01",
+      "25/01",
+      "26/01",
+      "27/01",
+      "28/01",
+      "29/01",
+      "30/01",
+    ],
+    data: [
+      12500, 11800, 13200, 14500, 13800, 15200, 14800, 16200, 17500, 16800,
+      18200, 19500, 18800, 20200, 21500, 20800, 22200, 23500, 22800, 24200,
+      25500, 24800, 26200, 27500, 26800, 28200, 29500, 28800, 30200, 31500,
+    ],
+  };
 
   return (
     <div className="p-6 max-w-full space-y-8 bg-gray-50/50 min-h-screen">
@@ -330,7 +495,7 @@ const DashboardView = () => {
 
         {/* Alert Widget */}
         {widgetVisibility.alerts && (
-          <IntelligentAlertWidget forecastData={dailyForecastData} />
+          <IntelligentAlertWidget forecastData={alertData} />
         )}
 
         {/* Quick Actions */}
@@ -359,7 +524,9 @@ const DashboardView = () => {
               <TrezoScoreWidget scoreData={trezoScoreData} />
             )}
             {widgetVisibility["30_day_forecast"] && (
-              <ThirtyDayForecastWidget forecastData={dailyForecastData} />
+              <ThirtyDayForecastWidget
+                forecastData={staticForecastDataAlternative}
+              />
             )}
             {widgetVisibility.loans && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -383,7 +550,9 @@ const DashboardView = () => {
 
           {/* Right Column - 1/3 width */}
           <div className="space-y-8">
-            {widgetVisibility.monthly_budget && <CurrentMonthBudgetWidget />}
+            {widgetVisibility.monthly_budget && (
+              <CurrentMonthBudgetWidget budgetData={budgetData} />
+            )}
             {widgetVisibility.ambassador_promo && <AmbassadorWidget />}
             {widgetVisibility.priorities && (
               <div className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300">
@@ -524,6 +693,8 @@ const DashboardView = () => {
           </section>
         )}
       </div>
+      
+      {/* Settings Drawer avec sauvegarde automatique */}
       <DashboardSettingsDrawer
         isOpen={isSettingsDrawerOpen}
         onClose={() => setIsSettingsDrawerOpen(false)}

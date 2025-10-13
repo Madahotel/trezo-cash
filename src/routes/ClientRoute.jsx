@@ -1,5 +1,4 @@
 import ProjetLayoutClient from "../layouts/clients/projet/ProjetLayoutAdmin";
-import BudgetPage from "../pages/clients/budget/BudgetPage";
 import DashboardView from "../pages/clients/dashboard/DashboardView";
 import CashflowView from "../pages/clients/flux/CashflowView";
 import ScheduleView from "../pages/clients/echeance/ScheduleView";
@@ -23,6 +22,7 @@ import { path } from "framer-motion/client";
 import Aide from "../pages/clients/aide/Aide";
 import SubscriptionPage from "../pages/clients/abonnement/SubscriptionPage";
 import OnboardingView from "../pages/clients/onboarding/OnboardingView";
+import BudgetPage from "../pages/clients/budget/Budget";
 import ReferralPage from "../pages/clients/ambassador/ReferralPage";
 
 import ProtectedRoute from "../routes/ProtectedRoute"; // Ataovy araka ny làlana marina
