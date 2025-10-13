@@ -3,9 +3,11 @@ import router from "./routes/router";
 import { DataProvider } from "./components/context/DataContext";
 import { UIProvider } from "./components/context/UIContext";
 import { AuthProvider } from "./components/context/AuthContext"; // ➕ Import an'ity
+import { SettingsProvider } from "./components/context/SettingsContext";
 
 function App() {
   return (
+    <SettingsProvider>
     <DataProvider>
       <UIProvider>
         <AuthProvider> 
@@ -13,6 +15,7 @@ function App() {
         </AuthProvider>
       </UIProvider>
     </DataProvider>
+    </SettingsProvider>
   );
 }
 

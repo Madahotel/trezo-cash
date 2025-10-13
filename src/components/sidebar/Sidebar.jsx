@@ -3,17 +3,19 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { useUI } from '../context/UIContext';
 // import { supabase } from '../utils/supabase';
-import { 
+import {
     LayoutDashboard, ListChecks, Table, AreaChart, Calendar, Layers, PieChart, AlertTriangle,
-    ChevronDown, ChevronsLeftRight, Wallet, LogOut, User, Shield, CreditCard, FileText, 
-    HelpCircle, Trash2, FolderCog, Hash, Banknote, LayoutTemplate, Lock, FolderKanban, 
-    Users as UsersIcon, Archive, Settings
+    ChevronDown, ChevronsLeftRight, Wallet, LogOut, User, Shield, CreditCard, FileText,
+    HelpCircle, Trash2, FolderCog, Hash, Banknote, LayoutTemplate, Lock, FolderKanban,
+    Users as UsersIcon, Archive, Settings,
+    DollarSign
 } from 'lucide-react';
 import NavTooltip from './NavTooltip';
 import { useActiveProjectData, useScheduleData } from '../../utils/selectors';
 import { AnimatePresence, motion } from 'framer-motion';
 import AmbassadorIcon from './AmbassadorIcon';
 import TrezocashLogo from '../../components/logo/TrezocashLogo';
+import { useSettings } from '../context/SettingsContext';
 
 const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
     const { dataState } = useData();
@@ -25,12 +27,23 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
     const overdueCount = overdueTransactions.length;
     const navigate = useNavigate();
     const location = useLocation();
-
+    const { theme, getAllThemes } = useSettings();
     const [activeTooltip, setActiveTooltip] = useState(null);
     const [isAvatarMenuOpen, setIsAvatarMenuOpen] = useState(false);
     const avatarMenuRef = useRef(null);
-
+    const [themeActive, setThemeActive] = useState("");
     // Close menu when clicking outside
+   
+
+    useEffect(() => {
+        const selectedTheme = getAllThemes().find(themeOption => theme === themeOption.id);
+        if (selectedTheme) {
+            setThemeActive(selectedTheme.colors.primary);
+        } else {
+            setThemeActive("bg-blue-600");
+        }
+    }, [theme, getAllThemes]);
+
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (avatarMenuRef.current && !avatarMenuRef.current.contains(event.target)) {
@@ -76,50 +89,50 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
 
     // Tooltip content with improved descriptions
     const tooltipContent = useMemo(() => ({
-        dashboard: { 
-            title: 'Dashboard', 
-            description: "Vue d'ensemble de la santé financière de votre projet avec indicateurs clés.", 
-            imageUrl: 'https://i.imgur.com/nJbC2a2.png' 
+        dashboard: {
+            title: 'Dashboard',
+            description: "Vue d'ensemble de la santé financière de votre projet avec indicateurs clés.",
+            imageUrl: 'https://i.imgur.com/nJbC2a2.png'
         },
-        budget: { 
-            title: 'Budget', 
-            description: "Créez et gérez votre budget prévisionnel avec suivi des écarts.", 
-            imageUrl: 'https://i.imgur.com/rF9gYtK.png' 
+        budget: {
+            title: 'Budget',
+            description: "Créez et gérez votre budget prévisionnel avec suivi des écarts.",
+            imageUrl: 'https://i.imgur.com/rF9gYtK.png'
         },
-        trezo: { 
-            title: 'Trezo', 
-            description: "Tableau de bord trésorerie : du quotidien à la vision long terme (10 ans).", 
-            imageUrl: 'https://i.imgur.com/dAmf2u2.png' 
+        trezo: {
+            title: 'Trezo',
+            description: "Tableau de bord trésorerie : du quotidien à la vision long terme (10 ans).",
+            imageUrl: 'https://i.imgur.com/dAmf2u2.png'
         },
-        flux: { 
-            title: 'Flux', 
-            description: "Analysez l'évolution de votre trésorerie avec des visualisations claires.", 
-            imageUrl: 'https://i.imgur.com/e5B3q2b.png' 
+        flux: {
+            title: 'Flux',
+            description: "Analysez l'évolution de votre trésorerie avec des visualisations claires.",
+            imageUrl: 'https://i.imgur.com/e5B3q2b.png'
         },
-        echeancier: { 
-            title: 'Échéancier', 
-            description: "Gérez vos échéances et paiements pour un suivi optimal.", 
-            imageUrl: 'https://i.imgur.com/sZ3v4fH.png' 
+        echeancier: {
+            title: 'Échéancier',
+            description: "Gérez vos échéances et paiements pour un suivi optimal.",
+            imageUrl: 'https://i.imgur.com/sZ3v4fH.png'
         },
-        analyse: { 
-            title: 'Analyse', 
-            description: "Analysez vos dépenses et revenus pour des décisions éclairées.", 
-            imageUrl: 'https://i.imgur.com/jV7fL4c.png' 
+        analyse: {
+            title: 'Analyse',
+            description: "Analysez vos dépenses et revenus pour des décisions éclairées.",
+            imageUrl: 'https://i.imgur.com/jV7fL4c.png'
         },
-        scenarios: { 
-            title: 'Scénarios', 
-            description: "Simulez l'impact de vos décisions sur votre trésorerie future.", 
-            imageUrl: 'https://i.imgur.com/tY8wP9d.png' 
+        scenarios: {
+            title: 'Scénarios',
+            description: "Simulez l'impact de vos décisions sur votre trésorerie future.",
+            imageUrl: 'https://i.imgur.com/tY8wP9d.png'
         },
-        comptes: { 
-            title: 'Comptes', 
-            description: "Gérez vos comptes bancaires, caisse et autres instruments de trésorerie.", 
-            imageUrl: 'https://i.imgur.com/9y8Z8bH.png' 
+        comptes: {
+            title: 'Comptes',
+            description: "Gérez vos comptes bancaires, caisse et autres instruments de trésorerie.",
+            imageUrl: 'https://i.imgur.com/9y8Z8bH.png'
         },
-        enRetard: { 
-            title: 'Échéances en Retard', 
-            description: `${overdueCount} transaction(s) nécessitent votre attention.`, 
-            imageUrl: 'https://i.imgur.com/sZ3v4fH.png' 
+        enRetard: {
+            title: 'Échéances en Retard',
+            description: `${overdueCount} transaction(s) nécessitent votre attention.`,
+            imageUrl: 'https://i.imgur.com/sZ3v4fH.png'
         },
     }), [overdueCount]);
 
@@ -166,61 +179,81 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
         return { text: 'Essai terminé', color: 'text-red-600', bgColor: 'bg-red-100' };
     }, [profile]);
 
+    
     // Enhanced navigation link classes with light theme
-    const navLinkClasses = ({ isActive }) => 
-        `flex items-center w-full h-12 rounded-xl transition-all duration-200 group relative overflow-hidden ${
-            isCollapsed ? 'justify-center' : 'px-3'
-        } ${
-            isActive
-                ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25'
-                : 'text-gray-700 hover:bg-white hover:text-blue-600 hover:shadow-md border border-transparent hover:border-blue-200'
-        }`;
+    const navLinkClasses = ({ isActive }) => {
+       
+        const baseClasses = `flex items-center w-full h-12 rounded-xl transition-all duration-200 group relative overflow-hidden ${isCollapsed ? 'justify-center' : 'px-3'
+            }`;
+
+        // 2. Définir les classes actives/inactives (couleur de texte, ombre)
+        const activeText = isActive ? 'text-white' : 'text-gray-700';
+        const activeShadow = isActive ? 'shadow-lg shadow-blue-500/25' : 'hover:shadow-md';
+
+        // 3. Définir la classe de couleur de fond pour l'état INACTIF
+        const inactiveBgClass = 'bg-transparent'; // Votre couleur par défaut pour l'état inactif
+
+        // 4. Définir la classe de fond et de hover inactif
+        const inactiveStateClasses = !isActive
+            ? `${inactiveBgClass} hover:bg-white hover:text-blue-600 border border-transparent hover:border-blue-200`
+            : '';
+
+       
+        const activeStateClasses = isActive ? 'bg-transparent' : inactiveStateClasses; // Utilisez `bg-transparent` si actif pour éviter toute classe `bg-*`
+
+        return `${baseClasses} ${activeText} ${activeShadow} ${activeStateClasses}`;
+    };
+
 
     // Enhanced overdue badge classes for light theme
     const getOverdueBadgeClasses = (isActive = false) =>
-        `flex items-center w-full h-12 rounded-xl transition-all duration-200 group ${
-            isCollapsed ? 'justify-center' : 'px-3'
-        } ${
-            isActive
-                ? 'bg-red-500 text-white shadow-lg shadow-red-500/25'
-                : 'text-red-600 hover:bg-red-50 hover:text-red-700 hover:shadow-md border border-transparent hover:border-red-200'
+        `flex items-center w-full h-12 rounded-xl transition-all duration-200 group ${isCollapsed ? 'justify-center' : 'px-3'
+        } ${isActive
+            ? 'bg-red-500 text-white shadow-lg shadow-red-500/25'
+            : 'text-red-600 hover:bg-red-50 hover:text-red-700 hover:shadow-md border border-transparent hover:border-red-200'
         }`;
 
     return (
-        <motion.div 
+        <motion.div
             initial={false}
             animate={{ width: isCollapsed ? 80 : 280 }}
             className="fixed top-0 left-0 h-full bg-gray-100 z-40 flex flex-col transition-all duration-300 border-r border-gray-200 shadow-lg"
         >
-            
+
             {/* Header Section */}
             <div className="flex items-center justify-between h-20 px-4 border-b border-gray-200 bg-white/50 backdrop-blur-sm">
-                <div className={`flex items-center gap-3 overflow-hidden transition-all duration-300 ${
-                    isCollapsed ? 'w-10' : 'w-full'
-                }`}>
+                <div className={`flex items-center gap-3 overflow-hidden transition-all duration-300 ${isCollapsed ? 'w-10' : 'w-full'
+                    }`}>
                     <NavLink 
-                        to="/client/projets" 
-                        className="flex items-center justify-center rounded-xl text-gray-900 shrink-0 transition-transform hover:scale-105"
-                    >
-                        <TrezocashLogo className="w-8 h-8" />
-                    </NavLink>
-                    <AnimatePresence>
-                        {!isCollapsed && (
-                            <motion.span 
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
-                                transition={{ duration: 0.2 }}
-                                className="text-xl font-bold text-gray-900 whitespace-nowrap"
-                            >
-                                Trezocash
-                            </motion.span>
-                        )}
-                    </AnimatePresence>
+            to="/client/dashboard" 
+            // Utilisez le style en ligne pour la couleur de texte dynamique
+            className="flex items-center justify-center rounded-xl text-gray-900 shrink-0 transition-transform hover:scale-105"
+            style={{ color: themeActive }} 
+          >
+            <DollarSign 
+              className="w-8 h-8" 
+             
+              style={{ color: themeActive }} 
+            />
+          </NavLink>
+          <AnimatePresence>
+            {!isCollapsed && (
+              <motion.span 
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.2 }}
+                className="text-xl font-bold whitespace-nowrap"
+                style={{ color: themeActive }} // 👈 Le changement principal pour le texte
+              >
+                Trezocash
+              </motion.span>
+            )}
+          </AnimatePresence>
                 </div>
-                
+
                 {!isCollapsed && (
-                    <motion.button 
+                    <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={onToggleCollapse}
@@ -237,15 +270,19 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
                 {mainNavItems.map(item => {
                     const IconComponent = item.icon;
                     return (
-                        <div 
+                        <div
                             key={item.id}
                             className="relative mx-1"
                             onMouseEnter={() => isCollapsed && setActiveTooltip(item.id)}
                             onMouseLeave={() => setActiveTooltip(null)}
                         >
-                            <NavLink 
-                                to={item.path} 
-                                className={navLinkClasses}
+                            <NavLink
+                                to={item.path}
+                                className={navLinkClasses} // Les classes Tailwind gèrent tout SAUF la couleur de fond active
+                                style={({ isActive }) => ({
+                                    // La couleur de fond dynamique est appliquée seulement si ACTIF.
+                                    backgroundColor: isActive ? themeActive : undefined, // `undefined` permet à la classe Tailwind de prendre le relais
+                                })}
                                 title={isCollapsed ? item.label : ''}
                             >
                                 <motion.div
@@ -253,12 +290,12 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
                                     whileTap={{ scale: 0.95 }}
                                     className="flex items-center"
                                 >
-                                    <IconComponent 
-                                        size={20} 
-                                        className="transition-all duration-200" 
+                                    <IconComponent
+                                        size={20}
+                                        className="transition-all duration-200"
                                     />
                                     {!isCollapsed && (
-                                        <motion.span 
+                                        <motion.span
                                             initial={{ opacity: 0, x: -10 }}
                                             animate={{ opacity: 1, x: 0 }}
                                             className="ml-3 font-medium text-sm"
@@ -267,17 +304,16 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
                                         </motion.span>
                                     )}
                                 </motion.div>
-                                
+
                                 {/* Active indicator */}
                                 <motion.div
-                                    className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full ${
-                                        navLinkClasses({ isActive: false }).includes('bg-blue-500') 
-                                            ? 'bg-blue-500' 
+                                    className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full ${navLinkClasses({ isActive: false }).includes('bg-blue-500')
+                                            ? 'bg-blue-500'
                                             : 'bg-transparent'
-                                    }`}
+                                        }`}
                                     initial={false}
-                                    animate={{ 
-                                        scale: navLinkClasses({ isActive: true }).includes('bg-blue-500') ? 1 : 0 
+                                    animate={{
+                                        scale: navLinkClasses({ isActive: true }).includes('bg-blue-500') ? 1 : 0
                                     }}
                                     transition={{ duration: 0.2 }}
                                 />
@@ -296,19 +332,19 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
             <div className="px-2 py-4 border-t border-gray-200 bg-white/30 space-y-2">
                 {/* Overdue Transactions Alert */}
                 {overdueCount > 0 && (
-                    <div 
+                    <div
                         className="relative mx-1"
                         onMouseEnter={() => isCollapsed && setActiveTooltip('enRetard')}
                         onMouseLeave={() => setActiveTooltip(null)}
                     >
-                        <NavLink 
-                            to="/client/en-retard" 
+                        <NavLink
+                            to="/client/en-retard"
                             className={({ isActive }) => getOverdueBadgeClasses(isActive)}
                             title={isCollapsed ? 'Échéances en retard' : ''}
                         >
                             <div className="relative">
                                 <AlertTriangle size={20} />
-                                <motion.span 
+                                <motion.span
                                     initial={{ scale: 0 }}
                                     animate={{ scale: 1 }}
                                     className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold border-2 border-gray-50"
@@ -327,37 +363,35 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
                         </AnimatePresence>
                     </div>
                 )}
-                
+
                 {/* User Profile Menu */}
                 <div className="relative mx-1" ref={avatarMenuRef}>
-                    <motion.button 
+                    <motion.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => setIsAvatarMenuOpen(!isAvatarMenuOpen)}
-                        className={`w-full flex items-center gap-3 p-2 rounded-xl transition-all duration-200 group ${
-                            isCollapsed ? 'justify-center' : ''
-                        } ${
-                            isAvatarMenuOpen 
-                                ? 'bg-white shadow-md border border-gray-200' 
+                        className={`w-full flex items-center gap-3 p-2 rounded-xl transition-all duration-200 group ${isCollapsed ? 'justify-center' : ''
+                            } ${isAvatarMenuOpen
+                                ? 'bg-white shadow-md border border-gray-200'
                                 : 'hover:bg-white hover:shadow-sm hover:border hover:border-gray-200'
-                        }`}
+                            }`}
                     >
                         <div className="relative">
-                            <motion.div 
+                            <motion.div
                                 whileHover={{ scale: 1.05 }}
                                 className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm shrink-0 shadow-md"
                             >
                                 {getInitials(profile?.fullName)}
                             </motion.div>
                             {subscriptionDetails && (
-                                <motion.div 
+                                <motion.div
                                     initial={{ scale: 0 }}
                                     animate={{ scale: 1 }}
-                                    className={`absolute -bottom-1 -right-1 w-2 h-2 rounded-full border-2 border-gray-50 ${subscriptionDetails.bgColor}`} 
+                                    className={`absolute -bottom-1 -right-1 w-2 h-2 rounded-full border-2 border-gray-50 ${subscriptionDetails.bgColor}`}
                                 />
                             )}
                         </div>
-                        
+
                         {!isCollapsed && (
                             <div className="text-left overflow-hidden flex-grow min-w-0">
                                 <p className="text-sm font-semibold text-gray-900 truncate">
@@ -368,7 +402,7 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
                                 </p>
                             </div>
                         )}
-                        
+
                         {!isCollapsed && (
                             <motion.div
                                 animate={{ rotate: isAvatarMenuOpen ? 180 : 0 }}
@@ -387,9 +421,8 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
                                 transition={{ duration: 0.15 }}
-                                className={`absolute left-0 mb-2 w-64 bg-white rounded-xl shadow-xl border border-gray-200 z-50 ${
-                                    isCollapsed ? 'bottom-full' : 'bottom-full'
-                                }`}
+                                className={`absolute left-0 mb-2 w-64 bg-white rounded-xl shadow-xl border border-gray-200 z-50 ${isCollapsed ? 'bottom-full' : 'bottom-full'
+                                    }`}
                             >
                                 {/* User Info Header */}
                                 <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white rounded-t-xl">
@@ -400,7 +433,7 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
                                         {session?.user?.email}
                                     </p>
                                     {subscriptionDetails && (
-                                        <motion.p 
+                                        <motion.p
                                             initial={{ opacity: 0, y: -5 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             className={`text-xs font-semibold ${subscriptionDetails.color} mt-2 px-2 py-1 ${subscriptionDetails.bgColor} rounded-full inline-block`}
@@ -417,15 +450,14 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
                                         Profil
                                     </div>
                                     {profileMenuItems.map((item) => (
-                                        <motion.button 
+                                        <motion.button
                                             key={item.title}
                                             whileHover={{ x: 4 }}
                                             onClick={() => handleNavigate(item.path)}
-                                            className={`w-full text-left flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-all duration-150 ${
-                                                item.isDestructive 
-                                                ? 'text-red-600 hover:bg-red-50' 
-                                                : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700'
-                                            }`}
+                                            className={`w-full text-left flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-all duration-150 ${item.isDestructive
+                                                    ? 'text-red-600 hover:bg-red-50'
+                                                    : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700'
+                                                }`}
                                         >
                                             <item.icon className="w-4 h-4 shrink-0" />
                                             <span className="truncate">{item.title}</span>
@@ -439,8 +471,8 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
                                         Paramètres Avancés
                                     </div>
                                     {settingsItems.map(item => (
-                                        <motion.button 
-                                            key={item.id} 
+                                        <motion.button
+                                            key={item.id}
                                             whileHover={{ x: 4 }}
                                             onClick={() => handleSettingsItemClick(item.id)}
                                             className="w-full text-left flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-all duration-150"
@@ -453,7 +485,7 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
                                     <div className="h-px bg-gray-200 my-2 mx-2" />
 
                                     {/* Logout */}
-                                    <motion.button 
+                                    <motion.button
                                         whileHover={{ x: 4 }}
                                         onClick={handleLogout}
                                         className="w-full text-left flex items-center gap-3 px-3 py-2.5 text-sm text-red-600 rounded-lg hover:bg-red-50 transition-all duration-150"
@@ -469,7 +501,7 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
 
                 {/* Collapse Button for collapsed state */}
                 {isCollapsed && (
-                    <motion.button 
+                    <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={onToggleCollapse}
