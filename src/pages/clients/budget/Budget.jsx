@@ -31,15 +31,14 @@ import {
 import BudgetLineDialog from './BudgetLineDialog';
 import ConfirmationModal from './ui/alert-dialog';
 import { formatCurrency } from '../../../utils/formatting';
-import { currencySymbols } from '../../../utils/currencies';
-
+import { useMobile } from '../../../hooks/useMobile';
 const BudgetPage = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLine, setEditingLine] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [archiveModalOpen, setArchiveModalOpen] = useState(false);
   const [selectedLine, setSelectedLine] = useState(null);
-
+  const isMobile = useMobile();
   // Fonction pour obtenir les classes de couleur
   const getColorClasses = (color) => {
     const colorClasses = {
@@ -324,7 +323,7 @@ const BudgetPage = () => {
     const freq = frequencyMap[frequency] || frequencyMap.monthly;
     return <Badge className={freq.color}>{freq.label}</Badge>;
   };
-
+  console.log('Is mobile:', isMobile);
   return (
     <div className="p-10 space-y-6">
       {/* Header */}
@@ -333,25 +332,27 @@ const BudgetPage = () => {
           <h1 className="text-3xl font-bold">Budget</h1>
           <p className="text-gray-600">Gérez vos revenus et dépenses</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline">
-            <Upload className="w-4 h-4 mr-2" />
-            Importer
-          </Button>
-          <Button variant="outline">
-            <Download className="w-4 h-4 mr-2" />
-            Exporter
-          </Button>
-          <Button
-            onClick={() => {
-              console.log('Opening dialog...');
-              setIsDialogOpen(true);
-            }}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Nouvelle ligne
-          </Button>
-        </div>
+        {!isMobile && (
+          <div className="flex gap-2">
+            <Button variant="outline">
+              <Upload className="w-4 h-4 mr-2" />
+              Importer
+            </Button>
+            <Button variant="outline">
+              <Download className="w-4 h-4 mr-2" />
+              Exporter
+            </Button>
+            <Button
+              onClick={() => {
+                console.log('Opening dialog...');
+                setIsDialogOpen(true);
+              }}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Nouvelle ligne
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Budget Line Dialog */}
