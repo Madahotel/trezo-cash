@@ -94,11 +94,15 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
         return `${prefix} ${projectTypeLabel} : "${projectName}"`;
     }, [activeProjectOrView, location.pathname, profile]);
 
+    // CORRECTION : Gérer les valeurs undefined
     const canShareProject = useMemo(() => {
-        if (!activeProjectOrView || activeProjectId === 'consolidated' || activeProjectId.startsWith('consolidated_view_')) {
+        if (!activeProjectOrView || 
+            activeProjectId === 'consolidated' || 
+            activeProjectId.startsWith('consolidated_view_') ||
+            !session?.user?.id) {
             return false;
         }
-        return activeProjectOrView.user_id === session?.user?.id;
+        return activeProjectOrView.user_id === session.user.id;
     }, [activeProjectOrView, activeProjectId, session]);
 
     const handleShareClick = () => {

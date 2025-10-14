@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-
+import { useAuth } from './AuthContext';
 const DataContext = createContext();
 
 export const mainCashAccountCategories = [
@@ -9,6 +9,7 @@ export const mainCashAccountCategories = [
   { id: 'savings', name: 'Épargne' },
   { id: 'provisions', name: 'Provisions' },
 ];
+
 
 const initialCategories = {
   revenue: [
@@ -187,9 +188,6 @@ const initialCategories = {
   ]
 };
 
-
-
-
 const initialSettings = { 
   displayUnit: 'standard', decimalPlaces: 2, currency: 'EUR', exchangeRates: {}, timezoneOffset: 0,
 };
@@ -204,12 +202,12 @@ const uuidv4 = () => {
 };
 
 // Fonction pour simuler des données d'utilisateur
+// Dans votre DataContext.js, modifiez getMockUserData :
 const getMockUserData = () => ({
-  id: 'mock-user-id',
+  id: 3, // Changer de 'mock-user-id' à 2 pour correspondre à vos templates
   email: 'demo@example.com',
   user_metadata: { name: 'Utilisateur Démo' }
 });
-
 // Fonction pour simuler des données de session
 const getMockSession = () => ({
   user: getMockUserData(),
@@ -241,10 +239,11 @@ const getInitialDataState = () => ({
     exchangeRates: null,
 });
 
-
-
 const dataReducer = (state, action) => {
     switch (action.type) {
+        case 'SET_TEMPLATES':
+            console.log('🔄 SET_TEMPLATES action:', action.payload);
+            return { ...state, templates: action.payload };
         case 'SET_SESSION':
             return { ...state, session: action.payload };
         case 'SET_PROFILE':
@@ -285,19 +284,20 @@ const dataReducer = (state, action) => {
             return getInitialDataState();
         case 'FORCE_DATA_RELOAD':
             return { ...state, profile: null };
-        case 'INITIALIZE_PROJECT_SUCCESS': {
-            const { newProject, finalCashAccounts, newAllEntries, newAllActuals, newTiers, newLoans, newCategories } = action.payload;
-            return {
-                ...state,
-                projects: [...state.projects, newProject],
-                allEntries: { ...state.allEntries, [newProject.id]: newAllEntries },
-                allActuals: { ...state.allActuals, [newProject.id]: newAllActuals },
-                allCashAccounts: { ...state.allCashAccounts, [newProject.id]: finalCashAccounts },
-                tiers: newTiers,
-                loans: [...state.loans, ...newLoans],
-                categories: newCategories || state.categories,
-            };
-        }
+// Dans votre dataReducer
+case 'INITIALIZE_PROJECT_SUCCESS': {
+  const { newProject, finalCashAccounts, newAllEntries, newAllActuals, newTiers, newLoans, newCategories } = action.payload;
+  return {
+    ...state,
+    projects: [...state.projects, newProject],
+    allEntries: { ...state.allEntries, [newProject.id]: newAllEntries },
+    allActuals: { ...state.allActuals, [newProject.id]: newAllActuals },
+    allCashAccounts: { ...state.allCashAccounts, [newProject.id]: finalCashAccounts },
+    tiers: newTiers,
+    loans: [...state.loans, ...newLoans],
+    categories: newCategories || state.categories,
+  };
+}
         case 'UPDATE_PROJECT_SETTINGS_SUCCESS': {
             return {
                 ...state,
@@ -546,6 +546,7 @@ const dataReducer = (state, action) => {
 };
 
 export const DataProvider = ({ children }) => {
+    // SUPPRIMER cette ligne: const { user } = useAuth();
     const [state, dispatch] = useReducer(dataReducer, getInitialDataState());
 
     // Simulation de l'authentification et chargement des données initiales

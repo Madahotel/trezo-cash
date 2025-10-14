@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
-import { Outlet } from "react-router-dom";
-import HeaderCustomer from "../../../components/headers/HeaderCustomer";
-import Sidebar from "../../../components/sidebar/sidebar";
-import CollaborationBanner from "../../../components/collaboratioBanner/CollaborationBanner";
-import { useSettings } from "../../../components/context/SettingsContext";
+import { useState, useEffect } from 'react';
+import { Outlet } from 'react-router-dom';
+import HeaderCustomer from '../../../components/headers/HeaderCustomer';
+import Sidebar from '../../../components/sidebar/sidebar';
+import CollaborationBanner from '../../../components/collaboratioBanner/CollaborationBanner';
+import { useSettings } from '../../../components/context/SettingsContext';
 // Hook simple pour détecter si on est sur mobile
 const useIsMobile = () => {
   // On utilise 1024px pour une meilleure distinction desktop/mobile/tablet
@@ -12,8 +12,8 @@ const useIsMobile = () => {
   useEffect(() => {
     // Utilisez une valeur standard pour Tailwind 'lg' ou 'md' si vous en utilisez
     const handleResize = () => setIsMobile(window.innerWidth < 1024);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
   return isMobile;
 };
@@ -22,14 +22,16 @@ const ProjetLayoutClient = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { theme, getAllThemes } = useSettings();
-  const [themeActive, setThemeActive] = useState("");
+  const [themeActive, setThemeActive] = useState('');
   // Close menu when clicking outside
   useEffect(() => {
-    const selectedTheme = getAllThemes().find(themeOption => theme === themeOption.id);
+    const selectedTheme = getAllThemes().find(
+      (themeOption) => theme === themeOption.id
+    );
     if (selectedTheme) {
       setThemeActive(selectedTheme.colors.primary);
     } else {
-      setThemeActive("bg-blue-600");
+      setThemeActive('bg-blue-600');
     }
   }, [theme, getAllThemes]);
   // Utilisons 1024px comme breakpoint pour 'desktop' (lg:...)
@@ -40,7 +42,7 @@ const ProjetLayoutClient = () => {
   };
 
   const handleOpenPaymentTerms = () => {
-    console.log("Open payment terms");
+    console.log('Open payment terms');
   };
 
   const themeMap = {
@@ -73,8 +75,9 @@ const className = `${themeMap[themeActive] || "bg-white"} h-full`;
           )}
           <div
             // Le drawer est un overlay, donc il n'affecte pas le layout du contenu principal
-            className={`fixed top-0 left-0 h-full bg-white shadow-lg z-50 transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
-              }`}
+            className={`fixed top-0 left-0 h-full bg-white shadow-lg z-50 transform transition-transform duration-300 ease-in-out ${
+              isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+            }`}
             style={{ width: 280 }}
           >
             <Sidebar
@@ -104,10 +107,10 @@ const className = `${themeMap[themeActive] || "bg-white"} h-full`;
           // Uniquement sur desktop, appliquer la marge et la largeur calculée
           !isMobile
             ? {
-              marginLeft: `${sidebarWidth}px`, // Pousse le contenu
-              // Retirer la width calculée, laisser flex-1 faire son travail sur desktop
-              // width: `calc(100% - ${sidebarWidth}px)`, 
-            }
+                marginLeft: `${sidebarWidth}px`, // Pousse le contenu
+                // Retirer la width calculée, laisser flex-1 faire son travail sur desktop
+                // width: `calc(100% - ${sidebarWidth}px)`,
+              }
             : {}
         }
       >

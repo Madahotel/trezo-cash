@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
 import {
   Plus,
   Download,
@@ -10,180 +10,180 @@ import {
   Trash2,
   Archive,
   Tag,
-} from "lucide-react";
-import { Button } from "./ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+} from 'lucide-react';
+import { Button } from './ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import {
   SimpleTabs,
   SimpleTabsList,
   SimpleTabsTrigger,
   SimpleTabsContent,
-} from "./ui/tabs";
-import { Badge } from "./ui/badge";
+} from './ui/tabs';
+import { Badge } from './ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-} from "./ui/dropdown-menu";
+} from './ui/dropdown-menu';
 
-import BudgetLineDialog from "./BudgetLineDialog";
-import { useSettings } from "../../../contexts/SettingsContext";
-import { useTranslation } from "../../../i18n/translations";
-import ConfirmationModal from "./ui/alert-dialog";
+import BudgetLineDialog from './BudgetLineDialog';
+import ConfirmationModal from './ui/alert-dialog';
+import { formatCurrency } from '../../../utils/formatting';
+import { currencySymbols } from '../../../utils/currencies';
+
 const BudgetPage = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLine, setEditingLine] = useState(null);
-  const { language, currency, formatCurrency } = useSettings();
-  const { t } = useTranslation(language);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [archiveModalOpen, setArchiveModalOpen] = useState(false);
   const [selectedLine, setSelectedLine] = useState(null);
-  // Fonction pour obtenir les classes de couleur (identique à celle du dialog)
+
+  // Fonction pour obtenir les classes de couleur
   const getColorClasses = (color) => {
     const colorClasses = {
-      green: { bg: "bg-green-100", text: "text-green-600" },
-      orange: { bg: "bg-orange-100", text: "text-orange-600" },
-      indigo: { bg: "bg-indigo-100", text: "text-indigo-600" },
-      emerald: { bg: "bg-emerald-100", text: "text-emerald-600" },
-      stone: { bg: "bg-stone-100", text: "text-stone-600" },
-      red: { bg: "bg-red-100", text: "text-red-600" },
-      blue: { bg: "bg-blue-100", text: "text-blue-600" },
-      yellow: { bg: "bg-yellow-100", text: "text-yellow-600" },
-      purple: { bg: "bg-purple-100", text: "text-purple-600" },
-      pink: { bg: "bg-pink-100", text: "text-pink-600" },
+      green: { bg: 'bg-green-100', text: 'text-green-600' },
+      orange: { bg: 'bg-orange-100', text: 'text-orange-600' },
+      indigo: { bg: 'bg-indigo-100', text: 'text-indigo-600' },
+      emerald: { bg: 'bg-emerald-100', text: 'text-emerald-600' },
+      stone: { bg: 'bg-stone-100', text: 'text-stone-600' },
+      red: { bg: 'bg-red-100', text: 'text-red-600' },
+      blue: { bg: 'bg-blue-100', text: 'text-blue-600' },
+      yellow: { bg: 'bg-yellow-100', text: 'text-yellow-600' },
+      purple: { bg: 'bg-purple-100', text: 'text-purple-600' },
+      pink: { bg: 'bg-pink-100', text: 'text-pink-600' },
     };
-    return colorClasses[color] || { bg: "bg-gray-100", text: "text-gray-600" };
+    return colorClasses[color] || { bg: 'bg-gray-100', text: 'text-gray-600' };
   };
 
   const [budgetData, setBudgetData] = useState({
     revenus: [
       {
         id: 1,
-        type: "revenue",
-        mainCategory: "ventes_produits_services",
-        subcategory: "ca_principal",
-        categoryName: "Ventes de produits/services",
-        subcategoryName: "Chiffre affaires principal",
-        categoryColor: "green",
+        type: 'revenue',
+        mainCategory: 'ventes_produits_services',
+        subcategory: 'ca_principal',
+        categoryName: 'Ventes de produits/services',
+        subcategoryName: 'Chiffre affaires principal',
+        categoryColor: 'green',
         montant: 45000,
-        currency: "EUR",
+        currency: 'EUR',
         reel: 42300,
         ecart: -2700,
-        frequency: "monthly",
-        startDate: "2025-01-01",
-        endDate: "2025-12-31",
+        frequency: 'monthly',
+        startDate: '2025-01-01',
+        endDate: '2025-12-31',
         isIndefinite: false,
-        description: "Ventes mensuelles principales",
+        description: 'Ventes mensuelles principales',
       },
       {
         id: 2,
-        type: "revenue",
-        mainCategory: "ventes_produits_services",
-        subcategory: "prestations",
-        categoryName: "Ventes de produits/services",
-        subcategoryName: "Prestations de service",
-        categoryColor: "green",
+        type: 'revenue',
+        mainCategory: 'ventes_produits_services',
+        subcategory: 'prestations',
+        categoryName: 'Ventes de produits/services',
+        subcategoryName: 'Prestations de service',
+        categoryColor: 'green',
         montant: 15000,
-        currency: "USD",
+        currency: 'USD',
         reel: 16200,
         ecart: 1200,
-        frequency: "monthly",
-        startDate: "2025-01-01",
-        endDate: "",
+        frequency: 'monthly',
+        startDate: '2025-01-01',
+        endDate: '',
         isIndefinite: true,
-        description: "Services de consulting",
+        description: 'Services de consulting',
       },
       {
         id: 3,
-        type: "revenue",
-        mainCategory: "subventions_aides",
-        subcategory: "aides_publiques",
-        categoryName: "Subventions et aides",
-        subcategoryName: "Aides publiques",
-        categoryColor: "orange",
+        type: 'revenue',
+        mainCategory: 'subventions_aides',
+        subcategory: 'aides_publiques',
+        categoryName: 'Subventions et aides',
+        subcategoryName: 'Aides publiques',
+        categoryColor: 'orange',
         montant: 5000,
-        currency: "EUR",
+        currency: 'EUR',
         reel: 5000,
         ecart: 0,
-        frequency: "quarterly",
-        startDate: "2025-01-01",
-        endDate: "2025-12-31",
+        frequency: 'quarterly',
+        startDate: '2025-01-01',
+        endDate: '2025-12-31',
         isIndefinite: false,
-        description: "Subvention innovation",
+        description: 'Subvention innovation',
       },
     ],
     depenses: [
       {
         id: 1,
-        type: "expense",
-        mainCategory: "remuneration_personnel",
-        subcategory: "salaires",
-        categoryName: "Rémunération du personnel",
-        subcategoryName: "Salaires",
-        categoryColor: "indigo",
+        type: 'expense',
+        mainCategory: 'remuneration_personnel',
+        subcategory: 'salaires',
+        categoryName: 'Rémunération du personnel',
+        subcategoryName: 'Salaires',
+        categoryColor: 'indigo',
         montant: 25000,
-        currency: "EUR",
+        currency: 'EUR',
         reel: 25000,
         ecart: 0,
-        frequency: "monthly",
-        startDate: "2025-01-01",
-        endDate: "",
+        frequency: 'monthly',
+        startDate: '2025-01-01',
+        endDate: '',
         isIndefinite: true,
-        description: "Salaires équipe",
+        description: 'Salaires équipe',
       },
       {
         id: 2,
-        type: "expense",
-        mainCategory: "logement",
-        subcategory: "loyer",
-        categoryName: "Logement",
-        subcategoryName: "Loyer",
-        categoryColor: "emerald",
+        type: 'expense',
+        mainCategory: 'logement',
+        subcategory: 'loyer',
+        categoryName: 'Logement',
+        subcategoryName: 'Loyer',
+        categoryColor: 'emerald',
         montant: 3000,
-        currency: "EUR",
+        currency: 'EUR',
         reel: 3000,
         ecart: 0,
-        frequency: "monthly",
-        startDate: "2025-01-01",
-        endDate: "",
+        frequency: 'monthly',
+        startDate: '2025-01-01',
+        endDate: '',
         isIndefinite: true,
-        description: "Loyer bureau",
+        description: 'Loyer bureau',
       },
       {
         id: 3,
-        type: "expense",
-        mainCategory: "achats_materiel",
-        subcategory: "materiel_bureau",
-        categoryName: "Achats de matériel",
-        subcategoryName: "Matériel de bureau",
-        categoryColor: "stone",
+        type: 'expense',
+        mainCategory: 'achats_materiel',
+        subcategory: 'materiel_bureau',
+        categoryName: 'Achats de matériel',
+        subcategoryName: 'Matériel de bureau',
+        categoryColor: 'stone',
         montant: 5000,
-        currency: "USD",
+        currency: 'USD',
         reel: 4200,
         ecart: -800,
-        frequency: "monthly",
-        startDate: "2025-01-01",
-        endDate: "2025-06-30",
+        frequency: 'monthly',
+        startDate: '2025-01-01',
+        endDate: '2025-06-30',
         isIndefinite: false,
-        description: "Équipement informatique",
+        description: 'Équipement informatique',
       },
       {
         id: 4,
-        type: "expense",
-        mainCategory: "nourriture_restauration",
-        subcategory: "restaurant",
-        categoryName: "Nourriture & Restauration",
-        subcategoryName: "Restaurant",
-        categoryColor: "red",
+        type: 'expense',
+        mainCategory: 'nourriture_restauration',
+        subcategory: 'restaurant',
+        categoryName: 'Nourriture & Restauration',
+        subcategoryName: 'Restaurant',
+        categoryColor: 'red',
         montant: 2000,
-        currency: "CAD",
+        currency: 'CAD',
         reel: 2300,
         ecart: 300,
-        frequency: "monthly",
-        startDate: "2025-01-01",
-        endDate: "",
+        frequency: 'monthly',
+        startDate: '2025-01-01',
+        endDate: '',
         isIndefinite: true,
         description: "Repas d'affaires",
       },
@@ -199,11 +199,11 @@ const BudgetPage = () => {
   };
 
   const handleSaveBudgetLine = (lineData) => {
-    console.log("Saving budget line:", lineData); // Debug
+    console.log('Saving budget line:', lineData);
 
     if (editingLine) {
       // Edit existing line
-      const type = lineData.type === "revenue" ? "revenus" : "depenses";
+      const type = lineData.type === 'revenue' ? 'revenus' : 'depenses';
       setBudgetData((prev) => ({
         ...prev,
         [type]: prev[type].map((item) =>
@@ -230,9 +230,9 @@ const BudgetPage = () => {
       setEditingLine(null);
     } else {
       // Add new line
-      const type = lineData.type === "revenue" ? "revenus" : "depenses";
+      const type = lineData.type === 'revenue' ? 'revenus' : 'depenses';
       const newLine = {
-        id: Date.now(), // Utiliser timestamp pour éviter les doublons
+        id: Date.now(),
         type: lineData.type,
         mainCategory: lineData.mainCategory,
         subcategory: lineData.subcategory,
@@ -261,10 +261,10 @@ const BudgetPage = () => {
   };
 
   const handleEditLine = (line, type) => {
-    console.log("Editing line:", line); // Debug
+    console.log('Editing line:', line);
     setEditingLine({
       ...line,
-      type: type === "revenus" ? "revenue" : "expense",
+      type: type === 'revenus' ? 'revenue' : 'expense',
       amount: line.montant.toString(),
     });
     setIsDialogOpen(true);
@@ -282,8 +282,11 @@ const BudgetPage = () => {
 
   const confirmDelete = () => {
     if (selectedLine) {
-      // Logique de suppression
-      console.log("Suppression de:", selectedLine);
+      const type = selectedLine.type === 'revenue' ? 'revenus' : 'depenses';
+      setBudgetData((prev) => ({
+        ...prev,
+        [type]: prev[type].filter((item) => item.id !== selectedLine.id),
+      }));
       setDeleteModalOpen(false);
       setSelectedLine(null);
     }
@@ -291,8 +294,13 @@ const BudgetPage = () => {
 
   const confirmArchive = () => {
     if (selectedLine) {
-      // Logique d'archivage
-      console.log("Archivage de:", selectedLine);
+      const type = selectedLine.type === 'revenue' ? 'revenus' : 'depenses';
+      setBudgetData((prev) => ({
+        ...prev,
+        [type]: prev[type].map((item) =>
+          item.id === selectedLine.id ? { ...item, archived: true } : item
+        ),
+      }));
       setArchiveModalOpen(false);
       setSelectedLine(null);
     }
@@ -300,27 +308,21 @@ const BudgetPage = () => {
 
   const getFrequencyBadge = (frequency) => {
     const frequencyMap = {
-      one_time: { label: t("oneTime"), color: "bg-gray-100 text-gray-700" },
-      daily: { label: t("daily"), color: "bg-blue-100 text-blue-700" },
-      weekly: { label: t("weekly"), color: "bg-green-100 text-green-700" },
-      biweekly: {
-        label: t("biweekly"),
-        color: "bg-purple-100 text-purple-700",
-      },
-      monthly: { label: t("monthly"), color: "bg-indigo-100 text-indigo-700" },
-      bimonthly: { label: t("bimonthly"), color: "bg-pink-100 text-pink-700" },
+      one_time: { label: 'Une fois', color: 'bg-gray-100 text-gray-700' },
+      daily: { label: 'Quotidien', color: 'bg-blue-100 text-blue-700' },
+      weekly: { label: 'Hebdomadaire', color: 'bg-green-100 text-green-700' },
+      biweekly: { label: 'Bimensuel', color: 'bg-purple-100 text-purple-700' },
+      monthly: { label: 'Mensuel', color: 'bg-indigo-100 text-indigo-700' },
+      bimonthly: { label: 'Bimestriel', color: 'bg-pink-100 text-pink-700' },
       quarterly: {
-        label: t("quarterly"),
-        color: "bg-orange-100 text-orange-700",
+        label: 'Trimestriel',
+        color: 'bg-orange-100 text-orange-700',
       },
-      semiannual: {
-        label: t("semiannual"),
-        color: "bg-teal-100 text-teal-700",
-      },
-      annual: { label: t("annual"), color: "bg-cyan-100 text-cyan-700" },
+      semiannual: { label: 'Semestriel', color: 'bg-teal-100 text-teal-700' },
+      annual: { label: 'Annuel', color: 'bg-cyan-100 text-cyan-700' },
     };
     const freq = frequencyMap[frequency] || frequencyMap.monthly;
-    return <Badge className={`${freq.color}`}>{freq.label}</Badge>;
+    return <Badge className={freq.color}>{freq.label}</Badge>;
   };
 
   return (
@@ -328,26 +330,26 @@ const BudgetPage = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">{t("budgetTitle")}</h1>
-          <p className="text-gray-600">{t("budgetSubtitle")}</p>
+          <h1 className="text-3xl font-bold">Budget</h1>
+          <p className="text-gray-600">Gérez vos revenus et dépenses</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline">
             <Upload className="w-4 h-4 mr-2" />
-            {t("import")}
+            Importer
           </Button>
           <Button variant="outline">
             <Download className="w-4 h-4 mr-2" />
-            {t("export")}
+            Exporter
           </Button>
           <Button
             onClick={() => {
-              console.log("Opening dialog..."); // Debug
+              console.log('Opening dialog...');
               setIsDialogOpen(true);
             }}
           >
             <Plus className="w-4 h-4 mr-2" />
-            {t("newLine")}
+            Nouvelle ligne
           </Button>
         </div>
       </div>
@@ -380,6 +382,7 @@ const BudgetPage = () => {
         confirmText="Archiver"
         confirmColor="bg-blue-600 hover:bg-blue-700"
       />
+
       {/* Summary Cards */}
       <div className="grid md:grid-cols-3 gap-4">
         <Card>
@@ -425,15 +428,15 @@ const BudgetPage = () => {
               {(
                 calculateTotal(budgetData.revenus) -
                 calculateTotal(budgetData.depenses)
-              ).toLocaleString()}{" "}
+              ).toLocaleString()}{' '}
               €
             </div>
             <p className="text-xs text-gray-600 mt-1">
-              Réalisé:{" "}
+              Réalisé:{' '}
               {(
                 calculateReel(budgetData.revenus) -
                 calculateReel(budgetData.depenses)
-              ).toLocaleString()}{" "}
+              ).toLocaleString()}{' '}
               €
             </p>
           </CardContent>
@@ -464,25 +467,25 @@ const BudgetPage = () => {
                   <thead>
                     <tr className="border-b">
                       <th className="text-left py-3 px-4 font-medium text-gray-700">
-                        {t("category")}
+                        Catégorie
                       </th>
                       <th className="text-center py-3 px-4 font-medium text-gray-700">
-                        {t("frequency")}
+                        Fréquence
                       </th>
                       <th className="text-center py-3 px-4 font-medium text-gray-700">
-                        {t("period")}
+                        Période
                       </th>
                       <th className="text-right py-3 px-4 font-medium text-gray-700">
-                        {t("budget")}
+                        Budget
                       </th>
                       <th className="text-right py-3 px-4 font-medium text-gray-700">
-                        {t("actual")}
+                        Réel
                       </th>
                       <th className="text-right py-3 px-4 font-medium text-gray-700">
-                        {t("variance")}
+                        Écart
                       </th>
                       <th className="text-center py-3 px-4 font-medium text-gray-700">
-                        {t("actions")}
+                        Actions
                       </th>
                     </tr>
                   </thead>
@@ -491,7 +494,7 @@ const BudgetPage = () => {
                       .filter((item) => !item.archived)
                       .map((item) => {
                         const colorClass = getColorClasses(item.categoryColor);
-                        const IconComponent = Tag; // Simplifié pour le test
+                        const IconComponent = Tag;
 
                         return (
                           <tr
@@ -529,17 +532,17 @@ const BudgetPage = () => {
                               <div className="flex items-center justify-center gap-1">
                                 <Calendar className="w-3 h-3" />
                                 {new Date(item.startDate).toLocaleDateString(
-                                  "fr-FR",
-                                  { month: "short", year: "numeric" }
+                                  'fr-FR',
+                                  { month: 'short', year: 'numeric' }
                                 )}
                                 {item.isIndefinite ? (
                                   <span className="ml-1">→ ∞</span>
                                 ) : item.endDate ? (
                                   <span>
-                                    →{" "}
+                                    →{' '}
                                     {new Date(item.endDate).toLocaleDateString(
-                                      "fr-FR",
-                                      { month: "short", year: "numeric" }
+                                      'fr-FR',
+                                      { month: 'short', year: 'numeric' }
                                     )}
                                   </span>
                                 ) : null}
@@ -550,7 +553,7 @@ const BudgetPage = () => {
                                 <span>
                                   {formatCurrency(item.montant, item.currency)}
                                 </span>
-                                {item.currency !== currency && (
+                                {item.currency !== 'EUR' && (
                                   <span className="text-xs text-gray-500">
                                     ({item.currency})
                                   </span>
@@ -563,13 +566,13 @@ const BudgetPage = () => {
                             <td
                               className={`text-right py-3 px-4 font-medium ${
                                 item.ecart > 0
-                                  ? "text-green-600"
+                                  ? 'text-green-600'
                                   : item.ecart < 0
-                                  ? "text-red-600"
-                                  : "text-gray-600"
+                                  ? 'text-red-600'
+                                  : 'text-gray-600'
                               }`}
                             >
-                              {item.ecart > 0 ? "+" : ""}
+                              {item.ecart > 0 ? '+' : ''}
                               {formatCurrency(item.ecart, item.currency)}
                             </td>
                             <td className="py-3 px-4 text-center">
@@ -586,29 +589,29 @@ const BudgetPage = () => {
                                 <DropdownMenuContent align="end">
                                   <DropdownMenuItem
                                     onClick={() =>
-                                      handleEditLine(item, "revenus")
+                                      handleEditLine(item, 'revenus')
                                     }
                                   >
                                     <Edit className="mr-2 h-4 w-4" />
-                                    {t("edit")}
+                                    Modifier
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     onClick={() =>
-                                      handleArchiveLine(item, "revenus")
+                                      handleArchiveLine(item, 'revenus')
                                     }
                                   >
                                     <Archive className="mr-2 h-4 w-4" />
-                                    {t("archive")}
+                                    Archiver
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
                                     onClick={() =>
-                                      handleDeleteLine(item, "revenus")
+                                      handleDeleteLine(item, 'revenus')
                                     }
                                     className="text-red-600"
                                   >
                                     <Trash2 className="mr-2 h-4 w-4" />
-                                    {t("delete")}
+                                    Supprimer
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -627,25 +630,25 @@ const BudgetPage = () => {
                   <thead>
                     <tr className="border-b">
                       <th className="text-left py-3 px-4 font-medium text-gray-700">
-                        {t("category")}
+                        Catégorie
                       </th>
                       <th className="text-center py-3 px-4 font-medium text-gray-700">
-                        {t("frequency")}
+                        Fréquence
                       </th>
                       <th className="text-center py-3 px-4 font-medium text-gray-700">
-                        {t("period")}
+                        Période
                       </th>
                       <th className="text-right py-3 px-4 font-medium text-gray-700">
-                        {t("budget")}
+                        Budget
                       </th>
                       <th className="text-right py-3 px-4 font-medium text-gray-700">
-                        {t("actual")}
+                        Réel
                       </th>
                       <th className="text-right py-3 px-4 font-medium text-gray-700">
-                        {t("variance")}
+                        Écart
                       </th>
                       <th className="text-center py-3 px-4 font-medium text-gray-700">
-                        {t("actions")}
+                        Actions
                       </th>
                     </tr>
                   </thead>
@@ -654,7 +657,7 @@ const BudgetPage = () => {
                       .filter((item) => !item.archived)
                       .map((item) => {
                         const colorClass = getColorClasses(item.categoryColor);
-                        const IconComponent = Tag; // Simplifié pour le test
+                        const IconComponent = Tag;
 
                         return (
                           <tr
@@ -692,17 +695,17 @@ const BudgetPage = () => {
                               <div className="flex items-center justify-center gap-1">
                                 <Calendar className="w-3 h-3" />
                                 {new Date(item.startDate).toLocaleDateString(
-                                  "fr-FR",
-                                  { month: "short", year: "numeric" }
+                                  'fr-FR',
+                                  { month: 'short', year: 'numeric' }
                                 )}
                                 {item.isIndefinite ? (
                                   <span className="ml-1">→ ∞</span>
                                 ) : item.endDate ? (
                                   <span>
-                                    →{" "}
+                                    →{' '}
                                     {new Date(item.endDate).toLocaleDateString(
-                                      "fr-FR",
-                                      { month: "short", year: "numeric" }
+                                      'fr-FR',
+                                      { month: 'short', year: 'numeric' }
                                     )}
                                   </span>
                                 ) : null}
@@ -713,7 +716,7 @@ const BudgetPage = () => {
                                 <span>
                                   {formatCurrency(item.montant, item.currency)}
                                 </span>
-                                {item.currency !== currency && (
+                                {item.currency !== 'EUR' && (
                                   <span className="text-xs text-gray-500">
                                     ({item.currency})
                                   </span>
@@ -726,13 +729,13 @@ const BudgetPage = () => {
                             <td
                               className={`text-right py-3 px-4 font-medium ${
                                 item.ecart > 0
-                                  ? "text-red-600"
+                                  ? 'text-red-600'
                                   : item.ecart < 0
-                                  ? "text-green-600"
-                                  : "text-gray-600"
+                                  ? 'text-green-600'
+                                  : 'text-gray-600'
                               }`}
                             >
-                              {item.ecart > 0 ? "+" : ""}
+                              {item.ecart > 0 ? '+' : ''}
                               {formatCurrency(item.ecart, item.currency)}
                             </td>
                             <td className="py-3 px-4 text-center">
@@ -749,32 +752,29 @@ const BudgetPage = () => {
                                 <DropdownMenuContent align="end">
                                   <DropdownMenuItem
                                     onClick={() =>
-                                      handleEditLine(item, "depenses")
+                                      handleEditLine(item, 'depenses')
                                     }
                                   >
                                     <Edit className="mr-2 h-4 w-4" />
-                                    {t("edit")}
+                                    Modifier
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     onClick={() =>
-                                      handleArchiveLine(item, "depenses")
+                                      handleArchiveLine(item, 'depenses')
                                     }
                                   >
                                     <Archive className="mr-2 h-4 w-4" />
-                                    {t("archive")}
+                                    Archiver
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
                                     onClick={() =>
-                                      handleDeleteLine(
-                                        { id: 1, name: "Exemple" },
-                                        "revenus"
-                                      )
+                                      handleDeleteLine(item, 'depenses')
                                     }
                                     className="text-red-600"
                                   >
                                     <Trash2 className="mr-2 h-4 w-4" />
-                                    {t("delete")}
+                                    Supprimer
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>

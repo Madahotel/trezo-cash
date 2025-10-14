@@ -27,26 +27,7 @@ import { useNavigate } from "react-router-dom";
 import ActionCard from "./ActionCard";
 import IntelligentAlertWidget from "./IntelligentAlertWidget";
 import AmbassadorWidget from "./AmbassadorWidget";
-import DashboardSettingsDrawer from "../../../components/drawer/DashboardSettingsDrawer.jsx";
-
-const defaultWidgetSettings = {
-  kpi_actionable_balance: true,
-  kpi_overdue_payables: true,
-  kpi_overdue_receivables: true,
-  kpi_savings: true,
-  kpi_provisions: true,
-  kpi_borrowings: true,
-  kpi_lendings: true,
-  alerts: true,
-  priorities: true,
-  trezo_score: true,
-  "30_day_forecast": true,
-  monthly_budget: true,
-  loans: true,
-  ambassador_promo: true,
-  actions: true,
-  tutorials: true,
-};
+import DashboardSettingsDrawer from "../../../components/drawer/DashboardSettingsDrawer";
 
 // Données statiques complètes
 const staticSettings = {
@@ -189,6 +170,7 @@ const staticAlertData = {
       ? "up"
       : "down",
 };
+
 // Données pour le budget du mois courant
 const staticBudgetData = {
   month: "Janvier 2024",
@@ -204,9 +186,29 @@ const staticBudgetData = {
   remaining: 6800,
 };
 
+const defaultWidgetSettings = {
+  kpi_actionable_balance: true,
+  kpi_overdue_payables: true,
+  kpi_overdue_receivables: true,
+  kpi_savings: true,
+  kpi_provisions: true,
+  kpi_borrowings: true,
+  kpi_lendings: true,
+  alerts: true,
+  priorities: true,
+  trezo_score: true,
+  "30_day_forecast": true,
+  monthly_budget: true,
+  loans: true,
+  ambassador_promo: true,
+  actions: true,
+  tutorials: true,
+};
+
 const DashboardView = () => {
   const navigate = useNavigate();
   const [isSettingsDrawerOpen, setIsSettingsDrawerOpen] = useState(false);
+  const [widgetVisibility, setWidgetVisibility] = useState(defaultWidgetSettings);
 
   // Utilisation des données statiques
   const settings = staticSettings;
@@ -222,20 +224,16 @@ const DashboardView = () => {
   const isConsolidated = false;
   const activeProject = projects[0];
 
-  const widgetVisibility = {
-    ...defaultWidgetSettings,
-    ...(activeProject?.dashboard_widgets || {}),
-  };
-
   const handleOpenSettings = () => {
     setIsSettingsDrawerOpen(true);
   };
 
+  // Sauvegarde automatique quand les paramètres changent
   const handleSaveSettings = (newSettings) => {
-    console.log("Sauvegarde des paramètres:", newSettings);
-    setIsSettingsDrawerOpen(false);
-    // Simuler une notification de succès
-    console.log("Paramètres sauvegardés avec succès");
+    console.log("Sauvegarde automatique des paramètres:", newSettings);
+    setWidgetVisibility(newSettings);
+    // Ici vous pouvez ajouter un appel API pour sauvegarder en base de données
+    // await api.saveDashboardSettings(newSettings);
   };
 
   const currencySettings = {
@@ -695,6 +693,8 @@ const DashboardView = () => {
           </section>
         )}
       </div>
+      
+      {/* Settings Drawer avec sauvegarde automatique */}
       <DashboardSettingsDrawer
         isOpen={isSettingsDrawerOpen}
         onClose={() => setIsSettingsDrawerOpen(false)}
