@@ -46,10 +46,16 @@ const ProjetLayoutClient = () => {
   const themeMap = {
     // Clé : la valeur hexadécimale
     "#f472b6": "bg-rose-50", 
-    "#1f2937": "bg-blue-50",
+    "#1f2937": "bg-dark-50",
     "#22c55e": "bg-green-50",
+    "#2563eb":"bg-blue-80",
+    "#ea580c":"bg-orange-50",
+    "#7c3aed":"bg-violet-50",
+    "#10b981":"bg-emerald-50",
+    "#0ea5e9":"bg-skay-50"
+   
 };
-const className = themeMap[themeActive] || "bg-white";
+const className = `${themeMap[themeActive] || "bg-white"} h-full`;
   // Largeur de la sidebar : 80px (réduite) ou 280px (dépliée) - ajustée à 280 pour coller à la sidebar
   const sidebarWidth = isSidebarCollapsed ? 80 : 280;
 
@@ -122,7 +128,7 @@ const className = themeMap[themeActive] || "bg-white";
 
           {/* Zone principale */}
           <div className="flex-1 overflow-y-auto">
-            <main className="min-h-full pb-20 md:pb-0">
+            <main className="h-full pb-20 md:pb-0">
               <div className={className}  >
                 <Outlet context={{ onOpenPaymentTerms: handleOpenPaymentTerms }} />
               </div>
