@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Save, X } from 'lucide-react';
 import { useData, mainCashAccountCategories } from '../../../components/context/DataContext';
 import { useUI } from '../../../components/context/UIContext';
+import { currencySymbols, commonCurrencies } from '../../../utils/currencies';
 
 const AddAccountForm = ({ onSave, onCancel }) => {
   const { dataState } = useData();
@@ -15,18 +16,19 @@ const AddAccountForm = ({ onSave, onCancel }) => {
     name: '',
     initialBalance: '',
     initialBalanceDate: new Date().toISOString().split('T')[0],
+    currency: activeProject?.currency || settings.currency,
   });
 
   const handleSave = () => {
-    if (!formData.mainCategoryId || !formData.name.trim()) {
-      alert("Veuillez sélectionner un type et entrer un nom pour le nouveau compte.");
+    if (!formData.mainCategoryId || !formData.name.trim() || !formData.currency) {
+      alert("Veuillez sélectionner un type, une devise et entrer un nom pour le nouveau compte.");
       return;
     }
     onSave(formData);
   };
 
   return (
-    <div className="bg-gray-50 p-6 rounded-lg border border-dashed mt-6">
+    <div className="bg-gray-50 p-6 rounded-lg border border border-gray-300 mt-6">
       <h3 className="font-bold text-lg text-gray-700 mb-4">Ajouter un nouveau compte</h3>
       <div className="space-y-4">
         <div>
@@ -34,7 +36,7 @@ const AddAccountForm = ({ onSave, onCancel }) => {
           <select
             value={formData.mainCategoryId}
             onChange={(e) => setFormData(prev => ({ ...prev, mainCategoryId: e.target.value }))}
-            className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
+            className="w-full px-3 py-2 border border-gray-200 border-opacity-50 rounded-lg text-base bg-white text-gray-900"
           >
             {mainCashAccountCategories.map(cat => (
               <option key={cat.id} value={cat.id}>{cat.name}</option>
@@ -48,19 +50,31 @@ const AddAccountForm = ({ onSave, onCancel }) => {
             value={formData.name}
             onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
             placeholder="Ex: Compte Courant Pro"
-            className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
+            className="w-full px-3 py-2 border border-gray-200 border-opacity-50 rounded-lg text-base bg-white text-gray-900"
             autoFocus
           />
         </div>
+        <div>
+          <label className="text-sm font-medium text-gray-600 mb-1 block">Devise *</label>
+          <select
+            value={formData.currency}
+            onChange={(e) => setFormData(prev => ({ ...prev, currency: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-200 border-opacity-50 rounded-lg text-base bg-white text-gray-900"
+          >
+            {commonCurrencies.map(c => (
+              <option key={c.code} value={c.code}>{c.code} - {c.name}</option>
+            ))}
+          </select>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="text-sm font-medium text-gray-600 mb-1 block">Solde initial ({settings.currency})</label>
+            <label className="text-sm font-medium text-gray-600 mb-1 block">Solde initial ({currencySymbols[formData.currency] || formData.currency})</label>
             <input
               type="number"
               value={formData.initialBalance}
               onChange={(e) => setFormData(prev => ({ ...prev, initialBalance: e.target.value }))}
               placeholder="0.00"
-              className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
+              className="w-full px-3 py-2 border border-gray-200 border-opacity-50 rounded-lg text-base bg-white text-gray-900"
             />
           </div>
           <div>
@@ -69,7 +83,7 @@ const AddAccountForm = ({ onSave, onCancel }) => {
               type="date"
               value={formData.initialBalanceDate}
               onChange={(e) => setFormData(prev => ({ ...prev, initialBalanceDate: e.target.value }))}
-              className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
+              className="w-full px-3 py-2 border border-gray-200 border-opacity-50 rounded-lg text-base bg-white text-gray-900"
               min={activeProject?.startDate}
             />
           </div>

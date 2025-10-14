@@ -3,18 +3,34 @@ import { useNavigate } from "react-router-dom";
 import { useData } from '../../../components/context/DataContext';
 import { useUI } from '../../../components/context/UIContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, ArrowLeft, Sparkles, Loader, Search, Star, Users, LayoutTemplate, FilePlus, DollarSign } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Sparkles, Loader, Search, Star, Users, LayoutTemplate, FilePlus, DollarSign, Briefcase, Home, PartyPopper } from 'lucide-react';
 import { initializeProject } from '../../../components/context/actions';
 import { templates as officialTemplates } from '../../../utils/templates';
 import TemplateIcon from '../template/TemplateIcon';
+import axios from '../../../components/config/Axios';
 
-const OnboardingProgress = ({ current, total }) => (
-  <div className="flex items-center gap-2">
-    {Array.from({ length: total }).map((_, i) => (
-      <div key={i} className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${i < current ? 'bg-blue-500' : 'bg-gray-200'}`} />
-    ))}
-  </div>
-);
+
+// Icônes mapping pour les types de projet
+const projectTypeIcons = {
+  'Business': Briefcase,
+  'Événement': PartyPopper,
+  'Ménages': Home,
+  'Professionnel': Briefcase,
+  'Evènement': PartyPopper,
+  'Ménage': Home,
+  'default': Briefcase
+};
+
+// Couleurs pour les types de projet
+const projectTypeColors = {
+  'Business': 'blue',
+  'Événement': 'pink', 
+  'Ménages': 'green',
+  'Professionnel': 'blue',
+  'Evènement': 'pink',
+  'Ménage': 'green',
+  'default': 'gray'
+};
 
 const OnboardingView = () => {
   const navigate = useNavigate();
@@ -22,89 +38,204 @@ const OnboardingView = () => {
   const { uiDispatch } = useUI();
   const { projects, session, tiers, templates: userAndCommunityTemplates } = dataState;
 
-  // Hooks toujours au top
   const currentUser = session?.user;
 
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [projectTypes, setProjectTypes] = useState([]);
+  const [loadingTypes, setLoadingTypes] = useState(true);
+  
   const [data, setData] = useState({
     projectName: '',
+    projectDescription: '',
     projectStartDate: new Date().toISOString().split('T')[0],
     projectEndDate: '',
     isEndDateIndefinite: true,
     templateId: 'blank',
     startOption: 'blank',
+    projectTypeId: null, // Maintenant on utilise l'ID du type
+    projectClass: 'treasury',
   });
+  
   const [activeTab, setActiveTab] = useState('official');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Chargement initial des données si nécessaire
+  // Récupérer les types de projet au chargement du composant
   useEffect(() => {
-    // Vous pouvez charger des données supplémentaires ici si besoin
+    const fetchProjectTypes = async () => {
+      try {
+        setLoadingTypes(true);
+        const response = await axios.get('/projects_type'); // Assurez-vous que cette route existe
+        console.log('📋 Types de projet récupérés:', response.data);
+        setProjectTypes(response.data);
+      } catch (error) {
+        console.error('❌ Erreur lors du chargement des types de projet:', error);
+        // Types par défaut en cas d'erreur
+        setProjectTypes([
+          {
+            id: 1,
+            name: "Business",
+            description: "Pour piloter la trésorerie de votre activité"
+          },
+          {
+            id: 2,
+            name: "Événement", 
+            description: "Pour un projet ponctuel (mariage, voyage...)."
+          },
+          {
+            id: 3,
+            name: "Ménages",
+            description: "Pour gérer votre budget personnel ou familial."
+          }
+        ]);
+      } finally {
+        setLoadingTypes(false);
+      }
+    };
+
+    fetchProjectTypes();
   }, []);
 
-  const hasExistingProjects = useMemo(() => {
-    if (!projects) return false;
-    return projects.filter(p => !p.isArchived).length > 0;
-  }, [projects]);
+  // Mapping des classes de projet basé sur le type
+  const getProjectClassFromType = (typeName) => {
+    const classMapping = {
+      'Business': 'treasury',
+      'Professionnel': 'treasury',
+      'Ménages': 'treasury', 
+      'Ménage': 'treasury',
+      'Événement': 'event',
+      'Evènement': 'event'
+    };
+    return classMapping[typeName] || 'treasury';
+  };
 
-  // Transformation des templates officiels pour correspondre à votre structure
-  const allOfficialTemplates = useMemo(() => {
-    const blankTemplate = {
-      id: 'blank',
-      name: 'Projet Vierge',
-      description: 'Commencez avec une structure de base sans aucune donnée pré-remplie.',
-      icon: 'FilePlus',
-      color: 'gray',
-      type: 'blank'
+  // Fonction pour gérer la sélection d'un type de projet
+  const handleProjectTypeSelect = (projectType) => {
+    const projectClass = getProjectClassFromType(projectType.name);
+    
+    setData(prev => ({ 
+      ...prev, 
+      projectTypeId: projectType.id,
+      projectClass: projectClass
+    }));
+    
+    handleNext();
+  };
+
+  // Obtenir l'icône pour un type de projet
+  const getProjectTypeIcon = (typeName) => {
+    const IconComponent = projectTypeIcons[typeName] || projectTypeIcons.default;
+    return IconComponent;
+  };
+
+  // Obtenir la couleur pour un type de projet
+  const getProjectTypeColor = (typeName) => {
+    return projectTypeColors[typeName] || projectTypeColors.default;
+  };
+
+  // Obtenir les classes CSS pour la couleur
+  const getColorClasses = (color, isSelected = false) => {
+    const colorMap = {
+      blue: {
+        border: isSelected ? 'border-blue-500' : 'hover:border-blue-500',
+        bg: isSelected ? 'bg-blue-50' : 'hover:bg-blue-50',
+        text: 'text-blue-600'
+      },
+      green: {
+        border: isSelected ? 'border-green-500' : 'hover:border-green-500', 
+        bg: isSelected ? 'bg-green-50' : 'hover:bg-green-50',
+        text: 'text-green-600'
+      },
+      pink: {
+        border: isSelected ? 'border-pink-500' : 'hover:border-pink-500',
+        bg: isSelected ? 'bg-pink-50' : 'hover:bg-pink-50',
+        text: 'text-pink-600'
+      },
+      gray: {
+        border: isSelected ? 'border-gray-500' : 'hover:border-gray-500',
+        bg: isSelected ? 'bg-gray-50' : 'hover:bg-gray-50',
+        text: 'text-gray-600'
+      }
     };
     
-    // Transformation des templates officiels pour correspondre à votre structure API
-    const transformedOfficialTemplates = [
-      ...officialTemplates.personal.map(template => ({
-        ...template,
-        type: 'personal',
-        structure: template.data?.structure || template.structure
-      })),
-      ...officialTemplates.professional.map(template => ({
-        ...template,
-        type: 'professional',
-        structure: template.data?.structure || template.structure
-      }))
-    ];
+    return colorMap[color] || colorMap.gray;
+  };
 
-    return [blankTemplate, ...transformedOfficialTemplates];
-  }, []);
+  // Le reste de votre code reste inchangé...
+const allOfficialTemplates = useMemo(() => {
+  const blankTemplate = {
+    id: 'blank',
+    name: 'Projet Vierge',
+    description: 'Commencez avec une structure de base sans aucune donnée pré-remplie.',
+    icon: 'FilePlus',
+    color: 'gray',
+    type: 'blank',
+  };
 
-  // Transformation des templates de communauté
-  const communityTemplates = useMemo(() => {
-    if (!userAndCommunityTemplates) return [];
-    
-    // Si vos données viennent avec une structure { data: [...] }
-    const templatesData = userAndCommunityTemplates.data || userAndCommunityTemplates;
-    
-    return templatesData
-      .filter(t => t.isPublic || t.type === 'community')
-      .map(template => ({
-        ...template,
-        structure: template.data?.structure || template.structure
-      }));
-  }, [userAndCommunityTemplates]);
+  if (!userAndCommunityTemplates) return [blankTemplate];
+  
+  const templatesData = userAndCommunityTemplates.data || userAndCommunityTemplates;
+  
+  let officialTemplatesList = [];
+  
+  // Structure paginée
+  if (templatesData.officials?.template_official_items?.data) {
+    officialTemplatesList = templatesData.officials.template_official_items.data.map(template => ({
+      ...template,
+      type: 'official',
+      structure: template.data?.structure || template.structure
+    }));
+  }
+  
+  return [blankTemplate, ...officialTemplatesList];
+}, [userAndCommunityTemplates]);
 
-  // Transformation de vos templates personnels
-  const myTemplates = useMemo(() => {
-    if (!userAndCommunityTemplates || !currentUser) return [];
-    
-    const templatesData = userAndCommunityTemplates.data || userAndCommunityTemplates;
-    
-    return templatesData
-      .filter(t => t.user_id === currentUser.id || t.userId === currentUser.id)
-      .map(template => ({
-        ...template,
-        structure: template.data?.structure || template.structure
-      }));
-  }, [userAndCommunityTemplates, currentUser]);
+  // Le reste des useMemo pour les templates est conservé
+
+const communityTemplates = useMemo(() => {
+  if (!userAndCommunityTemplates) return [];
+  const templatesData = userAndCommunityTemplates.data || userAndCommunityTemplates;
+  
+  // Structure paginée
+  if (templatesData.communities?.template_community_items?.data) {
+    return templatesData.communities.template_community_items.data.map(template => ({
+      ...template,
+      structure: template.data?.structure || template.structure
+    }));
+  }
+  
+  // Structure simple
+  return templatesData
+    .filter(t => t.is_public === true || t.type === 'community')
+    .map(template => ({
+      ...template,
+      structure: template.data?.structure || template.structure
+    }));
+}, [userAndCommunityTemplates]);
+
+const myTemplates = useMemo(() => {
+  if (!userAndCommunityTemplates) return [];
+  
+  // Adapter selon la structure de votre réponse API
+  const templatesData = userAndCommunityTemplates.data || userAndCommunityTemplates;
+  
+  // Si c'est la structure paginée de votre API
+  if (templatesData.personals?.template_personal_items?.data) {
+    return templatesData.personals.template_personal_items.data.map(template => ({
+      ...template,
+      structure: template.data?.structure || template.structure
+    }));
+  }
+  
+  // Si c'est un tableau simple
+  return templatesData
+    .filter(t => t.user_id === currentUser?.id || t.user_subscriber_id === currentUser?.id)
+    .map(template => ({
+      ...template,
+      structure: template.data?.structure || template.structure
+    }));
+}, [userAndCommunityTemplates, currentUser]);
 
   const filteredTemplates = useMemo(() => {
     let currentList = [];
@@ -120,6 +251,7 @@ const OnboardingView = () => {
   }, [activeTab, searchTerm, allOfficialTemplates, communityTemplates, myTemplates]);
 
   const steps = [
+    { id: 'type', title: 'Type de projet' },
     { id: 'details', title: 'Détails de votre projet' },
     { id: 'template', title: 'Choisissez un modèle' },
     { id: 'start', title: 'Comment voulez-vous commencer ?' },
@@ -127,22 +259,30 @@ const OnboardingView = () => {
   ];
   const currentStepInfo = steps[step];
 
+  const hasExistingProjects = useMemo(() => {
+    if (!projects) return false;
+    return projects.filter(p => !p.isArchived).length > 0;
+  }, [projects]);
+
+
   const variants = {
     enter: (direction) => ({ x: direction > 0 ? 100 : -100, opacity: 0 }),
     center: { zIndex: 1, x: 0, opacity: 1 },
     exit: (direction) => ({ zIndex: 0, x: direction < 0 ? 100 : -100, opacity: 0 }),
   };
 
+  // Logique de navigation ajustée pour le nouveau nombre d'étapes et la nouvelle logique
   const handleNext = () => {
-    if (step === 0 && !data.projectName.trim()) {
+    if (step === 1 && !data.projectName.trim()) {
       uiDispatch({ type: 'ADD_TOAST', payload: { message: "Le nom du projet est obligatoire.", type: 'error' } });
       return;
     }
 
-    if (step === 1 && data.templateId === 'blank') {
+    // Changement : le template est à l'étape 2 (index 2)
+    if (step === 2 && data.templateId === 'blank') {
       setData(prev => ({ ...prev, startOption: 'blank' }));
       setDirection(1);
-      setStep(3); // Skip to 'finish' step
+      setStep(4); // Skip to 'finish' step (index 4)
       return;
     }
 
@@ -153,9 +293,10 @@ const OnboardingView = () => {
   };
 
   const handleBack = () => {
-    if (step === 3 && data.templateId === 'blank') {
+    // Changement : le template est à l'étape 2 (index 2), finish à 4
+    if (step === 4 && data.templateId === 'blank') {
       setDirection(-1);
-      setStep(1); // Go back to template selection
+      setStep(2); // Go back to template selection (index 2)
       return;
     }
     if (step > 0) {
@@ -166,29 +307,42 @@ const OnboardingView = () => {
 
   const handleCancel = () => uiDispatch({ type: 'CANCEL_ONBOARDING' });
 
-  const handleFinish = async () => {
-    setIsLoading(true);
-    try {
-      await initializeProject(
-        { dataDispatch, uiDispatch },
-        data,
-        currentUser,
-        tiers,
-        userAndCommunityTemplates
-      );
-      navigate("/client/dashboard");
-    } catch (error) {
-      console.error("Erreur lors de la création du projet:", error);
-      uiDispatch({
-        type: 'ADD_TOAST', 
-        payload: { 
-          message: `Erreur lors de la création: ${error.message}`, 
-          type: 'error' 
-        }
-      });
-      setIsLoading(false);
+const handleFinish = async () => {
+  setIsLoading(true);
+  try {
+    const result = await initializeProject(
+      { dataDispatch, uiDispatch },
+      data,
+      currentUser,
+      tiers,
+      userAndCommunityTemplates 
+    );
+    
+    // CORRECTION : S'assurer que le loading s'arrête même en cas de succès
+    setIsLoading(false);
+    
+    // CORRECTION : Navigation optionnelle - vérifier si nécessaire
+    if (result?.success) {
+      console.log('✅ Navigation vers le dashboard...');
+       navigate("/client/dashboard"); // Décommentez si nécessaire
     }
-  };
+    
+  } catch (error) {
+    console.error("Erreur lors de la création du projet:", error);
+    
+    // CORRECTION : IMPORTANT - Réinitialiser l'état de loading en cas d'erreur
+    setIsLoading(false);
+    
+    // Optionnel : permettre à l'utilisateur de réessayer
+    uiDispatch({
+      type: 'ADD_TOAST', 
+      payload: { 
+        message: `Erreur lors de la création: ${error.message}`, 
+        type: 'error' 
+      }
+    });
+  }
+};
 
   // ✅ Early return pour session après tous les hooks
   if (!session || !currentUser) {
@@ -214,6 +368,56 @@ const OnboardingView = () => {
   // Render dynamique des steps
   const renderStepContent = () => {
     switch (currentStepInfo.id) {
+      case 'type':
+  return (
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">Quel type de projet souhaitez-vous créer ?</h2>
+            
+            {loadingTypes ? (
+              <div className="flex justify-center items-center py-12">
+                <Loader className="w-8 h-8 animate-spin text-blue-600" />
+                <span className="ml-3 text-gray-600">Chargement des types de projet...</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+                {projectTypes.map((projectType) => {
+                  const IconComponent = getProjectTypeIcon(projectType.name);
+                  const color = getProjectTypeColor(projectType.name);
+                  const colorClasses = getColorClasses(color, data.projectTypeId === projectType.id);
+                  const isSelected = data.projectTypeId === projectType.id;
+                  
+                  return (
+                    <button 
+                      key={projectType.id}
+                      onClick={() => handleProjectTypeSelect(projectType)}
+                      className={`p-8 border-2 rounded-lg text-left transition-all ${colorClasses.border} ${colorClasses.bg} ${isSelected ? 'ring-2 ring-opacity-50' : ''}`}
+                      style={{ 
+                        borderColor: isSelected ? `var(--color-${color}-500)` : undefined,
+                        backgroundColor: isSelected ? `var(--color-${color}-50)` : undefined 
+                      }}
+                    >
+                      <IconComponent className={`w-8 h-8 ${colorClasses.text} mb-4`} />
+                      <h3 className="font-semibold text-lg text-gray-800">{projectType.name}</h3>
+                      <p className="text-sm text-gray-600 mt-1">{projectType.description}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            
+            {projectTypes.length === 0 && !loadingTypes && (
+              <div className="text-center py-8">
+                <p className="text-gray-500">Aucun type de projet disponible</p>
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Réessayer
+                </button>
+              </div>
+            )}
+          </div>
+        );
       case 'details':
         return (
           <div className="text-center">
@@ -230,6 +434,17 @@ const OnboardingView = () => {
                   autoFocus 
                   required 
                 />
+              </div>
+              {/* Ajout du champ description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 text-left mb-1">Description (optionnel)</label>
+                <textarea 
+                  value={data.projectDescription} 
+                  onChange={(e) => setData(prev => ({ ...prev, projectDescription: e.target.value }))} 
+                  placeholder="Quel est l'objectif de ce projet ?" 
+                  className="w-full text-base p-2 border-b-2 focus:border-blue-500 outline-none transition bg-transparent text-gray-700" 
+                  rows="2"
+                ></textarea>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -345,14 +560,14 @@ const OnboardingView = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
               <button 
                 onClick={() => { setData(prev => ({...prev, startOption: 'populated'})); handleNext(); }} 
-                className="p-6 border rounded-lg hover:bg-blue-50 hover:border-blue-400 transition-all text-left"
+                className={`p-6 border rounded-lg hover:bg-blue-50 hover:border-blue-400 transition-all text-left ${data.startOption === 'populated' ? 'border-blue-500 bg-blue-50' : ''}`}
               >
                 <h3 className="font-semibold text-lg">Avec des données d'exemple</h3>
                 <p className="text-sm text-gray-600">Idéal pour démarrer vite avec des exemples concrets que vous pourrez modifier.</p>
               </button>
               <button 
                 onClick={() => { setData(prev => ({...prev, startOption: 'blank'})); handleNext(); }} 
-                className="p-6 border rounded-lg hover:bg-gray-100 hover:border-gray-400 transition-all text-left"
+                className={`p-6 border rounded-lg hover:bg-gray-100 hover:border-gray-400 transition-all text-left ${data.startOption === 'blank' ? 'border-gray-400 bg-gray-100' : ''}`}
               >
                 <h3 className="font-semibold text-lg">Avec une structure vierge</h3>
                 <p className="text-sm text-gray-600">Parfait si vous préférez tout configurer vous-même de A à Z.</p>
@@ -387,12 +602,10 @@ const OnboardingView = () => {
   return (
     <div className="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4 antialiased">
       <div className="flex flex-col items-center mb-6">
-        {/* Icône avec dégradé bleu */}
+        {/* Icône et Nom de l'application (style conservé) */}
         <div className="w-12 h-12 bg-gradient-to-r from-blue-400 to-blue-700 text-white rounded-full flex items-center justify-center">
           <DollarSign className="w-6 h-6" />
         </div>
-
-        {/* Texte avec dégradé bleu */}
         <div className="flex items-center gap-2 mt-4">
           <h1 
             className="text-5xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500"
@@ -404,7 +617,7 @@ const OnboardingView = () => {
       </div>
       <div className="w-full max-w-4xl mx-auto bg-white rounded-2xl shadow-xl flex flex-col" style={{ minHeight: '600px' }}>
         <div className="p-8 border-b">
-          <OnboardingProgress current={step + 1} total={steps.length} />
+          {/* <OnboardingProgress current={step + 1} total={steps.length} /> */}
         </div>
         <div className="flex-grow flex flex-col items-center justify-center p-8">
           <div className="w-full">
@@ -444,7 +657,7 @@ const OnboardingView = () => {
           {step < steps.length - 1 && (
             <button 
               onClick={handleNext} 
-              disabled={isLoading || (step === 0 && !data.projectName.trim()) || (step === 1 && !data.templateId)} 
+              disabled={isLoading || (step === 1 && !data.projectName.trim()) || (step === 2 && !data.templateId)} 
               className="flex items-center gap-2 px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-semibold disabled:bg-gray-400"
             >
               Suivant <ArrowRight className="w-4 h-4" />
