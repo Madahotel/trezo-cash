@@ -89,11 +89,11 @@ const AddAccountForm = ({ onSave, onCancel }) => {
           </div>
         </div>
       </div>
-      <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
-        <button onClick={onCancel} className="text-sm bg-gray-200 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-300 flex items-center gap-1">
+      <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4 pt-4 border-t">
+        <button onClick={onCancel} className="text-sm bg-gray-200 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-300 flex items-center justify-center gap-1 w-full sm:w-auto">
           <X className="w-4 h-4" /> Annuler
         </button>
-        <button onClick={handleSave} className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700 flex items-center gap-1">
+        <button onClick={handleSave} className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700 flex items-center justify-center gap-1 w-full sm:w-auto">
           <Save className="w-4 h-4" /> Enregistrer le compte
         </button>
       </div>
