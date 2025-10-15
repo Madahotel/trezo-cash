@@ -7,15 +7,15 @@ import { SettingsProvider } from "./components/context/SettingsContext";
 
 function App() {
   return (
-    <SettingsProvider>
-    <DataProvider>
-      <UIProvider>
-        <AuthProvider> 
-          <RouterProvider router={router} />
-        </AuthProvider>
-      </UIProvider>
-    </DataProvider>
-    </SettingsProvider>
+    <AuthProvider> {/* Doit être le provider le plus externe */}
+      <DataProvider> {/* Un seul DataProvider */}
+        <UIProvider>
+          <SettingsProvider>
+            <RouterProvider router={router} />
+          </SettingsProvider>
+        </UIProvider>
+      </DataProvider>
+    </AuthProvider>
   );
 }
 

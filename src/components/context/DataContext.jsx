@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { useAuth } from './AuthContext';
+import axios from "../../components/config/Axios";
 const DataContext = createContext();
 
 export const mainCashAccountCategories = [
@@ -546,42 +547,161 @@ case 'INITIALIZE_PROJECT_SUCCESS': {
 };
 
 export const DataProvider = ({ children }) => {
-    // SUPPRIMER cette ligne: const { user } = useAuth();
-    const [state, dispatch] = useReducer(dataReducer, getInitialDataState());
+  const { user, token } = useAuth(); // Utilisez useAuth ici
+  const [state, dispatch] = useReducer(dataReducer, getInitialDataState());
 
-    // Simulation de l'authentification et chargement des données initiales
-    useEffect(() => {
-        // Simuler une session utilisateur après un délai
-        const timer = setTimeout(() => {
-            const mockSession = getMockSession();
-            dispatch({ type: 'SET_SESSION', payload: mockSession });
-            dispatch({ type: 'SET_PROFILE', payload: mockSession.user });
-            
-            // Simuler des données d'échange
-            dispatch({ 
-                type: 'SET_EXCHANGE_RATES', 
-                payload: {
-                    EUR: 1,
-                    USD: 1.08,
-                    GBP: 0.85
-                }
-            });
-        }, 1000);
+  // Fonction pour récupérer les projets
+  const fetchProjects = async () => {
+    if (!user?.id || !token) {
+      console.log('❌ Utilisateur non connecté, impossible de récupérer les projets', { user, token });
+      return;
+    }
 
-        return () => clearTimeout(timer);
-    }, []);
+    try {
+      console.log('🔄 Récupération des projets pour l\'utilisateur:', user.id);
+      
+      // Sauvegarder les headers originaux
+      const originalAuth = axios.defaults.headers.Authorization;
+      
+      // Configurer le token pour cette requête
+      axios.defaults.headers.Authorization = `Bearer ${token}`;
+      
+      const response = await axios.get('/projects');
+      console.log('✅ Projets récupérés:', response.data);
+      
+      dispatch({ type: 'SET_PROJECTS', payload: response.data });
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la récupération des projets:', error);
+      
+      // Fallback pour le développement
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔄 Chargement de projets mock pour le développement');
+        const mockProjects = getMockProjects(user.id);
+        dispatch({ type: 'SET_PROJECTS', payload: mockProjects });
+      }
+    }
+  };
 
-    return (
-        <DataContext.Provider value={{ dataState: state, dataDispatch: dispatch }}>
-            {children}
-        </DataContext.Provider>
-    );
+  // Fonction pour créer un projet
+  const createProject = async (projectData) => {
+    if (!user?.id || !token) {
+      throw new Error('Utilisateur non connecté');
+    }
+
+    try {
+      console.log('🔄 Création d\'un nouveau projet:', projectData);
+      
+      const originalAuth = axios.defaults.headers.Authorization;
+      axios.defaults.headers.Authorization = `Bearer ${token}`;
+      
+      const response = await axios.post('/api/projects', {
+        ...projectData,
+        user_id: user.id,
+        user_subscriber_id: user.id
+      });
+      
+      console.log('✅ Projet créé:', response.data);
+      
+      dispatch({ type: 'ADD_PROJECT', payload: response.data });
+      
+      return response.data;
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la création du projet:', error);
+      throw error;
+    }
+  };
+
+  // Fonctions mock pour le développement
+  const getMockProjects = (userId) => {
+    return [
+      {
+        id: 1,
+        name: 'Mon Premier Projet',
+        user_id: userId,
+        user_subscriber_id: null,
+        isArchived: false,
+        is_temp: false,
+        collaborators: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      },
+      {
+        id: 2,
+        name: 'Projet Partagé',
+        user_id: 2, // Autre utilisateur
+        user_subscriber_id: userId,
+        isArchived: false,
+        is_temp: false,
+        collaborators: [
+          { user_id: userId, role: 'collaborator' }
+        ],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+    ];
+  };
+
+  // Charger les projets quand l'utilisateur se connecte
+  useEffect(() => {
+    if (user?.id && token) {
+      console.log('🔄 Utilisateur connecté détecté, chargement des projets...', { 
+        userId: user.id, 
+        hasToken: !!token 
+      });
+      fetchProjects();
+    } else {
+      console.log('🚪 Aucun utilisateur connecté, reset des projets');
+      dispatch({ type: 'SET_PROJECTS', payload: [] });
+    }
+  }, [user?.id, token]); // Dépendances importantes
+
+  // Simulation pour le développement (seulement si pas d'utilisateur réel)
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && !user) {
+      console.log('🔄 Mode développement: chargement des données mock');
+      const timer = setTimeout(() => {
+        const mockSession = getMockSession();
+        dispatch({ type: 'SET_SESSION', payload: mockSession });
+        dispatch({ type: 'SET_PROFILE', payload: mockSession.user });
+        
+        // Charger des projets mock
+        const mockProjects = getMockProjects(mockSession.user.id);
+        dispatch({ type: 'SET_PROJECTS', payload: mockProjects });
+        
+        dispatch({ 
+          type: 'SET_EXCHANGE_RATES', 
+          payload: {
+            EUR: 1,
+            USD: 1.08,
+            GBP: 0.85
+          }
+        });
+      }, 1000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [user]);
+
+  const value = {
+    dataState: state,
+    dataDispatch: dispatch,
+    fetchProjects,
+    createProject,
+  };
+
+  return (
+    <DataContext.Provider value={value}>
+      {children}
+    </DataContext.Provider>
+  );
 };
 
 export const useData = () => {
-    const context = useContext(DataContext);
-    if (!context) {
-        throw new Error('useData must be used within a DataProvider');
-    }
-    return context;
+  const context = useContext(DataContext);
+  if (!context) {
+    throw new Error('useData must be used within a DataProvider');
+  }
+  return context;
 };
