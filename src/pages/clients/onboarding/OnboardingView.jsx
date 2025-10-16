@@ -40,6 +40,11 @@ const OnboardingView = () => {
 
   const currentUser = session?.user;
 
+    console.log("🔍 DEBUG DataState:", dataState);
+  console.log("🔍 DEBUG Session:", session);
+  console.log("🔍 DEBUG CurrentUser:", currentUser);
+  console.log("🔍 DEBUG Projects:", projects);
+
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -345,7 +350,7 @@ const handleFinish = async () => {
 };
 
   // ✅ Early return pour session après tous les hooks
-  if (!session || !currentUser) {
+if (!session || !currentUser) {
     return (
       <div className="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
         <div className="bg-white p-8 rounded-2xl shadow-xl text-center">

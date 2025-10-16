@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { useUI } from '../context/UIContext';
-// import { supabase } from '../utils/supabase';
+import axios from '../config/Axios';
 import {
     LayoutDashboard, ListChecks, Table, AreaChart, Calendar, Layers, PieChart, AlertTriangle,
     ChevronDown, ChevronsLeftRight, Wallet, LogOut, User, Shield, CreditCard, FileText,
@@ -59,10 +59,13 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
         setIsAvatarMenuOpen(false);
     }, [location.pathname]);
 
-    const handleLogout = async () => {
-        await supabase.auth.signOut();
-        navigate('/');
-    };
+const handleLogout = async () => {
+  const confirmed = window.confirm("Êtes-vous sûr(e) de vouloir vous déconnecter ?");
+  if (!confirmed) return;
+
+  await axios.post('/logout');
+  navigate('/');
+};
 
     const handleNavigate = (path) => {
         navigate(path);

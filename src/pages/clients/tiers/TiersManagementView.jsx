@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Users, UserPlus, Edit, Trash2, Save, X, Plus, Search, Banknote, CreditCard } from 'lucide-react';
 import { useData } from '../../../components/context/DataContext';
@@ -125,60 +126,62 @@ const TiersManagementView = ({ onOpenPaymentTerms }) => {
       <div>
         <h3 className="text-lg font-semibold text-gray-700 mb-2">{title}</h3>
         {filteredTiers.length > 0 ? (
-            <table className="w-full text-sm">
-                <thead>
-                    <tr className="border-b border-gray-200">
-                        <th className="py-2 text-left font-medium text-gray-500">Nom</th>
-                        <th className="py-2 text-right font-medium text-gray-500">Impayés</th>
-                        <th className="py-2 text-left font-medium text-gray-500 pl-4">Délai de paiement</th>
-                        <th className="py-2 text-right font-medium text-gray-500 w-32">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                {filteredTiers.map(tier => {
-                    const unpaidAmount = calculateUnpaidAmount(tier.name);
-                    return (
-                        <tr key={tier.id} className="group border-b border-gray-200 last:border-b-0 hover:bg-gray-50">
-                            <td className="py-3">
-                                {editingTier?.id === tier.id ? (
-                                    <input 
-                                        type="text" 
-                                        value={editingTier.name} 
-                                        onChange={(e) => setEditingTier(prev => ({...prev, name: e.target.value}))} 
-                                        className="w-full px-2 py-1 border border-gray-200 rounded-md text-sm text-gray-900" 
-                                        autoFocus
-                                    />
-                                ) : (
-                                    <button onClick={() => handleTierClick(tier)} className="text-gray-800 text-left hover:underline hover:text-blue-600 transition-colors">
-                                        {tier.name}
-                                    </button>
-                                )}
-                            </td>
-                            <td className={`py-3 text-right font-semibold ${unpaidAmount > 0 ? (type === 'fournisseur' ? 'text-red-600' : 'text-yellow-600') : 'text-gray-500'}`}>
-                                {unpaidAmount > 0 ? formatCurrency(unpaidAmount, settings) : '-'}
-                            </td>
-                            <td className="py-3 pl-4 text-gray-500 text-xs">
-                                {formatPaymentTerms(tier.payment_terms)}
-                            </td>
-                            <td className="py-3 text-right">
-                                {editingTier?.id === tier.id ? (
-                                    <div className="flex items-center justify-end gap-2">
-                                        <button onClick={handleSaveEdit} className="p-1 text-green-600 hover:text-green-800"><Save className="w-4 h-4" /></button>
-                                        <button onClick={handleCancelEdit} className="p-1 text-gray-500 hover:text-gray-700"><X className="w-4 h-4" /></button>
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => onOpenPaymentTerms(tier)} className="p-1 text-gray-500 hover:text-purple-600" title="Définir les conditions de paiement"><CreditCard className="w-4 h-4" /></button>
-                                        <button onClick={() => handleStartEdit(tier)} className="p-1 text-blue-600 hover:text-blue-800"><Edit className="w-4 h-4" /></button>
-                                        <button onClick={() => handleDeleteTier(tier.id)} className="p-1 text-red-600 hover:text-red-800 disabled:text-gray-300 disabled:cursor-not-allowed" title={isTierUsed(tier.name) ? "Suppression impossible: tiers utilisé" : "Supprimer"}><Trash2 className="w-4 h-4" /></button>
-                                    </div>
-                                )}
-                            </td>
+            <div className="overflow-x-auto">
+                <table className="min-w-full text-sm divide-y divide-gray-200">
+                    <thead>
+                        <tr className="border-b border-gray-200">
+                            <th scope="col" className="py-2 text-left font-medium text-gray-500 whitespace-nowrap">Nom</th>
+                            <th scope="col" className="py-2 text-right font-medium text-gray-500 whitespace-nowrap">Impayés</th>
+                            <th scope="col" className="py-2 text-left font-medium text-gray-500 pl-4 whitespace-nowrap">Délai de paiement</th>
+                            <th scope="col" className="py-2 text-right font-medium text-gray-500 w-32 whitespace-nowrap">Actions</th>
                         </tr>
-                    );
-                })}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                    {filteredTiers.map(tier => {
+                        const unpaidAmount = calculateUnpaidAmount(tier.name);
+                        return (
+                            <tr key={tier.id} className="group border-b border-gray-200 last:border-b-0 hover:bg-gray-50">
+                                <td className="py-3 whitespace-nowrap">
+                                    {editingTier?.id === tier.id ? (
+                                        <input 
+                                            type="text" 
+                                            value={editingTier.name} 
+                                            onChange={(e) => setEditingTier(prev => ({...prev, name: e.target.value}))} 
+                                            className="w-full px-2 py-1 border border-gray-200 rounded-md text-sm text-gray-900" 
+                                            autoFocus
+                                        />
+                                    ) : (
+                                        <button onClick={() => handleTierClick(tier)} className="text-gray-800 text-left hover:underline hover:text-blue-600 transition-colors">
+                                            {tier.name}
+                                        </button>
+                                    )}
+                                </td>
+                                <td className={`py-3 text-right font-semibold ${unpaidAmount > 0 ? (type === 'fournisseur' ? 'text-red-600' : 'text-yellow-600') : 'text-gray-500'} whitespace-nowrap`}>
+                                    {unpaidAmount > 0 ? formatCurrency(unpaidAmount, settings) : '-'}
+                                </td>
+                                <td className="py-3 pl-4 text-gray-500 text-xs whitespace-nowrap">
+                                    {formatPaymentTerms(tier.payment_terms)}
+                                </td>
+                                <td className="py-3 text-right whitespace-nowrap">
+                                    {editingTier?.id === tier.id ? (
+                                        <div className="flex items-center justify-end gap-2">
+                                            <button onClick={handleSaveEdit} className="p-1 text-green-600 hover:text-green-800"><Save className="w-4 h-4" /></button>
+                                            <button onClick={handleCancelEdit} className="p-1 text-gray-500 hover:text-gray-700"><X className="w-4 h-4" /></button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onClick={() => onOpenPaymentTerms(tier)} className="p-1 text-gray-500 hover:text-purple-600" title="Définir les conditions de paiement"><CreditCard className="w-4 h-4" /></button>
+                                            <button onClick={() => handleStartEdit(tier)} className="p-1 text-blue-600 hover:text-blue-800"><Edit className="w-4 h-4" /></button>
+                                            <button onClick={() => handleDeleteTier(tier.id)} className="p-1 text-red-600 hover:text-red-800 disabled:text-gray-300 disabled:cursor-not-allowed" title={isTierUsed(tier.name) ? "Suppression impossible: tiers utilisé" : "Supprimer"}><Trash2 className="w-4 h-4" /></button>
+                                        </div>
+                                    )}
+                                </td>
+                            </tr>
+                        );
+                    })}
+                    </tbody>
+                </table>
+            </div>
         ) : (
           <EmptyState
             icon={Users}
@@ -194,19 +197,19 @@ const TiersManagementView = ({ onOpenPaymentTerms }) => {
     <div className="space-y-4">
       <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-300">
         <h2 className="text-black font-semibold mb-3 flex items-center gap-2"><UserPlus className="w-5 h-5 text-blue-600" /> Ajouter un nouveau tiers commercial</h2>
-        <form onSubmit={handleAddTier} className="flex flex-wrap gap-3 items-end">
+        <form onSubmit={handleAddTier} className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
             <div className="flex-grow">
                 <label className="block text-xs font-medium text-gray-600 mb-1">Nom du Tiers</label>
                 <input type="text" value={newTierName} onChange={(e) => setNewTierName(e.target.value)} placeholder="Ex: Client A, Fournisseur B..." className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 bg-white" required />
             </div>
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0 w-full sm:w-auto">
                 <label className="block text-xs font-medium text-gray-600 mb-1">Type</label>
                 <select value={newTierType} onChange={(e) => setNewTierType(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 bg-white">
                     <option value="fournisseur">Fournisseur</option>
                     <option value="client">Client</option>
                 </select>
             </div>
-            <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-medium flex items-center justify-center gap-2 text-sm">
+            <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-medium flex items-center justify-center gap-2 text-sm w-full sm:w-auto">
                 <Plus className="w-4 h-4" /> Ajouter
             </button>
         </form>
@@ -234,32 +237,34 @@ const TiersManagementView = ({ onOpenPaymentTerms }) => {
         <hr className="border-gray-200" />
         <div>
             <h3 className="text-lg font-semibold text-gray-700 mb-2">Prêteurs / Emprunteurs</h3>
-            {financialTiers.length > 0 ? (
-                <table className="w-full text-sm">
-                    <thead>
-                        <tr className="border-b border-gray-200">
-                            <th className="py-2 text-left font-medium text-gray-500">Nom</th>
-                            <th className="py-2 text-right font-medium text-gray-500">Impayés</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {financialTiers.map(tier => (
-                            <tr key={tier.name} className="group border-b border-gray-200 last:border-b-0 hover:bg-gray-50">
-                                <td className="py-3 text-gray-800">{tier.name}</td>
-                                <td className={`py-3 text-right font-semibold ${tier.unpaid > 0 ? 'text-gray-600' : 'text-gray-500'}`}>
-                                    {tier.unpaid > 0 ? formatCurrency(tier.unpaid, settings) : '-'}
-                                </td>
+            <div className="overflow-x-auto">
+                {financialTiers.length > 0 ? (
+                    <table className="min-w-full text-sm divide-y divide-gray-200">
+                        <thead>
+                            <tr className="border-b border-gray-200">
+                                <th scope="col" className="py-2 text-left font-medium text-gray-500 whitespace-nowrap">Nom</th>
+                                <th scope="col" className="py-2 text-right font-medium text-gray-500 whitespace-nowrap">Impayés</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-            ) : (
-                 <EmptyState
-                    icon={Banknote}
-                    title="Aucun prêteur ou emprunteur"
-                    message="Les tiers liés à vos prêts et emprunts apparaîtront ici."
-                />
-            )}
+                        </thead>
+                        <tbody>
+                            {financialTiers.map(tier => (
+                                <tr key={tier.name} className="group border-b border-gray-200 last:border-b-0 hover:bg-gray-50">
+                                    <td className="py-3 text-gray-800 whitespace-nowrap">{tier.name}</td>
+                                    <td className={`py-3 text-right font-semibold ${tier.unpaid > 0 ? 'text-gray-600' : 'text-gray-500'} whitespace-nowrap`}>
+                                        {tier.unpaid > 0 ? formatCurrency(tier.unpaid, settings) : '-'}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                ) : (
+                     <EmptyState
+                        icon={Banknote}
+                        title="Aucun prêteur ou emprunteur"
+                        message="Les tiers liés à vos prêts et emprunts apparaîtront ici."
+                    />
+                )}
+            </div>
         </div>
       </div>
     </div>

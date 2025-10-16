@@ -12,6 +12,31 @@ export const mainCashAccountCategories = [
 ];
 
 
+const createProject = async (projectData, user, token) => {
+  if (!user?.id || !token) {
+    throw new Error('Utilisateur non connecté');
+  }
+
+  try {
+    console.log('🔄 Création d\'un nouveau projet:', projectData);
+    
+    const response = await axios.post('/projects', {
+      ...projectData,
+      user_id: user.id,
+      user_subscriber_id: user.id
+    });
+    
+    console.log('✅ Projet créé:', response.data);
+    
+    return response.data;
+    
+  } catch (error) {
+    console.error('❌ Erreur lors de la création du projet:', error);
+    throw error;
+  }
+};
+
+
 const initialCategories = {
   revenue: [
     { id: 'rev-main-1', name: 'RÉMUNÉRATION DU TRAVAIL', isDefault: true, subCategories: [
@@ -202,14 +227,11 @@ const uuidv4 = () => {
   });
 };
 
-// Fonction pour simuler des données d'utilisateur
-// Dans votre DataContext.js, modifiez getMockUserData :
 const getMockUserData = () => ({
-  id: 3, // Changer de 'mock-user-id' à 2 pour correspondre à vos templates
+  id: 3, 
   email: 'demo@example.com',
   user_metadata: { name: 'Utilisateur Démo' }
 });
-// Fonction pour simuler des données de session
 const getMockSession = () => ({
   user: getMockUserData(),
   access_token: 'mock-token',
@@ -547,8 +569,11 @@ case 'INITIALIZE_PROJECT_SUCCESS': {
 };
 
 export const DataProvider = ({ children }) => {
-  const { user, token } = useAuth(); // Utilisez useAuth ici
+  const { user, token, isAuthenticated } = useAuth();
   const [state, dispatch] = useReducer(dataReducer, getInitialDataState());
+
+  console.log("🔍 DataProvider - Auth state:", { user, token, isAuthenticated });
+  console.log("🔍 DataProvider - Current data state:", state);
 
   // Fonction pour récupérer les projets
   const fetchProjects = async () => {
@@ -559,12 +584,6 @@ export const DataProvider = ({ children }) => {
 
     try {
       console.log('🔄 Récupération des projets pour l\'utilisateur:', user.id);
-      
-      // Sauvegarder les headers originaux
-      const originalAuth = axios.defaults.headers.Authorization;
-      
-      // Configurer le token pour cette requête
-      axios.defaults.headers.Authorization = `Bearer ${token}`;
       
       const response = await axios.get('/projects');
       console.log('✅ Projets récupérés:', response.data);
@@ -583,65 +602,26 @@ export const DataProvider = ({ children }) => {
     }
   };
 
-  // Fonction pour créer un projet
-  const createProject = async (projectData) => {
-    if (!user?.id || !token) {
-      throw new Error('Utilisateur non connecté');
+  // Synchroniser la session DataContext avec AuthContext
+  useEffect(() => {
+    console.log("🔄 Synchronisation AuthContext -> DataContext");
+    
+    if (user && token) {
+      const sessionData = {
+        user: user,
+        access_token: token,
+        expires_at: Math.floor(Date.now() / 1000) + 3600
+      };
+      
+      console.log("✅ Mise à jour de la session dans DataContext:", sessionData);
+      dispatch({ type: 'SET_SESSION', payload: sessionData });
+      dispatch({ type: 'SET_PROFILE', payload: user });
+    } else {
+      console.log("🚪 Reset de la session dans DataContext");
+      dispatch({ type: 'SET_SESSION', payload: null });
+      dispatch({ type: 'SET_PROFILE', payload: null });
     }
-
-    try {
-      console.log('🔄 Création d\'un nouveau projet:', projectData);
-      
-      const originalAuth = axios.defaults.headers.Authorization;
-      axios.defaults.headers.Authorization = `Bearer ${token}`;
-      
-      const response = await axios.post('/api/projects', {
-        ...projectData,
-        user_id: user.id,
-        user_subscriber_id: user.id
-      });
-      
-      console.log('✅ Projet créé:', response.data);
-      
-      dispatch({ type: 'ADD_PROJECT', payload: response.data });
-      
-      return response.data;
-      
-    } catch (error) {
-      console.error('❌ Erreur lors de la création du projet:', error);
-      throw error;
-    }
-  };
-
-  // Fonctions mock pour le développement
-  const getMockProjects = (userId) => {
-    return [
-      {
-        id: 1,
-        name: 'Mon Premier Projet',
-        user_id: userId,
-        user_subscriber_id: null,
-        isArchived: false,
-        is_temp: false,
-        collaborators: [],
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      },
-      {
-        id: 2,
-        name: 'Projet Partagé',
-        user_id: 2, // Autre utilisateur
-        user_subscriber_id: userId,
-        isArchived: false,
-        is_temp: false,
-        collaborators: [
-          { user_id: userId, role: 'collaborator' }
-        ],
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
-    ];
-  };
+  }, [user, token]);
 
   // Charger les projets quand l'utilisateur se connecte
   useEffect(() => {
@@ -655,11 +635,11 @@ export const DataProvider = ({ children }) => {
       console.log('🚪 Aucun utilisateur connecté, reset des projets');
       dispatch({ type: 'SET_PROJECTS', payload: [] });
     }
-  }, [user?.id, token]); // Dépendances importantes
+  }, [user?.id, token]);
 
   // Simulation pour le développement (seulement si pas d'utilisateur réel)
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development' && !user) {
+    if (process.env.NODE_ENV === 'development' && !user && !token) {
       console.log('🔄 Mode développement: chargement des données mock');
       const timer = setTimeout(() => {
         const mockSession = getMockSession();
@@ -682,7 +662,7 @@ export const DataProvider = ({ children }) => {
 
       return () => clearTimeout(timer);
     }
-  }, [user]);
+  }, [user, token]);
 
   const value = {
     dataState: state,

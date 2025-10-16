@@ -21,6 +21,7 @@ import { Button } from '../ui/Button';
 
 const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
     const { dataState, fetchProjects } = useData(); // Ajout de fetchProjects
+
     const { uiState, uiDispatch } = useUI();
     const { user, token } = useAuth(); // Ajout de token
     const { profile, projects, consolidatedViews } = dataState;
@@ -148,24 +149,13 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
     }, [activeProjectOrView, activeProjectId, user]);
 
     const handleShareClick = () => {
-        if (activeProjectOrView?.id) {
-            navigate(`/app/collaborateurs?project=${activeProjectOrView.id}`);
-        } else {
-            navigate('/app/collaborateurs');
-        }
+        navigate('/app/collaborateurs');
     };
 
     // Debug amélioré
     useEffect(() => {
-        console.log('🔍 Header Debug:', { 
-            user: user?.id,
-            projectsTotal: projects?.length,
-            userProjects: userProjects?.length,
-            activeProject: activeProjectOrView,
-            canShareProject,
-            hasToken: !!token
-        });
-    }, [activeProjectOrView, user, canShareProject, projects, userProjects, token]);
+        console.log('Header Debug:', activeProjectOrView);
+    }, [activeProjectOrView]);
 
     return (
         <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
