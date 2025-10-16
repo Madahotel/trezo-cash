@@ -47,14 +47,14 @@ const ProjetLayoutClient = () => {
 
   const themeMap = {
     // Clé : la valeur hexadécimale
-    "#f472b6": "bg-rose-50", 
-    "#1f2937": "bg-dark-50",
-    "#22c55e": "bg-green-50",
-    "#2563eb":"bg-blue-80",
-    "#ea580c":"bg-orange-50",
-    "#7c3aed":"bg-violet-50",
-    "#10b981":"bg-emerald-50",
-    "#0ea5e9":"bg-skay-50"
+    "#f472b6": "bg-[rgba(244, 114, 182, 0.015)]",
+    "#1f2937": "bg-[rgba(31, 41, 55, 0.02)]",
+    "#22c55e": "bg-[rgba(34, 197, 94, 0.015)]",
+    "#2563eb":"bg-[rgba(37, 99, 235, 0.015)]",
+    "#ea580c":"bg-[rgba(234, 88, 12, 0.015)]",
+    "#7c3aed":"bg-[rgba(124, 58, 237, 0.015)]",
+    "#10b981":"bg-[rgba(16, 185, 129, 0.015)]",
+    "#0ea5e9":"bg-[rgba(14, 165, 233, 0.015)]"
    
 };
 const className = `${themeMap[themeActive] || "bg-white"} h-full`;

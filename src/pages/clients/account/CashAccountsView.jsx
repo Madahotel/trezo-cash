@@ -166,11 +166,11 @@ const CashAccountsView = () => {
     <>
       <div className="space-y-6">
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 border-opacity-50">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-lg text-gray-800">Vos Comptes</h3>
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4">
+            <h3 className="font-bold text-lg text-gray-800 mb-2 sm:mb-0">Vos Comptes</h3>
             <button 
               onClick={() => setIsTransferModalOpen(true)}
-              className="bg-purple-100 text-purple-700 hover:bg-purple-200 px-3 py-1.5 rounded-md font-medium flex items-center gap-2 text-sm"
+              className="bg-purple-100 text-purple-700 hover:bg-purple-200 px-3 py-1.5 rounded-md font-medium flex items-center justify-center gap-2 text-sm w-full sm:w-auto"
             >
               <ArrowRightLeft className="w-4 h-4" />
               Transfert entre comptes
@@ -204,8 +204,8 @@ const CashAccountsView = () => {
                       </div>
                     </div>
                   ) : (
-                    <div className="group flex items-center justify-between">
-                      <div className="flex-grow">
+                    <div className="group flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex-grow mb-2 sm:mb-0">
                         <div className="flex items-center gap-3">
                           <Wallet className="w-5 h-5 text-teal-600" />
                           <div>
@@ -218,12 +218,12 @@ const CashAccountsView = () => {
                           Solde initial: <span className="font-semibold">{formatCurrency(account.initialBalance || 0, settings)}</span> le {new Date(account.initialBalanceDate).toLocaleDateString('fr-FR')}
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
+                      <div className="flex items-center justify-between sm:justify-end gap-4 mt-2 sm:mt-0 w-full sm:w-auto">
+                        <div className="text-left sm:text-right">
                           <p className="font-bold text-lg text-gray-800">{formatCurrency(account.balance, settings)}</p>
                           <p className="text-xs text-gray-500">Solde au {new Date().toLocaleDateString('fr-FR')}</p>
                         </div>
-                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                           {account.isClosed ? (
                             <button onClick={() => handleReopen(account.id)} className="p-1 text-green-600 hover:text-green-800" title="Ré-ouvrir le compte"><ArchiveRestore className="w-4 h-4" /></button>
                           ) : (
@@ -251,7 +251,7 @@ const CashAccountsView = () => {
           <AddAccountForm onSave={handleAddAccount} onCancel={() => setIsAddingAccount(false)} />
         ) : accountBalances.length > 0 ? (
           <div className="text-center">
-            <button onClick={() => setIsAddingAccount(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2">
+            <button onClick={() => setIsAddingAccount(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 w-full sm:w-auto">
               <Plus className="w-5 h-5" /> Ajouter un autre compte
             </button>
           </div>
