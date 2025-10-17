@@ -13,27 +13,13 @@ import {
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import {
-  SimpleTabs,
-  SimpleTabsList,
-  SimpleTabsTrigger,
-  SimpleTabsContent,
-} from './ui/tabs';
-import { Badge } from './ui/badge';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from './ui/dropdown-menu';
 
 import BudgetLineDialog from './BudgetLineDialog';
 import ConfirmationModal from './ui/alert-dialog';
-import { formatCurrency } from '../../../utils/formatting';
 import { useMobile } from '../../../hooks/useMobile';
 import { getBudget } from '../../../components/context/budgetAction';
 import BudgetTable from './BudgetTable';
+
 const BudgetPage = () => {
   const idProjet = 1;
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -43,25 +29,43 @@ const BudgetPage = () => {
   const [selectedLine, setSelectedLine] = useState(null);
   const isMobile = useMobile();
   const [loading, setLoading] = useState(false);
-  const [budget, setBudget] = useState([]);
+  const [budget, setBudget] = useState({}); // Initialiser comme objet vide
+
+  // Fonction pour charger les données du budget
+  const fetchBudgetData = async () => {
+    try {
+      setLoading(true);
+      const data = await getBudget(idProjet);
+      setBudget(data);
+      console.log('Données chargées:', data);
+    } catch (err) {
+      console.error('Erreur:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fonction appelée quand une nouvelle ligne est ajoutée
+  const handleBudgetAdded = async () => {
+    await fetchBudgetData();
+  };
 
   const handleEdit = (item, type) => {
     console.log('Modifier:', item, type);
+    setEditingLine(item);
+    setIsDialogOpen(true);
   };
 
   const handleArchive = (item, type) => {
     console.log('Archiver:', item, type);
+    setSelectedLine(item);
+    setArchiveModalOpen(true);
   };
 
   const handleDelete = (item, type) => {
     console.log('Supprimer:', item, type);
-  };
-  const calculateTotal = (items) => {
-    return items.reduce((sum, item) => sum + item.montant, 0);
-  };
-
-  const calculateReel = (items) => {
-    return items.reduce((sum, item) => sum + item.reel, 0);
+    setSelectedLine(item);
+    setDeleteModalOpen(true);
   };
 
   const confirmDelete = () => {
@@ -75,49 +79,24 @@ const BudgetPage = () => {
   const confirmArchive = () => {
     if (selectedLine) {
       const type = selectedLine.type === 'revenue' ? 'revenus' : 'depenses';
-
       setArchiveModalOpen(false);
       setSelectedLine(null);
     }
   };
 
-  const getFrequencyBadge = (frequency) => {
-    const frequencyMap = {
-      one_time: { label: 'Une fois', color: 'bg-gray-100 text-gray-700' },
-      daily: { label: 'Quotidien', color: 'bg-blue-100 text-blue-700' },
-      weekly: { label: 'Hebdomadaire', color: 'bg-green-100 text-green-700' },
-      biweekly: { label: 'Bimensuel', color: 'bg-purple-100 text-purple-700' },
-      monthly: { label: 'Mensuel', color: 'bg-indigo-100 text-indigo-700' },
-      bimonthly: { label: 'Bimestriel', color: 'bg-pink-100 text-pink-700' },
-      quarterly: {
-        label: 'Trimestriel',
-        color: 'bg-orange-100 text-orange-700',
-      },
-      semiannual: { label: 'Semestriel', color: 'bg-teal-100 text-teal-700' },
-      annual: { label: 'Annuel', color: 'bg-cyan-100 text-cyan-700' },
-    };
-    const freq = frequencyMap[frequency] || frequencyMap.monthly;
-    return <Badge className={freq.color}>{freq.label}</Badge>;
+  // Reset editingLine quand le dialog se ferme
+  const handleDialogClose = (open) => {
+    setIsDialogOpen(open);
+    if (!open) {
+      setEditingLine(null);
+    }
   };
 
   useEffect(() => {
-    const fetchBudget = async () => {
-      try {
-        setLoading(true);
-
-        const data = await getBudget(idProjet); // Remplace idProjet par ta variable
-        setBudget(data);
-      } catch (err) {
-        console.error('Erreur:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchBudget();
+    fetchBudgetData();
   }, [idProjet]);
-  if (loading) return;
-  console.log(budget);
+
+  if (loading) return <div>Chargement...</div>;
 
   return (
     <div className="p-10 space-y-6">
@@ -140,6 +119,7 @@ const BudgetPage = () => {
             <Button
               onClick={() => {
                 console.log('Opening dialog...');
+                setEditingLine(null); // S'assurer qu'on est en mode création
                 setIsDialogOpen(true);
               }}
             >
@@ -153,8 +133,9 @@ const BudgetPage = () => {
       {/* Budget Line Dialog */}
       <BudgetLineDialog
         open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        // onSave={handleSaveBudgetLine}
+        onOpenChange={handleDialogClose} // Utiliser la nouvelle fonction
+        onBudgetAdded={handleBudgetAdded} // Callback pour recharger les données
+        data={budget}
         editLine={editingLine}
       />
 
@@ -189,10 +170,10 @@ const BudgetPage = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {/* {calculateTotal(budgetData.revenus).toLocaleString()} € */}
+              {budget.sumEntries} €
             </div>
             <p className="text-xs text-gray-600 mt-1">
-              {/* Réalisé: {calculateReel(budgetData.revenus).toLocaleString()} € */}
+              {/* Réalisé: {calculateReel(budget.revenus).toLocaleString()} € */}
             </p>
           </CardContent>
         </Card>
@@ -205,10 +186,10 @@ const BudgetPage = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              {/* {calculateTotal(budgetData.depenses).toLocaleString()} € */}
+              {budget.sumExpenses} €
             </div>
             <p className="text-xs text-gray-600 mt-1">
-              {/* Réalisé: {calculateReel(budgetData.depenses).toLocaleString()} € */}
+              {/* Réalisé: {calculateReel(budget.depenses).toLocaleString()} € */}
             </p>
           </CardContent>
         </Card>
@@ -220,18 +201,14 @@ const BudgetPage = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {/* <div className="text-2xl font-bold text-blue-600">
-              {(
-                calculateTotal(budgetData.revenus) -
-                calculateTotal(budgetData.depenses)
-              ).toLocaleString()}{' '}
-              €
+            <div className="text-2xl font-bold text-blue-600">
+              {budget.sumForecast}€
             </div>
-            <p className="text-xs text-gray-600 mt-1">
+            {/* <p className="text-xs text-gray-600 mt-1">
               Réalisé:{' '}
               {(
-                calculateReel(budgetData.revenus) -
-                calculateReel(budgetData.depenses)
+                calculateReel(budget.revenus) -
+                calculateReel(budget.depenses)
               ).toLocaleString()}{' '}
               €
             </p> */}

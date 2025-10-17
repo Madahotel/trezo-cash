@@ -13,3 +13,16 @@ export async function getBudget(idProjet) {
     throw error; // Relancer l'erreur pour que l'appelant puisse la gérer
   }
 }
+
+export async function storeBudget(formData, idProjet) {
+  try {
+    const res = await axios.post(`/budget-projects/${idProjet}`, formData);
+    if (res.data.status === 200) {
+      return res.data.message;
+    } else {
+      throw new Error(`Statut inattendu: ${res.data.status}`);
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}

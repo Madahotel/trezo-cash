@@ -7,22 +7,22 @@ import {
   Calendar,
   Square,
   Edit,
-  Archive,
   Trash2,
 } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const BudgetTable = ({ budgetData, isMobile, onEdit, onArchive, onDelete }) => {
+const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
+  // Tous les hooks doivent être appelés AVANT tout return conditionnel
   const [activeTab, setActiveTab] = useState('revenus');
   const [expandedRow, setExpandedRow] = useState(null);
   const [menuOpen, setMenuOpen] = useState(null);
+  const [subCategoryMenuOpen, setSubCategoryMenuOpen] = useState(null);
   const [groupedData, setGroupedData] = useState([]);
-
-  if (isMobile) return null;
+  const menuRefs = useRef({});
 
   // Fonctions utilitaires simplifiées
-  const formatCurrency = (amount, currency = 'EUR') => {
+  const formatCurrency = (amount) => {
     return `${amount?.toLocaleString() || '0'} €`;
   };
 
@@ -54,8 +54,6 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onArchive, onDelete }) => {
 
   // Fonction pour grouper les données par catégorie
   const getGroupedData = () => {
-    console.log('📊 BudgetTable - Données reçues:', budgetData);
-
     if (activeTab === 'revenus') {
       // Pour les revenus (entries)
       const entries = budgetData?.entries || {};
@@ -109,7 +107,6 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onArchive, onDelete }) => {
   useEffect(() => {
     if (budgetData) {
       const data = getGroupedData();
-      console.log('🔄 Données groupées:', data);
       setGroupedData(data);
     }
   }, [budgetData, activeTab]);
@@ -119,15 +116,16 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onArchive, onDelete }) => {
     setExpandedRow(expandedRow === itemId ? null : itemId);
   };
 
-  // Fonction pour gérer l'ouverture/fermeture du menu
-  const handleMenuToggle = (itemId, event) => {
+  // Fonction pour gérer l'ouverture/fermeture du menu des sous-catégories
+  const handleSubCategoryMenuToggle = (itemId, event) => {
     event.stopPropagation();
-    setMenuOpen(menuOpen === itemId ? null : itemId);
+    setSubCategoryMenuOpen(subCategoryMenuOpen === itemId ? null : itemId);
   };
 
   // Fonction pour fermer tous les menus
   const closeAllMenus = () => {
     setMenuOpen(null);
+    setSubCategoryMenuOpen(null);
   };
 
   // Fonctions de gestion des actions
@@ -135,12 +133,6 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onArchive, onDelete }) => {
     event.stopPropagation();
     closeAllMenus();
     onEdit(item, type);
-  };
-
-  const handleArchive = (item, type, event) => {
-    event.stopPropagation();
-    closeAllMenus();
-    onArchive(item, type);
   };
 
   const handleDelete = (item, type, event) => {
@@ -156,6 +148,20 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onArchive, onDelete }) => {
       month: 'short',
       year: 'numeric',
     });
+  };
+
+  // Fonction pour calculer la position du menu
+  const getMenuPosition = (element) => {
+    if (!element) return 'bottom';
+
+    const rect = element.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const menuHeight = 160; // Hauteur approximative du menu
+
+    return spaceBelow < menuHeight && spaceAbove > spaceBelow
+      ? 'top'
+      : 'bottom';
   };
 
   // Animations
@@ -195,6 +201,9 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onArchive, onDelete }) => {
       },
     },
   };
+
+  // Le return conditionnel doit être APRÈS tous les hooks
+  if (isMobile) return null;
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
@@ -236,9 +245,6 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onArchive, onDelete }) => {
         <table className="w-full">
           <thead>
             <tr className="border-b">
-              <th className="text-left py-3 px-4 font-medium text-gray-700 w-8">
-                {/* Colonne pour l'icône d'expansion */}
-              </th>
               <th className="text-left py-3 px-4 font-medium text-gray-700">
                 Catégorie
               </th>
@@ -267,7 +273,6 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onArchive, onDelete }) => {
               groupedData.map((category) => {
                 const colorClass = getColorClasses(category.id);
                 const isExpanded = expandedRow === category.id;
-                const isMenuOpen = menuOpen === category.id;
 
                 return (
                   <React.Fragment key={category.id}>
@@ -276,17 +281,6 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onArchive, onDelete }) => {
                       className="border-b hover:bg-gray-50 cursor-pointer"
                       onClick={() => handleRowClick(category.id)}
                     >
-                      {/* Icône d'expansion */}
-                      <td className="py-3 px-4">
-                        <div className="flex items-center justify-center">
-                          {isExpanded ? (
-                            <ChevronDown className="w-4 h-4 text-gray-500" />
-                          ) : (
-                            <ChevronRight className="w-4 h-4 text-gray-500" />
-                          )}
-                        </div>
-                      </td>
-
                       {/* Catégorie */}
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
@@ -338,51 +332,22 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onArchive, onDelete }) => {
                         {formatCurrency(0)}
                       </td>
 
-                      {/* Actions */}
+                      {/* Actions - Flèche d'expansion uniquement */}
                       <td className="py-3 px-4 text-center">
-                        <div className="flex justify-center gap-2 relative">
+                        <div className="flex justify-center">
                           <button
-                            onClick={(e) => handleMenuToggle(category.id, e)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRowClick(category.id);
+                            }}
                             className="p-1 hover:bg-gray-200 rounded transition-colors"
                           >
-                            <MoreVertical className="w-4 h-4" />
+                            {isExpanded ? (
+                              <ChevronDown className="w-4 h-4 text-gray-500" />
+                            ) : (
+                              <ChevronRight className="w-4 h-4 text-gray-500" />
+                            )}
                           </button>
-
-                          {/* Menu modal - Premier plan */}
-                          {isMenuOpen && (
-                            <div className="absolute top-full right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-50">
-                              <div className="py-1">
-                                <button
-                                  onClick={(e) =>
-                                    handleEdit(category, activeTab, e)
-                                  }
-                                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                                >
-                                  <Edit className="w-4 h-4 mr-2" />
-                                  Modifier
-                                </button>
-                                <button
-                                  onClick={(e) =>
-                                    handleArchive(category, activeTab, e)
-                                  }
-                                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                                >
-                                  <Archive className="w-4 h-4 mr-2" />
-                                  Archiver
-                                </button>
-                                <div className="border-t border-gray-100 my-1"></div>
-                                <button
-                                  onClick={(e) =>
-                                    handleDelete(category, activeTab, e)
-                                  }
-                                  className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                                >
-                                  <Trash2 className="w-4 h-4 mr-2" />
-                                  Supprimer
-                                </button>
-                              </div>
-                            </div>
-                          )}
                         </div>
                       </td>
                     </tr>
@@ -397,7 +362,7 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onArchive, onDelete }) => {
                           animate="visible"
                           exit="hidden"
                         >
-                          <td colSpan="8" className="py-4 px-4">
+                          <td colSpan="7" className="py-4 px-4">
                             <motion.div
                               className="pl-12"
                               variants={contentVariants}
@@ -410,79 +375,145 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onArchive, onDelete }) => {
                                 {category.categoryName}
                               </h4>
                               <div className="grid gap-3">
-                                {category.items.map((item) => (
-                                  <motion.div
-                                    key={item.id}
-                                    className="flex justify-between items-center py-2 px-4 bg-white rounded-lg border"
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.1 }}
-                                  >
-                                    <div className="flex items-center gap-3">
-                                      <Square className="w-3 h-3 text-gray-400 fill-current" />
-                                      <div className="flex flex-col">
-                                        <span className="text-sm font-medium">
-                                          {item.sub_category_name}
-                                        </span>
-                                        {item.description && (
-                                          <span className="text-xs text-gray-500 mt-1">
-                                            {item.description}
+                                {category.items.map((item) => {
+                                  const isSubMenuOpen =
+                                    subCategoryMenuOpen === item.id;
+                                  const menuPosition = isSubMenuOpen
+                                    ? getMenuPosition(menuRefs.current[item.id])
+                                    : 'bottom';
+
+                                  return (
+                                    <motion.div
+                                      key={item.id}
+                                      className="flex justify-between items-center py-2 px-4 bg-white rounded-lg border relative"
+                                      initial={{ opacity: 0, y: 10 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      transition={{ delay: 0.1 }}
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <Square className="w-3 h-3 text-gray-400 fill-current" />
+                                        <div className="flex flex-col">
+                                          <span className="text-sm font-medium">
+                                            {item.sub_category_name}
                                           </span>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <div className="flex gap-6">
-                                      <div className="text-right">
-                                        <div className="text-sm text-gray-600">
-                                          Budget
-                                        </div>
-                                        <div className="font-medium">
-                                          {formatCurrency(item.amount)}
-                                        </div>
-                                      </div>
-                                      <div className="text-right">
-                                        <div className="text-sm text-gray-600">
-                                          Réel
-                                        </div>
-                                        <div className="font-medium">
-                                          {formatCurrency(item.amount)}
-                                        </div>
-                                      </div>
-                                      <div className="text-right">
-                                        <div className="text-sm text-gray-600">
-                                          Écart
-                                        </div>
-                                        <div className="font-medium text-gray-600">
-                                          {formatCurrency(0)}
-                                        </div>
-                                      </div>
-                                      <div className="text-right">
-                                        <div className="text-sm text-gray-600">
-                                          Période
-                                        </div>
-                                        <div className="text-xs text-gray-500">
-                                          {formatDate(item.start_date)}
-                                          {item.is_duration_indefinite ? (
-                                            <span> → ∞</span>
-                                          ) : item.end_date ? (
-                                            <span>
-                                              {' '}
-                                              → {formatDate(item.end_date)}
+                                          {item.description && (
+                                            <span className="text-xs text-gray-500 mt-1">
+                                              {item.description}
                                             </span>
-                                          ) : null}
+                                          )}
                                         </div>
                                       </div>
-                                      <div className="text-right">
-                                        <div className="text-sm text-gray-600">
-                                          Fréquence
+                                      <div className="flex items-center gap-6">
+                                        <div className="text-right">
+                                          <div className="text-sm text-gray-600">
+                                            Budget
+                                          </div>
+                                          <div className="font-medium">
+                                            {formatCurrency(item.amount)}
+                                          </div>
                                         </div>
-                                        <div className="text-xs text-gray-500">
-                                          {item.frequency_name}
+                                        <div className="text-right">
+                                          <div className="text-sm text-gray-600">
+                                            Réel
+                                          </div>
+                                          <div className="font-medium">
+                                            {formatCurrency(item.amount)}
+                                          </div>
+                                        </div>
+                                        <div className="text-right">
+                                          <div className="text-sm text-gray-600">
+                                            Écart
+                                          </div>
+                                          <div className="font-medium text-gray-600">
+                                            {formatCurrency(0)}
+                                          </div>
+                                        </div>
+                                        <div className="text-right">
+                                          <div className="text-sm text-gray-600">
+                                            Période
+                                          </div>
+                                          <div className="text-xs text-gray-500">
+                                            {formatDate(item.start_date)}
+                                            {item.is_duration_indefinite ? (
+                                              <span> → ∞</span>
+                                            ) : item.end_date ? (
+                                              <span>
+                                                {' '}
+                                                → {formatDate(item.end_date)}
+                                              </span>
+                                            ) : null}
+                                          </div>
+                                        </div>
+                                        <div className="text-right">
+                                          <div className="text-sm text-gray-600">
+                                            Fréquence
+                                          </div>
+                                          <div className="text-xs text-gray-500">
+                                            {item.frequency_name}
+                                          </div>
+                                        </div>
+                                        {/* Actions pour sous-catégorie */}
+                                        <div className="relative">
+                                          <button
+                                            ref={(el) =>
+                                              (menuRefs.current[item.id] = el)
+                                            }
+                                            onClick={(e) =>
+                                              handleSubCategoryMenuToggle(
+                                                item.id,
+                                                e
+                                              )
+                                            }
+                                            className="p-1 hover:bg-gray-200 rounded transition-colors"
+                                          >
+                                            <MoreVertical className="w-4 h-4" />
+                                          </button>
+
+                                          {/* Menu modal pour sous-catégorie avec positionnement adaptatif */}
+                                          {isSubMenuOpen && (
+                                            <div
+                                              className={`absolute ${
+                                                menuPosition === 'top'
+                                                  ? 'bottom-full mb-1'
+                                                  : 'top-full mt-1'
+                                              } right-0 w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-50`}
+                                            >
+                                              <div className="py-1">
+                                                <button
+                                                  onClick={(e) =>
+                                                    handleEdit(
+                                                      item,
+                                                      activeTab,
+                                                      e
+                                                    )
+                                                  }
+                                                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                                >
+                                                  <Edit className="w-4 h-4 mr-2" />
+                                                  Modifier
+                                                </button>
+                                                <div className="border-t border-gray-100 my-1"></div>
+                                                <button
+                                                  onClick={(e) =>
+                                                    handleDelete(
+                                                      item,
+                                                      activeTab,
+                                                      e
+                                                    )
+                                                  }
+                                                  className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                                >
+                                                  <Trash2 className="w-4 h-4 mr-2" />
+                                                  Supprimer
+                                                </button>
+                                              </div>
+                                            </div>
+                                          )}
                                         </div>
                                       </div>
-                                    </div>
-                                  </motion.div>
-                                ))}
+                                    </motion.div>
+                                  );
+                                })}
                               </div>
                             </motion.div>
                           </td>
@@ -494,7 +525,7 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onArchive, onDelete }) => {
               })
             ) : (
               <tr>
-                <td colSpan="8" className="py-8 text-center text-gray-500">
+                <td colSpan="7" className="py-8 text-center text-gray-500">
                   <div className="flex flex-col items-center justify-center">
                     <div>Aucune donnée disponible</div>
                     <div className="text-sm text-gray-400 mt-1">
@@ -510,8 +541,8 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onArchive, onDelete }) => {
         </table>
       </div>
 
-      {/* Overlay pour fermer le menu en cliquant ailleurs - Premier plan */}
-      {menuOpen && (
+      {/* Overlay pour fermer les menus en cliquant ailleurs */}
+      {(menuOpen || subCategoryMenuOpen) && (
         <div className="fixed inset-0 z-40" onClick={closeAllMenus} />
       )}
     </div>
