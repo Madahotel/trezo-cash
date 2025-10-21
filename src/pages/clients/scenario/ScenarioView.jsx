@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Plus,
   Edit,
@@ -11,55 +11,56 @@ import {
   ChevronRight,
   List,
   ChevronDown,
-} from "lucide-react";
-import ReactECharts from "echarts-for-react";
-import { motion, AnimatePresence } from "framer-motion";
-import ScenarioEntriesDrawer from "./ScenarioEntriesDrawer";
-import BudgetModal from "../../../components/modal/ScenarioBudgetModal";
-import EmptyState from "../../../components/emptystate/EmptyState";
-import ScenarioModal from "../../../components/modal/ScenarioModal";
-import ConfirmationModal from "../../../components/modal/ConfirmationModal";
-import { formatCurrency } from "../../../utils/formatting";
+  MoreVertical,
+} from 'lucide-react';
+import ReactECharts from 'echarts-for-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import ScenarioEntriesDrawer from './ScenarioEntriesDrawer';
+import BudgetModal from '../../../components/modal/ScenarioBudgetModal';
+import EmptyState from '../../../components/emptystate/EmptyState';
+import ScenarioModal from '../../../components/modal/ScenarioModal';
+import ConfirmationModal from '../../../components/modal/ConfirmationModal';
+import { formatCurrency } from '../../../utils/formatting';
 
 // Couleurs des scénarios
 const colorMap = {
-  "#8b5cf6": {
-    bg: "bg-violet-50",
-    text: "text-violet-800",
-    button: "bg-violet-200 hover:bg-violet-300",
-    line: "#8b5cf6",
+  '#8b5cf6': {
+    bg: 'bg-violet-50',
+    text: 'text-violet-800',
+    button: 'bg-violet-200 hover:bg-violet-300',
+    line: '#8b5cf6',
   },
-  "#f97316": {
-    bg: "bg-orange-50",
-    text: "text-orange-800",
-    button: "bg-orange-200 hover:bg-orange-300",
-    line: "#f97316",
+  '#f97316': {
+    bg: 'bg-orange-50',
+    text: 'text-orange-800',
+    button: 'bg-orange-200 hover:bg-orange-300',
+    line: '#f97316',
   },
-  "#d946ef": {
-    bg: "bg-fuchsia-50",
-    text: "text-fuchsia-800",
-    button: "bg-fuchsia-200 hover:bg-fuchsia-300",
-    line: "#d946ef",
+  '#d946ef': {
+    bg: 'bg-fuchsia-50',
+    text: 'text-fuchsia-800',
+    button: 'bg-fuchsia-200 hover:bg-fuchsia-300',
+    line: '#d946ef',
   },
 };
-const defaultColors = colorMap["#8b5cf6"];
+const defaultColors = colorMap['#8b5cf6'];
 
 // Données de test
 const testScenarios = [
   {
-    id: "1",
-    name: "Scénario 1",
-    displayName: "Scénario 1",
-    description: "Description 1",
-    color: "#8b5cf6",
+    id: '1',
+    name: 'Scénario 1',
+    displayName: 'Scénario 1',
+    description: 'Description 1',
+    color: '#8b5cf6',
     isVisible: true,
   },
   {
-    id: "2",
-    name: "Scénario 2",
-    displayName: "Scénario 2",
-    description: "Description 2",
-    color: "#f97316",
+    id: '2',
+    name: 'Scénario 2',
+    displayName: 'Scénario 2',
+    description: 'Description 2',
+    color: '#f97316',
     isVisible: true,
   },
 ];
@@ -72,7 +73,7 @@ const generateRandomData = (length, base = 1000, variance = 500) => {
 };
 
 // Périodes (axe X)
-const testPeriods = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"];
+const testPeriods = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
 
 // Solde de base (ligne principale)
 const testBaseBalance = generateRandomData(testPeriods.length, 1500, 400);
@@ -80,21 +81,21 @@ const testBaseBalance = generateRandomData(testPeriods.length, 1500, 400);
 // Scénarios simulés
 const testScenarioBalance = [
   {
-    id: "1",
-    name: "Scénario Optimiste",
-    color: "#8b5cf6",
+    id: '1',
+    name: 'Scénario Optimiste',
+    color: '#8b5cf6',
     data: generateRandomData(testPeriods.length, 1700, 500),
   },
   {
-    id: "2",
-    name: "Scénario Pessimiste",
-    color: "#f97316",
+    id: '2',
+    name: 'Scénario Pessimiste',
+    color: '#f97316',
     data: generateRandomData(testPeriods.length, 1300, 500),
   },
   {
-    id: "3",
-    name: "Scénario Réaliste",
-    color: "#d946ef",
+    id: '3',
+    name: 'Scénario Réaliste',
+    color: '#d946ef',
     data: generateRandomData(testPeriods.length, 1500, 500),
   },
 ];
@@ -106,66 +107,91 @@ const ScenarioView = () => {
   const [editingEntry, setEditingEntry] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedScenario, setSelectedScenario] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(null);
+
   const quickPeriodOptions = [
-    { id: "1m", label: "1 Mois" },
-    { id: "3m", label: "3 Mois" },
-    { id: "6m", label: "6 Mois" },
+    { id: '1m', label: '1 Mois' },
+    { id: '3m', label: '3 Mois' },
+    { id: '6m', label: '6 Mois' },
   ];
+
+  // État responsive
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
 
   // Gestion modale / drawer
   const handleOpenScenarioModal = (entry = null) => {
-    console.log(scenarioModalOpen);
     setEditingEntry(entry);
     setIsBudgetModalOpen(true);
   };
+
   const handleCloseBudgetModal = () => {
     setEditingEntry(null);
     setIsBudgetModalOpen(false);
   };
+
   const handleOpenDrawer = (scenario) => {
     setSelectedScenario(scenario);
     setIsDrawerOpen(true);
   };
+
   const handleCloseDrawer = () => {
     setSelectedScenario(null);
     setIsDrawerOpen(false);
   };
+
   const handleAddEntry = () => handleOpenScenarioModal();
   const handleEditEntry = (entry) => handleOpenScenarioModal(entry);
-  const handleDeleteEntry = (entryId) => alert(`Supprimer entrée ${entryId}`); // simple action de test
+  const handleDeleteEntry = (entryId) => alert(`Supprimer entrée ${entryId}`);
+
   const [selectedPeriodLabel, setSelectedPeriodLabel] = useState(
-    quickPeriodOptions[0]?.label || "Période"
+    quickPeriodOptions[0]?.label || 'Période'
   );
   const [activeQuickSelect, setActiveQuickSelect] = useState(
     quickPeriodOptions[0]?.id || null
   );
-  const [periodLabel, setPeriodLabel] = useState("Période Actuelle");
+  const [periodLabel, setPeriodLabel] = useState('Période Actuelle');
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false);
 
   const periodMenuRef = useRef(null);
+  const mobileMenuRef = useRef(null);
 
-  // const handlePeriodChange = (direction) => {
-  //   setPeriodLabel((prev) =>
-  //     direction === -1 ? "Période Précédente" : "Période Suivante"
-  //   );
-  // };
+  // Fermer les menus en cliquant à l'extérieur
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        periodMenuRef.current &&
+        !periodMenuRef.current.contains(event.target)
+      ) {
+        setIsPeriodMenuOpen(false);
+      }
+      if (
+        mobileMenuRef.current &&
+        !mobileMenuRef.current.contains(event.target)
+      ) {
+        setMobileMenuOpen(null);
+      }
+    };
 
-  // const handleQuickPeriodSelect = (id) => {
-  //   const selected = quickPeriodOptions.find((opt) => opt.id === id);
-  //   if (selected) {
-  //     setSelectedPeriodLabel(selected.label);
-  //     setActiveQuickSelect(id);
-  //   }
-  // };
-
-  const handleOpenConfirmModal = () => {
-    setConfirmModalOpen(true);
-  };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const [currentPeriods, setCurrentPeriods] = useState(testPeriods);
   const [currentBaseData, setCurrentBaseData] = useState(testBaseBalance);
   const [currentScenarioData, setCurrentScenarioData] =
     useState(testScenarioBalance);
+
   const handleQuickPeriodSelect = (id) => {
     const selected = quickPeriodOptions.find((opt) => opt.id === id);
     if (!selected) return;
@@ -174,9 +200,9 @@ const ScenarioView = () => {
     setActiveQuickSelect(id);
 
     let length;
-    if (id === "1m") length = 1;
-    else if (id === "3m") length = 3;
-    else if (id === "6m") length = 6;
+    if (id === '1m') length = 1;
+    else if (id === '3m') length = 3;
+    else if (id === '6m') length = 6;
 
     setCurrentPeriods(testPeriods.slice(0, length));
     setCurrentBaseData(testBaseBalance.slice(0, length));
@@ -187,6 +213,7 @@ const ScenarioView = () => {
       }))
     );
   };
+
   const handlePeriodChange = (direction) => {
     const length = currentPeriods.length;
     let start = testPeriods.indexOf(currentPeriods[0]) + direction;
@@ -206,25 +233,34 @@ const ScenarioView = () => {
     );
 
     setPeriodLabel(
-      direction === -1 ? "Période Précédente" : "Période Suivante"
+      direction === -1 ? 'Période Précédente' : 'Période Suivante'
     );
   };
+
+  const handleOpenConfirmModal = () => {
+    setConfirmModalOpen(true);
+  };
+
+  const toggleMobileMenu = (scenarioId) => {
+    setMobileMenuOpen(mobileMenuOpen === scenarioId ? null : scenarioId);
+  };
+
   // --- Données dynamiques pour le graphique ---
   const chartData = useMemo(() => {
     return {
       labels: currentPeriods,
       series: [
         {
-          name: "Solde de base",
-          type: "line",
+          name: 'Solde de base',
+          type: 'line',
           data: currentBaseData,
           smooth: true,
           lineStyle: { width: 3 },
-          itemStyle: { color: "#3b82f6" }, // bleu
+          itemStyle: { color: '#3b82f6' },
         },
         ...currentScenarioData.map((sc) => ({
           name: sc.name,
-          type: "line",
+          type: 'line',
           data: sc.data,
           smooth: true,
           lineStyle: { width: 2, color: sc.color },
@@ -235,70 +271,100 @@ const ScenarioView = () => {
   }, [currentPeriods, currentBaseData, currentScenarioData]);
 
   const settings = {};
+
   const getChartOptions = () => {
     if (!chartData || chartData.series.length === 0) {
       return {
         title: {
-          text: "Aucune donnée à afficher",
-          subtext: "Sélectionnez un projet individuel pour voir les scénarios.",
-          left: "center",
-          top: "center",
+          text: 'Aucune donnée à afficher',
+          subtext: 'Sélectionnez un projet individuel pour voir les scénarios.',
+          left: 'center',
+          top: 'center',
         },
       };
     }
+
     const allDataPoints = chartData.series
       .flatMap((s) => s.data)
       .filter((d) => d !== null && !isNaN(d));
+
     if (allDataPoints.length === 0) {
       return {
         title: {
-          text: "Aucune donnée numérique à afficher",
-          left: "center",
-          top: "center",
+          text: 'Aucune donnée numérique à afficher',
+          left: 'center',
+          top: 'center',
         },
       };
     }
+
     const dataMin = Math.min(...allDataPoints);
     const dataMax = Math.max(...allDataPoints);
     const range = dataMax - dataMin;
     const buffer = range === 0 ? Math.abs(dataMax * 0.1) || 100 : range * 0.2;
     const yAxisMin = dataMin - buffer;
     const yAxisMax = dataMax + buffer;
+
     return {
-      tooltip: { trigger: "axis" },
+      tooltip: {
+        trigger: 'axis',
+        confine: true,
+      },
       legend: {
         data: chartData.series.map((s) => s.name),
         bottom: 0,
-        type: "scroll",
+        type: 'scroll',
+        textStyle: {
+          fontSize: isMobile ? 10 : 12,
+        },
       },
-      grid: { left: "3%", right: "4%", bottom: "15%", containLabel: true },
-      xAxis: { type: "category", data: chartData.labels, boundaryGap: false },
+      grid: {
+        left: isMobile ? '8%' : '3%',
+        right: isMobile ? '8%' : '4%',
+        bottom: isMobile ? '20%' : '15%',
+        top: isMobile ? '5%' : '3%',
+        containLabel: true,
+      },
+      xAxis: {
+        type: 'category',
+        data: chartData.labels,
+        boundaryGap: false,
+        axisLabel: {
+          fontSize: isMobile ? 10 : 12,
+        },
+      },
       yAxis: {
-        type: "value",
-        axisLabel: { formatter: (value) => formatCurrency(value, settings) },
+        type: 'value',
+        axisLabel: {
+          formatter: (value) => formatCurrency(value, settings),
+          fontSize: isMobile ? 10 : 12,
+        },
         min: yAxisMin,
         max: yAxisMax,
       },
       series: chartData.series,
     };
   };
+
   return (
     <>
-      <div className="p-6 max-w-full flex flex-col h-full">
+      <div className="p-4 md:p-6 max-w-full flex flex-col h-full bg-gray-50">
         {/* Liste Scénarios */}
-        <div className="bg-white p-6 rounded-lg shadow mb-8 flex-shrink-0">
+        <div className="bg-white p-4 md:p-6 rounded-lg shadow mb-6 md:mb-8 flex-shrink-0">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-gray-800">
+            <h2 className="text-lg md:text-xl font-semibold text-gray-800">
               Vos Scénarios
             </h2>
             <button
               onClick={() => setScenarioModalOpen(true)}
-              className="bg-purple-600 hover:bg-accent-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors  disabled:cursor-not-allowed"
+              className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 md:px-4 md:py-2 rounded-lg font-medium flex items-center gap-2 transition-colors text-sm md:text-base"
             >
-              <Plus className="w-5 h-5" />
-              Nouveau Scénario
+              <Plus className="w-4 h-4 md:w-5 md:h-5" />
+              <span className="hidden sm:inline">Nouveau Scénario</span>
+              <span className="sm:hidden">Nouveau</span>
             </button>
           </div>
+
           <div className="space-y-3">
             {testScenarios.length > 0 ? (
               testScenarios.map((scenario) => {
@@ -306,26 +372,31 @@ const ScenarioView = () => {
                 return (
                   <div
                     key={scenario.id}
-                    className={`p-4 border rounded-lg flex justify-between items-center ${colors.bg}`}
+                    className={`p-3 md:p-4 border rounded-lg flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 ${colors.bg}`}
                   >
-                    <div>
-                      <h3 className={`font-bold ${colors.text}`}>
+                    <div className="flex-1">
+                      <h3
+                        className={`font-bold text-sm md:text-base ${colors.text}`}
+                      >
                         {scenario.displayName}
                       </h3>
-                      <p className={`text-sm ${colors.text}`}>
+                      <p className={`text-xs md:text-sm ${colors.text}`}>
                         {scenario.description}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+
+                    {/* Version Desktop */}
+                    <div className="hidden sm:flex items-center gap-2">
                       <button
                         onClick={() => handleOpenDrawer(scenario)}
                         className="p-2 text-gray-500 hover:text-gray-800"
+                        title="Voir le détail"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleOpenDrawer(scenario)}
-                        className="p-2 text-sm rounded-md flex items-center gap-1 bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-2 text-sm rounded-md flex items-center gap-1 bg-gray-200 text-gray-700 hover:bg-gray-300"
                         title="Gérer les écritures"
                       >
                         <List className="w-4 h-4" />
@@ -333,31 +404,127 @@ const ScenarioView = () => {
                       </button>
                       <button
                         onClick={() => handleAddEntry()}
-                        className={`p-2 text-sm rounded-md flex items-center gap-1    disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed ${colors.button} ${colors.text}`}
+                        className={`p-2 text-sm rounded-md flex items-center gap-1 ${colors.button} ${colors.text}`}
                       >
-                        <Plus />
+                        <Plus className="w-4 h-4" />
                         Ajouter une entrée
                       </button>
                       <button
                         onClick={() =>
-                          handleEditEntry({ id: 1, name: "Entrée test" })
+                          handleEditEntry({ id: 1, name: 'Entrée test' })
                         }
-                        className="p-2 text-blue-600 hover:text-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-2 text-blue-600 hover:text-blue-800"
+                        title="Modifier"
                       >
                         <Edit className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleOpenConfirmModal()}
-                        className="p-2 text-yellow-600 hover:text-yellow-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-2 text-yellow-600 hover:text-yellow-800"
+                        title="Archiver"
                       >
                         <Archive className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteEntry(1)}
-                        className="p-2 text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-2 text-red-600 hover:text-red-800"
+                        title="Supprimer"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
+                    </div>
+
+                    {/* Version Mobile */}
+                    <div className="sm:hidden flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleOpenDrawer(scenario)}
+                          className="p-2 text-gray-500 hover:text-gray-800"
+                          title="Voir le détail"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleAddEntry()}
+                          className={`p-2 rounded-md flex items-center gap-1 ${colors.button} ${colors.text}`}
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="relative" ref={mobileMenuRef}>
+                        <button
+                          onClick={() => toggleMobileMenu(scenario.id)}
+                          className="p-2 text-gray-500 hover:text-gray-800"
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+
+                        <AnimatePresence>
+                          {mobileMenuOpen === scenario.id && (
+                            <motion.div
+                              initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                              animate={{ opacity: 1, scale: 1, y: 0 }}
+                              exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                              className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border z-20"
+                            >
+                              <ul className="p-1">
+                                <li>
+                                  <button
+                                    onClick={() => {
+                                      handleOpenDrawer(scenario);
+                                      setMobileMenuOpen(null);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md flex items-center gap-2"
+                                  >
+                                    <List className="w-4 h-4" />
+                                    Gérer les écritures
+                                  </button>
+                                </li>
+                                <li>
+                                  <button
+                                    onClick={() => {
+                                      handleEditEntry({
+                                        id: 1,
+                                        name: 'Entrée test',
+                                      });
+                                      setMobileMenuOpen(null);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-md flex items-center gap-2"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                    Modifier
+                                  </button>
+                                </li>
+                                <li>
+                                  <button
+                                    onClick={() => {
+                                      handleOpenConfirmModal();
+                                      setMobileMenuOpen(null);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-sm text-yellow-600 hover:bg-yellow-50 rounded-md flex items-center gap-2"
+                                  >
+                                    <Archive className="w-4 h-4" />
+                                    Archiver
+                                  </button>
+                                </li>
+                                <li>
+                                  <button
+                                    onClick={() => {
+                                      handleDeleteEntry(1);
+                                      setMobileMenuOpen(null);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md flex items-center gap-2"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                    Supprimer
+                                  </button>
+                                </li>
+                              </ul>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
                     </div>
                   </div>
                 );
@@ -368,29 +535,34 @@ const ScenarioView = () => {
                 title="Aucun scénario"
                 message="Créez des simulations pour tester."
                 actionText="Nouveau Scénario"
-                onActionClick={handleOpenScenarioModal}
+                onActionClick={() => setScenarioModalOpen(true)}
               />
             )}
           </div>
         </div>
-        {/* Graphique */}
-        <div className="bg-white p-6 rounded-lg shadow flex-grow flex flex-col min-h-0">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">
-            Comparaison des Soldes
-          </h2>
-          <div className="mb-6 flex-shrink-0">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <div className="flex items-center gap-2">
+
+        {/* Section Graphique avec fond blanc unifié */}
+        <div className=" p-4 md:p-6 rounded-lg  flex-grow flex flex-col min-h-0">
+          {/* En-tête du graphique */}
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4 md:mb-6 gap-4">
+            <h2 className="text-lg md:text-xl font-semibold text-gray-800">
+              Comparaison des Soldes
+            </h2>
+
+            {/* Contrôles de période */}
+            <div className="flex flex-wrap items-center gap-2 md:gap-4">
+              {/* Navigation période */}
+              <div className="flex items-center gap-1 md:gap-2">
                 <button
                   onClick={() => handlePeriodChange(-1)}
                   className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors"
                   title="Période précédente"
                 >
-                  <ChevronLeft size={18} />
+                  <ChevronLeft size={16} />
                 </button>
                 <span
-                  className="text-sm font-semibold text-gray-700 w-24 text-center"
-                  title="Décalage par rapport à la période actuelle"
+                  className="text-xs md:text-sm font-semibold text-gray-700 w-20 md:w-24 text-center truncate"
+                  title={periodLabel}
                 >
                   {periodLabel}
                 </span>
@@ -399,29 +571,33 @@ const ScenarioView = () => {
                   className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors"
                   title="Période suivante"
                 >
-                  <ChevronRight size={18} />
+                  <ChevronRight size={16} />
                 </button>
               </div>
-              <div className="h-8 w-px bg-gray-200 hidden md:block"></div>
+
+              <div className="h-6 w-px bg-gray-200 hidden md:block"></div>
+
+              {/* Sélection rapide période */}
               <div className="relative" ref={periodMenuRef}>
                 <button
                   onClick={() => setIsPeriodMenuOpen((p) => !p)}
-                  className="flex items-center gap-2 px-3 h-9 rounded-md bg-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-300 transition-colors"
+                  className="flex items-center gap-2 px-3 h-8 md:h-9 rounded-md bg-gray-200 text-gray-700 font-semibold text-xs md:text-sm hover:bg-gray-300 transition-colors"
                 >
                   <span>{selectedPeriodLabel}</span>
                   <ChevronDown
-                    className={`w-4 h-4 transition-transform ${
-                      isPeriodMenuOpen ? "rotate-180" : ""
+                    className={`w-3 h-3 md:w-4 md:h-4 transition-transform ${
+                      isPeriodMenuOpen ? 'rotate-180' : ''
                     }`}
                   />
                 </button>
+
                 <AnimatePresence>
                   {isPeriodMenuOpen && (
                     <motion.div
                       initial={{ opacity: 0, scale: 0.95, y: -10 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                      className="absolute left-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border z-20"
+                      className="absolute left-0 top-full mt-2 w-40 md:w-48 bg-white rounded-lg shadow-lg border z-20"
                     >
                       <ul className="p-1">
                         {quickPeriodOptions.map((option) => (
@@ -431,10 +607,10 @@ const ScenarioView = () => {
                                 handleQuickPeriodSelect(option.id);
                                 setIsPeriodMenuOpen(false);
                               }}
-                              className={`w-full text-left px-3 py-1.5 text-sm rounded-md ${
+                              className={`w-full text-left px-3 py-1.5 text-xs md:text-sm rounded-md ${
                                 activeQuickSelect === option.id
-                                  ? "bg-blue-50 text-blue-700 font-semibold"
-                                  : "text-gray-700 hover:bg-gray-100"
+                                  ? 'bg-blue-50 text-blue-700 font-semibold'
+                                  : 'text-gray-700 hover:bg-gray-100'
                               }`}
                             >
                               {option.label}
@@ -448,11 +624,16 @@ const ScenarioView = () => {
               </div>
             </div>
           </div>
-          <div className="flex-grow min-h-0">
-            <div className="flex-grow min-h-[400px]">
+
+          {/* Zone du graphique */}
+          <div className="flex-grow  bg-white shadow-lg rounded-lg border border-gray-200 p-4">
+            <div className="flex-grow min-h-[300px] md:min-h-[400px]">
               <ReactECharts
                 option={getChartOptions()}
-                style={{ height: "600px", width: "100%" }}
+                style={{
+                  height: isMobile ? '350px' : '500px',
+                  width: '100%',
+                }}
                 notMerge={true}
                 lazyUpdate={true}
               />
@@ -460,51 +641,46 @@ const ScenarioView = () => {
           </div>
         </div>
 
-        {/* Modale */}
+        {/* Modales */}
         {isBudgetModalOpen && (
           <BudgetModal
             isOpen={isBudgetModalOpen}
             onClose={handleCloseBudgetModal}
             onSave={(data) => {
-              console.log("Save", data);
+              console.log('Save', data);
               handleCloseBudgetModal();
             }}
             editingData={editingEntry}
           />
         )}
 
-        {/* Drawer */}
         {isDrawerOpen && (
           <ScenarioEntriesDrawer
             isOpen={isDrawerOpen}
             setOpenScenario={() => setIsBudgetModalOpen(true)}
             onClose={handleCloseDrawer}
-            // scenario={selectedScenario}
-            // onAddEntry={handleAddEntry}
-            // onEditEntry={handleEditEntry}
-            // onDeleteEntry={handleDeleteEntry}
+          />
+        )}
+
+        {scenarioModalOpen && (
+          <ScenarioModal
+            isOpen={scenarioModalOpen}
+            onClose={() => setScenarioModalOpen(false)}
+          />
+        )}
+
+        {confirmModalOpen && (
+          <ConfirmationModal
+            isOpen={confirmModalOpen}
+            onClose={() => setConfirmModalOpen(false)}
+            title="Archiver le scénario"
+            message="L'archivage d'un scénario le masquera de la liste, mais toutes ses données seront conservées. Vous pourrez le restaurer à tout moment."
+            confirmText="Archiver"
+            cancelText="Annuler"
+            confirmColor="danger"
           />
         )}
       </div>
-      {scenarioModalOpen && (
-        <ScenarioModal
-          isOpen={scenarioModalOpen}
-          onClose={() => setScenarioModalOpen((u) => !u)}
-        />
-      )}
-
-      {confirmModalOpen && (
-        <ConfirmationModal
-          isOpen={confirmModalOpen}
-          onClose={() => setConfirmModalOpen(false)}
-          // onConfirm={handleConfirm}
-          title="Archiver le scénario"
-          message="L'archivage d'un scénario le masquera de la liste, mais toutes ses données seront conservées. Vous pourrez le restaurer à tout moment."
-          confirmText="Archiver"
-          cancelText="Annuler"
-          confirmColor="danger" // ou "primary"
-        />
-      )}
     </>
   );
 };
