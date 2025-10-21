@@ -16,6 +16,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import AmbassadorIcon from './AmbassadorIcon';
 import TrezocashLogo from '../../components/logo/TrezocashLogo';
 import { useSettings } from '../context/SettingsContext';
+import ProjectsPage from '../../pages/clients/projets/ProjectsPage';
 
 const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
     const { dataState } = useData();
@@ -142,6 +143,7 @@ const handleLogout = async () => {
     // Navigation items with improved structure
     const mainNavItems = useMemo(() => [
         { label: 'Dashboard', id: 'dashboard', path: '/client/dashboard', icon: LayoutDashboard },
+        { label: 'Projet', id: 'projet', path: '/client/projets', icon: Banknote},
         { label: 'Budget', id: 'budget', path: '/client/budget', icon: ListChecks },
         { label: 'Trezo', id: 'trezo', path: '/client/trezo', icon: Table },
         { label: 'Flux', id: 'flux', path: '/client/flux', icon: AreaChart },

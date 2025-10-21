@@ -27,8 +27,11 @@ const dataReducer = (state, action) => {
   switch (action.type) {
     case 'SET_PROFILE':
       return { ...state, profile: action.payload };
-    case 'SET_PROJECTS':
-      return { ...state, projects: action.payload };
+   case 'SET_PROJECTS':
+  return {
+    ...state,
+    projects: action.payload,
+  };
     case 'RESET_DATA_STATE':
       return initialState;
     default:

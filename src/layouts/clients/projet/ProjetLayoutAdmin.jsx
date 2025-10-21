@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import HeaderCustomer from '../../../components/headers/HeaderCustomer';
-import Sidebar from '../../../components/sidebar/sidebar';
+import Sidebar from '../../../components/sidebar/Sidebar';
 import CollaborationBanner from '../../../components/collaboratioBanner/CollaborationBanner';
 import { useSettings } from '../../../components/context/SettingsContext';
 // Hook simple pour détecter si on est sur mobile

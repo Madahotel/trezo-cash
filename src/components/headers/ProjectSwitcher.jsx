@@ -3,83 +3,72 @@ import { ChevronsUpDown, Check, Plus, Layers } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useUI } from "../context/UIContext";
 import { useData } from "../context/DataContext";
-import { useAuth } from "../context/AuthContext"; // Import du contexte Auth
+import { useAuth } from "../context/AuthContext";
 import ConsolidatedViewModal from "../modal/ConsolidatedViewModal";
 
 const ProjectSwitcher = () => {
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [activeProjectId, setActiveProjectId] = useState(null);
   const { uiDispatch } = useUI();
-  const { dataState, fetchProjects } = useData(); // Ajout de fetchProjects
-  const { user } = useAuth(); // Récupération de l'utilisateur connecté
+  const { dataState, fetchProjects } = useData();
   const [isConsolidatedViewModalOpen, setIsConsolidatedViewModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-
-  // Récupération des projets depuis le contexte Data
   const projects = dataState?.projects || [];
-  
-  // Filtrage des projets (exclure les projets archivés et les projets temporaires)
-  const activeProjects = projects.filter(project => 
+  const activeProjects = projects.filter(project =>
     !project.isArchived && !project.is_temp
   );
+  const myProjects = projects.filter(project => 
+    project.user_subscriber_id === user?.id && 
+    !project.isArchived && 
+    !project.is_temp
+  );
 
-  // Séparation des projets personnels et partagés avec une logique améliorée
-  const myProjects = activeProjects.filter(project => {
-    // Vérifier si l'utilisateur est le propriétaire du projet
-    const isOwner = project.user_id === user?.id;
-    
-    // Vérifier si l'utilisateur est l'abonné du projet
-    const isSubscriber = project.user_subscriber_id === user?.id;
-    
-    // Vérifier si l'utilisateur est dans la liste des collaborateurs
-    const isCollaborator = project.collaborators?.some(collab => 
-      collab.user_id === user?.id
-    );
+  const [isListOpen, setIsListOpen] = useState(false);
+  const listRef = useRef(null);
 
-    return isOwner || isSubscriber || isCollaborator;
-  });
-
-  const sharedProjects = activeProjects.filter(project => {
-    // Projets où l'utilisateur n'est ni propriétaire ni abonné principal
-    const isNotOwnerOrSubscriber = 
-      project.user_id !== user?.id && 
-      project.user_subscriber_id !== user?.id;
-    
-    // Mais où il est collaborateur
-    const isCollaborator = project.collaborators?.some(collab => 
-      collab.user_id === user?.id
-    );
-
-    return isNotOwnerOrSubscriber && isCollaborator;
-  });
-
+  const projectsLoaded = useRef(false);
+  const sharedProjects = [];
   const consolidatedViews = [
     { id: "1", name: "Vue globale finances" },
     { id: "2", name: "Vue marketing + ventes" },
   ];
 
-  const [isListOpen, setIsListOpen] = useState(false);
-  const listRef = useRef(null);
-
-  // Charger les projets au montage du composant
   useEffect(() => {
+    console.log("🔍 ProjectSwitcher - User:", user);
+    console.log("🔍 ProjectSwitcher - Projects:", dataState.projects);
+    console.log("🔍 ProjectSwitcher - My Projects:", myProjects);
+  }, [user, dataState.projects]);
+
+  // Charger les projets au montage
+ useEffect(() => {
     const loadProjects = async () => {
-      if (user?.id) {
-        setLoading(true);
-        try {
-          await fetchProjects(); // Assurez-vous que cette fonction existe dans votre DataContext
-        } catch (error) {
-          console.error("Erreur lors du chargement des projets:", error);
-        } finally {
-          setLoading(false);
-        }
+      // Éviter les rechargements inutiles
+      if (projectsLoaded.current || authLoading || !user?.id) {
+        return;
+      }
+
+      console.log("🔄 Chargement des projets dans ProjectSwitcher");
+      setLoading(true);
+      
+      try {
+        await fetchProjects(user.id);
+        projectsLoaded.current = true;
+      } catch (error) {
+        console.error("Erreur lors du chargement des projets:", error);
+      } finally {
+        setLoading(false);
       }
     };
 
-    loadProjects();
-  }, [user?.id, fetchProjects]);
+    // Délai pour éviter les conflits avec le DataProvider
+    const timer = setTimeout(loadProjects, 500);
+    
+    return () => clearTimeout(timer);
+  }, [authLoading, user?.id]); // Dépendances réduites
 
-  // Clic en dehors pour fermer
+
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (listRef.current && !listRef.current.contains(event.target)) {
@@ -89,22 +78,17 @@ const ProjectSwitcher = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  // Définir le projet actif au chargement si aucun n'est sélectionné
   useEffect(() => {
     if (!activeProjectId && myProjects.length > 0) {
       setActiveProjectId(myProjects[0].id);
-      // Optionnel: Dispatch pour mettre à jour le contexte global
-      // uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: myProjects[0] });
     }
   }, [activeProjectId, myProjects]);
 
-  const isConsolidated = activeProjectId === "consolidated";
-  const isCustomConsolidated = activeProjectId?.startsWith("consolidated_view_");
+const isConsolidated = activeProjectId === "consolidated";
+const isCustomConsolidated = typeof activeProjectId === 'string' && activeProjectId.startsWith("consolidated_view_");
 
-  // Fonction pour obtenir le nom d'affichage
   let displayName = "Sélectionner un projet";
-  
+
   if (isConsolidated) {
     displayName = "Mes projets consolidés";
   } else if (isCustomConsolidated) {
@@ -112,27 +96,23 @@ const ProjectSwitcher = () => {
     const view = consolidatedViews.find((v) => v.id === viewId);
     displayName = view ? view.name : "Vue inconnue";
   } else {
-    const project = [...myProjects, ...sharedProjects].find(
-      (p) => p.id === activeProjectId
-    );
+    const project = myProjects.find((p) => p.id === activeProjectId);
     if (project) displayName = project.name;
   }
 
   const handleSelect = (id) => {
     setActiveProjectId(id);
     setIsListOpen(false);
-    
-    // Mettre à jour le projet actif dans le contexte global
+
     if (id !== "consolidated" && !id.startsWith("consolidated_view_")) {
-      const selectedProject = [...myProjects, ...sharedProjects].find(p => p.id === id);
+      const selectedProject = myProjects.find(p => p.id === id);
       if (selectedProject) {
-        uiDispatch({ 
-          type: 'SET_ACTIVE_PROJECT', 
-          payload: selectedProject 
+        uiDispatch({
+          type: 'SET_ACTIVE_PROJECT',
+          payload: selectedProject
         });
       }
     } else {
-      // Pour les vues consolidées, on peut reset le projet actif
       uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: null });
     }
   };
@@ -151,35 +131,31 @@ const ProjectSwitcher = () => {
     setIsListOpen(false);
   };
 
-  // Fonction pour obtenir l'initiale du projet
   const getProjectInitial = (projectName) => {
     return projectName ? projectName[0].toUpperCase() : '?';
   };
 
-  // Fonction pour obtenir la couleur de l'avatar basée sur l'ID du projet
   const getAvatarColor = (projectId) => {
     const colors = [
       'bg-blue-200 text-blue-700',
-      'bg-green-200 text-green-700', 
+      'bg-green-200 text-green-700',
       'bg-purple-200 text-purple-700',
       'bg-orange-200 text-orange-700',
       'bg-pink-200 text-pink-700',
       'bg-indigo-200 text-indigo-700'
     ];
-    const index = Math.abs(projectId.toString().split('').reduce((a, b) => a + b.charCodeAt(0), 0)) % colors.length;
+    const idToHash = projectId ? projectId.toString() : 'default';
+
+    const index = Math.abs(idToHash.split('').reduce((a, b) => a + b.charCodeAt(0), 0)) % colors.length;
     return colors[index];
   };
 
-  // Fonction pour déterminer le type de projet (affichage)
   const getProjectType = (project) => {
-    if (project.user_id === user?.id) return "Propriétaire";
-    if (project.user_subscriber_id === user?.id) return "Abonné";
-    return "Collaborateur";
+    return project.project_type_name || "Projet";
   };
 
   return (
     <div className="relative w-full" ref={listRef}>
-      {/* Bouton principal */}
       <button
         onClick={() => setIsListOpen(!isListOpen)}
         className="flex items-center gap-2 p-1.5 rounded-md text-left text-gray-800 font-semibold hover:bg-gray-200 transition-colors focus:outline-none w-full"
@@ -191,13 +167,10 @@ const ProjectSwitcher = () => {
         </span>
         <ChevronsUpDown className="w-4 h-4 text-gray-500 shrink-0" />
       </button>
-
-      {/* Liste déroulante */}
       {isListOpen && (
         <div className="absolute z-30 mt-2 w-72 bg-white border rounded-lg shadow-lg">
           <div className="p-1 max-h-80 overflow-y-auto">
             <ul>
-              {/* Vues consolidées */}
               <li>
                 <button
                   onClick={() => handleSelect("consolidated")}
@@ -228,8 +201,6 @@ const ProjectSwitcher = () => {
                   </button>
                 </li>
               ))}
-
-              {/* Mes projets */}
               {myProjects.length > 0 && (
                 <div className="px-3 pt-2 pb-1 text-xs font-semibold text-gray-400 uppercase">
                   Mes Projets ({myProjects.length})
@@ -256,8 +227,6 @@ const ProjectSwitcher = () => {
                   </button>
                 </li>
               ))}
-
-              {/* Message si aucun projet */}
               {myProjects.length === 0 && sharedProjects.length === 0 && !loading && (
                 <div className="px-3 py-4 text-center text-sm text-gray-500">
                   Aucun projet trouvé
@@ -271,14 +240,11 @@ const ProjectSwitcher = () => {
                 </div>
               )}
 
-              {/* Chargement */}
               {loading && (
                 <div className="px-3 py-4 text-center text-sm text-gray-500">
                   Chargement des projets...
                 </div>
               )}
-
-              {/* Projets partagés */}
               {sharedProjects.length > 0 && (
                 <div className="px-3 pt-2 pb-1 text-xs font-semibold text-gray-400 uppercase">
                   Projets partagés avec moi ({sharedProjects.length})
@@ -327,14 +293,12 @@ const ProjectSwitcher = () => {
           </div>
         </div>
       )}
-      
+
       {/* Modal pour les vues consolidées */}
       {isConsolidatedViewModalOpen && (
         <ConsolidatedViewModal
           isOpen={isConsolidatedViewModalOpen}
           onClose={closeConsolidatedViewModal}
-          // onSave={handleSaveConsolidatedView} 
-          // editingView={editingConsolidatedView} 
         />
       )}
     </div>

@@ -1,269 +1,320 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import axios from "../../components/config/Axios";
 const DataContext = createContext();
 
 export const mainCashAccountCategories = [
-  { id: 'bank', name: 'Comptes Bancaires' },
-  { id: 'cash', name: 'Cash / Espèce' },
-  { id: 'mobileMoney', name: 'Mobile Money' },
-  { id: 'savings', name: 'Épargne' },
-  { id: 'provisions', name: 'Provisions' },
+    { id: 'bank', name: 'Comptes Bancaires' },
+    { id: 'cash', name: 'Cash / Espèce' },
+    { id: 'mobileMoney', name: 'Mobile Money' },
+    { id: 'savings', name: 'Épargne' },
+    { id: 'provisions', name: 'Provisions' },
 ];
 
 
 const createProject = async (projectData, user, token) => {
-  if (!user?.id || !token) {
-    throw new Error('Utilisateur non connecté');
-  }
+    if (!user?.id || !token) {
+        throw new Error('Utilisateur non connecté');
+    }
 
-  try {
-    console.log('🔄 Création d\'un nouveau projet:', projectData);
-    
-    const response = await axios.post('/projects', {
-      ...projectData,
-      user_id: user.id,
-      user_subscriber_id: user.id
-    });
-    
-    console.log('✅ Projet créé:', response.data);
-    
-    return response.data;
-    
-  } catch (error) {
-    console.error('❌ Erreur lors de la création du projet:', error);
-    throw error;
-  }
+    try {
+        console.log('🔄 Création d\'un nouveau projet:', projectData);
+
+        const response = await axios.post('/projects', {
+            ...projectData,
+            user_id: user.id,
+            user_subscriber_id: user.id
+        });
+
+        console.log('✅ Projet créé:', response.data);
+
+        return response.data;
+
+    } catch (error) {
+        console.error('❌ Erreur lors de la création du projet:', error);
+        throw error;
+    }
 };
-
 
 const initialCategories = {
-  revenue: [
-    { id: 'rev-main-1', name: 'RÉMUNÉRATION DU TRAVAIL', isDefault: true, subCategories: [
-      { id: 'rev-sub-1-1', name: 'Salaires & traitements nets' },
-      { id: 'rev-sub-1-2', name: 'Rémunération des dirigeants' },
-      { id: 'rev-sub-1-3', name: 'Honoraires & chiffre d\'affaires (BIC/BNC)' },
-      { id: 'rev-sub-1-4', name: 'Primes, bonus & commissions' },
-      { id: 'rev-sub-1-5', name: 'Indemnités' },
-      { id: 'rev-sub-1-6', name: 'Remboursements de frais professionnels' },
-    ]},
-    { id: 'rev-main-2', name: 'VENTES DE BIENS & PRODUITS', isDefault: true, subCategories: [
-      { id: 'rev-sub-2-1', name: 'Vente de marchandises' },
-      { id: 'rev-sub-2-2', name: 'Vente de produits fabriqués' },
-      { id: 'rev-sub-2-3', name: 'Vente d\'actifs immobilisés' },
-      { id: 'rev-sub-2-4', name: 'Revente de biens personnels' },
-    ]},
-    { id: 'rev-main-3', name: 'PRESTATIONS DE SERVICES & ACTIVITÉS', isDefault: true, subCategories: [
-        { id: 'rev-sub-3-1', name: 'Conseil & expertise' },
-        { id: 'rev-sub-3-2', name: 'Prestations artistiques ou culturelles' },
-        { id: 'rev-sub-3-3', name: 'Prestations sportives' },
-        { id: 'rev-sub-3-4', name: 'Recettes d\'événements' },
-        { id: 'rev-sub-3-5', name: 'Locations diverses' },
-    ]},
-    { id: 'rev-main-4', name: 'REVENUS FINANCIERS & DE PLACEMENTS', isDefault: true, subCategories: [
-        { id: 'rev-sub-4-1', name: 'Dividendes' },
-        { id: 'rev-sub-4-2', name: 'Intérêts perçus' },
-        { id: 'rev-sub-4-3', name: 'Plus-values de cession' },
-        { id: 'rev-sub-4-4', name: 'Revenus locatifs nets' },
-    ]},
-    { id: 'rev-main-5', name: 'AIDES, SUBVENTIONS & DOTATIONS', isDefault: true, subCategories: [
-        { id: 'rev-sub-5-1', name: 'Aides publiques aux entreprises' },
-        { id: 'rev-sub-5-2', name: 'Subventions associatives' },
-        { id: 'rev-sub-5-3', name: 'Allocations & prestations sociales' },
-        { id: 'rev-sub-5-4', name: 'Indemnités journalières' },
-        { id: 'rev-sub-5-5', name: 'Pensions de retraite' },
-        { id: 'rev-sub-5-6', name: 'Bourses & bourses d\'études' },
-        { id: 'rev-sub-5-7', name: 'Crédit de TVA', isFixed: true },
-    ]},
-    { id: 'rev-main-6', name: 'APPORTS & FINANCEMENTS', isDefault: true, subCategories: [
-        { id: 'rev-sub-6-1', name: 'Apports en capital' },
-        { id: 'rev-sub-6-2', name: 'Emprunts & prêts reçus' },
-        { id: 'rev-sub-6-3', name: 'Collecte de fonds (crowdfunding)' },
-        { id: 'rev-sub-6-4', name: 'Apports personnels pour projet' },
-    ]},
-    { id: 'rev-main-7', name: 'REVENUS DIVERS & OCCASIONNELS', isDefault: true, subCategories: [
-        { id: 'rev-sub-7-1', name: 'Dons & cadeaux en argent' },
-        { id: 'rev-sub-7-2', name: 'Gains divers' },
-        { id: 'rev-sub-7-3', name: 'Remboursements personnels' },
-        { id: 'rev-sub-7-4', name: 'Compensations' },
-    ]},
-    { id: 'rev-main-8', name: 'FINANCEMENTS & CRÉDITS (Encaissements)', isDefault: true, subCategories: [
-        { id: 'rev-sub-8-1', name: 'Remboursement prêt familial' },
-        { id: 'rev-sub-8-2', name: 'Remboursement prêt entre associés' },
-        { id: 'rev-sub-8-3', name: 'Remboursement prêt entreprise' },
-    ]},
-  ],
-  expense: [
-    { id: 'exp-main-1', name: 'RÉMUNÉRATIONS & HONORAIRES', isDefault: true, subCategories: [
-        { id: 'exp-sub-1-1', name: 'Salaires, traitements et charges', criticality: 'critical' },
-        { id: 'exp-sub-1-2', name: 'Honoraires (freelances, experts-comptables)', criticality: 'essential' },
-        { id: 'exp-sub-1-3', name: 'Primes, bonus et participations', criticality: 'discretionary' },
-        { id: 'exp-sub-1-4', name: 'Indemnités (déplacement, repas, km)', criticality: 'essential' },
-        { id: 'exp-sub-1-5', name: 'Cotisations sociales personnelles', criticality: 'critical' },
-    ]},
-    { id: 'exp-main-2', name: 'HEBERGEMENT & LOGEMENT', isDefault: true, subCategories: [
-        { id: 'exp-sub-2-1', name: 'Loyer & Charges locatives', criticality: 'critical' },
-        { id: 'exp-sub-2-2', name: 'Prêt immobilier (remboursement capital)', criticality: 'critical' },
-        { id: 'exp-sub-2-3', name: 'Charges de copropriété', criticality: 'critical' },
-        { id: 'exp-sub-2-4', name: 'Entretien, réparations et amélioration', criticality: 'essential' },
-        { id: 'exp-sub-2-5', name: 'Énergie (Électricité, Gaz, Chauffage)', criticality: 'critical' },
-        { id: 'exp-sub-2-6', name: 'Eau et assainissement', criticality: 'critical' },
-        { id: 'exp-sub-2-7', name: 'Assurance habitation/locaux', criticality: 'critical' },
-        { id: 'exp-sub-2-8', name: 'Taxe foncière', criticality: 'critical' },
-    ]},
-    { id: 'exp-main-3', name: 'TRANSPORT & VÉHICULES', isDefault: true, subCategories: [
-        { id: 'exp-sub-3-1', name: 'Carburant & Recharge', criticality: 'essential' },
-        { id: 'exp-sub-3-2', name: 'Entretien, réparations et pièces', criticality: 'essential' },
-        { id: 'exp-sub-3-3', name: 'Assurance auto/moto', criticality: 'critical' },
-        { id: 'exp-sub-3-4', name: 'Péage, stationnement et amendes', criticality: 'discretionary' },
-        { id: 'exp-sub-3-5', name: 'Transport en commun', criticality: 'essential' },
-        { id: 'exp-sub-3-6', name: 'Taxi, VTC, location de véhicule', criticality: 'discretionary' },
-        { id: 'exp-sub-3-7', name: 'Voyages longue distance (billets de train, d\'avion)', criticality: 'discretionary' },
-    ]},
-    { id: 'exp-main-4', name: 'NOURRITURE & RESTAURATION', isDefault: true, subCategories: [
-        { id: 'exp-sub-4-1', name: 'Courses alimentaires', criticality: 'essential' },
-        { id: 'exp-sub-4-2', name: 'Restaurant, café, bar', criticality: 'discretionary' },
-        { id: 'exp-sub-4-3', name: 'Livraison de repas à domicile', criticality: 'discretionary' },
-        { id: 'exp-sub-4-4', name: 'Repas en déplacement professionnel', criticality: 'essential' },
-    ]},
-    { id: 'exp-main-5', name: 'COMMUNICATION, INTERNET & ABONNEMENTS', isDefault: true, subCategories: [
-        { id: 'exp-sub-5-1', name: 'Téléphonie mobile et fixe', criticality: 'essential' },
-        { id: 'exp-sub-5-2', name: 'Internet (Box) et Abonnements TV', criticality: 'essential' },
-        { id: 'exp-sub-5-3', name: 'Logiciels et applications (SaaS)', criticality: 'essential' },
-        { id: 'exp-sub-5-4', name: 'Hébergement web, nom de domaine', criticality: 'essential' },
-        { id: 'exp-sub-5-5', name: 'Équipements tech (ordinateur, smartphone)', criticality: 'discretionary' },
-    ]},
-    { id: 'exp-main-6', name: 'LOISIRS, CULTURE & SPORT', isDefault: true, subCategories: [
-        { id: 'exp-sub-6-1', name: 'Abonnements culturels (Streaming, presse, jeux vidéo)', criticality: 'discretionary' },
-        { id: 'exp-sub-6-2', name: 'Sports (Club, équipement, licence)', criticality: 'discretionary' },
-        { id: 'exp-sub-6-3', name: 'Sorties (Cinéma, concert, musée, événement)', criticality: 'discretionary' },
-        { id: 'exp-sub-6-4', name: 'Hobbies et passions', criticality: 'discretionary' },
-        { id: 'exp-sub-6-5', name: 'Vacances et week-ends', criticality: 'discretionary' },
-        { id: 'exp-sub-6-6', name: 'Cotisations associatives', criticality: 'discretionary' },
-    ]},
-    { id: 'exp-main-7', name: 'SANTÉ & BIEN-ÊTRE', isDefault: true, subCategories: [
-        { id: 'exp-sub-7-1', name: 'Mutuelle santé', criticality: 'critical' },
-        { id: 'exp-sub-7-2', name: 'Frais médicaux (consultations, pharmacie)', criticality: 'essential' },
-        { id: 'exp-sub-7-3', name: 'Soins (dentiste, opticien, kiné)', criticality: 'essential' },
-        { id: 'exp-sub-7-4', name: 'Bien-être (Coaching, yoga, cosmétiques)', criticality: 'discretionary' },
-    ]},
-    { id: 'exp-main-8', name: 'PROJET IMMOBILIER & INVESTISSEMENTS', isDefault: true, subCategories: [
-        { id: 'exp-sub-8-1', name: 'Apport personnel', criticality: 'discretionary' },
-        { id: 'exp-sub-8-2', name: 'Frais de notaire', criticality: 'critical' },
-        { id: 'exp-sub-8-3', name: 'Travaux d\'aménagement importants', criticality: 'discretionary' },
-        { id: 'exp-sub-8-4', name: 'Achat de mobilier durable', criticality: 'discretionary' },
-        { id: 'exp-sub-8-5', name: 'Investissements financiers', criticality: 'discretionary' },
-    ]},
-    { id: 'exp-main-9', name: 'ACTIVITÉ PROFESSIONNELLE & ENTREPRISE', isDefault: true, subCategories: [
-        { id: 'exp-sub-9-1', name: 'Marketing et publicité', criticality: 'discretionary' },
-        { id: 'exp-sub-9-2', name: 'Achat de marchandises / matières premières', criticality: 'essential' },
-        { id: 'exp-sub-9-3', name: 'Sous-traitance', criticality: 'essential' },
-        { id: 'exp-sub-9-4', name: 'Frais de déplacement professionnel (hors repas)', criticality: 'essential' },
-        { id: 'exp-sub-9-5', name: 'Cotisations et frais professionnels', criticality: 'essential' },
-        { id: 'exp-sub-9-6', name: 'Assurance responsabilité civile pro (RC Pro)', criticality: 'critical' },
-        { id: 'exp-sub-9-7', name: 'Fournitures de bureau', criticality: 'essential' },
-        { id: 'exp-sub-9-8', name: 'Petit équipement', criticality: 'discretionary' },
-    ]},
-    { id: 'exp-main-10', name: 'FINANCES & ASSURANCES', isDefault: true, subCategories: [
-        { id: 'exp-sub-10-1', name: 'Intérêts d\'emprunts', criticality: 'critical' },
-        { id: 'exp-sub-10-2', name: 'Frais bancaires', criticality: 'essential' },
-        { id: 'exp-sub-10-3', name: 'Assurance emprunteur', criticality: 'critical' },
-        { id: 'exp-sub-10-4', name: 'Autres assurances', criticality: 'essential' },
-    ]},
-    { id: 'exp-main-11', name: 'IMPÔTS & CONTRIBUTIONS', isDefault: true, subCategories: [
-        { id: 'exp-sub-11-1', name: 'Impôt sur le revenu / sur les sociétés', criticality: 'critical' },
-        { id: 'exp-sub-11-2', name: 'Taxe d\'habitation', criticality: 'critical' },
-        { id: 'exp-sub-11-3', name: 'Cotisation Foncière des Entreprises (CFE)', criticality: 'critical' },
-        { id: 'exp-sub-11-4', name: 'TVA à payer', isFixed: true, criticality: 'critical' },
-        { id: 'exp-sub-11-5', name: 'Dons et mécénat', criticality: 'discretionary' },
-        { id: 'exp-sub-11-6', name: 'TVA déductible', isFixed: true, criticality: 'critical' },
-        { id: 'exp-sub-11-7', name: 'TVA collectée', isFixed: true, criticality: 'critical' },
-    ]},
-    { id: 'exp-main-12', name: 'FAMILLE & ENFANTS', isDefault: true, subCategories: [
-        { id: 'exp-sub-12-1', name: 'Frais de scolarité et garde', criticality: 'critical' },
-        { id: 'exp-sub-12-2', name: 'Activités extrascolaires', criticality: 'discretionary' },
-        { id: 'exp-sub-12-3', name: 'Vêtements et fournitures pour enfants', criticality: 'essential' },
-    ]},
-    { id: 'exp-main-13', name: 'ÉPARGNE & DOSSIERS', isDefault: true, subCategories: [
-        { id: 'exp-sub-13-1', name: 'Versement épargne', criticality: 'discretionary' },
-        { id: 'exp-sub-13-2', name: 'Épargne retraite (PER)', criticality: 'discretionary' },
-        { id: 'exp-sub-13-3', name: 'Frais divers et imprévus', criticality: 'essential' },
-    ]},
-    { id: 'exp-main-14', name: 'AMEUBLEMENT, ÉQUIPEMENT & DÉCORATION', isDefault: true, subCategories: [
-        { id: 'exp-sub-14-1', name: 'Mobilier & Agencement', criticality: 'discretionary' },
-        { id: 'exp-sub-14-2', name: 'Électroménager', criticality: 'essential' },
-        { id: 'exp-sub-14-3', name: 'Décoration & Ambiance', criticality: 'discretionary' },
-        { id: 'exp-sub-14-4', name: 'Linge de maison', criticality: 'discretionary' },
-        { id: 'exp-sub-14-5', name: 'Jardin & Extérieur', criticality: 'discretionary' },
-    ]},
-    { id: 'exp-main-15', name: 'FINANCEMENTS & CRÉDITS (Remboursements)', isDefault: true, subCategories: [
-        { id: 'exp-sub-15-1', name: 'Prêt résidence principale', criticality: 'critical' },
-        { id: 'exp-sub-15-2', name: 'Prêt investissement locatif', criticality: 'critical' },
-        { id: 'exp-sub-15-3', name: 'Prêt travaux', criticality: 'critical' },
-        { id: 'exp-sub-15-4', name: 'Prêt automobile', criticality: 'critical' },
-        { id: 'exp-sub-15-5', name: 'Crédit renouvelable', criticality: 'critical' },
-        { id: 'exp-sub-15-6', name: 'Prêt personnel', criticality: 'critical' },
-        { id: 'exp-sub-15-7', name: 'Prêt équipement pro', criticality: 'critical' },
-        { id: 'exp-sub-15-8', name: 'Crédit bail (leasing)', criticality: 'critical' },
-        { id: 'exp-sub-15-9', name: 'Prêt trésorerie', criticality: 'critical' },
-        { id: 'exp-sub-15-10', name: 'Dette familiale', criticality: 'essential' },
-        { id: 'exp-sub-15-11', name: 'Dette associatives', criticality: 'essential' },
-        { id: 'exp-sub-15-12', name: 'Découvert bancaire', criticality: 'critical' },
-    ]},
-    
-  ]
+    revenue: [
+        {
+            id: 'rev-main-1', name: 'RÉMUNÉRATION DU TRAVAIL', isDefault: true, subCategories: [
+                { id: 'rev-sub-1-1', name: 'Salaires & traitements nets' },
+                { id: 'rev-sub-1-2', name: 'Rémunération des dirigeants' },
+                { id: 'rev-sub-1-3', name: 'Honoraires & chiffre d\'affaires (BIC/BNC)' },
+                { id: 'rev-sub-1-4', name: 'Primes, bonus & commissions' },
+                { id: 'rev-sub-1-5', name: 'Indemnités' },
+                { id: 'rev-sub-1-6', name: 'Remboursements de frais professionnels' },
+            ]
+        },
+        {
+            id: 'rev-main-2', name: 'VENTES DE BIENS & PRODUITS', isDefault: true, subCategories: [
+                { id: 'rev-sub-2-1', name: 'Vente de marchandises' },
+                { id: 'rev-sub-2-2', name: 'Vente de produits fabriqués' },
+                { id: 'rev-sub-2-3', name: 'Vente d\'actifs immobilisés' },
+                { id: 'rev-sub-2-4', name: 'Revente de biens personnels' },
+            ]
+        },
+        {
+            id: 'rev-main-3', name: 'PRESTATIONS DE SERVICES & ACTIVITÉS', isDefault: true, subCategories: [
+                { id: 'rev-sub-3-1', name: 'Conseil & expertise' },
+                { id: 'rev-sub-3-2', name: 'Prestations artistiques ou culturelles' },
+                { id: 'rev-sub-3-3', name: 'Prestations sportives' },
+                { id: 'rev-sub-3-4', name: 'Recettes d\'événements' },
+                { id: 'rev-sub-3-5', name: 'Locations diverses' },
+            ]
+        },
+        {
+            id: 'rev-main-4', name: 'REVENUS FINANCIERS & DE PLACEMENTS', isDefault: true, subCategories: [
+                { id: 'rev-sub-4-1', name: 'Dividendes' },
+                { id: 'rev-sub-4-2', name: 'Intérêts perçus' },
+                { id: 'rev-sub-4-3', name: 'Plus-values de cession' },
+                { id: 'rev-sub-4-4', name: 'Revenus locatifs nets' },
+            ]
+        },
+        {
+            id: 'rev-main-5', name: 'AIDES, SUBVENTIONS & DOTATIONS', isDefault: true, subCategories: [
+                { id: 'rev-sub-5-1', name: 'Aides publiques aux entreprises' },
+                { id: 'rev-sub-5-2', name: 'Subventions associatives' },
+                { id: 'rev-sub-5-3', name: 'Allocations & prestations sociales' },
+                { id: 'rev-sub-5-4', name: 'Indemnités journalières' },
+                { id: 'rev-sub-5-5', name: 'Pensions de retraite' },
+                { id: 'rev-sub-5-6', name: 'Bourses & bourses d\'études' },
+                { id: 'rev-sub-5-7', name: 'Crédit de TVA', isFixed: true },
+            ]
+        },
+        {
+            id: 'rev-main-6', name: 'APPORTS & FINANCEMENTS', isDefault: true, subCategories: [
+                { id: 'rev-sub-6-1', name: 'Apports en capital' },
+                { id: 'rev-sub-6-2', name: 'Emprunts & prêts reçus' },
+                { id: 'rev-sub-6-3', name: 'Collecte de fonds (crowdfunding)' },
+                { id: 'rev-sub-6-4', name: 'Apports personnels pour projet' },
+            ]
+        },
+        {
+            id: 'rev-main-7', name: 'REVENUS DIVERS & OCCASIONNELS', isDefault: true, subCategories: [
+                { id: 'rev-sub-7-1', name: 'Dons & cadeaux en argent' },
+                { id: 'rev-sub-7-2', name: 'Gains divers' },
+                { id: 'rev-sub-7-3', name: 'Remboursements personnels' },
+                { id: 'rev-sub-7-4', name: 'Compensations' },
+            ]
+        },
+        {
+            id: 'rev-main-8', name: 'FINANCEMENTS & CRÉDITS (Encaissements)', isDefault: true, subCategories: [
+                { id: 'rev-sub-8-1', name: 'Remboursement prêt familial' },
+                { id: 'rev-sub-8-2', name: 'Remboursement prêt entre associés' },
+                { id: 'rev-sub-8-3', name: 'Remboursement prêt entreprise' },
+            ]
+        },
+    ],
+    expense: [
+        {
+            id: 'exp-main-1', name: 'RÉMUNÉRATIONS & HONORAIRES', isDefault: true, subCategories: [
+                { id: 'exp-sub-1-1', name: 'Salaires, traitements et charges', criticality: 'critical' },
+                { id: 'exp-sub-1-2', name: 'Honoraires (freelances, experts-comptables)', criticality: 'essential' },
+                { id: 'exp-sub-1-3', name: 'Primes, bonus et participations', criticality: 'discretionary' },
+                { id: 'exp-sub-1-4', name: 'Indemnités (déplacement, repas, km)', criticality: 'essential' },
+                { id: 'exp-sub-1-5', name: 'Cotisations sociales personnelles', criticality: 'critical' },
+            ]
+        },
+        {
+            id: 'exp-main-2', name: 'HEBERGEMENT & LOGEMENT', isDefault: true, subCategories: [
+                { id: 'exp-sub-2-1', name: 'Loyer & Charges locatives', criticality: 'critical' },
+                { id: 'exp-sub-2-2', name: 'Prêt immobilier (remboursement capital)', criticality: 'critical' },
+                { id: 'exp-sub-2-3', name: 'Charges de copropriété', criticality: 'critical' },
+                { id: 'exp-sub-2-4', name: 'Entretien, réparations et amélioration', criticality: 'essential' },
+                { id: 'exp-sub-2-5', name: 'Énergie (Électricité, Gaz, Chauffage)', criticality: 'critical' },
+                { id: 'exp-sub-2-6', name: 'Eau et assainissement', criticality: 'critical' },
+                { id: 'exp-sub-2-7', name: 'Assurance habitation/locaux', criticality: 'critical' },
+                { id: 'exp-sub-2-8', name: 'Taxe foncière', criticality: 'critical' },
+            ]
+        },
+        {
+            id: 'exp-main-3', name: 'TRANSPORT & VÉHICULES', isDefault: true, subCategories: [
+                { id: 'exp-sub-3-1', name: 'Carburant & Recharge', criticality: 'essential' },
+                { id: 'exp-sub-3-2', name: 'Entretien, réparations et pièces', criticality: 'essential' },
+                { id: 'exp-sub-3-3', name: 'Assurance auto/moto', criticality: 'critical' },
+                { id: 'exp-sub-3-4', name: 'Péage, stationnement et amendes', criticality: 'discretionary' },
+                { id: 'exp-sub-3-5', name: 'Transport en commun', criticality: 'essential' },
+                { id: 'exp-sub-3-6', name: 'Taxi, VTC, location de véhicule', criticality: 'discretionary' },
+                { id: 'exp-sub-3-7', name: 'Voyages longue distance (billets de train, d\'avion)', criticality: 'discretionary' },
+            ]
+        },
+        {
+            id: 'exp-main-4', name: 'NOURRITURE & RESTAURATION', isDefault: true, subCategories: [
+                { id: 'exp-sub-4-1', name: 'Courses alimentaires', criticality: 'essential' },
+                { id: 'exp-sub-4-2', name: 'Restaurant, café, bar', criticality: 'discretionary' },
+                { id: 'exp-sub-4-3', name: 'Livraison de repas à domicile', criticality: 'discretionary' },
+                { id: 'exp-sub-4-4', name: 'Repas en déplacement professionnel', criticality: 'essential' },
+            ]
+        },
+        {
+            id: 'exp-main-5', name: 'COMMUNICATION, INTERNET & ABONNEMENTS', isDefault: true, subCategories: [
+                { id: 'exp-sub-5-1', name: 'Téléphonie mobile et fixe', criticality: 'essential' },
+                { id: 'exp-sub-5-2', name: 'Internet (Box) et Abonnements TV', criticality: 'essential' },
+                { id: 'exp-sub-5-3', name: 'Logiciels et applications (SaaS)', criticality: 'essential' },
+                { id: 'exp-sub-5-4', name: 'Hébergement web, nom de domaine', criticality: 'essential' },
+                { id: 'exp-sub-5-5', name: 'Équipements tech (ordinateur, smartphone)', criticality: 'discretionary' },
+            ]
+        },
+        {
+            id: 'exp-main-6', name: 'LOISIRS, CULTURE & SPORT', isDefault: true, subCategories: [
+                { id: 'exp-sub-6-1', name: 'Abonnements culturels (Streaming, presse, jeux vidéo)', criticality: 'discretionary' },
+                { id: 'exp-sub-6-2', name: 'Sports (Club, équipement, licence)', criticality: 'discretionary' },
+                { id: 'exp-sub-6-3', name: 'Sorties (Cinéma, concert, musée, événement)', criticality: 'discretionary' },
+                { id: 'exp-sub-6-4', name: 'Hobbies et passions', criticality: 'discretionary' },
+                { id: 'exp-sub-6-5', name: 'Vacances et week-ends', criticality: 'discretionary' },
+                { id: 'exp-sub-6-6', name: 'Cotisations associatives', criticality: 'discretionary' },
+            ]
+        },
+        {
+            id: 'exp-main-7', name: 'SANTÉ & BIEN-ÊTRE', isDefault: true, subCategories: [
+                { id: 'exp-sub-7-1', name: 'Mutuelle santé', criticality: 'critical' },
+                { id: 'exp-sub-7-2', name: 'Frais médicaux (consultations, pharmacie)', criticality: 'essential' },
+                { id: 'exp-sub-7-3', name: 'Soins (dentiste, opticien, kiné)', criticality: 'essential' },
+                { id: 'exp-sub-7-4', name: 'Bien-être (Coaching, yoga, cosmétiques)', criticality: 'discretionary' },
+            ]
+        },
+        {
+            id: 'exp-main-8', name: 'PROJET IMMOBILIER & INVESTISSEMENTS', isDefault: true, subCategories: [
+                { id: 'exp-sub-8-1', name: 'Apport personnel', criticality: 'discretionary' },
+                { id: 'exp-sub-8-2', name: 'Frais de notaire', criticality: 'critical' },
+                { id: 'exp-sub-8-3', name: 'Travaux d\'aménagement importants', criticality: 'discretionary' },
+                { id: 'exp-sub-8-4', name: 'Achat de mobilier durable', criticality: 'discretionary' },
+                { id: 'exp-sub-8-5', name: 'Investissements financiers', criticality: 'discretionary' },
+            ]
+        },
+        {
+            id: 'exp-main-9', name: 'ACTIVITÉ PROFESSIONNELLE & ENTREPRISE', isDefault: true, subCategories: [
+                { id: 'exp-sub-9-1', name: 'Marketing et publicité', criticality: 'discretionary' },
+                { id: 'exp-sub-9-2', name: 'Achat de marchandises / matières premières', criticality: 'essential' },
+                { id: 'exp-sub-9-3', name: 'Sous-traitance', criticality: 'essential' },
+                { id: 'exp-sub-9-4', name: 'Frais de déplacement professionnel (hors repas)', criticality: 'essential' },
+                { id: 'exp-sub-9-5', name: 'Cotisations et frais professionnels', criticality: 'essential' },
+                { id: 'exp-sub-9-6', name: 'Assurance responsabilité civile pro (RC Pro)', criticality: 'critical' },
+                { id: 'exp-sub-9-7', name: 'Fournitures de bureau', criticality: 'essential' },
+                { id: 'exp-sub-9-8', name: 'Petit équipement', criticality: 'discretionary' },
+            ]
+        },
+        {
+            id: 'exp-main-10', name: 'FINANCES & ASSURANCES', isDefault: true, subCategories: [
+                { id: 'exp-sub-10-1', name: 'Intérêts d\'emprunts', criticality: 'critical' },
+                { id: 'exp-sub-10-2', name: 'Frais bancaires', criticality: 'essential' },
+                { id: 'exp-sub-10-3', name: 'Assurance emprunteur', criticality: 'critical' },
+                { id: 'exp-sub-10-4', name: 'Autres assurances', criticality: 'essential' },
+            ]
+        },
+        {
+            id: 'exp-main-11', name: 'IMPÔTS & CONTRIBUTIONS', isDefault: true, subCategories: [
+                { id: 'exp-sub-11-1', name: 'Impôt sur le revenu / sur les sociétés', criticality: 'critical' },
+                { id: 'exp-sub-11-2', name: 'Taxe d\'habitation', criticality: 'critical' },
+                { id: 'exp-sub-11-3', name: 'Cotisation Foncière des Entreprises (CFE)', criticality: 'critical' },
+                { id: 'exp-sub-11-4', name: 'TVA à payer', isFixed: true, criticality: 'critical' },
+                { id: 'exp-sub-11-5', name: 'Dons et mécénat', criticality: 'discretionary' },
+                { id: 'exp-sub-11-6', name: 'TVA déductible', isFixed: true, criticality: 'critical' },
+                { id: 'exp-sub-11-7', name: 'TVA collectée', isFixed: true, criticality: 'critical' },
+            ]
+        },
+        {
+            id: 'exp-main-12', name: 'FAMILLE & ENFANTS', isDefault: true, subCategories: [
+                { id: 'exp-sub-12-1', name: 'Frais de scolarité et garde', criticality: 'critical' },
+                { id: 'exp-sub-12-2', name: 'Activités extrascolaires', criticality: 'discretionary' },
+                { id: 'exp-sub-12-3', name: 'Vêtements et fournitures pour enfants', criticality: 'essential' },
+            ]
+        },
+        {
+            id: 'exp-main-13', name: 'ÉPARGNE & DOSSIERS', isDefault: true, subCategories: [
+                { id: 'exp-sub-13-1', name: 'Versement épargne', criticality: 'discretionary' },
+                { id: 'exp-sub-13-2', name: 'Épargne retraite (PER)', criticality: 'discretionary' },
+                { id: 'exp-sub-13-3', name: 'Frais divers et imprévus', criticality: 'essential' },
+            ]
+        },
+        {
+            id: 'exp-main-14', name: 'AMEUBLEMENT, ÉQUIPEMENT & DÉCORATION', isDefault: true, subCategories: [
+                { id: 'exp-sub-14-1', name: 'Mobilier & Agencement', criticality: 'discretionary' },
+                { id: 'exp-sub-14-2', name: 'Électroménager', criticality: 'essential' },
+                { id: 'exp-sub-14-3', name: 'Décoration & Ambiance', criticality: 'discretionary' },
+                { id: 'exp-sub-14-4', name: 'Linge de maison', criticality: 'discretionary' },
+                { id: 'exp-sub-14-5', name: 'Jardin & Extérieur', criticality: 'discretionary' },
+            ]
+        },
+        {
+            id: 'exp-main-15', name: 'FINANCEMENTS & CRÉDITS (Remboursements)', isDefault: true, subCategories: [
+                { id: 'exp-sub-15-1', name: 'Prêt résidence principale', criticality: 'critical' },
+                { id: 'exp-sub-15-2', name: 'Prêt investissement locatif', criticality: 'critical' },
+                { id: 'exp-sub-15-3', name: 'Prêt travaux', criticality: 'critical' },
+                { id: 'exp-sub-15-4', name: 'Prêt automobile', criticality: 'critical' },
+                { id: 'exp-sub-15-5', name: 'Crédit renouvelable', criticality: 'critical' },
+                { id: 'exp-sub-15-6', name: 'Prêt personnel', criticality: 'critical' },
+                { id: 'exp-sub-15-7', name: 'Prêt équipement pro', criticality: 'critical' },
+                { id: 'exp-sub-15-8', name: 'Crédit bail (leasing)', criticality: 'critical' },
+                { id: 'exp-sub-15-9', name: 'Prêt trésorerie', criticality: 'critical' },
+                { id: 'exp-sub-15-10', name: 'Dette familiale', criticality: 'essential' },
+                { id: 'exp-sub-15-11', name: 'Dette associatives', criticality: 'essential' },
+                { id: 'exp-sub-15-12', name: 'Découvert bancaire', criticality: 'critical' },
+            ]
+        },
+
+    ]
 };
 
-const initialSettings = { 
-  displayUnit: 'standard', decimalPlaces: 2, currency: 'EUR', exchangeRates: {}, timezoneOffset: 0,
+const initialSettings = {
+    displayUnit: 'standard', decimalPlaces: 2, currency: 'EUR', exchangeRates: {}, timezoneOffset: 0,
 };
+
 
 // Fonction utilitaire pour générer des UUID
 const uuidv4 = () => {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c == 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        const r = Math.random() * 16 | 0;
+        const v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
 };
 
 const getMockUserData = () => ({
-  id: 3, 
-  email: 'demo@example.com',
-  user_metadata: { name: 'Utilisateur Démo' }
+    id: 3,
+    email: 'demo@example.com',
+    user_metadata: { name: 'Utilisateur Démo' }
 });
 const getMockSession = () => ({
-  user: getMockUserData(),
-  access_token: 'mock-token',
-  expires_at: Math.floor(Date.now() / 1000) + 3600
+    user: getMockUserData(),
+    access_token: 'mock-token',
+    expires_at: Math.floor(Date.now() / 1000) + 3600
 });
 
 const getInitialDataState = () => ({
-    session: null, 
-    profile: null, 
-    allProfiles: [], 
-    projects: [], 
-    categories: initialCategories, 
+    session: null,
+    profile: null,
+    allProfiles: [],
+    projects: [],
+    categories: initialCategories,
     allEntries: {},
-    allActuals: {}, 
-    allCashAccounts: {}, 
-    tiers: [], 
-    settings: initialSettings, 
-    scenarios: [], 
+    allActuals: {},
+    allCashAccounts: {},
+    tiers: [],
+    settings: initialSettings,
+    scenarios: [],
     scenarioEntries: {},
-    loans: [], 
-    allComments: {}, 
-    consolidatedViews: [], 
-    collaborators: [], 
-    templates: [], 
-    vatRates: {}, 
+    loans: [],
+    allComments: {},
+    consolidatedViews: [],
+    collaborators: [],
+    templates: [],
+    vatRates: {},
     vatRegimes: {},
-    taxConfigs: [], 
+    taxConfigs: [],
     exchangeRates: null,
 });
-
 const dataReducer = (state, action) => {
     switch (action.type) {
+        case 'SET_PROJECTS':
+            console.log('🔄 SET_PROJECTS action:', action.payload);
+            return {
+                ...state,
+                projects: action.payload
+            };
         case 'SET_TEMPLATES':
             console.log('🔄 SET_TEMPLATES action:', action.payload);
             return { ...state, templates: action.payload };
@@ -307,20 +358,20 @@ const dataReducer = (state, action) => {
             return getInitialDataState();
         case 'FORCE_DATA_RELOAD':
             return { ...state, profile: null };
-// Dans votre dataReducer
-case 'INITIALIZE_PROJECT_SUCCESS': {
-  const { newProject, finalCashAccounts, newAllEntries, newAllActuals, newTiers, newLoans, newCategories } = action.payload;
-  return {
-    ...state,
-    projects: [...state.projects, newProject],
-    allEntries: { ...state.allEntries, [newProject.id]: newAllEntries },
-    allActuals: { ...state.allActuals, [newProject.id]: newAllActuals },
-    allCashAccounts: { ...state.allCashAccounts, [newProject.id]: finalCashAccounts },
-    tiers: newTiers,
-    loans: [...state.loans, ...newLoans],
-    categories: newCategories || state.categories,
-  };
-}
+        // Dans votre dataReducer
+        case 'INITIALIZE_PROJECT_SUCCESS': {
+            const { newProject, finalCashAccounts, newAllEntries, newAllActuals, newTiers, newLoans, newCategories } = action.payload;
+            return {
+                ...state,
+                projects: [...state.projects, newProject],
+                allEntries: { ...state.allEntries, [newProject.id]: newAllEntries },
+                allActuals: { ...state.allActuals, [newProject.id]: newAllActuals },
+                allCashAccounts: { ...state.allCashAccounts, [newProject.id]: finalCashAccounts },
+                tiers: newTiers,
+                loans: [...state.loans, ...newLoans],
+                categories: newCategories || state.categories,
+            };
+        }
         case 'UPDATE_PROJECT_SETTINGS_SUCCESS': {
             return {
                 ...state,
@@ -571,38 +622,140 @@ case 'INITIALIZE_PROJECT_SUCCESS': {
 export const DataProvider = ({ children }) => {
   const { user, token, isAuthenticated } = useAuth();
   const [state, dispatch] = useReducer(dataReducer, getInitialDataState());
+  
+  // Références pour éviter les appels en boucle
+  const fetchInProgress = useRef(false);
+  const lastFetchTime = useRef(0);
+  const initialized = useRef(false);
 
   console.log("🔍 DataProvider - Auth state:", { user, token, isAuthenticated });
-  console.log("🔍 DataProvider - Current data state:", state);
 
-  // Fonction pour récupérer les projets
-  const fetchProjects = async () => {
-    if (!user?.id || !token) {
-      console.log('❌ Utilisateur non connecté, impossible de récupérer les projets', { user, token });
+  const transformApiProjects = (apiData, currentUserId) => {
+    const projects = [];
+    
+    console.log("🔄 Transformation des données API pour l'utilisateur:", currentUserId);
+
+    if (apiData.status === 204) {
+      console.log("ℹ️ Aucun projet trouvé pour l'utilisateur");
+      return [];
+    }
+
+    const transformProject = (project, type) => {
+      return {
+        id: project.id,
+        name: project.name,
+        description: project.description,
+        start_date: project.start_date,
+        end_date: project.end_date,
+        is_duration_undetermined: project.is_duration_undetermined,
+        project_type_id: project.project_type_id,
+        project_type_name: project.type_name,
+        project_type_logo: project.project_type_logo,
+        template_id: project.template_id,
+        template_name: project.template_name,
+        user_id: currentUserId,
+        user_subscriber_id: project.user_subscriber_id,
+        collaborators: [],
+        isArchived: false,
+        is_temp: false,
+        is_owner: project.user_subscriber_id === currentUserId,
+        category_type: type
+      };
+    };
+
+    if (apiData.projects?.business?.project_business_items?.data) {
+      apiData.projects.business.project_business_items.data.forEach(project => {
+        projects.push(transformProject(project, 'business'));
+      });
+    }
+    
+    if (apiData.projects?.events?.project_event_items?.data) {
+      apiData.projects.events.project_event_items.data.forEach(project => {
+        projects.push(transformProject(project, 'events'));
+      });
+    }
+    
+    if (apiData.projects?.menages?.project_menage_items?.data) {
+      apiData.projects.menages.project_menage_items.data.forEach(project => {
+        projects.push(transformProject(project, 'menages'));
+      });
+    }
+    
+    console.log("✅ Projets transformés pour l'utilisateur:", projects.length);
+    return projects;
+  };
+
+  // fetchProjects corrigé
+  const fetchProjects = async (userId = user?.id) => {
+    // Vérifier que l'userId est défini
+    if (!userId) {
+      console.error("❌ userId non défini pour fetchProjects");
+      return [];
+    }
+
+    // Éviter les appels simultanés
+    if (fetchInProgress.current) {
+      console.log("⏳ Fetch déjà en cours, attente...");
       return;
     }
 
+    // Rate limiting: attendre au moins 3 secondes entre les appels
+    const now = Date.now();
+    const timeSinceLastFetch = now - lastFetchTime.current;
+    const minTimeBetweenFetches = 3000;
+
+    if (timeSinceLastFetch < minTimeBetweenFetches) {
+      console.log(`⏳ Rate limiting: attente de ${minTimeBetweenFetches - timeSinceLastFetch}ms`);
+      return; // On retourne simplement sans attendre
+    }
+
     try {
-      console.log('🔄 Récupération des projets pour l\'utilisateur:', user.id);
-      
-      const response = await axios.get('/projects');
-      console.log('✅ Projets récupérés:', response.data);
-      
-      dispatch({ type: 'SET_PROJECTS', payload: response.data });
-      
-    } catch (error) {
-      console.error('❌ Erreur lors de la récupération des projets:', error);
-      
-      // Fallback pour le développement
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🔄 Chargement de projets mock pour le développement');
-        const mockProjects = getMockProjects(user.id);
-        dispatch({ type: 'SET_PROJECTS', payload: mockProjects });
+      fetchInProgress.current = true;
+      lastFetchTime.current = Date.now();
+
+      const authToken = token || localStorage.getItem("auth_token");
+      if (!authToken) {
+        throw new Error("Token d'authentification manquant");
       }
+
+      console.log("📡 Fetching projects for user:", userId);
+      
+      const response = await axios.get('/projects', {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+        timeout: 10000,
+      });
+
+      const data = response.data;
+      console.log("📦 Réponse API reçue");
+
+      if (data.status === 204) {
+        console.log("ℹ️ Aucun projet trouvé");
+        dispatch({ type: "SET_PROJECTS", payload: [] });
+        return [];
+      }
+
+      const transformedProjects = transformApiProjects(data, userId);
+      console.log("🔄 Envoi des projets au reducer:", transformedProjects.length);
+
+      dispatch({ type: "SET_PROJECTS", payload: transformedProjects });
+      return transformedProjects;
+
+    } catch (error) {
+      console.error("❌ Erreur fetchProjects:", error);
+      
+      if (error.response?.status === 429) {
+        console.error("🚫 Rate limit atteint");
+      }
+      
+      return [];
+    } finally {
+      fetchInProgress.current = false;
     }
   };
 
-  // Synchroniser la session DataContext avec AuthContext
+  // Synchroniser la session - UNIQUEMENT quand user/token changent
   useEffect(() => {
     console.log("🔄 Synchronisation AuthContext -> DataContext");
     
@@ -613,56 +766,37 @@ export const DataProvider = ({ children }) => {
         expires_at: Math.floor(Date.now() / 1000) + 3600
       };
       
-      console.log("✅ Mise à jour de la session dans DataContext:", sessionData);
+      console.log("✅ Mise à jour de la session dans DataContext");
       dispatch({ type: 'SET_SESSION', payload: sessionData });
       dispatch({ type: 'SET_PROFILE', payload: user });
     } else {
       console.log("🚪 Reset de la session dans DataContext");
       dispatch({ type: 'SET_SESSION', payload: null });
       dispatch({ type: 'SET_PROFILE', payload: null });
+      dispatch({ type: 'SET_PROJECTS', payload: [] });
     }
   }, [user, token]);
 
-  // Charger les projets quand l'utilisateur se connecte
+  // Charger les projets UNE SEULE FOIS au montage ou quand l'utilisateur change
   useEffect(() => {
-    if (user?.id && token) {
-      console.log('🔄 Utilisateur connecté détecté, chargement des projets...', { 
-        userId: user.id, 
-        hasToken: !!token 
-      });
-      fetchProjects();
-    } else {
-      console.log('🚪 Aucun utilisateur connecté, reset des projets');
-      dispatch({ type: 'SET_PROJECTS', payload: [] });
+    // Éviter le rechargement si déjà initialisé
+    if (initialized.current && state.projects.length > 0) {
+      console.log("✅ Projets déjà chargés, pas de rechargement");
+      return;
     }
-  }, [user?.id, token]);
 
-  // Simulation pour le développement (seulement si pas d'utilisateur réel)
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development' && !user && !token) {
-      console.log('🔄 Mode développement: chargement des données mock');
+    if (user?.id && token && !fetchInProgress.current) {
+      console.log('🔄 Chargement initial des projets pour user:', user.id);
+      
       const timer = setTimeout(() => {
-        const mockSession = getMockSession();
-        dispatch({ type: 'SET_SESSION', payload: mockSession });
-        dispatch({ type: 'SET_PROFILE', payload: mockSession.user });
-        
-        // Charger des projets mock
-        const mockProjects = getMockProjects(mockSession.user.id);
-        dispatch({ type: 'SET_PROJECTS', payload: mockProjects });
-        
-        dispatch({ 
-          type: 'SET_EXCHANGE_RATES', 
-          payload: {
-            EUR: 1,
-            USD: 1.08,
-            GBP: 0.85
-          }
+        fetchProjects(user.id).then(() => {
+          initialized.current = true;
         });
       }, 1000);
 
       return () => clearTimeout(timer);
     }
-  }, [user, token]);
+  }, [user?.id, token]); // Dépendances réduites
 
   const value = {
     dataState: state,
@@ -679,9 +813,9 @@ export const DataProvider = ({ children }) => {
 };
 
 export const useData = () => {
-  const context = useContext(DataContext);
-  if (!context) {
-    throw new Error('useData must be used within a DataProvider');
-  }
-  return context;
+    const context = useContext(DataContext);
+    if (!context) {
+        throw new Error('useData must be used within a DataProvider');
+    }
+    return context;
 };
