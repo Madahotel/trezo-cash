@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { ChevronsUpDown, Check, Plus, Layers } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useUI } from "../context/UIContext";
@@ -8,21 +8,28 @@ import ConsolidatedViewModal from "../modal/ConsolidatedViewModal";
 
 const ProjectSwitcher = () => {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
-  const [activeProjectId, setActiveProjectId] = useState(null);
-  const { uiDispatch } = useUI();
+  const { uiState, uiDispatch } = useUI();
   const { dataState, fetchProjects } = useData();
   const [isConsolidatedViewModalOpen, setIsConsolidatedViewModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
   const projects = dataState?.projects || [];
-  const activeProjects = projects.filter(project =>
-    !project.isArchived && !project.is_temp
-  );
-  const myProjects = projects.filter(project => 
-    project.user_subscriber_id === user?.id && 
-    !project.isArchived && 
-    !project.is_temp
-  );
+
+  const myProjects = projects.filter(project => {
+    if (!project || project.isArchived || project.is_temp) return false;
+
+    const isOwner = project.user_id === user?.id;
+    const isSubscriber = project.user_subscriber_id === user?.id;
+    const isCollaborator = project.collaborators?.some(collab =>
+      collab.user_id === user?.id
+    );
+
+    return isOwner || isSubscriber || isCollaborator;
+  });
+
+  // ✅ CORRECTION : Extraire l'ID de l'objet activeProject
+  const activeProjectId = uiState.activeProject?.id || null;
 
   const [isListOpen, setIsListOpen] = useState(false);
   const listRef = useRef(null);
@@ -34,23 +41,32 @@ const ProjectSwitcher = () => {
     { id: "2", name: "Vue marketing + ventes" },
   ];
 
-  useEffect(() => {
-    console.log("🔍 ProjectSwitcher - User:", user);
-    console.log("🔍 ProjectSwitcher - Projects:", dataState.projects);
-    console.log("🔍 ProjectSwitcher - My Projects:", myProjects);
-  }, [user, dataState.projects]);
+  // ✅ CORRECTION : Fonction utilitaire améliorée
+  const areIdsEqual = useCallback((id1, id2) => {
+    if (id1 == null || id2 == null) return false;
+    return String(id1) === String(id2);
+  }, []);
 
-  // Charger les projets au montage
- useEffect(() => {
+  const findProjectById = useCallback((id) => {
+    return myProjects.find(project => areIdsEqual(project.id, id));
+  }, [myProjects, areIdsEqual]);
+
+  useEffect(() => {
+    console.log("🔍 ProjectSwitcher - Active Project:", uiState.activeProject);
+    console.log("🔍 ProjectSwitcher - Active Project ID:", activeProjectId);
+    console.log("🔍 ProjectSwitcher - My Projects:", myProjects);
+  }, [uiState.activeProject, activeProjectId, myProjects]);
+
+  // Charger les projets
+  useEffect(() => {
     const loadProjects = async () => {
-      // Éviter les rechargements inutiles
       if (projectsLoaded.current || authLoading || !user?.id) {
         return;
       }
 
       console.log("🔄 Chargement des projets dans ProjectSwitcher");
       setLoading(true);
-      
+
       try {
         await fetchProjects(user.id);
         projectsLoaded.current = true;
@@ -61,13 +77,9 @@ const ProjectSwitcher = () => {
       }
     };
 
-    // Délai pour éviter les conflits avec le DataProvider
     const timer = setTimeout(loadProjects, 500);
-    
     return () => clearTimeout(timer);
-  }, [authLoading, user?.id]); // Dépendances réduites
-
-
+  }, [authLoading, user?.id, fetchProjects]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -78,14 +90,24 @@ const ProjectSwitcher = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-  useEffect(() => {
-    if (!activeProjectId && myProjects.length > 0) {
-      setActiveProjectId(myProjects[0].id);
-    }
-  }, [activeProjectId, myProjects]);
 
-const isConsolidated = activeProjectId === "consolidated";
-const isCustomConsolidated = typeof activeProjectId === 'string' && activeProjectId.startsWith("consolidated_view_");
+  // ✅ CORRECTION : Définir le projet par défaut
+  useEffect(() => {
+    if (myProjects.length > 0 && !activeProjectId && !loading && projectsLoaded.current) {
+      const defaultProject = myProjects[0];
+
+      if (defaultProject && defaultProject.id) {
+        console.log("🔄 Définition du projet actif par défaut:", defaultProject.name);
+        uiDispatch({
+          type: 'SET_ACTIVE_PROJECT',
+          payload: defaultProject
+        });
+      }
+    }
+  }, [myProjects, activeProjectId, loading, uiDispatch, projectsLoaded.current]);
+
+  const isConsolidated = activeProjectId === "consolidated";
+  const isCustomConsolidated = typeof activeProjectId === 'string' && activeProjectId.startsWith("consolidated_view_");
 
   let displayName = "Sélectionner un projet";
 
@@ -96,25 +118,40 @@ const isCustomConsolidated = typeof activeProjectId === 'string' && activeProjec
     const view = consolidatedViews.find((v) => v.id === viewId);
     displayName = view ? view.name : "Vue inconnue";
   } else {
-    const project = myProjects.find((p) => p.id === activeProjectId);
+    const project = findProjectById(activeProjectId);
     if (project) displayName = project.name;
   }
 
+  // ✅ CORRECTION : HandleSelect amélioré avec logs détaillés
   const handleSelect = (id) => {
-    setActiveProjectId(id);
-    setIsListOpen(false);
+    console.log("🔍 handleSelect appelé avec id:", id, "type:", typeof id);
 
-    if (id !== "consolidated" && !id.startsWith("consolidated_view_")) {
-      const selectedProject = myProjects.find(p => p.id === id);
+    const idString = String(id);
+
+    if (idString !== "consolidated" && !idString.startsWith("consolidated_view_")) {
+      const selectedProject = findProjectById(id);
+
+      console.log("🔍 Projet sélectionné trouvé:", selectedProject);
+
       if (selectedProject) {
+        console.log("✅ Définition du projet actif:", selectedProject.name);
         uiDispatch({
           type: 'SET_ACTIVE_PROJECT',
           payload: selectedProject
         });
+      } else {
+        console.log("❌ Aucun projet trouvé avec l'ID:", id);
+        console.log("🔍 IDs disponibles:", myProjects.map(p => ({ id: p.id, name: p.name })));
       }
     } else {
-      uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: null });
+      console.log("🔍 Sélection d'une vue consolidée");
+      uiDispatch({
+        type: 'SET_ACTIVE_PROJECT',
+        payload: { id: idString, name: displayName, type: 'consolidated' }
+      });
     }
+
+    setIsListOpen(false);
   };
 
   const handleAddProject = () => {
@@ -221,7 +258,7 @@ const isCustomConsolidated = typeof activeProjectId === 'string' && activeProjec
                         {getProjectType(project)}
                       </span>
                     </span>
-                    {project.id === activeProjectId && (
+                    {areIdsEqual(project.id, activeProjectId) && (
                       <Check className="w-4 h-4 text-blue-600" />
                     )}
                   </button>
@@ -245,36 +282,9 @@ const isCustomConsolidated = typeof activeProjectId === 'string' && activeProjec
                   Chargement des projets...
                 </div>
               )}
-              {sharedProjects.length > 0 && (
-                <div className="px-3 pt-2 pb-1 text-xs font-semibold text-gray-400 uppercase">
-                  Projets partagés avec moi ({sharedProjects.length})
-                </div>
-              )}
-              {sharedProjects.map((project) => (
-                <li key={project.id}>
-                  <button
-                    onClick={() => handleSelect(project.id)}
-                    className="flex items-center justify-between w-full px-3 py-2 text-sm text-left text-gray-700 rounded-md hover:bg-gray-100"
-                  >
-                    <span className="flex items-center gap-2 truncate">
-                      <div className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold ${getAvatarColor(project.id)}`}>
-                        {getProjectInitial(project.name)}
-                      </div>
-                      <span className="truncate">{project.name}</span>
-                      <span className="px-1.5 py-0.5 text-xs font-semibold text-purple-700 bg-purple-100 rounded-full shrink-0">
-                        Partagé
-                      </span>
-                    </span>
-                    {project.id === activeProjectId && (
-                      <Check className="w-4 h-4 text-blue-600 shrink-0" />
-                    )}
-                  </button>
-                </li>
-              ))}
             </ul>
           </div>
 
-          {/* Actions */}
           <div className="border-t p-1">
             <button
               onClick={handleCreateConsolidatedView}
@@ -294,7 +304,6 @@ const isCustomConsolidated = typeof activeProjectId === 'string' && activeProjec
         </div>
       )}
 
-      {/* Modal pour les vues consolidées */}
       {isConsolidatedViewModalOpen && (
         <ConsolidatedViewModal
           isOpen={isConsolidatedViewModalOpen}

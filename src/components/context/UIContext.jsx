@@ -55,8 +55,11 @@ const uiReducer = (state, action) => {
         case 'RESET_UI_STATE':
             const trezoView = state.activeTrezoView;
             return { ...getInitialUIState(), isLoading: false, activeTrezoView: trezoView };
-        case 'SET_ACTIVE_PROJECT':
-            return { ...state, activeProjectId: action.payload, periodOffset: 0 };
+case 'SET_ACTIVE_PROJECT':
+  return {
+    ...state,
+    activeProject: action.payload // Doit être l'objet projet complet
+  };
         case 'SET_ACTIVE_TREZO_VIEW':
             sessionStorage.setItem('activeTrezoView', action.payload);
             return { ...state, activeTrezoView: action.payload };

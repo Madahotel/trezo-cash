@@ -20,24 +20,25 @@ import {
 import { Button } from '../ui/Button';
 
 const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
-    const { dataState, fetchProjects } = useData(); // Ajout de fetchProjects
-
     const { uiState, uiDispatch } = useUI();
-    const { user, token } = useAuth(); // Ajout de token
+    const { activeProject } = uiState; // C'est l'objet complet
+    const activeProjectId = activeProject?.id || null; // Extraire l'ID
+    const { dataState, fetchProjects } = useData();
+
+    const { user, token } = useAuth();
     const { profile, projects, consolidatedViews } = dataState;
     const {
         theme,
         setTheme,
         getAllThemes,
     } = useSettings();
-    const { activeProjectId } = uiState;
     const navigate = useNavigate();
     const location = useLocation();
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
 
     const [themeActive, setThemeActive] = useState("");
-    
+
     // Charger les projets quand l'utilisateur se connecte
     useEffect(() => {
         if (user?.id && token) {
@@ -45,7 +46,7 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
             fetchProjects();
         }
     }, [user?.id, token, fetchProjects]);
-    
+
     // Close menu when clicking outside
     useEffect(() => {
         const selectedTheme = getAllThemes().find(themeOption => theme === themeOption.id);
@@ -55,7 +56,7 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
             setThemeActive("bg-blue-600");
         }
     }, [theme, getAllThemes]);
-    
+
     const handleOpenMobileNav = () => {
         uiDispatch({ type: 'OPEN_NAV_DRAWER' });
     };
@@ -63,14 +64,11 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
     // Filtrer les projets pour n'afficher que ceux de l'utilisateur connecté
     const userProjects = useMemo(() => {
         if (!user?.id || !projects?.length) return [];
-        
+
         return projects.filter(project => {
-            // Projets où l'utilisateur est propriétaire
             const isOwner = project.user_id === user.id;
-            // Projets où l'utilisateur est abonné
             const isSubscriber = project.user_subscriber_id === user.id;
-            // Projets où l'utilisateur est collaborateur
-            const isCollaborator = project.collaborators?.some(collab => 
+            const isCollaborator = project.collaborators?.some(collab =>
                 collab.user_id === user.id
             );
 
@@ -78,19 +76,29 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
         });
     }, [projects, user?.id]);
 
-    const activeProjectOrView = useMemo(() => {
-        if (!activeProjectId) return null;
-        if (activeProjectId === 'consolidated') {
-            return { id: 'consolidated', name: 'Mes projets consolidés', type: 'consolidated' };
-        }
-        if (activeProjectId.startsWith('consolidated_view_')) {
-            const viewId = activeProjectId.replace('consolidated_view_', '');
-            const view = consolidatedViews?.find(v => v.id === viewId);
-            return view ? { ...view, type: 'custom_consolidated' } : null;
-        }
-        return userProjects?.find(p => p.id === activeProjectId) || null;
-    }, [activeProjectId, userProjects, consolidatedViews]);
+    // CORRECTION : Fonction utilitaire pour gérer les IDs de projet
+    const getProjectIdInfo = (projectId) => {
+        if (!projectId) return { string: '', isConsolidated: false, isCustomConsolidated: false };
 
+        const idString = String(projectId);
+        return {
+            string: idString,
+            isConsolidated: idString === 'consolidated',
+            isCustomConsolidated: idString.startsWith('consolidated_view_')
+        };
+    };
+
+    const activeProjectOrView = useMemo(() => {
+        if (!activeProject) return null;
+
+        // Si activeProject a déjà un id, c'est un projet normal
+        if (activeProject.id && typeof activeProject.id !== 'object') {
+            return activeProject;
+        }
+
+        // Sinon, chercher dans userProjects
+        return userProjects?.find(p => String(p.id) === String(activeProjectId)) || null;
+    }, [activeProject, activeProjectId, userProjects]);
     const pageTitle = useMemo(() => {
         if (location.pathname.startsWith('/client/projets')) {
             const name = profile?.fullName?.split(' ')[0] || user?.name || 'Utilisateur';
@@ -128,23 +136,27 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
 
     // CORRECTION : Utiliser userProjects au lieu de projects
     const canShareProject = useMemo(() => {
-        if (!activeProjectOrView || 
-            activeProjectId === 'consolidated' || 
-            activeProjectId?.startsWith('consolidated_view_') ||
-            !user?.id) {
+        if (!activeProjectOrView || !user?.id) {
             return false;
         }
-        
+
+        // CORRECTION : Utiliser la fonction utilitaire pour vérifier le type de projet
+        const projectIdInfo = getProjectIdInfo(activeProjectId);
+
+        if (projectIdInfo.isConsolidated || projectIdInfo.isCustomConsolidated) {
+            return false;
+        }
+
         // Vérifier si l'utilisateur est propriétaire du projet
         const isOwner = activeProjectOrView.user_id === user.id;
-        
+
         // Vérifier si l'utilisateur a les droits de partage (propriétaire ou admin)
-        const userRole = activeProjectOrView.collaborators?.find(collab => 
+        const userRole = activeProjectOrView.collaborators?.find(collab =>
             collab.user_id === user.id
         )?.role;
-        
+
         const canShareAsCollaborator = userRole === 'admin' || userRole === 'owner';
-        
+
         return isOwner || canShareAsCollaborator;
     }, [activeProjectOrView, activeProjectId, user]);
 
@@ -154,8 +166,9 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
 
     // Debug amélioré
     useEffect(() => {
-        console.log('Header Debug:', activeProjectOrView);
-    }, [activeProjectOrView]);
+        console.log('Header Debug - activeProjectId:', activeProjectId, 'type:', typeof activeProjectId);
+        console.log('Header Debug - activeProjectOrView:', activeProjectOrView);
+    }, [activeProjectId, activeProjectOrView]);
 
     return (
         <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
@@ -336,7 +349,7 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
                     </button>
                 </div>
             </div>
-            
+
             {/* Barre de recherche (mobile) */}
             {isSearchOpen && (
                 <div className="w-full px-4 py-2 bg-gray-50 border-b border-gray-200 animate-fadeIn">

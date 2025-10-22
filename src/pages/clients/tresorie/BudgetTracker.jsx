@@ -8,7 +8,7 @@ import { formatCurrency } from '../../../utils/formatting';
 import { useData } from '../../../components/context/DataContext';
 import { useUI } from '../../../components/context/UIContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { deleteEntry, saveEntry } from '../../../components/context/actions';
+import { deleteEntry, saveEntry } from '../../../components/context/actions.js';
 
 const criticalityConfig = {
     critical: { label: 'Critique', color: 'bg-red-500' },

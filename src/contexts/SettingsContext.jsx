@@ -81,6 +81,7 @@ export const SettingsProvider = ({ children }) => {
   ];
 
   const formatCurrency = (amount, currencyCode = null) => {
+    if (amount == null || isNaN(amount)) return 0;
     const currCode = currencyCode || currency;
     const curr = currencies.find(c => c.code === currCode);
     if (!curr) return `${amount.toLocaleString()} €`;

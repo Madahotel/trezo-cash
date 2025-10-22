@@ -1,48 +1,55 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../../components/config/Axios';
+import toast from 'react-hot-toast';
 import {
     Plus,
     FolderOpen,
-    Calendar,
-    Edit,
-    Trash2,
-    BarChart,
-    Building2,
-    Home,
-    PartyPopper,
-    Globe,
-    Archive,
-    RotateCcw,
+    RotateCw,
+    Briefcase, PartyPopper, Home
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
-import { Label } from '../../../components/ui/Label';
-import { Textarea } from '../../../components/ui/textarea';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '../../../components/ui/alert-dialog';
+import { Card, CardContent, } from '../../../components/ui/card';
 import { useSettings } from '../../../contexts/SettingsContext';
-import archiveService from '../../../services/archiveService';
+import { archiveService } from '../../../services/archiveService';
+
+import ProjectCard from './ProjectCard';
+import ArchiveDialog from './ArchiveDialog';
+import ProjectStats from './ProjectStats';
+
+// Configuration des icônes par type de projet
+const projectTypeIcons = {
+    'Business': Briefcase,
+    'Événement': PartyPopper,
+    'Ménages': Home,
+    'Professionnel': Briefcase,
+    'Evènement': PartyPopper,
+    'Ménage': Home,
+    'default': Briefcase
+};
+
+// Couleurs pour les types de projet
+const projectTypeColors = {
+    'Business': 'blue',
+    'Événement': 'pink',
+    'Ménages': 'green',
+    'Professionnel': 'blue',
+    'Evènement': 'pink',
+    'Ménage': 'green',
+    'default': 'gray'
+};
 
 const ProjectsPage = () => {
     const navigate = useNavigate();
-    const { language, formatCurrency, currencies } = useSettings();
+    const { language, formatCurrency } = useSettings();
 
     const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
     const [selectedProject, setSelectedProject] = useState(null);
     const [archiveReason, setArchiveReason] = useState('');
-    
-    // Suppression des états liés au modal de création
-    const [availableTemplates, setAvailableTemplates] = useState([]);
-    const [templatePreview, setTemplatePreview] = useState(null);
+
+    // Nouveaux états pour la sélection multiple
+    const [selectedProjects, setSelectedProjects] = useState([]);
+    const [isSelectMode, setIsSelectMode] = useState(false);
 
     // États pour les données de l'API
     const [projects, setProjects] = useState([]);
@@ -55,6 +62,10 @@ const ProjectsPage = () => {
         menages: 0
     });
 
+    const [editingProjectId, setEditingProjectId] = useState(null);
+    const [editForm, setEditForm] = useState({});
+    const [localLoading, setLocalLoading] = useState(false);
+
     // Récupération des données depuis l'API
     useEffect(() => {
         fetchProjects();
@@ -64,15 +75,12 @@ const ProjectsPage = () => {
         try {
             setLoading(true);
             setError(null);
-
             const response = await axios.get('/projects');
             const data = response.data;
 
-            // Transformation des données de l'API
             const transformedProjects = transformApiData(data);
             setProjects(transformedProjects);
 
-            // Mise à jour des statistiques
             setProjectStats({
                 total: data.project_count,
                 business: data.projects.business.project_business_count,
@@ -83,95 +91,98 @@ const ProjectsPage = () => {
         } catch (err) {
             console.error('Erreur lors de la récupération des projets:', err);
             setError(err.message);
+            toast.error('Erreur lors du chargement des projets');
         } finally {
             setLoading(false);
         }
     };
 
-    // Fonction pour transformer les données de l'API en format compatible avec le composant
     const transformApiData = (apiData) => {
         const transformedProjects = [];
 
         // Transformation des projets business
-        if (apiData.projects.business && apiData.projects.business.project_business_items.data) {
+        if (apiData.projects.business?.project_business_items?.data) {
             apiData.projects.business.project_business_items.data.forEach(project => {
                 transformedProjects.push({
                     id: project.id,
                     name: project.name,
                     description: project.description || 'Aucune description',
                     type: 'business',
+                    typeName: project.type_name || 'Business',
                     mainCurrency: 'EUR',
-                    incomeBudget: 0,
-                    expenseBudget: 0,
-                    incomeRealized: 0,
-                    expenseRealized: 0,
+                    incomeBudget: project.income_budget || 0,
+                    expenseBudget: project.expense_budget || 0,
+                    incomeRealized: project.income_realized || 0,
+                    expenseRealized: project.expense_realized || 0,
                     startDate: project.start_date,
                     endDate: project.end_date || project.start_date,
-                    status: 'active',
+                    status: project.status || 'active',
                     isDurationUndetermined: project.is_duration_undetermined === 1,
                     templateId: project.template_id,
                     projectTypeId: project.project_type_id,
-                    typeName: project.type_name,
                     createdAt: project.created_at,
                     updatedAt: project.updated_at,
                     userSubscriberId: project.user_subscriber_id,
-                    collaborators: []
+                    collaborators: [],
+                    is_archived: project.is_archived || false
                 });
             });
         }
 
         // Transformation des projets événements
-        if (apiData.projects.events && apiData.projects.events.project_event_items.data) {
+        if (apiData.projects.events?.project_event_items?.data) {
             apiData.projects.events.project_event_items.data.forEach(project => {
                 transformedProjects.push({
                     id: project.id,
                     name: project.name,
                     description: project.description || 'Aucune description',
                     type: 'evenement',
+                    typeName: project.type_name || 'Événement',
                     mainCurrency: 'EUR',
-                    incomeBudget: 0,
-                    expenseBudget: 0,
-                    incomeRealized: 0,
-                    expenseRealized: 0,
+                    incomeBudget: project.income_budget || 0,
+                    expenseBudget: project.expense_budget || 0,
+                    incomeRealized: project.income_realized || 0,
+                    expenseRealized: project.expense_realized || 0,
                     startDate: project.start_date,
                     endDate: project.end_date || project.start_date,
-                    status: 'active',
+                    status: project.status || 'active',
                     isDurationUndetermined: project.is_duration_undetermined === 1,
                     templateId: project.template_id,
                     projectTypeId: project.project_type_id,
-                    typeName: project.type_name,
                     createdAt: project.created_at,
                     updatedAt: project.updated_at,
                     userSubscriberId: project.user_subscriber_id,
-                    collaborators: []
+                    collaborators: [],
+                    is_archived: project.is_archived || false
                 });
             });
         }
 
         // Transformation des projets ménages
-        if (apiData.projects.menages && apiData.projects.menages.project_menage_items.data) {
+        if (apiData.projects.menages?.project_menage_items?.data) {
             apiData.projects.menages.project_menage_items.data.forEach(project => {
                 transformedProjects.push({
                     id: project.id,
                     name: project.name,
                     description: project.description || 'Aucune description',
                     type: 'menage',
+                    typeName: project.type_name || 'Ménage',
                     mainCurrency: 'EUR',
-                    incomeBudget: 0,
-                    expenseBudget: 0,
-                    incomeRealized: 0,
-                    expenseRealized: 0,
+                    incomeBudget: project.income_budget || 0,
+                    expenseBudget: project.expense_budget || 0,
+                    incomeRealized: project.income_realized || 0,
+                    expenseRealized: project.expense_realized || 0,
                     startDate: project.start_date,
                     endDate: project.end_date || project.start_date,
-                    status: 'active',
+                    status: project.status || 'active',
                     isDurationUndetermined: project.is_duration_undetermined === 1,
                     templateId: project.template_id,
                     projectTypeId: project.project_type_id,
-                    typeName: project.type_name,
                     createdAt: project.created_at,
                     updatedAt: project.updated_at,
                     userSubscriberId: project.user_subscriber_id,
-                    collaborators: []
+                    collaborators: [],
+                    is_archived: project.is_archived || false
                 });
             });
         }
@@ -179,102 +190,302 @@ const ProjectsPage = () => {
         return transformedProjects;
     };
 
-    // Project types configuration
-    const projectTypes = {
-        business: {
-            id: 'business',
-            name: 'Business',
-            description: 'Activité régulière avec fiscalité (TVA, impôt société)',
-            icon: Building2,
-            color: 'blue',
-            features: ['tva', 'impots_societe']
-        },
-        menage: {
-            id: 'menage',
-            name: 'Ménage',
-            description: 'Gestion familiale quotidienne',
-            icon: Home,
-            color: 'green',
-            features: []
-        },
-        evenement: {
-            id: 'evenement',
-            name: 'Événement',
-            description: 'Événements ponctuels (mariage, vacances)',
-            icon: PartyPopper,
-            color: 'purple',
-            features: []
-        }
+    // Fonction pour obtenir l'icône basée sur le typeName
+    const getProjectIcon = (typeName) => {
+        return projectTypeIcons[typeName] || projectTypeIcons.default;
     };
 
-    // Nouvelle fonction pour gérer le clic sur "Nouveau projet"
+    // Fonction pour obtenir la couleur basée sur le typeName
+    const getProjectColor = (typeName) => {
+        return projectTypeColors[typeName] || projectTypeColors.default;
+    };
+
     const handleNewProject = () => {
         navigate('/client/onboarding');
     };
 
-    const getProjectTypeInfo = (type) => {
-        return projectTypes[type] || projectTypes.business;
-    };
+    const handleArchiveProject = async (project) => {
+        if (!window.confirm(`Voulez-vous vraiment archiver le projet "${project.name}" ?`)) {
+            return;
+        }
 
-    const getProgressPercentage = (realized, budget) => {
-        if (budget === 0) return 0;
-        return Math.min((realized / budget) * 100, 100);
-    };
+        try {
+            setLocalLoading(true);
+            const loadingToast = toast.loading('Archivage du projet en cours...');
 
-    const getNetBudget = (project) => {
-        return project.incomeBudget - project.expenseBudget;
-    };
+            await axios.patch(
+                `/projects/${project.id}/archive`,
+                {},
+                {
+                    headers: {
+                        Authorization: `Bearer ${localStorage.getItem('token')}`,
+                        'Content-Type': 'application/json',
+                    },
+                }
+            );
 
-    const getNetRealized = (project) => {
-        return project.incomeRealized - project.expenseRealized;
-    };
+            setProjects((prevProjects) =>
+                prevProjects.map((p) =>
+                    p.id === project.id ? { ...p, is_archived: true } : p
+                )
+            );
 
-    const handleArchiveProject = (project) => {
-        setSelectedProject(project);
-        setArchiveDialogOpen(true);
+            toast.success('Projet archivé avec succès !', {
+                id: loadingToast,
+                duration: 4000,
+            });
+
+        } catch (err) {
+            console.error('Erreur lors de l\'archivage du projet :', err);
+            toast.error(`Erreur lors de l'archivage : ${err.message}`, {
+                duration: 5000,
+            });
+        } finally {
+            setLocalLoading(false);
+        }
     };
 
     const confirmArchiveProject = async () => {
-        if (selectedProject) {
-            try {
-                // Archive the project via API
-                await archiveService.archiveProject(selectedProject, archiveReason);
+        if (!selectedProject) return;
 
-                // Recharger la liste des projets
-                await fetchProjects();
+        try {
+            setLocalLoading(true);
+            const loadingToast = toast.loading('Archivage du projet en cours...');
+            const projectName = selectedProject.name;
 
-                // Reset dialog state
-                setArchiveDialogOpen(false);
-                setSelectedProject(null);
-                setArchiveReason('');
+            await archiveService.archiveProject(selectedProject.id, archiveReason);
 
-                alert(`Projet "${selectedProject.name}" archivé avec succès !`);
-            } catch (err) {
-                console.error('Erreur lors de l\'archivage:', err);
-                setError(err.message);
+            setProjects((prevProjects) =>
+                prevProjects.map((p) =>
+                    p.id === selectedProject.id ? { ...p, is_archived: true } : p
+                )
+            );
+
+            setArchiveDialogOpen(false);
+            setSelectedProject(null);
+            setArchiveReason('');
+            setError('');
+
+            toast.success(`Projet "${projectName}" archivé avec succès !`, {
+                id: loadingToast,
+                duration: 4000,
+            });
+
+        } catch (err) {
+            console.error("Erreur lors de l'archivage:", err);
+            const errorMsg = err.response?.data?.message || err.message || 'Erreur inconnue';
+            setError(errorMsg);
+            toast.error(`Erreur lors de l'archivage : ${errorMsg}`, {
+                duration: 5000,
+            });
+        } finally {
+            setLocalLoading(false);
+        }
+    };
+
+    const handleDeleteProject = async (projectId) => {
+        try {
+            setLocalLoading(true);
+            const loadingToast = toast.loading('Suppression du projet en cours...');
+
+            await axios.delete(`/projects/${projectId}`, {
+                headers: {
+                    Authorization: `Bearer ${localStorage.getItem('token')}`
+                },
+            });
+
+            setProjects(prev => prev.filter(project => project.id !== projectId));
+
+            toast.success('Projet supprimé avec succès !', {
+                id: loadingToast,
+                duration: 4000,
+            });
+
+        } catch (err) {
+            console.error('Erreur lors de la suppression du projet:', err);
+            toast.error(`Erreur lors de la suppression : ${err.message}`, {
+                duration: 5000,
+            });
+        } finally {
+            setLocalLoading(false);
+        }
+    };
+
+    const handleRestoreProject = async (projectId) => {
+        try {
+            setLocalLoading(true);
+            const loadingToast = toast.loading('Restauration du projet en cours...');
+
+            await archiveService.restoreProject(projectId);
+
+            setProjects((prevProjects) =>
+                prevProjects.map((p) =>
+                    p.id === projectId ? { ...p, is_archived: false } : p
+                )
+            );
+
+            toast.success('Projet restauré avec succès !', {
+                id: loadingToast,
+                duration: 4000,
+            });
+
+        } catch (err) {
+            console.error('Erreur lors de la restauration du projet:', err);
+            toast.error(`Erreur lors de la restauration : ${err.message}`, {
+                duration: 5000,
+            });
+        } finally {
+            setLocalLoading(false);
+        }
+    };
+
+    const updateProject = async (updatedProject) => {
+        try {
+            setLocalLoading(true);
+            const loadingToast = toast.loading('Mise à jour du projet en cours...');
+
+            if (!updatedProject.name || !updatedProject.name.trim()) {
+                toast.error('Le nom du projet est requis');
+                return;
             }
+
+            const payload = {
+                name: updatedProject.name.trim(),
+                description: updatedProject.description?.trim() || '',
+                start_date: updatedProject.startDate,
+                end_date: updatedProject.endDate || null,
+                is_duration_undetermined: updatedProject.isDurationUndetermined ? 1 : 0,
+                template_id: updatedProject.templateId || null,
+                project_type_id: updatedProject.projectTypeId || null
+            };
+
+            const response = await axios.put(`/projects/${updatedProject.id}`, payload, {
+                headers: {
+                    Authorization: `Bearer ${localStorage.getItem('token')}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            setProjects((prev) =>
+                prev.map((p) =>
+                    p.id === updatedProject.id
+                        ? { ...p, ...updatedProject }
+                        : p
+                )
+            );
+
+            setEditingProjectId(null);
+
+            toast.success(response.data.message || 'Projet mis à jour avec succès !', {
+                id: loadingToast,
+                duration: 4000,
+            });
+
+        } catch (err) {
+            console.error('Erreur lors de la mise à jour du projet:', err);
+
+            let errorMessage = 'Erreur lors de la mise à jour du projet';
+
+            if (err.response?.status === 422) {
+                const validationErrors = err.response.data.errors;
+                if (validationErrors) {
+                    errorMessage += ': ' + Object.values(validationErrors).flat().join(', ');
+                } else {
+                    errorMessage += ': Données invalides';
+                }
+            } else if (err.response?.data?.message) {
+                errorMessage += ': ' + err.response.data.message;
+            } else {
+                errorMessage += ': ' + err.message;
+            }
+
+            toast.error(errorMessage, {
+                duration: 5000,
+            });
+        } finally {
+            setLocalLoading(false);
         }
     };
 
-    const getStatusBadge = (status) => {
-        if (status === 'active') {
-            return <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full">Actif</span>;
+    // Fonctions pour la sélection multiple
+    const toggleProjectSelection = (projectId) => {
+        setSelectedProjects(prev =>
+            prev.includes(projectId)
+                ? prev.filter(id => id !== projectId)
+                : [...prev, projectId]
+        );
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedProjects.length === projects.length) {
+            setSelectedProjects([]);
+        } else {
+            setSelectedProjects(projects.map(project => project.id));
         }
-        return <span className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded-full">Terminé</span>;
     };
 
-    const formatDate = (dateString) => {
-        if (!dateString) return 'Non définie';
-        return new Date(dateString).toLocaleDateString('fr-FR');
+    const clearSelection = () => {
+        setSelectedProjects([]);
+        setIsSelectMode(false);
     };
 
-    // Affichage du chargement
+    const handleDeleteMultiple = async () => {
+        if (selectedProjects.length === 0) return;
+
+        const projectNames = projects
+            .filter(p => selectedProjects.includes(p.id))
+            .map(p => p.name)
+            .join(', ');
+
+        if (!window.confirm(`Voulez-vous vraiment supprimer les projets suivants ?\n${projectNames}`)) {
+            return;
+        }
+
+        try {
+            setLocalLoading(true);
+            const loadingToast = toast.loading(`Suppression de ${selectedProjects.length} projet(s) en cours...`);
+
+            // Suppression en parallèle
+            const deletePromises = selectedProjects.map(projectId =>
+                axios.delete(`/projects/${projectId}`, {
+                    headers: {
+                        Authorization: `Bearer ${localStorage.getItem('token')}`
+                    },
+                })
+            );
+
+            await Promise.all(deletePromises);
+
+            // Mettre à jour la liste des projets
+            setProjects(prev => prev.filter(project => !selectedProjects.includes(project.id)));
+
+            // Réinitialiser la sélection
+            clearSelection();
+
+            toast.success(`${selectedProjects.length} projet(s) supprimé(s) avec succès !`, {
+                id: loadingToast,
+                duration: 4000,
+            });
+
+        } catch (err) {
+            console.error('Erreur lors de la suppression multiple:', err);
+            toast.error(`Erreur lors de la suppression : ${err.message}`, {
+                duration: 5000,
+            });
+        } finally {
+            setLocalLoading(false);
+        }
+    };
+
+
+
+    // Affichage du chargement initial
     if (loading) {
         return (
             <div className="p-6 flex justify-center items-center h-64">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="mt-4 text-gray-600">Chargement des projets...</p>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                    <p className="mt-4 text-gray-500">Chargement des projets...</p>
                 </div>
             </div>
         );
@@ -288,7 +499,7 @@ const ProjectsPage = () => {
                     <h2 className="text-red-800 font-semibold">Erreur</h2>
                     <p className="text-red-600">{error}</p>
                     <Button onClick={fetchProjects} className="mt-2">
-                        <RotateCcw className="w-4 h-4 mr-2" />
+                        <RotateCw className="w-4 h-4 mr-2" />
                         Réessayer
                     </Button>
                 </div>
@@ -297,256 +508,134 @@ const ProjectsPage = () => {
     }
 
     return (
-        <div className="p-6 space-y-6 w-100 h-50">
+        <div className="p-6 space-y-6 max-w-7xl mx-auto">
+            {/* Overlay de chargement local */}
+            {localLoading && (
+                <div className="fixed inset-0 bg-black bg-opacity-10 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-4 flex items-center space-x-3">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                        <span className="text-gray-600">Traitement en cours...</span>
+                    </div>
+                </div>
+            )}
+
             {/* Header */}
+
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold">Projets</h1>
-                    <p className="text-gray-600">Gérez vos projets et budgets</p>
+                    <h1 className="text-2xl font-bold text-gray-900">Projets</h1>
+                    <p className="text-gray-500 text-sm">Gérez vos projets et budgets</p>
                 </div>
-                {/* Bouton modifié pour utiliser la navigation */}
-                <Button onClick={handleNewProject}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Nouveau projet
-                </Button>
+
+                <div className="flex items-center gap-2">
+                    {/* Mode sélection */}
+                    {isSelectMode ? (
+                        <>
+                            <span className="text-sm text-gray-600 mr-2">
+                                {selectedProjects.length} sélectionné(s)
+                            </span>
+
+                            {selectedProjects.length > 0 && (
+                                <Button
+                                    onClick={handleDeleteMultiple}
+                                    variant="destructive"
+                                    disabled={localLoading}
+                                >
+                                    Supprimer ({selectedProjects.length})
+                                </Button>
+                            )}
+
+                            <Button
+                                onClick={clearSelection}
+                                variant="outline"
+                                disabled={localLoading}
+                            >
+                                Annuler
+                            </Button>
+                        </>
+                    ) : (
+                        <>
+                            <Button
+                                onClick={() => setIsSelectMode(true)}
+                                variant="outline"
+                                disabled={localLoading}
+                            >
+                                Sélection multiple
+                            </Button>
+
+                            <Button
+                                onClick={handleNewProject}
+                                className="bg-blue-500 hover:bg-blue-600"
+                                disabled={localLoading}
+                            >
+                                <Plus className="w-4 h-4 mr-2" />
+                                Nouveau projet
+                            </Button>
+                        </>
+                    )}
+                </div>
             </div>
 
             {/* Stats */}
-            <div className="grid md:grid-cols-4 gap-4">
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-gray-600">Total projets</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold">{projectStats.total}</div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-gray-600">Projets Business</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold text-blue-600">
-                            {projectStats.business}
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-gray-600">Événements</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold text-purple-600">
-                            {projectStats.events}
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-gray-600">Ménages</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold text-green-600">
-                            {projectStats.menages}
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+            <ProjectStats stats={projectStats} />
 
             {/* Projects Grid */}
             {projects.length === 0 ? (
-                <Card className="text-center p-12">
-                    <CardContent>
-                        <FolderOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                        <h3 className="text-xl font-semibold text-gray-600 mb-2">Aucun projet</h3>
-                        <p className="text-gray-500 mb-4">Commencez par créer votre premier projet</p>
-                        <Button onClick={handleNewProject}>
+                <Card className="text-center p-8">
+                    <CardContent className="pt-6">
+                        <FolderOpen className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                        <h3 className="text-lg font-semibold text-gray-600 mb-2">Aucun projet</h3>
+                        <p className="text-gray-500 text-sm mb-4">Commencez par créer votre premier projet</p>
+                        <Button
+                            onClick={handleNewProject}
+                            className="bg-blue-500 hover:bg-blue-600"
+                            disabled={localLoading}
+                        >
                             <Plus className="w-4 h-4 mr-2" />
                             Créer un projet
                         </Button>
                     </CardContent>
                 </Card>
             ) : (
-                <div className="grid md:grid-cols-2 gap-6">
-                    {projects.map((project) => {
-                        const typeInfo = getProjectTypeInfo(project.type);
-                        const IconComponent = typeInfo.icon;
-                        const netBudget = getNetBudget(project);
-                        const netRealized = getNetRealized(project);
-                        const incomeProgress = getProgressPercentage(project.incomeRealized, project.incomeBudget);
-                        const expenseProgress = getProgressPercentage(project.expenseRealized, project.expenseBudget);
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {projects.map((project) => (
+                        <ProjectCard
+                            key={project.id}
+                            project={project}
+                            projectTypeIcons={projectTypeIcons}
+                            projectTypeColors={projectTypeColors}
+                            getProjectIcon={getProjectIcon}
+                            getProjectColor={getProjectColor}
+                            formatCurrency={formatCurrency}
+                            editingProjectId={editingProjectId}
+                            editForm={editForm}
+                            setEditForm={setEditForm}
+                            setEditingProjectId={setEditingProjectId}
+                            updateProject={updateProject}
+                            navigate={navigate}
+                            handleArchiveProject={handleArchiveProject}
+                            handleRestoreProject={handleRestoreProject}
+                            handleDeleteProject={handleDeleteProject}
+                            localLoading={localLoading}
 
-                        return (
-                            <Card key={project.id} className="hover:shadow-lg transition-shadow">
-                                <CardHeader>
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex items-center space-x-3 flex-1">
-                                            <div className={`w-12 h-12 rounded-lg bg-${typeInfo.color}-100 flex items-center justify-center`}>
-                                                <IconComponent className={`w-6 h-6 text-${typeInfo.color}-600`} />
-                                            </div>
-                                            <div className="flex-1">
-                                                <div className="flex items-center space-x-2 mb-1">
-                                                    <CardTitle className="text-lg">{project.name}</CardTitle>
-                                                    <span className={`px-2 py-1 text-xs bg-${typeInfo.color}-100 text-${typeInfo.color}-700 rounded-full`}>
-                                                        {typeInfo.name}
-                                                    </span>
-                                                </div>
-                                                <p className="text-sm text-gray-500">{project.description}</p>
-                                                <div className="flex items-center space-x-2 mt-1">
-                                                    <Globe className="w-4 h-4 text-gray-400" />
-                                                    <span className="text-sm text-gray-600">{project.mainCurrency}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        {getStatusBadge(project.status)}
-                                    </div>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        {/* Budget Summary */}
-                                        <div className="grid grid-cols-2 gap-4 text-center">
-                                            <div className="p-3 bg-green-50 rounded-lg">
-                                                <p className="text-xs text-gray-600 mb-1">Revenus</p>
-                                                <p className="font-semibold text-green-600">
-                                                    {formatCurrency(project.incomeRealized, project.mainCurrency)} / {formatCurrency(project.incomeBudget, project.mainCurrency)}
-                                                </p>
-                                                <div className="w-full bg-green-200 rounded-full h-2 mt-2">
-                                                    <div
-                                                        className="bg-green-500 h-2 rounded-full"
-                                                        style={{ width: `${Math.min(incomeProgress, 100)}%` }}
-                                                    ></div>
-                                                </div>
-                                            </div>
-                                            <div className="p-3 bg-red-50 rounded-lg">
-                                                <p className="text-xs text-gray-600 mb-1">Dépenses</p>
-                                                <p className="font-semibold text-red-600">
-                                                    {formatCurrency(project.expenseRealized, project.mainCurrency)} / {formatCurrency(project.expenseBudget, project.mainCurrency)}
-                                                </p>
-                                                <div className="w-full bg-red-200 rounded-full h-2 mt-2">
-                                                    <div
-                                                        className="bg-red-500 h-2 rounded-full"
-                                                        style={{ width: `${Math.min(expenseProgress, 100)}%` }}
-                                                    ></div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Net Balance */}
-                                        <div className="text-center p-3 bg-gray-50 rounded-lg">
-                                            <p className="text-xs text-gray-600 mb-1">Solde Net</p>
-                                            <div className="flex justify-between">
-                                                <span className="text-sm">
-                                                    Prévu: <span className={`font-semibold ${netBudget >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                        {formatCurrency(netBudget, project.mainCurrency)}
-                                                    </span>
-                                                </span>
-                                                <span className="text-sm">
-                                                    Réalisé: <span className={`font-semibold ${netRealized >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                        {formatCurrency(netRealized, project.mainCurrency)}
-                                                    </span>
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        {/* Durée indéterminée */}
-                                        {project.isDurationUndetermined && (
-                                            <div className="text-center p-2 bg-yellow-50 border border-yellow-200 rounded">
-                                                <p className="text-xs text-yellow-700 font-medium">
-                                                    ⏳ Durée indéterminée
-                                                </p>
-                                            </div>
-                                        )}
-
-                                        {/* Dates */}
-                                        <div className="flex items-center justify-between text-sm">
-                                            <div className="flex items-center text-gray-600">
-                                                <Calendar className="w-4 h-4 mr-2" />
-                                                {formatDate(project.startDate)}
-                                            </div>
-                                            {!project.isDurationUndetermined && (
-                                                <>
-                                                    <span className="text-gray-400">→</span>
-                                                    <div className="text-gray-600">
-                                                        {formatDate(project.endDate)}
-                                                    </div>
-                                                </>
-                                            )}
-                                        </div>
-
-                                        {/* Actions */}
-                                        <div className="flex gap-2 pt-2 border-t">
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                className="flex-1"
-                                                onClick={() => navigate(`/app/project/${project.id}/dashboard`)}
-                                            >
-                                                <BarChart className="w-4 h-4 mr-1" />
-                                                Voir
-                                            </Button>
-                                            <Button size="sm" variant="outline">
-                                                <Edit className="w-4 h-4" />
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => handleArchiveProject(project)}
-                                                title="Archiver le projet"
-                                            >
-                                                <Archive className="w-4 h-4" />
-                                            </Button>
-                                            <Button size="sm" variant="outline">
-                                                <Trash2 className="w-4 h-4" />
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        );
-                    })}
+                            isSelectMode={isSelectMode}
+                            isSelected={selectedProjects.includes(project.id)}
+                            onToggleSelection={toggleProjectSelection}
+                        />
+                    ))}
                 </div>
             )}
 
-            {/* Archive Confirmation Dialog */}
-            <AlertDialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Archiver le projet</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Êtes-vous sûr de vouloir archiver ce projet ? Il sera déplacé vers les archives et ne sera plus visible dans la liste des projets actifs.
-                            {selectedProject && (
-                                <div className="mt-2 font-medium">
-                                    {selectedProject.name}
-                                </div>
-                            )}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-
-                    <div className="space-y-2 py-4">
-                        <Label htmlFor="archiveReason">Raison de l'archivage (optionnel)</Label>
-                        <Textarea
-                            id="archiveReason"
-                            value={archiveReason}
-                            onChange={(e) => setArchiveReason(e.target.value)}
-                            placeholder="Ex: Projet terminé, En pause, Budget épuisé..."
-                            rows={3}
-                        />
-                    </div>
-
-                    <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setArchiveReason('')}>
-                            Annuler
-                        </AlertDialogCancel>
-                        <AlertDialogAction onClick={confirmArchiveProject} className="bg-orange-600 hover:bg-orange-700">
-                            <Archive className="w-4 h-4 mr-2" />
-                            Archiver
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            {/* Archive Dialog */}
+            <ArchiveDialog
+                open={archiveDialogOpen}
+                onOpenChange={setArchiveDialogOpen}
+                selectedProject={selectedProject}
+                archiveReason={archiveReason}
+                setArchiveReason={setArchiveReason}
+                onConfirm={confirmArchiveProject}
+                loading={localLoading}
+            />
         </div>
     );
 };

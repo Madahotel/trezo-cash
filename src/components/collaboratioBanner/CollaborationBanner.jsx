@@ -10,14 +10,23 @@ const CollaborationBanner = () => {
     const { activeProjectId } = uiState;
 
     const sharedProjectInfo = useMemo(() => {
-        if (!activeProjectId || activeProjectId === 'consolidated' || activeProjectId.startsWith('consolidated_view_')) {
+        // CORRECTION : Convertir activeProjectId en string pour éviter l'erreur startsWith
+        const activeProjectIdString = String(activeProjectId || '');
+        
+        if (!activeProjectId || 
+            activeProjectIdString === 'consolidated' || 
+            activeProjectIdString.startsWith('consolidated_view_')) {
             return null;
         }
 
-        const activeProject = projects.find(p => p.id === activeProjectId);
+        const activeProject = projects.find(p => String(p.id) === activeProjectIdString);
         if (activeProject && session && activeProject.user_id !== session.user.id) {
             const ownerProfile = allProfiles.find(p => p.id === activeProject.user_id);
-            const myCollaboration = collaborators.find(c => session.user && c.user_id === session.user.id && c.project_ids?.includes(activeProjectId));
+            const myCollaboration = collaborators.find(c => 
+                session.user && 
+                c.user_id === session.user.id && 
+                c.project_ids?.includes(activeProjectId)
+            );
             
             if (ownerProfile && myCollaboration) {
                 return {

@@ -4,7 +4,9 @@ import { useData } from '../../../components/context/DataContext';
 import { useUI } from '../../../components/context/UIContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, ArrowLeft, Sparkles, Loader, Search, Star, Users, LayoutTemplate, FilePlus, DollarSign, Briefcase, Home, PartyPopper } from 'lucide-react';
-import { initializeProject } from '../../../components/context/actions';
+import { projectInitializationService } from '../../../services/ProjectInitializationService';
+// OU utiliser le hook :
+// import { useProjectInitialization } from '../../../hooks/useProjectInitialization';
 import { templates as officialTemplates } from '../../../utils/templates';
 import TemplateIcon from '../template/TemplateIcon';
 import axios from '../../../components/config/Axios';
@@ -315,37 +317,40 @@ const myTemplates = useMemo(() => {
 const handleFinish = async () => {
   setIsLoading(true);
   try {
-    const result = await initializeProject(
+    // CORRECTION : Préparer le payload avec le bon nom de champ
+    const payload = {
+      projectName: data.projectName,
+      projectDescription: data.projectDescription, // Garder l'ancien nom si nécessaire
+      projectStartDate: data.projectStartDate,
+      projectEndDate: data.projectEndDate,
+      isEndDateIndefinite: data.isEndDateIndefinite,
+      templateId: data.templateId,
+      startOption: data.startOption,
+      projectTypeId: data.projectTypeId,
+      projectClass: data.projectClass,
+      description: data.projectDescription 
+    };
+
+    console.log("📤 Payload envoyé au service:", payload);
+
+    const result = await projectInitializationService.initializeProject(
       { dataDispatch, uiDispatch },
-      data,
+      payload, // Utiliser le payload corrigé
       currentUser,
       tiers,
       userAndCommunityTemplates 
     );
     
-    // CORRECTION : S'assurer que le loading s'arrête même en cas de succès
     setIsLoading(false);
     
-    // CORRECTION : Navigation optionnelle - vérifier si nécessaire
     if (result?.success) {
       console.log('✅ Navigation vers le dashboard...');
-       navigate("/client/dashboard"); // Décommentez si nécessaire
+      navigate("/client/projets");
     }
     
   } catch (error) {
     console.error("Erreur lors de la création du projet:", error);
-    
-    // CORRECTION : IMPORTANT - Réinitialiser l'état de loading en cas d'erreur
     setIsLoading(false);
-    
-    // Optionnel : permettre à l'utilisateur de réessayer
-    uiDispatch({
-      type: 'ADD_TOAST', 
-      payload: { 
-        message: `Erreur lors de la création: ${error.message}`, 
-        type: 'error' 
-      }
-    });
   }
 };
 
