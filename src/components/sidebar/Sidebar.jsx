@@ -8,7 +8,8 @@ import {
     ChevronDown, ChevronsLeftRight, Wallet, LogOut, User, Shield, CreditCard, FileText,
     HelpCircle, Trash2, FolderCog, Hash, Banknote, LayoutTemplate, Lock, FolderKanban,
     Users as UsersIcon, Archive, Settings,
-    DollarSign
+    DollarSign,
+    FolderOpen
 } from 'lucide-react';
 import NavTooltip from './NavTooltip';
 import { useActiveProjectData, useScheduleData } from '../../utils/selectors';
@@ -143,7 +144,7 @@ const handleLogout = async () => {
     // Navigation items with improved structure
     const mainNavItems = useMemo(() => [
         { label: 'Dashboard', id: 'dashboard', path: '/client/dashboard', icon: LayoutDashboard },
-        { label: 'Projet', id: 'projet', path: '/client/projets', icon: Banknote},
+        { label: 'Projet', id: 'projet', path: '/client/projets', icon: FolderOpen},
         { label: 'Budget', id: 'budget', path: '/client/budget', icon: ListChecks },
         { label: 'Trezo', id: 'trezo', path: '/client/trezo', icon: Table },
         { label: 'Flux', id: 'flux', path: '/client/flux', icon: AreaChart },

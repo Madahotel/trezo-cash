@@ -521,7 +521,7 @@ const ProjectsPage = () => {
 
             {/* Header */}
 
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center sticky top-0 bg-white pt-4 pb-2 z-10">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Projets</h1>
                     <p className="text-gray-500 text-sm">Gérez vos projets et budgets</p>
@@ -565,7 +565,7 @@ const ProjectsPage = () => {
 
                             <Button
                                 onClick={handleNewProject}
-                                className="bg-blue-500 hover:bg-blue-600"
+                                className="bg-gray-500 text-white hover:bg-purple-700"
                                 disabled={localLoading}
                             >
                                 <Plus className="w-4 h-4 mr-2" />

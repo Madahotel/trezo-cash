@@ -29,6 +29,8 @@ import IntelligentAlertWidget from './IntelligentAlertWidget';
 import AmbassadorWidget from './AmbassadorWidget';
 import DashboardSettingsDrawer from '../../../components/drawer/DashboardSettingsDrawer';
 import { useMobile } from '../../../hooks/useMobile.js';
+import { useAuth } from '../../../components/context/AuthContext';
+import { useData } from '../../../components/context/DataContext';
 
 // Données statiques complètes
 const staticSettings = {
@@ -207,6 +209,9 @@ const defaultWidgetSettings = {
 };
 
 const DashboardView = () => {
+  const { dataState } = useData();
+  const { user, token } = useAuth();
+  const { profile, projects, consolidatedViews } = dataState;
   const navigate = useNavigate();
   const [isSettingsDrawerOpen, setIsSettingsDrawerOpen] = useState(false);
   const [widgetVisibility, setWidgetVisibility] = useState(
@@ -216,8 +221,6 @@ const DashboardView = () => {
 
   // Utilisation des données statiques
   const settings = staticSettings;
-  const profile = staticProfile;
-  const projects = staticProjects;
   const overdueItems = staticOverdueItems;
   const { borrowings, lendings } = staticLoans;
   const trezoScoreData = staticTrezoScoreData;
@@ -227,6 +230,8 @@ const DashboardView = () => {
 
   const isConsolidated = false;
   const activeProject = projects[0];
+
+
 
   const handleOpenSettings = () => {
     setIsSettingsDrawerOpen(true);
@@ -253,7 +258,7 @@ const DashboardView = () => {
 
   const greetingMessage = () => {
     const hour = new Date().getHours();
-    const name = profile?.fullName?.split(' ')[0] || 'Utilisateur';
+    const name = profile?.fullName?.split(' ')[0] || user?.name || 'Utilisateur';
     if (hour < 12) return `Bonjour ${name}`;
     if (hour < 18) return `Bon après-midi ${name}`;
     return `Bonsoir ${name}`;
@@ -587,11 +592,10 @@ const DashboardView = () => {
                             <div className="flex justify-between items-center gap-2">
                               <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                                 <div
-                                  className={`flex-shrink-0 flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-lg shadow-sm ${
-                                    item.type === 'payable'
+                                  className={`flex-shrink-0 flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-lg shadow-sm ${item.type === 'payable'
                                       ? 'bg-red-100'
                                       : 'bg-green-100'
-                                  }`}
+                                    }`}
                                 >
                                   {item.type === 'payable' ? (
                                     <ArrowDown className="w-3 h-3 sm:w-4 sm:h-4 text-red-600" />
@@ -621,7 +625,7 @@ const DashboardView = () => {
                                       (
                                       {Math.floor(
                                         (new Date() - new Date(item.date)) /
-                                          (1000 * 60 * 60 * 24)
+                                        (1000 * 60 * 60 * 24)
                                       )}
                                       j en retard)
                                     </span>
@@ -629,11 +633,10 @@ const DashboardView = () => {
                                 </div>
                               </div>
                               <p
-                                className={`text-sm sm:text-base font-semibold whitespace-nowrap pl-2 flex-shrink-0 ${
-                                  item.type === 'payable'
+                                className={`text-sm sm:text-base font-semibold whitespace-nowrap pl-2 flex-shrink-0 ${item.type === 'payable'
                                     ? 'text-red-600'
                                     : 'text-green-600'
-                                }`}
+                                  }`}
                               >
                                 {formatCurrency(item.remainingAmount, settings)}
                               </p>

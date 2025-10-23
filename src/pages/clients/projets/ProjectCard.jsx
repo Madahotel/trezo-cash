@@ -241,7 +241,7 @@ const ProjectCard = ({
                             size="sm"
                             variant="outline"
                             className="flex-1 text-xs h-7"
-                            onClick={() => navigate(`/app/project/${project.id}/dashboard`)}
+                            onClick={() => navigate(`/client/project/${project.id}/dashboard`)}
                             disabled={project.is_archived || localLoading}
                         >
                             <BarChart className="w-3 h-3 mr-1" />
