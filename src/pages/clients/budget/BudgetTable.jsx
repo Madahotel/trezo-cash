@@ -257,12 +257,12 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
               <th className="text-right py-3 px-4 font-medium text-gray-700">
                 Budget
               </th>
-              <th className="text-right py-3 px-4 font-medium text-gray-700">
+              {/* <th className="text-right py-3 px-4 font-medium text-gray-700">
                 Réel
               </th>
               <th className="text-right py-3 px-4 font-medium text-gray-700">
                 Écart
-              </th>
+              </th> */}
               <th className="text-center py-3 px-4 font-medium text-gray-700">
                 Actions
               </th>
@@ -323,14 +323,14 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
                       </td>
 
                       {/* Réel - Pour l'instant égal au budget */}
-                      <td className="text-right py-3 px-4">
+                      {/* <td className="text-right py-3 px-4">
                         {formatCurrency(category.amount)}
-                      </td>
+                      </td> */}
 
                       {/* Écart - Pour l'instant 0 */}
-                      <td className="text-right py-3 px-4 font-medium text-gray-600">
+                      {/* <td className="text-right py-3 px-4 font-medium text-gray-600">
                         {formatCurrency(0)}
-                      </td>
+                      </td> */}
 
                       {/* Actions - Flèche d'expansion uniquement */}
                       <td className="py-3 px-4 text-center">
@@ -412,22 +412,22 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
                                             {formatCurrency(item.amount)}
                                           </div>
                                         </div>
-                                        <div className="text-right">
+                                        {/* <div className="text-right">
                                           <div className="text-sm text-gray-600">
                                             Réel
                                           </div>
                                           <div className="font-medium">
                                             {formatCurrency(item.amount)}
                                           </div>
-                                        </div>
-                                        <div className="text-right">
+                                        </div> */}
+                                        {/* <div className="text-right">
                                           <div className="text-sm text-gray-600">
                                             Écart
                                           </div>
                                           <div className="font-medium text-gray-600">
                                             {formatCurrency(0)}
                                           </div>
-                                        </div>
+                                        </div> */}
                                         <div className="text-right">
                                           <div className="text-sm text-gray-600">
                                             Période

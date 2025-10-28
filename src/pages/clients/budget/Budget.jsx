@@ -1,16 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Plus,
-  Download,
-  Upload,
-  Filter,
-  Calendar,
-  MoreVertical,
-  Edit,
-  Trash2,
-  Archive,
-  Tag,
-} from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 
@@ -25,11 +14,10 @@ const BudgetPage = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLine, setEditingLine] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [archiveModalOpen, setArchiveModalOpen] = useState(false);
   const [selectedLine, setSelectedLine] = useState(null);
   const isMobile = useMobile();
   const [loading, setLoading] = useState(false);
-  const [budget, setBudget] = useState({}); // Initialiser comme objet vide
+  const [budget, setBudget] = useState({});
 
   // Fonction pour charger les données du budget
   const fetchBudgetData = async () => {
@@ -37,7 +25,6 @@ const BudgetPage = () => {
       setLoading(true);
       const data = await getBudget(idProjet);
       setBudget(data);
-      console.log('Données chargées:', data);
     } catch (err) {
       console.error('Erreur:', err);
     } finally {
@@ -45,42 +32,32 @@ const BudgetPage = () => {
     }
   };
 
-  // Fonction appelée quand une nouvelle ligne est ajoutée
-  const handleBudgetAdded = async () => {
+  // Fonction appelée quand une nouvelle ligne est ajoutée ou modifiée
+  const handleBudgetUpdated = async () => {
     await fetchBudgetData();
   };
 
-  const handleEdit = (item, type) => {
-    console.log('Modifier:', item, type);
+  const handleEdit = (item) => {
+    console.log('Modifier:', item);
     setEditingLine(item);
     setIsDialogOpen(true);
   };
 
-  const handleArchive = (item, type) => {
-    console.log('Archiver:', item, type);
-    setSelectedLine(item);
-    setArchiveModalOpen(true);
-  };
-
-  const handleDelete = (item, type) => {
-    console.log('Supprimer:', item, type);
+  const handleDelete = (item) => {
+    console.log('Supprimer:', item);
     setSelectedLine(item);
     setDeleteModalOpen(true);
   };
 
   const confirmDelete = () => {
     if (selectedLine) {
-      const type = selectedLine.type === 'revenue' ? 'revenus' : 'depenses';
+      console.log('Suppression confirmée pour:', selectedLine);
+      // Ici vous appelleriez votre API de suppression
+      // await deleteBudget(selectedLine.id);
       setDeleteModalOpen(false);
       setSelectedLine(null);
-    }
-  };
-
-  const confirmArchive = () => {
-    if (selectedLine) {
-      const type = selectedLine.type === 'revenue' ? 'revenus' : 'depenses';
-      setArchiveModalOpen(false);
-      setSelectedLine(null);
+      // Recharger les données après suppression
+      fetchBudgetData();
     }
   };
 
@@ -92,11 +69,23 @@ const BudgetPage = () => {
     }
   };
 
+  // Ouvrir le dialogue en mode création
+  const handleAddNewLine = () => {
+    setEditingLine(null);
+    setIsDialogOpen(true);
+  };
+
   useEffect(() => {
     fetchBudgetData();
   }, [idProjet]);
 
-  if (loading) return <div>Chargement...</div>;
+  if (loading) {
+    return (
+      <div className="p-10 flex justify-center items-center">
+        <div>Chargement...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-10 space-y-6">
@@ -108,21 +97,7 @@ const BudgetPage = () => {
         </div>
         {!isMobile && (
           <div className="flex gap-2">
-            <Button variant="outline">
-              <Upload className="w-4 h-4 mr-2" />
-              Importer
-            </Button>
-            <Button variant="outline">
-              <Download className="w-4 h-4 mr-2" />
-              Exporter
-            </Button>
-            <Button
-              onClick={() => {
-                console.log('Opening dialog...');
-                setEditingLine(null); // S'assurer qu'on est en mode création
-                setIsDialogOpen(true);
-              }}
-            >
+            <Button onClick={handleAddNewLine}>
               <Plus className="w-4 h-4 mr-2" />
               Nouvelle ligne
             </Button>
@@ -133,12 +108,14 @@ const BudgetPage = () => {
       {/* Budget Line Dialog */}
       <BudgetLineDialog
         open={isDialogOpen}
-        onOpenChange={handleDialogClose} // Utiliser la nouvelle fonction
-        onBudgetAdded={handleBudgetAdded} // Callback pour recharger les données
+        onOpenChange={handleDialogClose}
+        onBudgetAdded={handleBudgetUpdated}
+        onBudgetUpdated={handleBudgetUpdated}
         data={budget}
         editLine={editingLine}
       />
 
+      {/* Modal de suppression */}
       <ConfirmationModal
         isOpen={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
@@ -147,17 +124,6 @@ const BudgetPage = () => {
         description="Êtes-vous sûr de vouloir supprimer cette ligne budgétaire ? Cette action est irréversible."
         confirmText="Supprimer"
         confirmColor="bg-red-600 hover:bg-red-700"
-      />
-
-      {/* Modal d'archivage */}
-      <ConfirmationModal
-        isOpen={archiveModalOpen}
-        onClose={() => setArchiveModalOpen(false)}
-        onConfirm={confirmArchive}
-        title="Confirmer l'archivage"
-        description="Êtes-vous sûr de vouloir archiver cette ligne budgétaire ?"
-        confirmText="Archiver"
-        confirmColor="bg-blue-600 hover:bg-blue-700"
       />
 
       {/* Summary Cards */}
@@ -170,11 +136,8 @@ const BudgetPage = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {budget.sumEntries} €
+              {budget.sumEntries || '0'} €
             </div>
-            <p className="text-xs text-gray-600 mt-1">
-              {/* Réalisé: {calculateReel(budget.revenus).toLocaleString()} € */}
-            </p>
           </CardContent>
         </Card>
 
@@ -186,11 +149,8 @@ const BudgetPage = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              {budget.sumExpenses} €
+              {budget.sumExpenses || '0'} €
             </div>
-            <p className="text-xs text-gray-600 mt-1">
-              {/* Réalisé: {calculateReel(budget.depenses).toLocaleString()} € */}
-            </p>
           </CardContent>
         </Card>
 
@@ -202,16 +162,8 @@ const BudgetPage = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              {budget.sumForecast}€
+              {budget.sumForecast || '0'} €
             </div>
-            {/* <p className="text-xs text-gray-600 mt-1">
-              Réalisé:{' '}
-              {(
-                calculateReel(budget.revenus) -
-                calculateReel(budget.depenses)
-              ).toLocaleString()}{' '}
-              €
-            </p> */}
           </CardContent>
         </Card>
       </div>
@@ -221,9 +173,7 @@ const BudgetPage = () => {
         <div>
           <BudgetTable
             budgetData={budget}
-            isMobile={false}
             onEdit={handleEdit}
-            onArchive={handleArchive}
             onDelete={handleDelete}
           />
         </div>
