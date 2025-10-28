@@ -19,7 +19,7 @@ import {
   AlertTriangle,
   Settings,
   RefreshCw,
-  MoreVertical,
+  Loader,
 } from 'lucide-react';
 import TrezoScoreWidget from './TrezoScoreWidget';
 import CurrentMonthBudgetWidget from './CurrentMonthBudgetWidget';
@@ -37,6 +37,7 @@ import axios from '../../../components/config/Axios';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../components/context/AuthContext';
 import { link } from 'framer-motion/client';
+import { apiService } from '../../../utils/ApiService.jsx';
 
 const DashboardProject = () => {
   const navigate = useNavigate();
@@ -62,21 +63,38 @@ const DashboardProject = () => {
     }
   }, [projectId]);
 
-  const fetchDashboardData = async () => {
-    if (!projectId) return;
+const fetchDashboardData = async () => {
+  if (!projectId) {
+    console.log('❌ projectId manquant');
+    return;
+  }
 
-    setLoading(true);
-    try {
-      const response = await axios.get(`/projects/${projectId}/dashboard`);
-      setDashboardData(response.data.dashboard_data);
-    } catch (error) {
-      console.error('Erreur lors du chargement du dashboard:', error);
-      toast.error('Erreur lors du chargement des données');
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
+  setLoading(true);
+  try {
+    console.log('🔄 Chargement des données pour projectId:', projectId);
+    
+    // Utilisation du service API avec gestion d'erreur améliorée
+    const result = await apiService.request('GET', `/projects/${projectId}/dashboard`);
+    
+    console.log('✅ Réponse API via service:', result);
+    
+    if (result.success && result.data?.dashboard_data) {
+      console.log('📊 Données chargées avec succès');
+      setDashboardData(result.data.dashboard_data);
+    } else {
+      console.log('❌ Échec du chargement:', result.error);
+      toast.error(result.error || 'Données non disponibles');
+      setDashboardData(null);
     }
-  };
+  } catch (error) {
+    console.error('❌ Erreur lors du chargement:', error);
+    toast.error('Erreur de connexion au serveur');
+    setDashboardData(null);
+  } finally {
+    setLoading(false);
+    setIsRefreshing(false);
+  }
+};
 
   const handleOpenSettings = () => {
     setIsSettingsDrawerOpen(true);
@@ -93,20 +111,23 @@ const DashboardProject = () => {
   };
 
   // États de chargement améliorés
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="text-center max-w-md">
-          <div className="relative">
-            <div className="w-16 h-16 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
-            <div className="w-8 h-8 border-4 border-blue-100 border-t-blue-400 rounded-full animate-spin absolute top-4 left-1/2 -translate-x-1/2"></div>
-          </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Chargement du tableau de bord</h3>
-          <p className="text-gray-600">Préparation de vos données financières...</p>
-        </div>
+if (loading) {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="text-center max-w-md">
+        {/* Loader component */}
+        <Loader className="w-16 h-16 mx-auto mb-4 animate-spin text-blue-500" />
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          Chargement du tableau de bord
+        </h3>
+        <p className="text-gray-500 text-sm">
+          Veuillez patienter pendant que les données se chargent...
+        </p>
       </div>
-    );
-  }
+    </div>
+  );
+}
+
 
   if (!dashboardData) {
     return (
@@ -125,7 +146,7 @@ const DashboardProject = () => {
               Réessayer
             </button>
             <button
-              onClick={() => navigate('/projects')}
+              onClick={() => navigate('/client/projets')}
               className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
             >
               Retour aux projets
@@ -320,7 +341,7 @@ const kpiCards = [
       </header>
 
       {/* Contenu Principal */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="p-4 sm:p-6 max-w-full space-y-6 sm:space-y-8 bg-gray-50/50 min-h-screen">
         {/* Section KPIs - Grille responsive améliorée */}
         <section className="mb-8">
           <div className="flex items-center justify-between mb-6">

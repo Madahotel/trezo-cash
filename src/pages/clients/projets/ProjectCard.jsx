@@ -32,10 +32,14 @@ const ProjectCard = ({
     handleRestoreProject,
     handleDeleteProject,
     localLoading,
+    activeProjectId, // NOUVEAU: Recevoir l'ID du projet actif
 }) => {
     // Utilisez les nouvelles fonctions pour obtenir l'icône et la couleur
     const IconComponent = getProjectIcon(project.typeName);
     const projectColor = getProjectColor(project.typeName);
+
+    // NOUVEAU: Vérifier si ce projet est le projet actif
+    const isActiveProject = activeProjectId === project.id;
 
     const getProgressPercentage = (realized, budget) => {
         if (budget === 0) return 0;
@@ -86,7 +90,9 @@ const ProjectCard = ({
     const currentColor = colorClasses[projectColor] || colorClasses.gray;
 
     return (
-        <Card className={`relative ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
+        <Card className={`relative ${isSelected ? 'ring-2 ring-blue-500' : ''} ${
+            isActiveProject ? 'ring-2 ring-green-500 border-green-200' : ''
+        }`}>
 
             {isSelectMode && (
                 <div className="absolute top-3 left-3 z-10">
@@ -157,14 +163,22 @@ const ProjectCard = ({
                             )}
                         </div>
                     </div>
+                    
+                    {/* NOUVEAU: Affichage conditionnel du statut */}
                     {project.is_archived ? (
                         <span className="px-2 py-1 text-xs bg-gray-100 text-gray-500 rounded-full flex-shrink-0">Archivé</span>
+                    ) : isActiveProject ? (
+                        <span className="px-2 py-1 text-xs bg-green-100 text-green-600 rounded-full flex-shrink-0 flex items-center gap-1">
+                            <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                            Actif
+                        </span>
                     ) : (
-                        <span className="px-2 py-1 text-xs bg-green-100 text-green-600 rounded-full flex-shrink-0">Actif</span>
+                        <span className="px-2 py-1 text-xs bg-gray-100 text-gray-500 rounded-full flex-shrink-0">Inactif</span>
                     )}
                 </div>
             </CardHeader>
 
+            {/* Le reste du composant reste identique */}
             <CardContent className="pt-0">
                 <div className="space-y-3">
                     {/* Budget Summary */}

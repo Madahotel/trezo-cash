@@ -6,12 +6,14 @@ import {
     Plus,
     FolderOpen,
     RotateCw,
-    Briefcase, PartyPopper, Home
+    Briefcase, PartyPopper, Home,
+    Loader
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent, } from '../../../components/ui/card';
 import { useSettings } from '../../../contexts/SettingsContext';
 import { archiveService } from '../../../services/archiveService';
+import { useUI } from '../../../components/context/UIContext'; // IMPORT AJOUTÉ
 
 import ProjectCard from './ProjectCard';
 import ArchiveDialog from './ArchiveDialog';
@@ -42,6 +44,7 @@ const projectTypeColors = {
 const ProjectsPage = () => {
     const navigate = useNavigate();
     const { language, formatCurrency } = useSettings();
+    const { uiState } = useUI(); // NOUVEAU: Récupérer le contexte UI
 
     const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
     const [selectedProject, setSelectedProject] = useState(null);
@@ -65,6 +68,15 @@ const ProjectsPage = () => {
     const [editingProjectId, setEditingProjectId] = useState(null);
     const [editForm, setEditForm] = useState({});
     const [localLoading, setLocalLoading] = useState(false);
+
+    // NOUVEAU: Récupérer l'ID du projet actif
+    const activeProjectId = uiState.activeProject?.id;
+
+    // Debug: Afficher l'état du projet actif
+    useEffect(() => {
+        console.log("🔍 ProjectsPage - Projet actif:", uiState.activeProject);
+        console.log("🔍 ProjectsPage - ID du projet actif:", activeProjectId);
+    }, [uiState.activeProject, activeProjectId]);
 
     // Récupération des données depuis l'API
     useEffect(() => {
@@ -477,14 +489,12 @@ const ProjectsPage = () => {
         }
     };
 
-
-
     // Affichage du chargement initial
     if (loading) {
         return (
             <div className="p-6 flex justify-center items-center h-64">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                    <Loader className="w-16 h-16 mx-auto mb-4 animate-spin text-blue-500" />
                     <p className="mt-4 text-gray-500">Chargement des projets...</p>
                 </div>
             </div>
@@ -508,7 +518,7 @@ const ProjectsPage = () => {
     }
 
     return (
-        <div className="p-6 space-y-6 max-w-7xl mx-auto">
+        <div className="p-4 sm:p-6 max-w-full space-y-6 sm:space-y-8 bg-gray-50/50 min-h-screen">
             {/* Overlay de chargement local */}
             {localLoading && (
                 <div className="fixed inset-0 bg-black bg-opacity-10 flex items-center justify-center z-50">
@@ -520,7 +530,6 @@ const ProjectsPage = () => {
             )}
 
             {/* Header */}
-
             <div className="flex justify-between items-center sticky top-0 bg-white pt-4 pb-2 z-10">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Projets</h1>
@@ -617,10 +626,10 @@ const ProjectsPage = () => {
                             handleRestoreProject={handleRestoreProject}
                             handleDeleteProject={handleDeleteProject}
                             localLoading={localLoading}
-
                             isSelectMode={isSelectMode}
                             isSelected={selectedProjects.includes(project.id)}
                             onToggleSelection={toggleProjectSelection}
+                            activeProjectId={activeProjectId} // NOUVEAU: Passer l'ID du projet actif
                         />
                     ))}
                 </div>

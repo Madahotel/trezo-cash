@@ -4,12 +4,12 @@ export const fetchTemplates = async ({ dataDispatch, uiDispatch }) => {
   try {
     uiDispatch({ type: 'SET_LOADING', payload: true });
 
-    // Utilisez apiService au lieu de axios directement
     const response = await apiService.get('/templates');
-    console.log('📡 Réponse API templates:', response);
+    console.log('📡 Réponse API templates:', response); // response déjà les données
 
+    // CORRECTION : response contient déjà les données, pas besoin de response.data
     if (response.status === 200) {
-      const apiData = response.templates;
+      const apiData = response.templates; // Accès direct
 
       // Extraire les données de la structure paginée
       const allTemplates = [

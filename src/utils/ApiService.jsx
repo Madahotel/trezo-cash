@@ -1,27 +1,30 @@
 // Service API générique avec axios
 import axios from '../components/config/Axios';
 
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = 'http://127.0.0.1:8000/api'; // URL COMPLÈTE de votre API Laravel
 
 class ApiService {
   constructor() {
     this.client = axios;
+    this.baseURL = API_BASE_URL;
   }
 
   async get(endpoint) {
-    console.log(`🔍 GET ${endpoint}`);
-    const response = await this.client.get(endpoint);
+    const url = `${this.baseURL}${endpoint}`;
+    console.log(`🔍 GET ${url}`);
+    const response = await this.client.get(url);
     return response.data;
   }
 
   async post(endpoint, data) {
-    console.log(`🔍 POST ${endpoint}`, data);
+    const url = `${this.baseURL}${endpoint}`;
+    console.log(`🔍 POST ${url}`, data);
     try {
-      const response = await this.client.post(endpoint, data);
-      console.log(`✅ POST ${endpoint} - Success:`, response.data);
+      const response = await this.client.post(url, data);
+      console.log(`✅ POST ${url} - Success:`, response.data);
       return response.data;
     } catch (error) {
-      console.error(`❌ POST ${endpoint} - Error:`, {
+      console.error(`❌ POST ${url} - Error:`, {
         status: error.response?.status,
         data: error.response?.data,
         headers: error.response?.headers
@@ -31,29 +34,32 @@ class ApiService {
   }
 
   async put(endpoint, data) {
-    console.log(`🔍 PUT ${endpoint}`, data);
-    const response = await this.client.put(endpoint, data);
+    const url = `${this.baseURL}${endpoint}`;
+    console.log(`🔍 PUT ${url}`, data);
+    const response = await this.client.put(url, data);
     return response.data;
   }
 
   async delete(endpoint) {
-    console.log(`🔍 DELETE ${endpoint}`);
-    const response = await this.client.delete(endpoint);
+    const url = `${this.baseURL}${endpoint}`;
+    console.log(`🔍 DELETE ${url}`);
+    const response = await this.client.delete(url);
     return response.data;
   }
 
   async request(method, endpoint, data = null) {
+    const url = `${this.baseURL}${endpoint}`;
     try {
-      const config = { method, url: endpoint };
+      const config = { method, url };
       if (data) config.data = data;
       
-      console.log(`🔍 ${method} ${endpoint}`, data);
+      console.log(`🔍 ${method} ${url}`, data);
       const response = await this.client(config);
-      console.log(`✅ ${method} ${endpoint} - Success:`, response.data);
+      console.log(`✅ ${method} ${url} - Success:`, response.data);
       
       return { success: true, data: response.data };
     } catch (error) {
-      console.error(`❌ ${method} ${endpoint} - Error:`, {
+      console.error(`❌ ${method} ${url} - Error:`, {
         status: error.response?.status,
         data: error.response?.data,
         message: error.message
