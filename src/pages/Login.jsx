@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DollarSign, Mail, Lock, User, ArrowLeft } from 'lucide-react';
-import { Button } from '../components/ui/button';
+import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Label } from '../components/ui/label';
 import { useAuth } from '../components/context/AuthContext';
 
-const AuthPage = ({ mode: initialMode = 'signup' }) => {
+const AuthPage = ({ mode: initialMode = 'login' }) => {
   const [mode, setMode] = useState(initialMode);
   const [formData, setFormData] = useState({
     name: '',
@@ -62,6 +62,12 @@ const AuthPage = ({ mode: initialMode = 'signup' }) => {
   const switchMode = () => {
     setMode(mode === 'signup' ? 'login' : 'signup');
     // Réinitialiser les erreurs lors du changement de mode
+    setFormData({
+      name: '',
+      email: '',
+      password: '',
+      password_confirm: ''
+    });
   };
 
   return (
@@ -220,7 +226,7 @@ const AuthPage = ({ mode: initialMode = 'signup' }) => {
               </div>
             </div>
 
-            {/* Toggle mode */}
+            {/* Toggle mode - Mettre l'accent sur la création de compte */}
             <div className="mt-6 text-center text-sm">
               {mode === 'signup' ? (
                 <p className="text-gray-600">
@@ -239,9 +245,9 @@ const AuthPage = ({ mode: initialMode = 'signup' }) => {
                   <button
                     type="button"
                     onClick={switchMode}
-                    className="text-blue-600 hover:underline font-medium"
+                    className="text-blue-600 hover:underline font-semibold"
                   >
-                    Créer un compte
+                    Créer un compte gratuitement
                   </button>
                 </p>
               )}
