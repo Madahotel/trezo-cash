@@ -2,13 +2,14 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { useUI } from '../context/UIContext';
-// import { supabase } from '../utils/supabase';
+import axios from '../config/Axios';
 import {
     LayoutDashboard, ListChecks, Table, AreaChart, Calendar, Layers, PieChart, AlertTriangle,
     ChevronDown, ChevronsLeftRight, Wallet, LogOut, User, Shield, CreditCard, FileText,
     HelpCircle, Trash2, FolderCog, Hash, Banknote, LayoutTemplate, Lock, FolderKanban,
     Users as UsersIcon, Archive, Settings,
-    DollarSign
+    DollarSign,
+    FolderOpen
 } from 'lucide-react';
 import NavTooltip from './NavTooltip';
 import { useActiveProjectData, useScheduleData } from '../../utils/selectors';
@@ -16,6 +17,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import AmbassadorIcon from './AmbassadorIcon';
 import TrezocashLogo from '../../components/logo/TrezocashLogo';
 import { useSettings } from '../context/SettingsContext';
+import ProjectsPage from '../../pages/clients/projets/ProjectsPage';
 
 const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
     const { dataState } = useData();
@@ -59,10 +61,13 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
         setIsAvatarMenuOpen(false);
     }, [location.pathname]);
 
-    const handleLogout = async () => {
-        await supabase.auth.signOut();
-        navigate('/');
-    };
+const handleLogout = async () => {
+  const confirmed = window.confirm("Êtes-vous sûr(e) de vouloir vous déconnecter ?");
+  if (!confirmed) return;
+
+  await axios.post('/logout');
+  navigate('/');
+};
 
     const handleNavigate = (path) => {
         navigate(path);
@@ -139,6 +144,7 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
     // Navigation items with improved structure
     const mainNavItems = useMemo(() => [
         { label: 'Dashboard', id: 'dashboard', path: '/client/dashboard', icon: LayoutDashboard },
+        { label: 'Projet', id: 'projet', path: '/client/projets', icon: FolderOpen},
         { label: 'Budget', id: 'budget', path: '/client/budget', icon: ListChecks },
         { label: 'Trezo', id: 'trezo', path: '/client/trezo', icon: Table },
         { label: 'Flux', id: 'flux', path: '/client/flux', icon: AreaChart },

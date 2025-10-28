@@ -1,63 +1,185 @@
 import React from 'react';
-import { Home, Briefcase, Plane, Heart, Coffee, HeartHandshake, Book, PiggyBank, Car, Building2, ShoppingBasket, Gift } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 
-const icons = [
-  { name: 'Home', component: Home }, { name: 'Briefcase', component: Briefcase },
-  { name: 'Plane', component: Plane }, { name: 'Heart', component: Heart },
-  { name: 'Coffee', component: Coffee }, { name: 'HeartHandshake', component: HeartHandshake },
-  { name: 'Book', component: Book }, { name: 'PiggyBank', component: PiggyBank },
-  { name: 'Car', component: Car }, { name: 'Building2', component: Building2 },
-  { name: 'ShoppingBasket', component: ShoppingBasket }, { name: 'Gift', component: Gift },
+// Configuration centralisée des icônes disponibles
+const AVAILABLE_ICONS = [
+  'Home', 'Briefcase', 'Plane', 'Heart', 'Coffee', 'HeartHandshake', 
+  'Book', 'PiggyBank', 'Car', 'Building2', 'ShoppingBasket', 'Gift',
+  'Utensils', 'Film', 'Music', 'Dumbbell', 'GraduationCap', 'Stethoscope',
+  'ShoppingCart', 'Wifi', 'Smartphone', 'Laptop', 'Camera', 'Gamepad2'
 ];
 
-const colors = [
-  'red', 'orange', 'amber', 'yellow', 'lime', 'green', 'emerald', 'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet', 'purple', 'fuchsia', 'pink', 'rose'
+// Configuration centralisée des couleurs
+const COLOR_PALETTE = [
+  { name: 'red', value: '#EF4444' },
+  { name: 'orange', value: '#F97316' },
+  { name: 'amber', value: '#F59E0B' },
+  { name: 'yellow', value: '#EAB308' },
+  { name: 'lime', value: '#84CC16' },
+  { name: 'green', value: '#22C55E' },
+  { name: 'emerald', value: '#10B981' },
+  { name: 'teal', value: '#14B8A6' },
+  { name: 'cyan', value: '#06B6D4' },
+  { name: 'sky', value: '#0EA5E9' },
+  { name: 'blue', value: '#3B82F6' },
+  { name: 'indigo', value: '#6366F1' },
+  { name: 'violet', value: '#8B5CF6' },
+  { name: 'purple', value: '#A855F7' },
+  { name: 'fuchsia', value: '#D946EF' },
+  { name: 'pink', value: '#EC4899' },
+  { name: 'rose', value: '#F43F5E' }
 ];
 
-const colorClasses = {
-  bg: { red: 'bg-red-500', orange: 'bg-orange-500', amber: 'bg-amber-500', yellow: 'bg-yellow-500', lime: 'bg-lime-500', green: 'bg-green-500', emerald: 'bg-emerald-500', teal: 'bg-teal-500', cyan: 'bg-cyan-500', sky: 'bg-sky-500', blue: 'bg-blue-500', indigo: 'bg-indigo-500', violet: 'bg-violet-500', purple: 'bg-purple-500', fuchsia: 'bg-fuchsia-500', pink: 'bg-pink-500', rose: 'bg-rose-500' },
-  ring: { red: 'ring-red-500', orange: 'ring-orange-500', amber: 'ring-amber-500', yellow: 'ring-yellow-500', lime: 'ring-lime-500', green: 'ring-green-500', emerald: 'ring-emerald-500', teal: 'ring-teal-500', cyan: 'ring-cyan-500', sky: 'ring-sky-500', blue: 'ring-blue-500', indigo: 'ring-indigo-500', violet: 'ring-violet-500', purple: 'ring-purple-500', fuchsia: 'ring-fuchsia-500', pink: 'ring-pink-500', rose: 'ring-rose-500' }
+// Classes CSS pour les couleurs (Tailwind)
+const COLOR_CLASSES = {
+  bg: COLOR_PALETTE.reduce((acc, color) => {
+    acc[color.name] = `bg-${color.name}-500`;
+    return acc;
+  }, {}),
+  ring: COLOR_PALETTE.reduce((acc, color) => {
+    acc[color.name] = `ring-${color.name}-500`;
+    return acc;
+  }, {})
 };
 
-const IconPicker = ({ value, onChange }) => {
-  const { icon: selectedIconName, color: selectedColorName } = value || {};
+const IconPicker = ({ 
+  value = { icon: 'Briefcase', color: 'blue' }, 
+  onChange, 
+  disabled = false 
+}) => {
+  const { icon: selectedIconName, color: selectedColorName } = value;
 
   const handleIconSelect = (iconName) => {
+    if (disabled) return;
     onChange({ ...value, icon: iconName });
   };
 
   const handleColorSelect = (colorName) => {
+    if (disabled) return;
     onChange({ ...value, color: colorName });
   };
 
+  // Récupérer les composants d'icônes dynamiquement
+  const getIconComponent = (iconName) => {
+    const IconComponent = LucideIcons[iconName];
+    return IconComponent || LucideIcons.Briefcase; // Fallback
+  };
+
   return (
-    <div>
+    <div className="space-y-4">
+      {/* Sélection d'icône */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Icône</label>
-        <div className="grid grid-cols-6 gap-2">
-          {icons.map(({ name, component: IconComponent }) => (
-            <button
-              key={name}
-              type="button"
-              onClick={() => handleIconSelect(name)}
-              className={`p-3 border rounded-lg flex items-center justify-center transition-colors ${selectedIconName === name ? `ring-2 ring-blue-500 bg-blue-50` : 'hover:bg-gray-100'}`}
-            >
-              <IconComponent className="w-6 h-6 text-gray-700" />
-            </button>
-          ))}
+        <label className="block text-sm font-medium text-gray-700 mb-3">
+          Icône
+          {selectedIconName && (
+            <span className="text-xs text-gray-500 ml-2">
+              Sélectionnée: {selectedIconName}
+            </span>
+          )}
+        </label>
+        <div className="grid grid-cols-6 gap-2 max-h-48 overflow-y-auto p-1">
+          {AVAILABLE_ICONS.map((iconName) => {
+            const IconComponent = getIconComponent(iconName);
+            const isSelected = selectedIconName === iconName;
+            
+            return (
+              <button
+                key={iconName}
+                type="button"
+                onClick={() => handleIconSelect(iconName)}
+                disabled={disabled}
+                className={`
+                  p-3 border rounded-lg flex items-center justify-center 
+                  transition-all duration-200 ease-in-out
+                  ${isSelected 
+                    ? `ring-2 ring-blue-500 bg-blue-50 border-blue-200 transform scale-105` 
+                    : 'border-gray-200 hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm'
+                  }
+                  ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                `}
+                title={iconName}
+              >
+                <IconComponent 
+                  className={`w-5 h-5 ${
+                    isSelected ? 'text-blue-600' : 'text-gray-600'
+                  }`} 
+                />
+              </button>
+            );
+          })}
         </div>
       </div>
-      <div className="mt-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Couleur</label>
+
+      {/* Sélection de couleur */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-3">
+          Couleur
+          {selectedColorName && (
+            <span className="text-xs text-gray-500 ml-2">
+              Sélectionnée: {selectedColorName}
+            </span>
+          )}
+        </label>
         <div className="flex flex-wrap gap-2">
-          {colors.map(color => (
-            <button
-              key={color}
-              type="button"
-              onClick={() => handleColorSelect(color)}
-              className={`w-8 h-8 rounded-full ${colorClasses.bg[color]} transition-transform transform hover:scale-110 ${selectedColorName === color ? `ring-2 ring-offset-2 ${colorClasses.ring[color]}` : ''}`}
-            />
-          ))}
+          {COLOR_PALETTE.map(({ name, value }) => {
+            const isSelected = selectedColorName === name;
+            
+            return (
+              <button
+                key={name}
+                type="button"
+                onClick={() => handleColorSelect(name)}
+                disabled={disabled}
+                className={`
+                  w-8 h-8 rounded-full transition-all duration-200 ease-in-out
+                  transform hover:scale-110 active:scale-95
+                  ${COLOR_CLASSES.bg[name]}
+                  ${isSelected 
+                    ? `ring-2 ring-offset-2 ${COLOR_CLASSES.ring[name]} shadow-md` 
+                    : 'ring-1 ring-gray-200 hover:ring-2 hover:ring-gray-300'
+                  }
+                  ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                `}
+                style={{ backgroundColor: value }}
+                title={name}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Aperçu de la sélection */}
+      <div className="pt-4 border-t border-gray-200">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Aperçu
+        </label>
+        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+          {selectedIconName && (
+            <>
+              <div 
+                className="w-10 h-10 rounded-lg flex items-center justify-center"
+                style={{ 
+                  backgroundColor: COLOR_PALETTE.find(c => c.name === selectedColorName)?.value + '20',
+                  border: `2px solid ${COLOR_PALETTE.find(c => c.name === selectedColorName)?.value}20`
+                }}
+              >
+                {React.createElement(getIconComponent(selectedIconName), {
+                  className: "w-5 h-5",
+                  style: { 
+                    color: COLOR_PALETTE.find(c => c.name === selectedColorName)?.value 
+                  }
+                })}
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">
+                  Icône: {selectedIconName}
+                </p>
+                <p className="text-xs text-gray-500">
+                  Couleur: {selectedColorName}
+                </p>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

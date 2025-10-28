@@ -7,6 +7,8 @@ import ProjectCollaborators from '../../pages/clients/projets/ProjectCollaborato
 import { Share2, Menu, Palette, Check, Search, Home, Heart, User } from 'lucide-react';
 import AmbassadorIcon from '../../components/sidebar/AmbassadorIcon';
 import { useSettings } from '../context/SettingsContext';
+import { useAuth } from '../context/AuthContext';
+
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -18,21 +20,33 @@ import {
 import { Button } from '../ui/Button';
 
 const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
-    const { dataState } = useData();
     const { uiState, uiDispatch } = useUI();
-    const { profile, projects, consolidatedViews, session } = dataState;
+    const { activeProject } = uiState; // C'est l'objet complet
+    const activeProjectId = activeProject?.id || null; // Extraire l'ID
+    const { dataState, fetchProjects } = useData();
+
+    const { user, token } = useAuth();
+    const { profile, projects, consolidatedViews } = dataState;
     const {
         theme,
         setTheme,
         getAllThemes,
     } = useSettings();
-    const { activeProjectId } = uiState;
     const navigate = useNavigate();
     const location = useLocation();
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
 
     const [themeActive, setThemeActive] = useState("");
+
+    // Charger les projets quand l'utilisateur se connecte
+    useEffect(() => {
+        if (user?.id && token) {
+            console.log('🔄 Header: Chargement des projets pour user:', user.id);
+            fetchProjects();
+        }
+    }, [user?.id, token, fetchProjects]);
+
     // Close menu when clicking outside
     useEffect(() => {
         const selectedTheme = getAllThemes().find(themeOption => theme === themeOption.id);
@@ -42,31 +56,57 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
             setThemeActive("bg-blue-600");
         }
     }, [theme, getAllThemes]);
+
     const handleOpenMobileNav = () => {
         uiDispatch({ type: 'OPEN_NAV_DRAWER' });
     };
 
-    const activeProjectOrView = useMemo(() => {
-        if (!activeProjectId) return null;
-        if (activeProjectId === 'consolidated') {
-            return { id: 'consolidated', name: 'Mes projets consolidé', type: 'consolidated' };
-        }
-        if (activeProjectId.startsWith('consolidated_view_')) {
-            const viewId = activeProjectId.replace('consolidated_view_', '');
-            const view = consolidatedViews.find(v => v.id === viewId);
-            return view ? { ...view, type: 'custom_consolidated' } : null;
-        }
-        return projects.find(p => p.id === activeProjectId);
-    }, [activeProjectId, projects, consolidatedViews]);
+    // Filtrer les projets pour n'afficher que ceux de l'utilisateur connecté
+    const userProjects = useMemo(() => {
+        if (!user?.id || !projects?.length) return [];
 
+        return projects.filter(project => {
+            const isOwner = project.user_id === user.id;
+            const isSubscriber = project.user_subscriber_id === user.id;
+            const isCollaborator = project.collaborators?.some(collab =>
+                collab.user_id === user.id
+            );
+
+            return isOwner || isSubscriber || isCollaborator;
+        });
+    }, [projects, user?.id]);
+
+    // CORRECTION : Fonction utilitaire pour gérer les IDs de projet
+    const getProjectIdInfo = (projectId) => {
+        if (!projectId) return { string: '', isConsolidated: false, isCustomConsolidated: false };
+
+        const idString = String(projectId);
+        return {
+            string: idString,
+            isConsolidated: idString === 'consolidated',
+            isCustomConsolidated: idString.startsWith('consolidated_view_')
+        };
+    };
+
+    const activeProjectOrView = useMemo(() => {
+        if (!activeProject) return null;
+
+        // Si activeProject a déjà un id, c'est un projet normal
+        if (activeProject.id && typeof activeProject.id !== 'object') {
+            return activeProject;
+        }
+
+        // Sinon, chercher dans userProjects
+        return userProjects?.find(p => String(p.id) === String(activeProjectId)) || null;
+    }, [activeProject, activeProjectId, userProjects]);
     const pageTitle = useMemo(() => {
         if (location.pathname.startsWith('/client/projets')) {
-            const name = profile?.fullName?.split(' ')[0] || 'Utilisateur';
+            const name = profile?.fullName?.split(' ')[0] || user?.name || 'Utilisateur';
             return `Bonjour ${name},`;
         }
-        if (!activeProjectOrView) return null;
+        if (!activeProjectOrView) return "Sélectionnez un projet";
 
-        const projectName = activeProjectOrView.name;
+        const projectName = activeProjectOrView.name || 'Projet sans nom';
         let prefix = "Tableau de bord";
         let projectTypeLabel = "du projet";
 
@@ -92,26 +132,43 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
         else if (location.pathname.startsWith('/client/flux')) prefix = "Flux de trésorerie";
 
         return `${prefix} ${projectTypeLabel} : "${projectName}"`;
-    }, [activeProjectOrView, location.pathname, profile]);
+    }, [activeProjectOrView, location.pathname, profile, user]);
 
-    // CORRECTION : Gérer les valeurs undefined
+    // CORRECTION : Utiliser userProjects au lieu de projects
     const canShareProject = useMemo(() => {
-        if (!activeProjectOrView || 
-            activeProjectId === 'consolidated' || 
-            activeProjectId.startsWith('consolidated_view_') ||
-            !session?.user?.id) {
+        if (!activeProjectOrView || !user?.id) {
             return false;
         }
-        return activeProjectOrView.user_id === session.user.id;
-    }, [activeProjectOrView, activeProjectId, session]);
+
+        // CORRECTION : Utiliser la fonction utilitaire pour vérifier le type de projet
+        const projectIdInfo = getProjectIdInfo(activeProjectId);
+
+        if (projectIdInfo.isConsolidated || projectIdInfo.isCustomConsolidated) {
+            return false;
+        }
+
+        // Vérifier si l'utilisateur est propriétaire du projet
+        const isOwner = activeProjectOrView.user_id === user.id;
+
+        // Vérifier si l'utilisateur a les droits de partage (propriétaire ou admin)
+        const userRole = activeProjectOrView.collaborators?.find(collab =>
+            collab.user_id === user.id
+        )?.role;
+
+        const canShareAsCollaborator = userRole === 'admin' || userRole === 'owner';
+
+        return isOwner || canShareAsCollaborator;
+    }, [activeProjectOrView, activeProjectId, user]);
 
     const handleShareClick = () => {
         navigate('/app/collaborateurs');
     };
 
+    // Debug amélioré
     useEffect(() => {
-        console.log('Header Debug:', activeProjectOrView);
-    }, [activeProjectOrView]);
+        console.log('Header Debug - activeProjectId:', activeProjectId, 'type:', typeof activeProjectId);
+        console.log('Header Debug - activeProjectOrView:', activeProjectOrView);
+    }, [activeProjectId, activeProjectOrView]);
 
     return (
         <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
@@ -150,7 +207,7 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" title="Thème" className="text-purple-600">
-                                    <Palette className="w-20 h-20" size={20} />
+                                    <Palette className="w-5 h-5" />
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-64">
@@ -240,7 +297,7 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" title="Thème" className="text-purple-600">
-                                <Palette className="w-22 h-22" />
+                                <Palette className="w-5 h-5" />
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-64">
@@ -292,29 +349,28 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
                     </button>
                 </div>
             </div>
-            {/* Barre de recherche (mobile) */}
-{isSearchOpen && (
-  <div className="w-full px-4 py-2 bg-gray-50 border-b border-gray-200 animate-fadeIn">
-    <div className="flex items-center gap-2">
-      <input
-        type="text"
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        placeholder="Rechercher..."
-        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-      />
-      <button
-        onClick={() => setIsSearchOpen(false)}
-        className="p-2 rounded-md text-gray-500 hover:text-gray-800"
-      >
-        ✕
-      </button>
-    </div>
-  </div>
-)}
 
+            {/* Barre de recherche (mobile) */}
+            {isSearchOpen && (
+                <div className="w-full px-4 py-2 bg-gray-50 border-b border-gray-200 animate-fadeIn">
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Rechercher..."
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        />
+                        <button
+                            onClick={() => setIsSearchOpen(false)}
+                            className="p-2 rounded-md text-gray-500 hover:text-gray-800"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                </div>
+            )}
         </header>
-        
     );
 };
 

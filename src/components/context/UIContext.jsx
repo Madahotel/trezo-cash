@@ -4,6 +4,8 @@ import { v4 as uuidv4 } from 'uuid';
 const UIContext = createContext();
 
 const getInitialUIState = () => ({
+    activeProject: null, // ✅ Ajouté ici
+    showDashboard: false, // ✅ Ajouté ici
     activeProjectId: null,
     activeTrezoView: sessionStorage.getItem('activeTrezoView') || 'tableau',
     displayYear: new Date().getFullYear(),
@@ -46,6 +48,8 @@ const getInitialUIState = () => ({
     editingTemplate: null,
     isShareProjectDrawerOpen: false,
     isNavDrawerOpen: false,
+    isCustomizationDrawerOpen: false, // ✅ Ajouté ici
+    customizationDrawerType: null, // ✅ Ajouté ici
 });
 
 const uiReducer = (state, action) => {
@@ -56,7 +60,21 @@ const uiReducer = (state, action) => {
             const trezoView = state.activeTrezoView;
             return { ...getInitialUIState(), isLoading: false, activeTrezoView: trezoView };
         case 'SET_ACTIVE_PROJECT':
-            return { ...state, activeProjectId: action.payload, periodOffset: 0 };
+            return {
+                ...state,
+                activeProject: action.payload,
+                showDashboard: true
+            };
+        case 'SHOW_DASHBOARD':
+            return {
+                ...state,
+                showDashboard: true
+            };
+        case 'HIDE_DASHBOARD':
+            return {
+                ...state,
+                showDashboard: false
+            };
         case 'SET_ACTIVE_TREZO_VIEW':
             sessionStorage.setItem('activeTrezoView', action.payload);
             return { ...state, activeTrezoView: action.payload };
@@ -154,21 +172,27 @@ const uiReducer = (state, action) => {
             return { ...state, isNavDrawerOpen: true };
         case 'CLOSE_NAV_DRAWER':
             return { ...state, isNavDrawerOpen: false };
-
         case 'OPEN_CUSTOMIZATION_DRAWER':
-        return {
-            ...state,
-            isCustomizationDrawerOpen: true,
-            customizationDrawerType: action.payload
-        };
-        
+            return {
+                ...state,
+                isCustomizationDrawerOpen: true,
+                customizationDrawerType: action.payload
+            };
+        case 'CLOSE_CUSTOMIZATION_DRAWER':
+            return {
+                ...state,
+                isCustomizationDrawerOpen: false,
+                customizationDrawerType: null
+            };
         default:
             return state;
     }
 };
 
 export const UIProvider = ({ children }) => {
+    // ✅ CORRECTION : Supprimer le troisième argument incorrect
     const [state, dispatch] = useReducer(uiReducer, getInitialUIState());
+    
     return (
         <UIContext.Provider value={{ uiState: state, uiDispatch: dispatch }}>
             {children}

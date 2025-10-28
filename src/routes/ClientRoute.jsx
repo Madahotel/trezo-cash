@@ -26,12 +26,16 @@ import BudgetPage from "../pages/clients/budget/Budget";
 import ReferralPage from "../pages/clients/ambassador/ReferralPage";
 
 import ProtectedRoute from "../routes/ProtectedRoute"; // Ataovy araka ny làlana marina
-
+import ProjectsPage from "../pages/clients/projets/ProjectsPage";
+import { SettingsProvider } from "../contexts/SettingsContext";
+import DashboardProject from "../pages/clients/dashboard/DashboardProject";
 const ClientRoute = {
   path: "/client",
   element: (
     <ProtectedRoute>
+      <SettingsProvider>
       <ProjetLayoutClient />
+      </SettingsProvider>
     </ProtectedRoute>
   ),
   children: [
@@ -59,6 +63,9 @@ const ClientRoute = {
     { path: "abonnement", element: <SubscriptionPage /> },
     { path: "onboarding", element: <OnboardingView /> },
     { path: "parrainage", element: <ReferralPage /> },
+    { path: "projets", element: <ProjectsPage /> },
+    { path: "project/:projectId/dashboard", element: <DashboardProject /> },
+   
   ],
 };
 
