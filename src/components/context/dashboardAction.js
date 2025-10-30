@@ -10,7 +10,7 @@ export async function getDashboardSetting(idProjet) {
       throw new Error(`Statut inattendu: ${res.data.status}`);
     }
   } catch (error) {
-    console.error('Erreur lors de la récupération des paramètres:', error);
+    console.error('Erreur lors de la récupération des paramètres:az', error);
     throw error;
   }
 }
