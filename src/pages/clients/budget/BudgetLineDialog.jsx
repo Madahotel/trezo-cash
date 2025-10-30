@@ -99,40 +99,54 @@ const BudgetLineDialog = ({
     [allCashAccounts]
   );
   const getFilteredThirdPartyOptions = useCallback((type, thirdPartyList) => {
-  if (!thirdPartyList || thirdPartyList.length === 0) return [];
+    if (!thirdPartyList || thirdPartyList.length === 0) return [];
 
-  if (type === '1') {
-    return thirdPartyList
-      .filter((thirdParty) => thirdParty.user_type_id === 2) 
-      .map((thirdParty) => ({
-        value: thirdParty.user_third_party_id?.toString() || thirdParty.id?.toString(),
-        label: `${thirdParty.firstname || ''} ${thirdParty.name || ''}`.trim(),
-        email: thirdParty.email,
-        rawData: thirdParty,
-      }));
-  } else if (type === '2') {
-    return thirdPartyList
-      .filter((thirdParty) => thirdParty.user_type_id === 2) 
-      .map((thirdParty) => ({
-        value: thirdParty.user_third_party_id?.toString() || thirdParty.id?.toString(),
-        label: `${thirdParty.firstname || ''} ${thirdParty.name || ''}`.trim(),
-        email: thirdParty.email,
-        rawData: thirdParty,
-      }));
-  }
-  return [];
-}, []);
+    if (type === '1') {
+      return thirdPartyList
+        .filter(
+          (thirdParty) =>
+            thirdParty.user_type_id === 6 || thirdParty.user_type_id === 7
+        )
+        .map((thirdParty) => ({
+          value:
+            thirdParty.user_third_party_id?.toString() ||
+            thirdParty.id?.toString(),
+          label: `${thirdParty.firstname || ''} ${
+            thirdParty.name || ''
+          }`.trim(),
+          email: thirdParty.email,
+          rawData: thirdParty,
+        }));
+    } else if (type === '2') {
+      return thirdPartyList
+        .filter(
+          (thirdParty) =>
+            thirdParty.user_type_id === 4 || thirdParty.user_type_id === 5
+        )
+        .map((thirdParty) => ({
+          value:
+            thirdParty.user_third_party_id?.toString() ||
+            thirdParty.id?.toString(),
+          label: `${thirdParty.firstname || ''} ${
+            thirdParty.name || ''
+          }`.trim(),
+          email: thirdParty.email,
+          rawData: thirdParty,
+        }));
+    }
+    return [];
+  }, []);
 
   // Options tiers mémorisées
-const thirdPartyOptions = React.useMemo(() => {
-  console.log('listThirdParty raw:', listThirdParty);
-  console.log('formData.type:', formData.type);
-  
-  const options = getFilteredThirdPartyOptions(formData.type, listThirdParty);
-  console.log('Filtered options:', options);
-  
-  return options;
-}, [formData.type, listThirdParty, getFilteredThirdPartyOptions]);
+  const thirdPartyOptions = React.useMemo(() => {
+    console.log('listThirdParty raw:', listThirdParty);
+    console.log('formData.type:', formData.type);
+
+    const options = getFilteredThirdPartyOptions(formData.type, listThirdParty);
+    console.log('Filtered options:', options);
+
+    return options;
+  }, [formData.type, listThirdParty, getFilteredThirdPartyOptions]);
   // Calcul des montants
   const calculatedAmounts = useCallback(() => {
     const amount = parseFloat(formData.amount);
@@ -388,7 +402,6 @@ const thirdPartyOptions = React.useMemo(() => {
       setIsLoading(false);
     }
   };
-
 
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) {

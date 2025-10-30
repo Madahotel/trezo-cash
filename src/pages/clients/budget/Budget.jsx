@@ -14,11 +14,10 @@ import {
 import BudgetTable from './BudgetTable';
 import { formatCurrency } from '../../../utils/formatters';
 
-
 const BudgetPage = () => {
   const { uiState } = useUI(); // Récupération du state global
   const activeProjectId = uiState.activeProject?.id; // ID du projet actif
-  
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLine, setEditingLine] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -32,7 +31,7 @@ const BudgetPage = () => {
   // Fonction pour charger les données du budget
   const fetchBudgetData = async () => {
     if (!activeProjectId || typeof activeProjectId === 'string') {
-      setError("Aucun projet valide sélectionné");
+      setError('Aucun projet valide sélectionné');
       return;
     }
 
@@ -43,7 +42,7 @@ const BudgetPage = () => {
       setBudget(data);
     } catch (err) {
       console.error('Erreur:', err);
-      setError("Erreur lors du chargement du budget");
+      setError('Erreur lors du chargement du budget');
     } finally {
       setLoading(false);
     }
@@ -115,8 +114,12 @@ const BudgetPage = () => {
       <div className="p-10 flex justify-center items-center">
         <div className="text-yellow-600 text-center">
           <h2 className="text-xl font-bold mb-2">Vue consolidée</h2>
-          <p>La fonctionnalité Budget n'est pas disponible en vue consolidée.</p>
-          <p className="text-sm mt-2">Veuillez sélectionner un projet spécifique.</p>
+          <p>
+            La fonctionnalité Budget n'est pas disponible en vue consolidée.
+          </p>
+          <p className="text-sm mt-2">
+            Veuillez sélectionner un projet spécifique.
+          </p>
         </div>
       </div>
     );
@@ -153,7 +156,8 @@ const BudgetPage = () => {
         <div>
           <h1 className="text-3xl font-bold">Budget</h1>
           <p className="text-gray-600">
-            Gérez vos revenus et dépenses - {uiState.activeProject?.name || 'Projet'}
+            Gérez vos revenus et dépenses -{' '}
+            {uiState.activeProject?.name || 'Projet'}
           </p>
         </div>
         {!isMobile && (
@@ -204,7 +208,7 @@ const BudgetPage = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {formatCurrency (budget.sumEntries)}
+              {formatCurrency(budget.sumEntries)}
             </div>
           </CardContent>
         </Card>
@@ -217,7 +221,7 @@ const BudgetPage = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              {formatCurrency (budget.sumExpenses)}
+              {formatCurrency(budget.sumExpenses)}
             </div>
           </CardContent>
         </Card>
@@ -230,7 +234,7 @@ const BudgetPage = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              {formatCurrency (budget.sumForecast)}
+              {formatCurrency(budget.sumForecast)}
             </div>
           </CardContent>
         </Card>
