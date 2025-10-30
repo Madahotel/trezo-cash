@@ -8,22 +8,28 @@ import {
   Square,
   Edit,
   Trash2,
+  Eye,
 } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import BudgetDetailModal from './BudgetDetailModal';
 
 const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
-  // Tous les hooks doivent être appelés AVANT tout return conditionnel
   const [activeTab, setActiveTab] = useState('revenus');
   const [expandedRow, setExpandedRow] = useState(null);
   const [menuOpen, setMenuOpen] = useState(null);
   const [subCategoryMenuOpen, setSubCategoryMenuOpen] = useState(null);
   const [groupedData, setGroupedData] = useState([]);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedSubCategory, setSelectedSubCategory] = useState(null);
   const menuRefs = useRef({});
 
   // Fonctions utilitaires simplifiées
   const formatCurrency = (amount) => {
-    return `${amount?.toLocaleString() || '0'} €`;
+    // Convertir en nombre si c'est une string
+    const numericAmount =
+      typeof amount === 'string' ? parseFloat(amount) : amount;
+    return `${numericAmount?.toLocaleString() || '0'} €`;
   };
 
   const getFrequencyBadge = (frequency) => {
@@ -32,6 +38,7 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
       Trimestrielle: 'Trim',
       Annuelle: 'Annuel',
       Ponctuelle: 'Ponctuel',
+      Hebdomadaire: 'Hebdo',
     };
     return (
       <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
@@ -48,6 +55,8 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
       4: 'bg-purple-100 text-purple-600', // Santé
       5: 'bg-yellow-100 text-yellow-600', // Éducation
       6: 'bg-pink-100 text-pink-600', // Loisirs
+      7: 'bg-indigo-100 text-indigo-600', // Salaire
+      9: 'bg-teal-100 text-teal-600', // Allocations
     };
     return colors[categoryId] || 'bg-gray-100 text-gray-600';
   };
@@ -65,7 +74,7 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
           (item) => item.category_id === category.category_id
         );
         const totalAmount = categoryItems.reduce(
-          (sum, item) => sum + (item.amount || 0),
+          (sum, item) => sum + parseFloat(item.amount || 0), // Convertir en nombre
           0
         );
 
@@ -88,7 +97,7 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
           (item) => item.category_id === category.category_id
         );
         const totalAmount = categoryItems.reduce(
-          (sum, item) => sum + (item.amount || 0),
+          (sum, item) => sum + parseFloat(item.amount || 0), // Convertir en nombre
           0
         );
 
@@ -141,8 +150,22 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
     onDelete(item, type);
   };
 
-  // Formater la date
-  const formatDate = (dateString) => {
+  // Fonction pour ouvrir la modale de détails
+  const handleViewDetails = (item, event) => {
+    event.stopPropagation();
+    closeAllMenus();
+    setSelectedSubCategory(item);
+    setDetailModalOpen(true);
+  };
+
+  // Fonction pour fermer la modale
+  const handleCloseModal = () => {
+    setDetailModalOpen(false);
+    setSelectedSubCategory(null);
+  };
+
+  // Formater la date courte (pour affichage compact)
+  const formatShortDate = (dateString) => {
     if (!dateString) return '';
     return new Date(dateString).toLocaleDateString('fr-FR', {
       month: 'short',
@@ -150,18 +173,20 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
     });
   };
 
-  // Fonction pour calculer la position du menu
+  // Fonction améliorée pour calculer la position du menu
   const getMenuPosition = (element) => {
     if (!element) return 'bottom';
 
     const rect = element.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
-    const menuHeight = 160; // Hauteur approximative du menu
+    const menuHeight = 100;
 
-    return spaceBelow < menuHeight && spaceAbove > spaceBelow
-      ? 'top'
-      : 'bottom';
+    if (spaceBelow < menuHeight && spaceAbove > spaceBelow) {
+      return 'top';
+    }
+
+    return 'bottom';
   };
 
   // Animations
@@ -257,12 +282,6 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
               <th className="text-right py-3 px-4 font-medium text-gray-700">
                 Budget
               </th>
-              {/* <th className="text-right py-3 px-4 font-medium text-gray-700">
-                Réel
-              </th>
-              <th className="text-right py-3 px-4 font-medium text-gray-700">
-                Écart
-              </th> */}
               <th className="text-center py-3 px-4 font-medium text-gray-700">
                 Actions
               </th>
@@ -322,16 +341,6 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
                         {formatCurrency(category.amount)}
                       </td>
 
-                      {/* Réel - Pour l'instant égal au budget */}
-                      {/* <td className="text-right py-3 px-4">
-                        {formatCurrency(category.amount)}
-                      </td> */}
-
-                      {/* Écart - Pour l'instant 0 */}
-                      {/* <td className="text-right py-3 px-4 font-medium text-gray-600">
-                        {formatCurrency(0)}
-                      </td> */}
-
                       {/* Actions - Flèche d'expansion uniquement */}
                       <td className="py-3 px-4 text-center">
                         <div className="flex justify-center">
@@ -362,7 +371,7 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
                           animate="visible"
                           exit="hidden"
                         >
-                          <td colSpan="7" className="py-4 px-4">
+                          <td colSpan="5" className="py-4 px-4">
                             <motion.div
                               className="pl-12"
                               variants={contentVariants}
@@ -375,7 +384,7 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
                                 {category.categoryName}
                               </h4>
                               <div className="grid gap-3">
-                                {category.items.map((item) => {
+                                {category.items.map((item, index) => {
                                   const isSubMenuOpen =
                                     subCategoryMenuOpen === item.id;
                                   const menuPosition = isSubMenuOpen
@@ -388,7 +397,7 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
                                       className="flex justify-between items-center py-2 px-4 bg-white rounded-lg border relative"
                                       initial={{ opacity: 0, y: 10 }}
                                       animate={{ opacity: 1, y: 0 }}
-                                      transition={{ delay: 0.1 }}
+                                      transition={{ delay: index * 0.05 }}
                                     >
                                       <div className="flex items-center gap-3">
                                         <Square className="w-3 h-3 text-gray-400 fill-current" />
@@ -412,34 +421,19 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
                                             {formatCurrency(item.amount)}
                                           </div>
                                         </div>
-                                        {/* <div className="text-right">
-                                          <div className="text-sm text-gray-600">
-                                            Réel
-                                          </div>
-                                          <div className="font-medium">
-                                            {formatCurrency(item.amount)}
-                                          </div>
-                                        </div> */}
-                                        {/* <div className="text-right">
-                                          <div className="text-sm text-gray-600">
-                                            Écart
-                                          </div>
-                                          <div className="font-medium text-gray-600">
-                                            {formatCurrency(0)}
-                                          </div>
-                                        </div> */}
                                         <div className="text-right">
                                           <div className="text-sm text-gray-600">
                                             Période
                                           </div>
                                           <div className="text-xs text-gray-500">
-                                            {formatDate(item.start_date)}
+                                            {formatShortDate(item.start_date)}
                                             {item.is_duration_indefinite ? (
                                               <span> → ∞</span>
                                             ) : item.end_date ? (
                                               <span>
                                                 {' '}
-                                                → {formatDate(item.end_date)}
+                                                →{' '}
+                                                {formatShortDate(item.end_date)}
                                               </span>
                                             ) : null}
                                           </div>
@@ -469,46 +463,98 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
                                             <MoreVertical className="w-4 h-4" />
                                           </button>
 
-                                          {/* Menu modal pour sous-catégorie avec positionnement adaptatif */}
-                                          {isSubMenuOpen && (
-                                            <div
-                                              className={`absolute ${
-                                                menuPosition === 'top'
-                                                  ? 'bottom-full mb-1'
-                                                  : 'top-full mt-1'
-                                              } right-0 w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-50`}
-                                            >
-                                              <div className="py-1">
-                                                <button
-                                                  onClick={(e) =>
-                                                    handleEdit(
-                                                      item,
-                                                      activeTab,
-                                                      e
-                                                    )
-                                                  }
-                                                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                                                >
-                                                  <Edit className="w-4 h-4 mr-2" />
-                                                  Modifier
-                                                </button>
-                                                <div className="border-t border-gray-100 my-1"></div>
-                                                <button
-                                                  onClick={(e) =>
-                                                    handleDelete(
-                                                      item,
-                                                      activeTab,
-                                                      e
-                                                    )
-                                                  }
-                                                  className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                                                >
-                                                  <Trash2 className="w-4 h-4 mr-2" />
-                                                  Supprimer
-                                                </button>
-                                              </div>
-                                            </div>
-                                          )}
+                                          {/* Menu modal pour sous-catégorie avec positionnement adaptatif amélioré */}
+                                          <AnimatePresence>
+                                            {isSubMenuOpen && (
+                                              <motion.div
+                                                className={`fixed w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-50 ${
+                                                  menuPosition === 'top'
+                                                    ? 'bottom-auto'
+                                                    : 'top-auto'
+                                                }`}
+                                                initial={{
+                                                  opacity: 0,
+                                                  scale: 0.95,
+                                                }}
+                                                animate={{
+                                                  opacity: 1,
+                                                  scale: 1,
+                                                }}
+                                                exit={{
+                                                  opacity: 0,
+                                                  scale: 0.95,
+                                                }}
+                                                transition={{ duration: 0.15 }}
+                                                style={{
+                                                  position: 'fixed',
+                                                  [menuPosition === 'top'
+                                                    ? 'bottom'
+                                                    : 'top']:
+                                                    menuPosition === 'top'
+                                                      ? `${
+                                                          window.innerHeight -
+                                                          menuRefs.current[
+                                                            item.id
+                                                          ]?.getBoundingClientRect()
+                                                            .top +
+                                                          8
+                                                        }px`
+                                                      : `${
+                                                          menuRefs.current[
+                                                            item.id
+                                                          ]?.getBoundingClientRect()
+                                                            .bottom + 8
+                                                        }px`,
+                                                  right: `${
+                                                    window.innerWidth -
+                                                    menuRefs.current[
+                                                      item.id
+                                                    ]?.getBoundingClientRect()
+                                                      .right
+                                                  }px`,
+                                                }}
+                                              >
+                                                <div className="py-1">
+                                                  <button
+                                                    onClick={(e) =>
+                                                      handleViewDetails(item, e)
+                                                    }
+                                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                                  >
+                                                    <Eye className="w-4 h-4 mr-2" />
+                                                    Voir les détails
+                                                  </button>
+                                                  <button
+                                                    onClick={(e) =>
+                                                      handleEdit(
+                                                        item,
+                                                        activeTab,
+                                                        e
+                                                      )
+                                                    }
+                                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                                  >
+                                                    <Edit className="w-4 h-4 mr-2" />
+                                                    Modifier
+                                                  </button>
+                                                  <div className="border-t border-gray-100 my-1"></div>
+                                                  <button
+                                                    onClick={(e) =>
+                                                      handleDelete(
+                                                        item,
+                                                        activeTab,
+                                                        e
+                                                      )
+                                                    }
+                                                    className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                                  >
+                                                    <Trash2 className="w-4 h-4 mr-2" />
+                                                    Supprimer
+                                                  </button>
+                                                </div>
+                                              </motion.div>
+                                            )}
+                                          </AnimatePresence>
                                         </div>
                                       </div>
                                     </motion.div>
@@ -525,7 +571,7 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
               })
             ) : (
               <tr>
-                <td colSpan="7" className="py-8 text-center text-gray-500">
+                <td colSpan="5" className="py-8 text-center text-gray-500">
                   <div className="flex flex-col items-center justify-center">
                     <div>Aucune donnée disponible</div>
                     <div className="text-sm text-gray-400 mt-1">
@@ -540,6 +586,15 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
           </tbody>
         </table>
       </div>
+
+      {/* Appel de la modale indépendante */}
+      <BudgetDetailModal
+        open={detailModalOpen}
+        onClose={handleCloseModal}
+        subCategory={selectedSubCategory}
+        type={activeTab}
+        onEdit={handleEdit}
+      />
 
       {/* Overlay pour fermer les menus en cliquant ailleurs */}
       {(menuOpen || subCategoryMenuOpen) && (

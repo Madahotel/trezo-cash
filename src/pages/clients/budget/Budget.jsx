@@ -6,7 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import BudgetLineDialog from './BudgetLineDialog';
 import ConfirmationModal from './ui/alert-dialog';
 import { useMobile } from '../../../hooks/useMobile';
-import { getBudget } from '../../../components/context/budgetAction';
+import {
+  getBudget,
+  destroyBudget,
+} from '../../../components/context/budgetAction';
 import BudgetTable from './BudgetTable';
 
 const BudgetPage = () => {
@@ -15,6 +18,7 @@ const BudgetPage = () => {
   const [editingLine, setEditingLine] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedLine, setSelectedLine] = useState(null);
+  const [deleteType, setDeleteType] = useState(null); // 'revenus' ou 'depenses'
   const isMobile = useMobile();
   const [loading, setLoading] = useState(false);
   const [budget, setBudget] = useState({});
@@ -37,27 +41,36 @@ const BudgetPage = () => {
     await fetchBudgetData();
   };
 
-  const handleEdit = (item) => {
-    console.log('Modifier:', item);
+  const handleEdit = (item, type) => {
+    console.log('Modifier:', item, type);
     setEditingLine(item);
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (item) => {
-    console.log('Supprimer:', item);
+  const handleDelete = (item, type) => {
+    console.log('Supprimer:', item, type);
     setSelectedLine(item);
+    setDeleteType(type);
     setDeleteModalOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (selectedLine) {
-      console.log('Suppression confirmée pour:', selectedLine);
-      // Ici vous appelleriez votre API de suppression
-      // await deleteBudget(selectedLine.id);
-      setDeleteModalOpen(false);
-      setSelectedLine(null);
-      // Recharger les données après suppression
-      fetchBudgetData();
+      try {
+        console.log('Suppression confirmée pour:', selectedLine);
+
+        // Appel à l'API de suppression
+        await destroyBudget(selectedLine.id);
+
+        // Recharger les données après suppression
+        await fetchBudgetData();
+      } catch (error) {
+        console.error('Erreur lors de la suppression:', error);
+      } finally {
+        setDeleteModalOpen(false);
+        setSelectedLine(null);
+        setDeleteType(null);
+      }
     }
   };
 
@@ -118,10 +131,16 @@ const BudgetPage = () => {
       {/* Modal de suppression */}
       <ConfirmationModal
         isOpen={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setSelectedLine(null);
+          setDeleteType(null);
+        }}
         onConfirm={confirmDelete}
         title="Confirmer la suppression"
-        description="Êtes-vous sûr de vouloir supprimer cette ligne budgétaire ? Cette action est irréversible."
+        description={`Êtes-vous sûr de vouloir supprimer cette ligne de ${
+          deleteType === 'revenus' ? 'revenu' : 'dépense'
+        } ? Cette action est irréversible.`}
         confirmText="Supprimer"
         confirmColor="bg-red-600 hover:bg-red-700"
       />
