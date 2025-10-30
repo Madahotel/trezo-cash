@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useUI } from '../../../components/context/UIContext';
 import { Plus } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -8,9 +9,13 @@ import ConfirmationModal from './ui/alert-dialog';
 import { useMobile } from '../../../hooks/useMobile';
 import { getBudget } from '../../../components/context/budgetAction';
 import BudgetTable from './BudgetTable';
+import { formatCurrency } from '../../../utils/formatters';
+
 
 const BudgetPage = () => {
-  const idProjet = 1;
+  const { uiState } = useUI(); // Récupération du state global
+  const activeProjectId = uiState.activeProject?.id; // ID du projet actif
+  
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLine, setEditingLine] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -18,21 +23,35 @@ const BudgetPage = () => {
   const isMobile = useMobile();
   const [loading, setLoading] = useState(false);
   const [budget, setBudget] = useState({});
+  const [error, setError] = useState(null);
 
   // Fonction pour charger les données du budget
   const fetchBudgetData = async () => {
+    if (!activeProjectId || typeof activeProjectId === 'string') {
+      setError("Aucun projet valide sélectionné");
+      return;
+    }
+
     try {
       setLoading(true);
-      const data = await getBudget(idProjet);
+      setError(null);
+      const data = await getBudget(activeProjectId);
       setBudget(data);
     } catch (err) {
       console.error('Erreur:', err);
+      setError("Erreur lors du chargement du budget");
     } finally {
       setLoading(false);
     }
   };
 
-  // Fonction appelée quand une nouvelle ligne est ajoutée ou modifiée
+  // Recharger les données quand le projet actif change
+  useEffect(() => {
+    if (activeProjectId && typeof activeProjectId === 'number') {
+      fetchBudgetData();
+    }
+  }, [activeProjectId]);
+
   const handleBudgetUpdated = async () => {
     await fetchBudgetData();
   };
@@ -52,16 +71,12 @@ const BudgetPage = () => {
   const confirmDelete = () => {
     if (selectedLine) {
       console.log('Suppression confirmée pour:', selectedLine);
-      // Ici vous appelleriez votre API de suppression
-      // await deleteBudget(selectedLine.id);
       setDeleteModalOpen(false);
       setSelectedLine(null);
-      // Recharger les données après suppression
       fetchBudgetData();
     }
   };
 
-  // Reset editingLine quand le dialog se ferme
   const handleDialogClose = (open) => {
     setIsDialogOpen(open);
     if (!open) {
@@ -69,31 +84,57 @@ const BudgetPage = () => {
     }
   };
 
-  // Ouvrir le dialogue en mode création
   const handleAddNewLine = () => {
     setEditingLine(null);
     setIsDialogOpen(true);
   };
 
-  useEffect(() => {
-    fetchBudgetData();
-  }, [idProjet]);
+  // Gestion des erreurs pour projets consolidés
+  if (typeof activeProjectId === 'string') {
+    return (
+      <div className="p-10 flex justify-center items-center">
+        <div className="text-yellow-600 text-center">
+          <h2 className="text-xl font-bold mb-2">Vue consolidée</h2>
+          <p>La fonctionnalité Budget n'est pas disponible en vue consolidée.</p>
+          <p className="text-sm mt-2">Veuillez sélectionner un projet spécifique.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!activeProjectId) {
+    return (
+      <div className="p-10 flex justify-center items-center">
+        <div className="text-red-600">Aucun projet sélectionné</div>
+      </div>
+    );
+  }
+
+  if (error && !loading) {
+    return (
+      <div className="p-10 flex justify-center items-center">
+        <div className="text-red-600">{error}</div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
       <div className="p-10 flex justify-center items-center">
-        <div>Chargement...</div>
+        <div>Chargement du budget...</div>
       </div>
     );
   }
 
   return (
     <div className="p-10 space-y-6">
-      {/* Header */}
+      {/* Header avec le nom du projet */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Budget</h1>
-          <p className="text-gray-600">Gérez vos revenus et dépenses</p>
+          <p className="text-gray-600">
+            Gérez vos revenus et dépenses - {uiState.activeProject?.name || 'Projet'}
+          </p>
         </div>
         {!isMobile && (
           <div className="flex gap-2">
@@ -113,6 +154,7 @@ const BudgetPage = () => {
         onBudgetUpdated={handleBudgetUpdated}
         data={budget}
         editLine={editingLine}
+        projectId={activeProjectId}
       />
 
       {/* Modal de suppression */}
@@ -136,7 +178,7 @@ const BudgetPage = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {budget.sumEntries || '0'} €
+              {formatCurrency (budget.sumEntries)}
             </div>
           </CardContent>
         </Card>
@@ -149,7 +191,7 @@ const BudgetPage = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              {budget.sumExpenses || '0'} €
+              {formatCurrency (budget.sumExpenses)}
             </div>
           </CardContent>
         </Card>
@@ -162,7 +204,7 @@ const BudgetPage = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              {budget.sumForecast || '0'} €
+              {formatCurrency (budget.sumForecast)}
             </div>
           </CardContent>
         </Card>

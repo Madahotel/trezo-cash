@@ -28,7 +28,7 @@ const ProjectTypeStep = ({ projectTypes, loadingTypes, setProjectTypes, setLoadi
     const fetchProjectTypes = async () => {
       try {
         setLoadingTypes(true);
-        const response = await axios.get('/projects_type');
+        const response = await axios.get('/project-types');
         setProjectTypes(response.data);
       } catch (error) {
         console.error('Erreur lors du chargement des types de projet:', error);

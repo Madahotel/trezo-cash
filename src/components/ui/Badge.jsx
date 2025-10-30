@@ -1,7 +1,7 @@
 import React from 'react';
 import { cn } from '../../components/lib/utils';
 
-const Badge = ({ className, children }) => {
+const  Badge = ({ className, children }) => {
   return (
     <span
       className={cn(

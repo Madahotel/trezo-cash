@@ -46,7 +46,7 @@ const ProjectDetailsStep = ({ data, setData }) => {
               value={data.projectEndDate} 
               onChange={(e) => setData(prev => ({ ...prev, projectEndDate: e.target.value }))} 
               className="w-full text-lg p-2 border-b-2 focus:border-blue-500 outline-none transition bg-transparent disabled:bg-gray-100 text-gray-700" 
-              disabled={data.isEndDateIndefinite} 
+              disabled={data.isDurationUndetermined}  
               min={data.projectStartDate} 
             />
           </div>
@@ -56,10 +56,10 @@ const ProjectDetailsStep = ({ data, setData }) => {
           <input 
             type="checkbox" 
             id="indefinite-date" 
-            checked={data.isEndDateIndefinite} 
+            checked={data.isDurationUndetermined} 
             onChange={(e) => setData(prev => ({ 
               ...prev, 
-              isEndDateIndefinite: e.target.checked, 
+              isDurationUndetermined: e.target.checked, 
               projectEndDate: e.target.checked ? '' : prev.projectEndDate 
             }))} 
             className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" 

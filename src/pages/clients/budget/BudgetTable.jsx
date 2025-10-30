@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { formatCurrency } from '../../../utils/formatters';
 
 const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
   // Tous les hooks doivent être appelés AVANT tout return conditionnel
@@ -20,11 +21,6 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
   const [subCategoryMenuOpen, setSubCategoryMenuOpen] = useState(null);
   const [groupedData, setGroupedData] = useState([]);
   const menuRefs = useRef({});
-
-  // Fonctions utilitaires simplifiées
-  const formatCurrency = (amount) => {
-    return `${amount?.toLocaleString() || '0'} €`;
-  };
 
   const getFrequencyBadge = (frequency) => {
     const frequencies = {

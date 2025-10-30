@@ -436,7 +436,7 @@ const BasicInfoSection = ({
 
       {/* Catégorie principale */}
       <CustomDropdown
-        label="Catégorie principale *"
+        label="Catégorie principale*"
         id="category-select"
         ref={categoryRef}
         isOpen={categoryOpen}

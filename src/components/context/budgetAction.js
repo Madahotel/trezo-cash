@@ -42,14 +42,21 @@ export async function showEditBudget(budgetId, Sub) {
 
 export async function storeBudget(formData, idProjet) {
   try {
+    console.log('URL appelée:', `/budget-projects/${idProjet}`);
+    console.log('Données envoyées:', formData);
+    
     const res = await axios.post(`/budget-projects/${idProjet}`, formData);
+    
+    console.log('Réponse reçue:', res);
+    
     if (res.data.status === 200) {
       return res.data.message;
     } else {
       throw new Error(`Statut inattendu: ${res.data.status}`);
     }
   } catch (error) {
-    console.error(error);
+    console.error('Erreur détaillée:', error.response || error);
+    throw error; // Relancer l'erreur pour mieux la gérer
   }
 }
 export async function addTiers(formData) {
