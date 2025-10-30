@@ -10,6 +10,7 @@ import {
     RotateCw,
     Users,
     UserPlus,
+    Infinity,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -158,8 +159,8 @@ const ProjectCard = ({
     };
 
     return (
-        <Card className={`relative transition-all duration-200 hover:shadow-md ${isSelected ? 'ring-2 ring-blue-500 shadow-md' : 'border-gray-200'
-            } ${isActiveProject ? 'ring-2 ring-green-500 border-green-200' : ''}`}>
+        <Card className={`relative transition-all duration-200 hover:shadow-lg ${isSelected ? 'ring-2 ring-blue-500 shadow-lg' : 'border-gray-200'
+            } ${isActiveProject ? 'ring-2 ring-green-500 border-green-200 shadow-md' : ''}`}>
 
             {/* Checkbox de sélection */}
             {isSelectMode && (
@@ -432,37 +433,50 @@ const ProjectCard = ({
                         </div>
                     </div>
 
-                    {/* Durée indéterminée - CORRIGÉ */}
-                    {isDurationUndetermined && (
-                        <div className="flex items-center justify-center p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
-                            <div className="w-2 h-2 bg-yellow-500 rounded-full mr-2 animate-pulse"></div>
-                            <p className="text-xs text-yellow-700 font-medium">
-                                Durée indéterminée
-                            </p>
-                        </div>
-                    )}
-
-                    {/* Dates - CORRIGÉ */}
-                    <div className="flex items-center justify-between text-xs text-gray-600 bg-gray-50 p-2 rounded-lg">
-                        <div className="flex items-center">
-                            <Calendar className="w-3 h-3 mr-2" />
-                            <span className="font-medium">{formatDate(project.startDate)}</span>
-                        </div>
-                        {!isDurationUndetermined && project.endDate && project.endDate !== project.startDate && (
-                            <>
-                                <span className="text-gray-400 mx-2">→</span>
-                                <div className="flex items-center">
-                                    <span className="font-medium">{formatDate(project.endDate)}</span>
+                    {/* Section Dates Réorganisée */}
+                    <div className="space-y-3">
+                        {/* Ligne : Date de début + Durée indéterminée/Date de fin */}
+                        <div className="flex items-center justify-between bg-gray-50 p-3 rounded-xl">
+                            {/* Date de début */}
+                            <div className="flex items-center space-x-2">
+                                <Calendar className="w-4 h-4 text-gray-500" />
+                                <div className="text-sm">
+                                    <p className="text-xs text-gray-500">Début</p>
+                                    <p className="font-medium text-gray-900">{formatDate(project.startDate)}</p>
                                 </div>
-                            </>
-                        )}
+                            </div>
+
+                            {/* Séparateur */}
+                            <div className="text-gray-300 mx-2">→</div>
+
+                            {/* Durée indéterminée ou Date de fin */}
+                            <div className="flex items-center space-x-2">
+                                {isDurationUndetermined ? (
+                                    <>
+                                        <Infinity className="w-4 h-4 text-yellow-500" />
+                                        <div className="text-sm">
+                                            <p className="text-xs text-gray-500">Fin</p>
+                                            <p className="font-medium text-yellow-600">Indéterminée</p>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Calendar className="w-4 h-4 text-gray-500" />
+                                        <div className="text-sm">
+                                            <p className="text-xs text-gray-500">Fin</p>
+                                            <p className="font-medium text-gray-900">{formatDate(project.endDate)}</p>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
                     </div>
 
                     {/* Actions */}
                     <div className="flex gap-2 pt-3 border-t border-gray-100">
                         <Button
                             size="sm"
-                            className="flex-1 text-xs h-8 bg-blue-500 hover:bg-blue-600 text-white"
+                            className="flex-1 text-xs h-8 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-sm"
                             onClick={() => navigate(`/client/project/${project.id}/dashboard`)}
                             disabled={project.is_archived || localLoading || budgetLoading}
                         >
@@ -474,13 +488,12 @@ const ProjectCard = ({
                             <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-8 w-8 p-0"
+                                className="h-8 w-8 p-0 border-gray-300 hover:border-blue-300 hover:bg-blue-50"
                                 disabled={project.is_archived || localLoading || budgetLoading}
                                 onClick={() => {
                                     setEditingProjectId(project.id);
                                     setEditForm({ 
                                         ...project,
-                                        // S'assurer que isDurationUndetermined est bien défini
                                         isDurationUndetermined: project.isDurationUndetermined || !project.endDate
                                     });
                                 }}
@@ -492,7 +505,7 @@ const ProjectCard = ({
                                 <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-8 w-8 p-0"
+                                    className="h-8 w-8 p-0 border-gray-300 hover:border-green-300 hover:bg-green-50"
                                     onClick={() => handleRestoreProject(project.id)}
                                     title="Restaurer le projet"
                                 >
@@ -502,7 +515,7 @@ const ProjectCard = ({
                                 <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-8 w-8 p-0"
+                                    className="h-8 w-8 p-0 border-gray-300 hover:border-orange-300 hover:bg-orange-50"
                                     onClick={() => handleArchiveProject(project)}
                                     title="Archiver le projet"
                                 >
@@ -513,7 +526,7 @@ const ProjectCard = ({
                             <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:border-red-200"
+                                className="h-8 w-8 p-0 border-gray-300 text-red-500 hover:text-red-600 hover:border-red-300 hover:bg-red-50"
                                 onClick={() => {
                                     if (window.confirm(`Êtes-vous sûr de vouloir supprimer définitivement le projet "${project.name}" ?`)) {
                                         handleDeleteProject(project.id);

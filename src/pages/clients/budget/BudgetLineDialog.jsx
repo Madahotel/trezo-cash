@@ -103,7 +103,7 @@ const BudgetLineDialog = ({
 
   if (type === '1') {
     return thirdPartyList
-      .filter((thirdParty) => thirdParty.user_type_id === 2) // ← CORRIGÉ
+      .filter((thirdParty) => thirdParty.user_type_id === 2) 
       .map((thirdParty) => ({
         value: thirdParty.user_third_party_id?.toString() || thirdParty.id?.toString(),
         label: `${thirdParty.firstname || ''} ${thirdParty.name || ''}`.trim(),
@@ -112,7 +112,7 @@ const BudgetLineDialog = ({
       }));
   } else if (type === '2') {
     return thirdPartyList
-      .filter((thirdParty) => thirdParty.user_type_id === 2) // ← CORRIGÉ
+      .filter((thirdParty) => thirdParty.user_type_id === 2) 
       .map((thirdParty) => ({
         value: thirdParty.user_third_party_id?.toString() || thirdParty.id?.toString(),
         label: `${thirdParty.firstname || ''} ${thirdParty.name || ''}`.trim(),

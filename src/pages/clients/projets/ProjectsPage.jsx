@@ -83,148 +83,148 @@ const ProjectsPage = () => {
         fetchProjects();
     }, []);
 
-// Redirection automatique selon l'état des projets
-useEffect(() => {
-    if (!loading && !error) {
-        // Si pas de projets, rediriger vers l'onboarding
-        if (projects.length === 0) {
-            console.log('Aucun projet trouvé, redirection vers onboarding');
-            navigate('/client/onboarding');
+    // Redirection automatique selon l'état des projets
+    useEffect(() => {
+        if (!loading && !error) {
+            // Si pas de projets, rediriger vers l'onboarding
+            if (projects.length === 0) {
+                console.log('Aucun projet trouvé, redirection vers onboarding');
+                navigate('/client/onboarding');
+            }
+            // Si vous voulez aussi rediriger quand il y a des projets mais aucun actif :
+            else if (projects.length > 0 && !activeProjectId) {
+                console.log('Projets existants mais aucun actif, rester sur la page de sélection');
+                // Vous pouvez choisir de rediriger ou non ici
+            }
         }
-        // Si vous voulez aussi rediriger quand il y a des projets mais aucun actif :
-        else if (projects.length > 0 && !activeProjectId) {
-            console.log('Projets existants mais aucun actif, rester sur la page de sélection');
-            // Vous pouvez choisir de rediriger ou non ici
+    }, [loading, error, projects.length, activeProjectId, navigate]);
+
+    const fetchProjects = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const response = await axios.get('/projects');
+            const data = response.data;
+
+            const transformedProjects = transformApiData(data);
+            setProjects(transformedProjects);
+
+            // Calcul sécurisé des stats
+            setProjectStats({
+                total: data.project_count || 0,
+                business: data.projects?.business?.project_business_count || 0,
+                events: data.projects?.events?.project_event_count || 0,
+                menages: data.projects?.menages?.project_menage_count || 0
+            });
+
+        } catch (err) {
+            console.error('Erreur lors de la récupération des projets:', err);
+            setError(err.message);
+            toast.error('Erreur lors du chargement des projets');
+        } finally {
+            setLoading(false);
         }
-    }
-}, [loading, error, projects.length, activeProjectId, navigate]);
+    };
 
-const fetchProjects = async () => {
-    try {
-        setLoading(true);
-        setError(null);
-        const response = await axios.get('/projects');
-        const data = response.data;
+    const transformApiData = (apiData) => {
+        const transformedProjects = [];
 
-        const transformedProjects = transformApiData(data);
-        setProjects(transformedProjects);
+        // Vérifier d'abord si apiData.projects existe
+        if (!apiData.projects) {
+            console.warn('Aucun projet trouvé dans la réponse API');
+            return transformedProjects;
+        }
 
-        // Calcul sécurisé des stats
-        setProjectStats({
-            total: data.project_count || 0,
-            business: data.projects?.business?.project_business_count || 0,
-            events: data.projects?.events?.project_event_count || 0,
-            menages: data.projects?.menages?.project_menage_count || 0
-        });
+        // Transformation des projets business - avec vérifications sécurisées
+        if (apiData.projects.business?.project_business_items?.data) {
+            apiData.projects.business.project_business_items.data.forEach(project => {
+                transformedProjects.push({
+                    id: project.id,
+                    name: project.name,
+                    description: project.description || 'Aucune description',
+                    type: 'business',
+                    typeName: project.type_name || 'Business',
+                    mainCurrency: 'EUR',
+                    incomeBudget: project.income_budget || 0,
+                    expenseBudget: project.expense_budget || 0,
+                    incomeRealized: project.income_realized || 0,
+                    expenseRealized: project.expense_realized || 0,
+                    startDate: project.start_date,
+                    endDate: project.end_date || project.start_date,
+                    status: project.status || 'active',
+                    isDurationUndetermined: project.is_duration_undetermined === 1,
+                    templateId: project.template_id,
+                    projectTypeId: project.project_type_id,
+                    createdAt: project.created_at,
+                    updatedAt: project.updated_at,
+                    userSubscriberId: project.user_subscriber_id,
+                    collaborators: [],
+                    is_archived: project.is_archived || false
+                });
+            });
+        }
 
-    } catch (err) {
-        console.error('Erreur lors de la récupération des projets:', err);
-        setError(err.message);
-        toast.error('Erreur lors du chargement des projets');
-    } finally {
-        setLoading(false);
-    }
-};
+        // Transformation des projets événements - avec vérifications sécurisées
+        if (apiData.projects.events?.project_event_items?.data) {
+            apiData.projects.events.project_event_items.data.forEach(project => {
+                transformedProjects.push({
+                    id: project.id,
+                    name: project.name,
+                    description: project.description || 'Aucune description',
+                    type: 'evenement',
+                    typeName: project.type_name || 'Événement',
+                    mainCurrency: 'EUR',
+                    incomeBudget: project.income_budget || 0,
+                    expenseBudget: project.expense_budget || 0,
+                    incomeRealized: project.income_realized || 0,
+                    expenseRealized: project.expense_realized || 0,
+                    startDate: project.start_date,
+                    endDate: project.end_date || project.start_date,
+                    status: project.status || 'active',
+                    isDurationUndetermined: project.is_duration_undetermined === 1,
+                    templateId: project.template_id,
+                    projectTypeId: project.project_type_id,
+                    createdAt: project.created_at,
+                    updatedAt: project.updated_at,
+                    userSubscriberId: project.user_subscriber_id,
+                    collaborators: [],
+                    is_archived: project.is_archived || false
+                });
+            });
+        }
 
-const transformApiData = (apiData) => {
-    const transformedProjects = [];
+        // Transformation des projets ménages - avec vérifications sécurisées
+        if (apiData.projects.menages?.project_menage_items?.data) {
+            apiData.projects.menages.project_menage_items.data.forEach(project => {
+                transformedProjects.push({
+                    id: project.id,
+                    name: project.name,
+                    description: project.description || 'Aucune description',
+                    type: 'menage',
+                    typeName: project.type_name || 'Ménage',
+                    mainCurrency: 'EUR',
+                    incomeBudget: project.income_budget || 0,
+                    expenseBudget: project.expense_budget || 0,
+                    incomeRealized: project.income_realized || 0,
+                    expenseRealized: project.expense_realized || 0,
+                    startDate: project.start_date,
+                    endDate: project.end_date || project.start_date,
+                    status: project.status || 'active',
+                    isDurationUndetermined: project.is_duration_undetermined === 1,
+                    templateId: project.template_id,
+                    projectTypeId: project.project_type_id,
+                    createdAt: project.created_at,
+                    updatedAt: project.updated_at,
+                    userSubscriberId: project.user_subscriber_id,
+                    collaborators: [],
+                    is_archived: project.is_archived || false
+                });
+            });
+        }
 
-    // Vérifier d'abord si apiData.projects existe
-    if (!apiData.projects) {
-        console.warn('Aucun projet trouvé dans la réponse API');
+        console.log(`${transformedProjects.length} projets transformés`);
         return transformedProjects;
-    }
-
-    // Transformation des projets business - avec vérifications sécurisées
-    if (apiData.projects.business?.project_business_items?.data) {
-        apiData.projects.business.project_business_items.data.forEach(project => {
-            transformedProjects.push({
-                id: project.id,
-                name: project.name,
-                description: project.description || 'Aucune description',
-                type: 'business',
-                typeName: project.type_name || 'Business',
-                mainCurrency: 'EUR',
-                incomeBudget: project.income_budget || 0,
-                expenseBudget: project.expense_budget || 0,
-                incomeRealized: project.income_realized || 0,
-                expenseRealized: project.expense_realized || 0,
-                startDate: project.start_date,
-                endDate: project.end_date || project.start_date,
-                status: project.status || 'active',
-                isDurationUndetermined: project.is_duration_undetermined === 1,
-                templateId: project.template_id,
-                projectTypeId: project.project_type_id,
-                createdAt: project.created_at,
-                updatedAt: project.updated_at,
-                userSubscriberId: project.user_subscriber_id,
-                collaborators: [],
-                is_archived: project.is_archived || false
-            });
-        });
-    }
-
-    // Transformation des projets événements - avec vérifications sécurisées
-    if (apiData.projects.events?.project_event_items?.data) {
-        apiData.projects.events.project_event_items.data.forEach(project => {
-            transformedProjects.push({
-                id: project.id,
-                name: project.name,
-                description: project.description || 'Aucune description',
-                type: 'evenement',
-                typeName: project.type_name || 'Événement',
-                mainCurrency: 'EUR',
-                incomeBudget: project.income_budget || 0,
-                expenseBudget: project.expense_budget || 0,
-                incomeRealized: project.income_realized || 0,
-                expenseRealized: project.expense_realized || 0,
-                startDate: project.start_date,
-                endDate: project.end_date || project.start_date,
-                status: project.status || 'active',
-                isDurationUndetermined: project.is_duration_undetermined === 1,
-                templateId: project.template_id,
-                projectTypeId: project.project_type_id,
-                createdAt: project.created_at,
-                updatedAt: project.updated_at,
-                userSubscriberId: project.user_subscriber_id,
-                collaborators: [],
-                is_archived: project.is_archived || false
-            });
-        });
-    }
-
-    // Transformation des projets ménages - avec vérifications sécurisées
-    if (apiData.projects.menages?.project_menage_items?.data) {
-        apiData.projects.menages.project_menage_items.data.forEach(project => {
-            transformedProjects.push({
-                id: project.id,
-                name: project.name,
-                description: project.description || 'Aucune description',
-                type: 'menage',
-                typeName: project.type_name || 'Ménage',
-                mainCurrency: 'EUR',
-                incomeBudget: project.income_budget || 0,
-                expenseBudget: project.expense_budget || 0,
-                incomeRealized: project.income_realized || 0,
-                expenseRealized: project.expense_realized || 0,
-                startDate: project.start_date,
-                endDate: project.end_date || project.start_date,
-                status: project.status || 'active',
-                isDurationUndetermined: project.is_duration_undetermined === 1,
-                templateId: project.template_id,
-                projectTypeId: project.project_type_id,
-                createdAt: project.created_at,
-                updatedAt: project.updated_at,
-                userSubscriberId: project.user_subscriber_id,
-                collaborators: [],
-                is_archived: project.is_archived || false
-            });
-        });
-    }
-
-    console.log(`${transformedProjects.length} projets transformés`);
-    return transformedProjects;
-};
+    };
     // Fonction pour obtenir l'icône basée sur le typeName
     const getProjectIcon = (typeName) => {
         return projectTypeIcons[typeName] || projectTypeIcons.default;
@@ -629,32 +629,32 @@ const transformApiData = (apiData) => {
                     </CardContent>
                 </Card>
             ) : (
-<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-  {projects.map((project) => (
-    <ProjectCard
-      key={project.id}
-      project={project}
-      projectTypeIcons={projectTypeIcons}
-      projectTypeColors={projectTypeColors}
-      getProjectIcon={getProjectIcon}
-      getProjectColor={getProjectColor}
-      editingProjectId={editingProjectId}
-      editForm={editForm}
-      setEditForm={setEditForm}
-      setEditingProjectId={setEditingProjectId}
-      updateProject={updateProject}
-      navigate={navigate}
-      handleArchiveProject={handleArchiveProject}
-      handleRestoreProject={handleRestoreProject}
-      handleDeleteProject={handleDeleteProject}
-      localLoading={localLoading}
-      isSelectMode={isSelectMode}
-      isSelected={selectedProjects.includes(project.id)}
-      onToggleSelection={toggleProjectSelection}
-      activeProjectId={activeProjectId}
-    />
-  ))}
-</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {projects.map((project) => (
+                        <ProjectCard
+                            key={project.id}
+                            project={project}
+                            projectTypeIcons={projectTypeIcons}
+                            projectTypeColors={projectTypeColors}
+                            getProjectIcon={getProjectIcon}
+                            getProjectColor={getProjectColor}
+                            editingProjectId={editingProjectId}
+                            editForm={editForm}
+                            setEditForm={setEditForm}
+                            setEditingProjectId={setEditingProjectId}
+                            updateProject={updateProject}
+                            navigate={navigate}
+                            handleArchiveProject={handleArchiveProject}
+                            handleRestoreProject={handleRestoreProject}
+                            handleDeleteProject={handleDeleteProject}
+                            localLoading={localLoading}
+                            isSelectMode={isSelectMode}
+                            isSelected={selectedProjects.includes(project.id)}
+                            onToggleSelection={toggleProjectSelection}
+                            activeProjectId={activeProjectId}
+                        />
+                    ))}
+                </div>
 
             )}
 
