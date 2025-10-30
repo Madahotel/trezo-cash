@@ -3,12 +3,12 @@ import { Search, Star, Users, LayoutTemplate } from 'lucide-react';
 import TemplateGrid from '../TemplateGrid';
 import TemplateFilters from '../TemplateFilters';
 
-const TemplateSelectionStep = ({ 
-  data, 
-  setData, 
-  currentUser, 
-  userAndCommunityTemplates, 
-  templatesLoading 
+const TemplateSelectionStep = ({
+  data,
+  setData,
+  currentUser,
+  userAndCommunityTemplates,
+  templatesLoading
 }) => {
   const [activeTab, setActiveTab] = useState('official');
   const [searchTerm, setSearchTerm] = useState('');
@@ -29,18 +29,18 @@ const TemplateSelectionStep = ({
 
   const communityTemplates = useMemo(() => {
     if (!userAndCommunityTemplates) return [];
-    return userAndCommunityTemplates.filter(template => 
-      template.is_public === 1 && template.user_subscriber_id !== currentUser?.id
-    ).map(template => ({
-      ...template,
-      type: 'community',
-      user_id: template.user_subscriber_id
-    }));
-  }, [userAndCommunityTemplates, currentUser]);
+
+    return userAndCommunityTemplates
+      .filter(template => template.type === 'community') // Utilisez le type défini dans fetchTemplates
+      .map(template => ({
+        ...template,
+        user_id: template.user_subscriber_id
+      }));
+  }, [userAndCommunityTemplates]);
 
   const myTemplates = useMemo(() => {
     if (!userAndCommunityTemplates || !currentUser?.id) return [];
-    return userAndCommunityTemplates.filter(template => 
+    return userAndCommunityTemplates.filter(template =>
       template.user_subscriber_id === currentUser.id
     ).map(template => ({
       ...template,
@@ -71,7 +71,7 @@ const TemplateSelectionStep = ({
       <h2 className="text-2xl font-bold text-gray-800 mb-2">Choisissez un modèle</h2>
       <p className="text-gray-600 mb-6">Commencez avec un projet vierge ou choisissez un modèle pour démarrer plus rapidement.</p>
 
-      <TemplateFilters 
+      <TemplateFilters
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         searchTerm={searchTerm}
