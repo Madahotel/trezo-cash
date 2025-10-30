@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { formatCurrency } from '../../../utils/formatting.js';
 import {
   Wallet,
@@ -28,9 +28,12 @@ import ActionCard from './ActionCard';
 import IntelligentAlertWidget from './IntelligentAlertWidget';
 import AmbassadorWidget from './AmbassadorWidget';
 import DashboardSettingsDrawer from '../../../components/drawer/DashboardSettingsDrawer';
-import { useMobile } from '../../../hooks/useMobile.js';
 import { useAuth } from '../../../components/context/AuthContext';
 import { useData } from '../../../components/context/DataContext';
+import {
+  getDashboardSetting,
+  updateDashboardSetting,
+} from '../../../components/context/dashboardAction.js';
 
 // Données statiques complètes
 const staticSettings = {
@@ -190,22 +193,22 @@ const staticBudgetData = {
 };
 
 const defaultWidgetSettings = {
-  kpi_actionable_balance: true,
-  kpi_overdue_payables: true,
-  kpi_overdue_receivables: true,
-  kpi_savings: true,
-  kpi_provisions: true,
-  kpi_borrowings: true,
-  kpi_lendings: true,
-  alerts: true,
-  priorities: true,
-  trezo_score: true,
-  '30_day_forecast': true,
-  monthly_budget: true,
-  loans: true,
-  ambassador_promo: true,
-  actions: true,
-  tutorials: true,
+  1: true, // kpi_actionable_balance
+  2: true, // kpi_overdue_payables
+  3: true, // kpi_overdue_receivables
+  4: true, // kpi_savings
+  5: true, // kpi_provisions
+  6: true, // kpi_borrowings
+  7: true, // kpi_lendings
+  8: true, // alerts
+  9: true, // priorities
+  10: true, // trezo_score
+  11: true, // 30_day_forecast
+  12: true, // monthly_budget
+  13: true, // loans
+  14: true, // ambassador_promo
+  15: true, // actions
+  16: true, // tutorials
 };
 
 const DashboardView = () => {
@@ -217,32 +220,89 @@ const DashboardView = () => {
   const [widgetVisibility, setWidgetVisibility] = useState(
     defaultWidgetSettings
   );
-  const isMobile = useMobile();
+  const [loading, setLoading] = useState(true);
 
   // Utilisation des données statiques
   const settings = staticSettings;
   const overdueItems = staticOverdueItems;
   const { borrowings, lendings } = staticLoans;
   const trezoScoreData = staticTrezoScoreData;
-  const dailyForecastData = staticForecastDataArray;
   const budgetData = staticBudgetData;
   const alertData = staticAlertData;
 
   const isConsolidated = false;
-  const activeProject = projects[0];
+  const activeProject = projects[0] || staticProjects[0];
+  const projectId = 1;
 
+  // Charger les paramètres depuis la base de données
+  useEffect(() => {
+    const loadDashboardSettings = async () => {
+      if (!projectId) {
+        setLoading(false);
+        return;
+      }
 
+      try {
+        setLoading(true);
+        const settingsFromDB = await getDashboardSetting(projectId);
+
+        if (settingsFromDB && settingsFromDB.length > 0) {
+          // Transformer les données de la BDD en format d'état
+          const dbSettings = {};
+          settingsFromDB.forEach((setting) => {
+            dbSettings[setting.id_setting] = setting.status;
+          });
+
+          // Fusionner avec les paramètres par défaut
+          const mergedSettings = { ...defaultWidgetSettings, ...dbSettings };
+          setWidgetVisibility(mergedSettings);
+        }
+      } catch (error) {
+        console.error('Erreur chargement paramètres:', error);
+        // Garder les paramètres par défaut en cas d'erreur
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDashboardSettings();
+  }, [projectId]);
 
   const handleOpenSettings = () => {
     setIsSettingsDrawerOpen(true);
   };
 
-  // Sauvegarde automatique quand les paramètres changent
-  const handleSaveSettings = (newSettings) => {
-    console.log('Sauvegarde automatique des paramètres:', newSettings);
-    setWidgetVisibility(newSettings);
-    // Ici vous pouvez ajouter un appel API pour sauvegarder en base de données
-    // await api.saveDashboardSettings(newSettings);
+  // Sauvegarde automatique avec délai pour éviter trop d'appels API
+  const handleSaveSettings = async (newSettings) => {
+    if (!projectId) return;
+
+    try {
+      // Mettre à jour l'état local immédiatement
+      setWidgetVisibility(newSettings);
+
+      // Sauvegarder chaque changement individuellement
+      Object.entries(newSettings).forEach(async ([idSetting, status]) => {
+        if (widgetVisibility[idSetting] !== status) {
+          try {
+            await updateDashboardSetting(
+              projectId,
+              parseInt(idSetting),
+              status
+            );
+            console.log(`Paramètre ${idSetting} mis à jour: ${status}`);
+          } catch (error) {
+            console.error(`Erreur sauvegarde paramètre ${idSetting}:`, error);
+            // Revert local state on error
+            setWidgetVisibility((prev) => ({
+              ...prev,
+              [idSetting]: widgetVisibility[idSetting],
+            }));
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Erreur sauvegarde paramètres:', error);
+    }
   };
 
   const currencySettings = {
@@ -258,7 +318,11 @@ const DashboardView = () => {
 
   const greetingMessage = () => {
     const hour = new Date().getHours();
-    const name = profile?.fullName?.split(' ')[0] || user?.name || 'Utilisateur';
+    const name =
+      profile?.fullName?.split(' ')[0] ||
+      user?.name ||
+      staticProfile.fullName.split(' ')[0] ||
+      'Utilisateur';
     if (hour < 12) return `Bonjour ${name}`;
     if (hour < 18) return `Bon après-midi ${name}`;
     return `Bonsoir ${name}`;
@@ -344,7 +408,7 @@ const DashboardView = () => {
 
   const kpiCards = [
     {
-      id: 'kpi_actionable_balance',
+      id: 1, // kpi_actionable_balance
       icon: Wallet,
       color: 'green',
       label: 'Trésorerie Actionnable',
@@ -353,7 +417,7 @@ const DashboardView = () => {
       gradient: 'from-green-50 to-emerald-50',
     },
     {
-      id: 'kpi_overdue_payables',
+      id: 2, // kpi_overdue_payables
       icon: TrendingDown,
       color: 'red',
       label: 'Dettes en Retard',
@@ -362,7 +426,7 @@ const DashboardView = () => {
       gradient: 'from-red-50 to-rose-50',
     },
     {
-      id: 'kpi_overdue_receivables',
+      id: 3, // kpi_overdue_receivables
       icon: HandCoins,
       color: 'yellow',
       label: 'Créances en Retard',
@@ -371,7 +435,7 @@ const DashboardView = () => {
       gradient: 'from-yellow-50 to-amber-50',
     },
     {
-      id: 'kpi_savings',
+      id: 4, // kpi_savings
       icon: PiggyBank,
       color: 'teal',
       label: 'Épargne',
@@ -380,7 +444,7 @@ const DashboardView = () => {
       gradient: 'from-teal-50 to-cyan-50',
     },
     {
-      id: 'kpi_provisions',
+      id: 5, // kpi_provisions
       icon: Lock,
       color: 'indigo',
       label: 'Provisions',
@@ -389,7 +453,7 @@ const DashboardView = () => {
       gradient: 'from-indigo-50 to-violet-50',
     },
     {
-      id: 'kpi_borrowings',
+      id: 6, // kpi_borrowings
       icon: Banknote,
       color: 'red',
       label: 'Emprunts à rembourser',
@@ -398,7 +462,7 @@ const DashboardView = () => {
       gradient: 'from-orange-50 to-red-50',
     },
     {
-      id: 'kpi_lendings',
+      id: 7, // kpi_lendings
       icon: Coins,
       color: 'green',
       label: 'Prêts à recevoir',
@@ -448,6 +512,17 @@ const DashboardView = () => {
       25500, 24800, 26200, 27500, 26800, 28200, 29500, 28800, 30200, 31500,
     ],
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Chargement des paramètres...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 sm:p-6 max-w-full space-y-6 sm:space-y-8 bg-gray-50/50 min-h-screen">
@@ -507,12 +582,12 @@ const DashboardView = () => {
         </div>
 
         {/* Alert Widget */}
-        {widgetVisibility.alerts && (
+        {widgetVisibility[8] && (
           <IntelligentAlertWidget forecastData={alertData} />
         )}
 
         {/* Quick Actions */}
-        {widgetVisibility.actions && (
+        {widgetVisibility[15] && (
           <div className="pt-2 sm:pt-4">
             <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">
               Que voulez-vous faire maintenant ?
@@ -535,15 +610,15 @@ const DashboardView = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
             {/* Left Column - 2/3 width */}
             <div className="lg:col-span-2 space-y-6 sm:space-y-5">
-              {widgetVisibility.trezo_score && (
+              {widgetVisibility[10] && (
                 <TrezoScoreWidget scoreData={trezoScoreData} />
               )}
-              {widgetVisibility['30_day_forecast'] && (
+              {widgetVisibility[11] && (
                 <ThirtyDayForecastWidget
                   forecastData={staticForecastDataAlternative}
                 />
               )}
-              {widgetVisibility.loans && (
+              {widgetVisibility[13] && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
                   <LoansSummaryWidget
                     title="Mes Emprunts"
@@ -565,11 +640,11 @@ const DashboardView = () => {
 
             {/* Right Column - 1/3 width */}
             <div className="space-y-6 sm:space-y-8">
-              {widgetVisibility.monthly_budget && (
+              {widgetVisibility[12] && (
                 <CurrentMonthBudgetWidget budgetData={budgetData} />
               )}
-              {widgetVisibility.ambassador_promo && <AmbassadorWidget />}
-              {widgetVisibility.priorities && (
+              {widgetVisibility[14] && <AmbassadorWidget />}
+              {widgetVisibility[9] && (
                 <div className="bg-white p-4 sm:p-6 rounded-xl sm:rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300">
                   <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center gap-2 sm:gap-3">
                     <div className="bg-yellow-100 p-1.5 sm:p-2 rounded-lg">
@@ -592,10 +667,11 @@ const DashboardView = () => {
                             <div className="flex justify-between items-center gap-2">
                               <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                                 <div
-                                  className={`flex-shrink-0 flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-lg shadow-sm ${item.type === 'payable'
+                                  className={`flex-shrink-0 flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-lg shadow-sm ${
+                                    item.type === 'payable'
                                       ? 'bg-red-100'
                                       : 'bg-green-100'
-                                    }`}
+                                  }`}
                                 >
                                   {item.type === 'payable' ? (
                                     <ArrowDown className="w-3 h-3 sm:w-4 sm:h-4 text-red-600" />
@@ -625,7 +701,7 @@ const DashboardView = () => {
                                       (
                                       {Math.floor(
                                         (new Date() - new Date(item.date)) /
-                                        (1000 * 60 * 60 * 24)
+                                          (1000 * 60 * 60 * 24)
                                       )}
                                       j en retard)
                                     </span>
@@ -633,10 +709,11 @@ const DashboardView = () => {
                                 </div>
                               </div>
                               <p
-                                className={`text-sm sm:text-base font-semibold whitespace-nowrap pl-2 flex-shrink-0 ${item.type === 'payable'
+                                className={`text-sm sm:text-base font-semibold whitespace-nowrap pl-2 flex-shrink-0 ${
+                                  item.type === 'payable'
                                     ? 'text-red-600'
                                     : 'text-green-600'
-                                  }`}
+                                }`}
                               >
                                 {formatCurrency(item.remainingAmount, settings)}
                               </p>
@@ -667,7 +744,7 @@ const DashboardView = () => {
         </div>
 
         {/* Tutorials Section */}
-        {widgetVisibility.tutorials && (
+        {widgetVisibility[16] && (
           <section id="tutoriels" className="pt-4 sm:pt-8">
             <div className="text-left mb-4 sm:mb-8">
               <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">

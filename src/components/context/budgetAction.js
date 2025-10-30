@@ -26,7 +26,7 @@ export async function getOptions() {
     throw error; // Relancer l'erreur pour que l'appelant puisse la gérer
   }
 }
-export async function showEditBudget(budgetId, Sub) {
+export async function showEditBudget(budgetId) {
   try {
     const res = await axios.get(`/budget-projects/budgets/${budgetId}`);
     if (res.data.status === 200) {
@@ -86,6 +86,18 @@ export async function updateBudget(formData, budgetId) {
 
     //   throw new Error(`Statut inattendu: ${res.data.status}`);
     // }
+  } catch (error) {
+    console.error(error);
+  }
+}
+export async function destroyBudget(budgetId) {
+  try {
+    const res = await axios.delete(`/budget-projects/budgets/${budgetId}`);
+    if (res.data.status === 200) {
+      return res.data.message;
+    } else {
+      throw new Error(`Statut inattendu: ${res.data.message}`);
+    }
   } catch (error) {
     console.error(error);
   }
