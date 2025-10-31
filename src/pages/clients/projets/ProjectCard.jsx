@@ -476,7 +476,7 @@ const ProjectCard = ({
                     <div className="flex gap-2 pt-3 border-t border-gray-100">
                         <Button
                             size="sm"
-                            className="flex-1 text-xs h-8 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-sm"
+                            className="flex-1 text-xs h-8 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-sm"
                             onClick={() => navigate(`/client/project/${project.id}/dashboard`)}
                             disabled={project.is_archived || localLoading || budgetLoading}
                         >
