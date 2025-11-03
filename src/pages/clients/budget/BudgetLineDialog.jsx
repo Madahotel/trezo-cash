@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { X } from 'lucide-react';
 import { Button } from './ui/button';
 import {
@@ -9,7 +9,8 @@ import {
 } from '../../../components/context/budgetAction';
 import AdvancedOptions from './AdvancedOptions';
 import BasicInfoSection from './BasicInfoSection';
-import { motion, AnimatePresence } from 'framer-motion';
+import QuickAddThirdPartyModal from './QuickAddThirdPartyModal';
+import { apiService } from '../../../utils/ApiService';
 
 const BudgetLineDialog = ({
   open,
@@ -23,6 +24,15 @@ const BudgetLineDialog = ({
   const [editData, setEditData] = useState();
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [isLoadingEditData, setIsLoadingEditData] = useState(false);
+  const [isCreatingThirdParty, setIsCreatingThirdParty] = useState(false);
+  const [showThirdPartyModal, setShowThirdPartyModal] = useState(false);
+  const [newThirdPartyData, setNewThirdPartyData] = useState({
+    name: '',
+    firstname: '',
+    email: '',
+    phone_number: '',
+    user_type_id: ''
+  });
 
   // Extraction des données de l'API avec valeurs par défaut
   const {
@@ -36,7 +46,6 @@ const BudgetLineDialog = ({
     allCashAccounts = [],
   } = data || {};
 
-  // État principal du formulaire
   const [formData, setFormData] = useState({
     type: '1',
     mainCategory: '',
@@ -51,7 +60,6 @@ const BudgetLineDialog = ({
     thirdParty: null,
   });
 
-  // État pour les options avancées
   const [amountType, setAmountType] = useState('ttc');
   const [vatRateId, setVatRateId] = useState(null);
   const [isProvision, setIsProvision] = useState(false);
@@ -61,14 +69,11 @@ const BudgetLineDialog = ({
     provisionAccountId: '',
   });
 
-  // État pour le chargement
   const [isLoading, setIsLoading] = useState(false);
-
-  // Préparation des données - utiliser useMemo pour éviter les recréations
-  const currencies = React.useMemo(
+  const currencies = useMemo(
     () =>
       listCurrencies.map((currency) => ({
-        value: currency.id.toString(),
+        value: currency.id?.toString() || `currency-${currency.code}`,
         label: `${currency.code} (${currency.symbol})`,
         code: currency.code,
         symbol: currency.symbol,
@@ -76,77 +81,203 @@ const BudgetLineDialog = ({
     [listCurrencies]
   );
 
-  const defaultCurrency = React.useMemo(
+  const defaultCurrency = useMemo(
     () => currencies.find((curr) => curr.code === 'EUR') || currencies[0],
     [currencies]
   );
 
-  const frequencies = React.useMemo(
+  const frequencies = useMemo(
     () =>
       listFrequencies.map((freq) => ({
-        value: freq.id.toString(),
+        value: freq.id?.toString() || `freq-${freq.name}`,
         label: freq.name,
       })),
     [listFrequencies]
   );
 
-  const provisionAccountOptions = React.useMemo(
+  const provisionAccountOptions = useMemo(
     () =>
       allCashAccounts.map((account) => ({
-        value: account.id.toString(),
+        value: account.id?.toString() || `account-${account.name}`,
         label: account.name,
       })),
     [allCashAccounts]
   );
+
   const getFilteredThirdPartyOptions = useCallback((type, thirdPartyList) => {
     if (!thirdPartyList || thirdPartyList.length === 0) return [];
 
-    if (type === '1') {
-      return thirdPartyList
-        .filter(
-          (thirdParty) =>
-            thirdParty.user_type_id === 6 || thirdParty.user_type_id === 7
+    // Normaliser la structure des données
+    const normalizedList = thirdPartyList.map(thirdParty => ({
+      id: thirdParty.id || thirdParty.user_id || thirdParty.user_third_party_id,
+      user_type_id: thirdParty.user_type_id || thirdParty.type_id,
+      name: thirdParty.name || thirdParty.company_name || thirdParty.entreprise_name,
+      firstname: thirdParty.firstname || thirdParty.prenom || '',
+      email: thirdParty.email || thirdParty.mail || '',
+      raw: thirdParty
+    }));
+
+    console.log('📊 Données normalisées:', normalizedList);
+
+    // NOUVELLE LOGIQUE : Fournisseur + Emprunteur ensemble, Client + Prêteur ensemble
+    if (type === '1') { // Dépenses
+      return normalizedList
+        .filter(thirdParty =>
+          thirdParty.user_type_id == 6 || thirdParty.user_type_id == 5 // Fournisseurs (6) ou Emprunteurs (5)
         )
         .map((thirdParty) => ({
-          value:
-            thirdParty.user_third_party_id?.toString() ||
-            thirdParty.id?.toString(),
-          label: `${thirdParty.firstname || ''} ${
-            thirdParty.name || ''
-          }`.trim(),
+          value: thirdParty.id?.toString(),
+          label: `${thirdParty.firstname || ''} ${thirdParty.name || ''}`.trim() || 'Sans nom',
           email: thirdParty.email,
-          rawData: thirdParty,
+          type: thirdParty.user_type_id == 6 ? 'Fournisseur' : 'Emprunteur',
+          rawData: thirdParty.raw,
         }));
-    } else if (type === '2') {
-      return thirdPartyList
-        .filter(
-          (thirdParty) =>
-            thirdParty.user_type_id === 4 || thirdParty.user_type_id === 5
+    } else if (type === '2') { // Revenus
+      return normalizedList
+        .filter(thirdParty =>
+          thirdParty.user_type_id == 4 || thirdParty.user_type_id == 7 // Clients (4) ou Prêteurs (7)
         )
         .map((thirdParty) => ({
-          value:
-            thirdParty.user_third_party_id?.toString() ||
-            thirdParty.id?.toString(),
-          label: `${thirdParty.firstname || ''} ${
-            thirdParty.name || ''
-          }`.trim(),
+          value: thirdParty.id?.toString(),
+          label: `${thirdParty.firstname || ''} ${thirdParty.name || ''}`.trim() || 'Sans nom',
           email: thirdParty.email,
-          rawData: thirdParty,
+          type: thirdParty.user_type_id == 4 ? 'Client' : 'Prêteur',
+          rawData: thirdParty.raw,
         }));
     }
     return [];
   }, []);
 
-  // Options tiers mémorisées
-  const thirdPartyOptions = React.useMemo(() => {
-    console.log('listThirdParty raw:', listThirdParty);
-    console.log('formData.type:', formData.type);
-
+  const thirdPartyOptions = useMemo(() => {
     const options = getFilteredThirdPartyOptions(formData.type, listThirdParty);
-    console.log('Filtered options:', options);
-
+    console.log('🎯 ThirdParty Options finales:', {
+      type: formData.type,
+      optionsCount: options.length,
+      options: options.map(opt => ({ label: opt.label, type: opt.type }))
+    });
     return options;
   }, [formData.type, listThirdParty, getFilteredThirdPartyOptions]);
+
+
+  const createThirdParty = async (thirdPartyData) => {
+    try {
+      setIsCreatingThirdParty(true);
+
+      console.log('📤 DONNÉES ENVOYÉES au backend:', thirdPartyData);
+
+      const response = await apiService.request('POST', '/users/third-parties', thirdPartyData);
+
+      if (response.success) {
+        console.log('✅ Tiers créé avec succès:', response.data);
+        await fetchOptions();
+        return response.data;
+      } else {
+        console.error('❌ Réponse d\'erreur du backend:', response);
+
+        let errorMessage = 'Erreur lors de la création du tiers';
+
+        // Gestion spécifique des erreurs de validation
+        if (response.status === 422 && response.validationErrors) {
+          const errors = Object.entries(response.validationErrors)
+            .map(([field, messages]) => {
+              // Message personnalisé pour l'email unique
+              if (field === 'email' && messages.some(msg => msg.includes('unique'))) {
+                return `L'adresse email "${thirdPartyData.email}" est déjà utilisée par un autre tiers. Veuillez utiliser une adresse email différente.`;
+              }
+              return `${field}: ${messages.join(', ')}`;
+            })
+            .join('; ');
+          errorMessage = errors;
+        }
+        // Gestion des erreurs serveur avec message spécifique
+        else if (response.status === 500) {
+          // Vérifie si l'erreur concerne un email dupliqué
+          const errorDetail = response.data?.error || response.data?.message || '';
+          if (errorDetail.includes('email') && errorDetail.includes('unique')) {
+            errorMessage = `L'adresse email "${thirdPartyData.email}" est déjà utilisée. Veuillez utiliser une autre adresse email.`;
+          } else if (errorDetail.includes('Duplicate entry')) {
+            errorMessage = 'Cette adresse email est déjà utilisée par un autre tiers.';
+          } else {
+            errorMessage = response.data?.message || 'Erreur serveur. Veuillez réessayer.';
+          }
+        }
+        // Autres erreurs
+        else if (response.error) {
+          errorMessage = response.error;
+        }
+
+        throw new Error(errorMessage);
+      }
+    } catch (error) {
+      console.error('❌ Erreur création tiers:', {
+        message: error.message,
+        data: thirdPartyData
+      });
+      throw error;
+    } finally {
+      setIsCreatingThirdParty(false);
+    }
+  };
+  const handleAddNewThirdParty = async () => {
+    if (!newThirdPartyData.name.trim()) {
+      alert('Le nom du tiers est obligatoire');
+      return;
+    }
+
+    if (!newThirdPartyData.user_type_id) {
+      alert('Veuillez sélectionner un type de tiers');
+      return;
+    }
+
+    // Vérification côté client pour les emails vides
+    if (newThirdPartyData.email && !isValidEmail(newThirdPartyData.email)) {
+      alert('Veuillez saisir une adresse email valide');
+      return;
+    }
+
+    // STRUCTURE EXACTE attendue par le backend
+    const thirdPartyData = {
+      name: newThirdPartyData.name.trim(),
+      firstname: newThirdPartyData.firstname?.trim() || '',
+      email: newThirdPartyData.email?.trim() || null, // null si vide
+      phone_number: newThirdPartyData.phone_number?.trim() || '',
+      user_type_id: newThirdPartyData.user_type_id,
+      password: 'password123' // Mot de passe par défaut
+    };
+
+    console.log('🎯 Données préparées pour le backend:', thirdPartyData);
+
+    try {
+      const result = await createThirdParty(thirdPartyData);
+
+      if (result) {
+        // Réinitialiser le formulaire
+        setNewThirdPartyData({
+          name: '',
+          firstname: '',
+          email: '',
+          phone_number: '',
+          user_type_id: ''
+        });
+        setShowThirdPartyModal(false);
+
+        // Message de succès
+        console.log('✅ Tiers créé avec succès!');
+      }
+    } catch (error) {
+      console.error('❌ Erreur création tiers:', error);
+
+      // Affichage d'alerte amélioré
+      alert(`Erreur lors de la création du tiers:\n\n${error.message}`);
+    }
+  };
+
+  // Fonction utilitaire pour valider l'email
+  const isValidEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
   // Calcul des montants
   const calculatedAmounts = useCallback(() => {
     const amount = parseFloat(formData.amount);
@@ -178,14 +309,72 @@ const BudgetLineDialog = ({
     try {
       setIsLoadingData(true);
       const res = await getOptions();
-      setData(res);
+
+      console.log('🔍 STRUCTURE COMPLÈTE DE getOptions():', res);
+      console.log('📋 Clés disponibles:', Object.keys(res));
+
+      // Vérifiez différentes structures possibles
+      if (res.users) {
+        console.log('👥 Structure users trouvée:', {
+          userThirdParties: res.users.user_third_parties,
+          userFinancials: res.users.user_financials,
+          userThirdPartiesData: res.users.user_third_parties?.user_third_party_items?.data,
+          userFinancialsData: res.users.user_financials?.user_financial_items?.data
+        });
+      }
+
+      if (res.listThirdParty) {
+        console.log('📦 listThirdParty directe:', res.listThirdParty);
+      }
+
+      // Essayez différentes approches pour récupérer les données
+      let combinedList = [];
+
+      // Approche 1: Structure avec users
+      if (res.users) {
+        const userThirdParties = res.users.user_third_parties?.user_third_party_items?.data || [];
+        const userFinancials = res.users.user_financials?.user_financial_items?.data || [];
+        combinedList = [...userThirdParties, ...userFinancials];
+
+        console.log('🔄 Combinaison users + financials:', {
+          userThirdPartiesCount: userThirdParties.length,
+          userFinancialsCount: userFinancials.length,
+          combinedCount: combinedList.length
+        });
+      }
+      // Approche 2: Structure directe
+      else if (res.listThirdParty) {
+        combinedList = res.listThirdParty;
+        console.log('🎯 Utilisation listThirdParty directe:', combinedList.length);
+      }
+      // Approche 3: Autre structure
+      else {
+        console.warn('⚠️ Structure inconnue, utilisation des données brutes');
+        combinedList = res.thirdParties || res.data || [];
+      }
+
+      console.log('📊 DÉTAIL des tiers combinés:', combinedList.map(t => ({
+        id: t.id,
+        name: t.name,
+        firstname: t.firstname,
+        user_type_id: t.user_type_id,
+        type: t.user_type_id === 4 ? 'Client' :
+          t.user_type_id === 5 ? 'Emprunteur' :
+            t.user_type_id === 6 ? 'Fournisseur' :
+              t.user_type_id === 7 ? 'Prêteur' : 'Inconnu'
+      })));
+
+      setData({
+        ...res,
+        listThirdParty: combinedList
+      });
+
     } catch (error) {
-      console.log('Erreur lors du chargement des options:', error);
+      console.error('❌ Erreur chargement options:', error);
     } finally {
       setIsLoadingData(false);
     }
   };
-
   // Charger les données d'édition
   const fetchEditData = useCallback(
     async (budgetId) => {
@@ -201,9 +390,8 @@ const BudgetLineDialog = ({
           // Approche directe : créer l'option tiers à partir des données du budget
           const thirdPartyOption = {
             value: budget.user_third_party_id?.toString(),
-            label: `${budget.user_third_party_firstname || ''} ${
-              budget.user_third_party_name || ''
-            }`.trim(),
+            label: `${budget.user_third_party_firstname || ''} ${budget.user_third_party_name || ''
+              }`.trim(),
             email: budget.user_third_party_email,
           };
 
@@ -290,6 +478,13 @@ const BudgetLineDialog = ({
       setNumProvisions('');
       setProvisionDetails({ finalPaymentDate: '', provisionAccountId: '' });
       setEditData(null);
+      setNewThirdPartyData({
+        name: '',
+        firstname: '',
+        email: '',
+        phone_number: '',
+        user_type_id: ''
+      });
     }
   }, [open, editLine, defaultCurrency]);
 
@@ -385,9 +580,8 @@ const BudgetLineDialog = ({
           await onBudgetUpdated();
         }
       } else {
-        // Mode création - CORRECTION ICI : utiliser projectId au lieu de 1
-        console.log('Création avec projectId:', projectId); // Pour debug
-        res = await storeBudget(apiData, projectId); // ← CORRIGÉ
+        // Mode création
+        res = await storeBudget(apiData, projectId);
 
         if (onBudgetAdded) {
           await onBudgetAdded();
@@ -397,7 +591,6 @@ const BudgetLineDialog = ({
       onOpenChange(false);
     } catch (error) {
       console.error('Error saving budget:', error);
-      // ... gestion des erreurs
     } finally {
       setIsLoading(false);
     }
@@ -418,47 +611,41 @@ const BudgetLineDialog = ({
   if (!open) return null;
 
   return (
-    <AnimatePresence>
+    <>
+      {/* Dialog principal */}
       {open && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm"
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
           onClick={handleOverlayClick}
           onKeyDown={handleKeyDown}
           tabIndex={0}
         >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col border border-gray-200"
             role="dialog"
             aria-modal="true"
             aria-labelledby="modal-title"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
               <div className="space-y-1">
-                <h2 id="modal-title" className="text-lg font-semibold">
+                <h2 id="modal-title" className="text-xl font-semibold text-gray-900">
                   {editLine
                     ? 'Modifier la ligne budgétaire'
                     : 'Ajouter une ligne budgétaire'}
                 </h2>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-600">
                   {editLine
-                    ? 'Modifiez la ligne de revenu ou de dépense'
-                    : 'Créez une ligne de revenu ou de dépense'}
+                    ? 'Modifiez les détails de votre ligne de revenu ou de dépense'
+                    : 'Créez une nouvelle ligne de revenu ou de dépense pour votre budget'}
                 </p>
               </div>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => onOpenChange(false)}
-                className="h-8 w-8 p-0"
+                className="h-9 w-9 p-0 hover:bg-gray-100"
                 disabled={isLoading || isLoadingData || isLoadingEditData}
               >
                 <X className="h-4 w-4" />
@@ -469,16 +656,18 @@ const BudgetLineDialog = ({
             {/* Content */}
             <div className="overflow-y-auto flex-1 p-6">
               {isLoadingData || (editLine && isLoadingEditData) ? (
-                <div className="flex justify-center items-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-                  <span className="ml-2">
-                    {editLine && isLoadingEditData
-                      ? 'Chargement des données...'
-                      : 'Chargement des options...'}
-                  </span>
+                <div className="flex justify-center items-center py-12">
+                  <div className="flex flex-col items-center space-y-3">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+                    <span className="text-sm text-gray-600">
+                      {editLine && isLoadingEditData
+                        ? 'Chargement des données...'
+                        : 'Chargement des options...'}
+                    </span>
+                  </div>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   {/* Section Informations de base */}
                   <BasicInfoSection
                     formData={formData}
@@ -489,6 +678,7 @@ const BudgetLineDialog = ({
                     currencies={currencies}
                     frequencies={frequencies}
                     thirdPartyOptions={thirdPartyOptions}
+                    onAddThirdParty={() => setShowThirdPartyModal(true)}
                   />
 
                   {/* Options avancées */}
@@ -517,17 +707,19 @@ const BudgetLineDialog = ({
             </div>
 
             {/* Footer */}
-            <div className="flex justify-end gap-2 p-6 border-t shrink-0">
+            <div className="flex justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
               <Button
                 variant="outline"
                 onClick={() => onOpenChange(false)}
                 disabled={isLoading || isLoadingData || isLoadingEditData}
+                className="min-w-[100px]"
               >
                 Annuler
               </Button>
               <Button
                 onClick={handleSubmit}
                 disabled={isLoading || isLoadingData || isLoadingEditData}
+                className="min-w-[120px] bg-blue-600 hover:bg-blue-700"
               >
                 {isLoading ? (
                   <>
@@ -541,10 +733,21 @@ const BudgetLineDialog = ({
                 )}
               </Button>
             </div>
-          </motion.div>
-        </motion.div>
+          </div>
+        </div>
       )}
-    </AnimatePresence>
+
+      {/* Modal de création de tiers - COMPOSANT SÉPARÉ */}
+      <QuickAddThirdPartyModal
+        showThirdPartyModal={showThirdPartyModal}
+        setShowThirdPartyModal={setShowThirdPartyModal}
+        isCreatingThirdParty={isCreatingThirdParty}
+        newThirdPartyData={newThirdPartyData}
+        setNewThirdPartyData={setNewThirdPartyData}
+        formData={formData}
+        handleAddNewThirdParty={handleAddNewThirdParty}
+      />
+    </>
   );
 };
 

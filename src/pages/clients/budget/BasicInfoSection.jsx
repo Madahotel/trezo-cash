@@ -1,8 +1,9 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Check, ChevronDown, User, Tag } from 'lucide-react';
+import { Check, ChevronDown, User, Tag, Plus } from 'lucide-react';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Checkbox } from './ui/checkbox';
+import { Button } from './ui/button';
 import Select from 'react-select';
 import { motion, AnimatePresence } from 'framer-motion';
 import CustomDropdown from './CustomDropdown';
@@ -16,6 +17,7 @@ const BasicInfoSection = ({
   currencies,
   frequencies,
   thirdPartyOptions,
+  onAddThirdParty // Nouvelle prop pour ouvrir le modal de création
 }) => {
   // États pour les menus déroulants
   const [typeOpen, setTypeOpen] = useState(false);
@@ -363,8 +365,8 @@ const BasicInfoSection = ({
       backgroundColor: state.isSelected
         ? '#3b82f6'
         : state.isFocused
-        ? '#f3f4f6'
-        : 'white',
+          ? '#f3f4f6'
+          : 'white',
       color: state.isSelected ? 'white' : '#374151',
       '&:active': { backgroundColor: state.isSelected ? '#3b82f6' : '#e5e7eb' },
     }),
@@ -398,17 +400,15 @@ const BasicInfoSection = ({
     <div
       ref={innerRef}
       {...innerProps}
-      className={`flex items-center px-3 py-2 cursor-pointer text-sm ${
-        isSelected ? 'bg-blue-500 text-white' : isFocused ? 'bg-gray-100' : ''
-      }`}
+      className={`flex items-center px-3 py-2 cursor-pointer text-sm ${isSelected ? 'bg-blue-500 text-white' : isFocused ? 'bg-gray-100' : ''
+        }`}
     >
       <User className="h-4 w-4 mr-2 text-gray-500" />
       <div className="flex-1">
         <div className="font-medium">{data.label}</div>
         <div
-          className={`text-xs ${
-            isSelected ? 'text-blue-100' : 'text-gray-500'
-          }`}
+          className={`text-xs ${isSelected ? 'text-blue-100' : 'text-gray-500'
+            }`}
         >
           {data.email}
         </div>
@@ -444,11 +444,10 @@ const BasicInfoSection = ({
                     onFormChange('type', type.id.toString());
                     setTypeOpen(false);
                   }}
-                  className={`relative flex cursor-pointer items-center py-2 px-3 text-sm ${
-                    formData.type === type.id.toString()
+                  className={`relative flex cursor-pointer items-center py-2 px-3 text-sm ${formData.type === type.id.toString()
                       ? 'bg-blue-500 text-white'
                       : 'hover:bg-gray-100'
-                  }`}
+                    }`}
                 >
                   <span className="flex-1">{type.name}</span>
                   {formData.type === type.id.toString() && (
@@ -488,11 +487,10 @@ const BasicInfoSection = ({
                       onFormChange('mainCategory', category.id.toString());
                       setCategoryOpen(false);
                     }}
-                    className={`relative flex cursor-pointer items-center py-2 px-3 text-sm ${
-                      formData.mainCategory === category.id.toString()
+                    className={`relative flex cursor-pointer items-center py-2 px-3 text-sm ${formData.mainCategory === category.id.toString()
                         ? 'bg-blue-500 text-white'
                         : 'hover:bg-gray-100'
-                    }`}
+                      }`}
                   >
                     <Tag className={`w-4 h-4 mr-2 ${colorClass.text}`} />
                     <span className="flex-1">{category.name}</span>
@@ -537,11 +535,10 @@ const BasicInfoSection = ({
                     onFormChange('subcategory', subcategory.id.toString());
                     setSubcategoryOpen(false);
                   }}
-                  className={`relative flex cursor-pointer items-center py-2 px-3 text-sm ${
-                    formData.subcategory === subcategory.id.toString()
+                  className={`relative flex cursor-pointer items-center py-2 px-3 text-sm ${formData.subcategory === subcategory.id.toString()
                       ? 'bg-blue-500 text-white'
                       : 'hover:bg-gray-100'
-                  }`}
+                    }`}
                 >
                   <span className="flex-1">{subcategory.name}</span>
                   {formData.subcategory === subcategory.id.toString() && (
@@ -594,11 +591,10 @@ const BasicInfoSection = ({
                         onFormChange('currency', currency.value);
                         setCurrencyOpen(false);
                       }}
-                      className={`relative flex cursor-pointer items-center py-2 px-3 text-sm ${
-                        formData.currency === currency.value
+                      className={`relative flex cursor-pointer items-center py-2 px-3 text-sm ${formData.currency === currency.value
                           ? 'bg-blue-500 text-white'
                           : 'hover:bg-gray-100'
-                      }`}
+                        }`}
                     >
                       <span className="flex-1">{currency.label}</span>
                       {formData.currency === currency.value && (
@@ -639,11 +635,10 @@ const BasicInfoSection = ({
                       handleFrequencyChange(frequency.value);
                       setFrequencyOpen(false);
                     }}
-                    className={`relative flex cursor-pointer items-center py-2 px-3 text-sm ${
-                      formData.frequency === frequency.value
+                    className={`relative flex cursor-pointer items-center py-2 px-3 text-sm ${formData.frequency === frequency.value
                         ? 'bg-blue-500 text-white'
                         : 'hover:bg-gray-100'
-                    }`}
+                      }`}
                   >
                     <span className="flex-1">{frequency.label}</span>
                     {formData.frequency === frequency.value && (
@@ -657,40 +652,57 @@ const BasicInfoSection = ({
         </CustomDropdown>
       </div>
 
-      {/* Tiers - CORRIGÉ POUR LE SCROLL */}
+      {/* Tiers - AVEC BOUTON DE CRÉATION */}
       <div className="space-y-2">
-        <Label htmlFor="thirdparty-select">Tiers *</Label>
-        <Select
-          id="thirdparty-select"
-          value={formData.thirdParty}
-          onChange={(selectedOption) =>
-            onFormChange('thirdParty', selectedOption)
-          }
-          options={thirdPartyOptions}
-          placeholder={getThirdPartyPlaceholder()}
-          isClearable
-          styles={customStyles}
-          components={{ Option: CustomOption }}
-          className="react-select-container"
-          classNamePrefix="react-select"
-          isDisabled={thirdPartyOptions.length === 0}
-          menuShouldScrollIntoView={true}
-          menuPlacement="auto"
-        />
+        <div className="flex items-center justify-between">
+          <Label htmlFor="thirdparty-select">Tiers *</Label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onAddThirdParty}
+            className="flex items-center gap-1 text-xs"
+          >
+            <Plus className="h-3 w-3" />
+            Nouveau
+          </Button>
+        </div>
+
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <Select
+              id="thirdparty-select"
+              value={formData.thirdParty}
+              onChange={(selectedOption) =>
+                onFormChange('thirdParty', selectedOption)
+              }
+              options={thirdPartyOptions}
+              placeholder={getThirdPartyPlaceholder()}
+              isClearable
+              styles={customStyles}
+              components={{ Option: CustomOption }}
+              className="react-select-container"
+              classNamePrefix="react-select"
+              isDisabled={thirdPartyOptions.length === 0}
+              menuShouldScrollIntoView={true}
+              menuPlacement="auto"
+            />
+          </div>
+        </div>
+
         {thirdPartyOptions.length === 0 && (
           <p className="text-xs text-gray-500 mt-1">
             {formData.type === '1'
-              ? 'Aucun fournisseur ou prêteur disponible'
-              : 'Aucun client ou emprunteur disponible'}
+              ? 'Aucun fournisseur ou prêteur disponible. Cliquez sur "Nouveau" pour en créer un.'
+              : 'Aucun client ou emprunteur disponible. Cliquez sur "Nouveau" pour en créer un.'}
           </p>
         )}
       </div>
 
       {/* Dates */}
       <div
-        className={`grid gap-4 ${
-          shouldHideEndDate ? 'grid-cols-1' : 'grid-cols-2'
-        }`}
+        className={`grid gap-4 ${shouldHideEndDate ? 'grid-cols-1' : 'grid-cols-2'
+          }`}
       >
         <div className="space-y-2">
           <Label htmlFor="startDate">Date de début *</Label>
@@ -737,9 +749,8 @@ const BasicInfoSection = ({
           />
           <Label
             htmlFor="isIndefinite"
-            className={`cursor-pointer ${
-              shouldAutoCalculate ? 'text-gray-400' : ''
-            }`}
+            className={`cursor-pointer ${shouldAutoCalculate ? 'text-gray-400' : ''
+              }`}
           >
             Durée indéterminée
             {shouldAutoCalculate && (
@@ -752,31 +763,29 @@ const BasicInfoSection = ({
       )}
 
       {/* Message d'information selon la fréquence */}
-      {/* {frequencyInfoMessage && (
+      {frequencyInfoMessage && (
         <div
-          className={`p-3 rounded-md ${
-            isIrregularFrequency
+          className={`p-3 rounded-md ${isIrregularFrequency
               ? 'bg-yellow-50 border border-yellow-200'
               : 'bg-blue-50 border border-blue-200'
-          }`}
+            }`}
         >
           <p
-            className={`text-sm ${
-              isIrregularFrequency ? 'text-yellow-700' : 'text-blue-700'
-            }`}
+            className={`text-sm ${isIrregularFrequency ? 'text-yellow-700' : 'text-blue-700'
+              }`}
           >
             <strong>
               {isPonctualFrequency
                 ? 'Ponctuelle'
                 : isIrregularFrequency
-                ? 'Irregulière'
-                : 'Calcul automatique'}{' '}
+                  ? 'Irregulière'
+                  : 'Calcul automatique'}{' '}
               :
             </strong>{' '}
             {frequencyInfoMessage}
           </p>
         </div>
-      )} */}
+      )}
     </div>
   );
 };
