@@ -122,48 +122,41 @@ const ProjectSwitcher = () => {
     if (project) displayName = project.name;
   }
 
+// Dans ProjectSwitcher.jsx - la fonction handleSelect reste la même
 const handleSelect = (id) => {
-  console.log("🔍 handleSelect appelé avec id:", id, "type:", typeof id);
+    console.log("🔍 handleSelect appelé avec id:", id, "type:", typeof id);
 
-  const idString = String(id);
+    const idString = String(id);
 
-  if (idString !== "consolidated" && !idString.startsWith("consolidated_view_")) {
-    const selectedProject = findProjectById(id);
+    if (idString !== "consolidated" && !idString.startsWith("consolidated_view_")) {
+        const selectedProject = findProjectById(id);
 
-    console.log("🔍 Projet sélectionné trouvé:", selectedProject);
+        console.log("🔍 Projet sélectionné trouvé:", selectedProject);
 
-    if (selectedProject) {
-      console.log("✅ Définition du projet actif:", selectedProject.name);
-      uiDispatch({
-        type: 'SET_ACTIVE_PROJECT',
-        payload: selectedProject
-      });
-      
-      // 🔥 FORCER L'AFFICHAGE DU DASHBOARD
-      uiDispatch({
-        type: 'SHOW_DASHBOARD'
-      });
-      
-      // Navigation vers le dashboard
-      navigate('/dashboard'); // ou votre route de dashboard
+        if (selectedProject) {
+            console.log("✅ Définition du projet actif:", selectedProject.name);
+            uiDispatch({
+                type: 'SET_ACTIVE_PROJECT',
+                payload: selectedProject // Envoyer l'objet projet complet
+            });
+
+            // Navigation vers le dashboard
+            // navigate(`/client/project/${selectedProject.id}/dashboard`);
+            navigate(`/client/dashboard`);
+        } else {
+            console.log("❌ Aucun projet trouvé avec l'ID:", id);
+        }
     } else {
-      console.log("❌ Aucun projet trouvé avec l'ID:", id);
-    }
-  } else {
-    console.log("🔍 Sélection d'une vue consolidée");
-    uiDispatch({
-      type: 'SET_ACTIVE_PROJECT',
-      payload: { id: idString, name: displayName, type: 'consolidated' }
-    });
-    
-    uiDispatch({
-      type: 'SHOW_DASHBOARD'
-    });
-    
-    navigate('/dashboard');
-  }
+        console.log("🔍 Sélection d'une vue consolidée");
+        uiDispatch({
+            type: 'SET_ACTIVE_PROJECT',
+            payload: { id: idString, name: displayName, type: 'consolidated' }
+        });
 
-  setIsListOpen(false);
+        navigate('/dashboard');
+    }
+
+    setIsListOpen(false);
 };
   const handleAddProject = () => {
     navigate("/client/onboarding");

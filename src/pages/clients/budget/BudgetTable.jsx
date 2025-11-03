@@ -8,54 +8,26 @@ import {
   Square,
   Edit,
   Trash2,
+  Eye,
 } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { formatCurrency } from '../../../utils/formatters';
+import BudgetDetailModal from './BudgetDetailModal';
 
-const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
-  // Tous les hooks doivent être appelés AVANT tout return conditionnel
+const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete, loading = false }) => {
   const [activeTab, setActiveTab] = useState('revenus');
   const [expandedRow, setExpandedRow] = useState(null);
   const [menuOpen, setMenuOpen] = useState(null);
   const [subCategoryMenuOpen, setSubCategoryMenuOpen] = useState(null);
   const [groupedData, setGroupedData] = useState([]);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedSubCategory, setSelectedSubCategory] = useState(null);
   const menuRefs = useRef({});
-
-  // Fonctions utilitaires simplifiées
-  const formatCurrency = (amount) => {
-    return `${amount?.toLocaleString() || '0'} €`;
-  };
-
-  const getFrequencyBadge = (frequency) => {
-    const frequencies = {
-      Mensuelle: 'Mensuel',
-      Trimestrielle: 'Trim',
-      Annuelle: 'Annuel',
-      Ponctuelle: 'Ponctuel',
-    };
-    return (
-      <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-        {frequencies[frequency] || frequency || 'Mensuel'}
-      </span>
-    );
-  };
-
-  const getColorClasses = (categoryId) => {
-    const colors = {
-      1: 'bg-red-100 text-red-600', // Logement
-      2: 'bg-green-100 text-green-600', // Alimentation
-      3: 'bg-blue-100 text-blue-600', // Transport
-      4: 'bg-purple-100 text-purple-600', // Santé
-      5: 'bg-yellow-100 text-yellow-600', // Éducation
-      6: 'bg-pink-100 text-pink-600', // Loisirs
-    };
-    return colors[categoryId] || 'bg-gray-100 text-gray-600';
-  };
 
   // Fonction pour grouper les données par catégorie
   const getGroupedData = () => {
     if (activeTab === 'revenus') {
-      // Pour les revenus (entries)
       const entries = budgetData?.entries || {};
       const categories = entries?.entry_items?.category_names || [];
       const items = entries?.entry_items?.sub_categories || [];
@@ -65,7 +37,7 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
           (item) => item.category_id === category.category_id
         );
         const totalAmount = categoryItems.reduce(
-          (sum, item) => sum + (item.amount || 0),
+          (sum, item) => sum + parseFloat(item.amount || 0),
           0
         );
 
@@ -78,7 +50,6 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
         };
       });
     } else {
-      // Pour les dépenses (exits)
       const exits = budgetData?.exits || {};
       const categories = exits?.exit_items?.category_names || [];
       const items = exits?.exit_items?.sub_categories || [];
@@ -88,7 +59,7 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
           (item) => item.category_id === category.category_id
         );
         const totalAmount = categoryItems.reduce(
-          (sum, item) => sum + (item.amount || 0),
+          (sum, item) => sum + parseFloat(item.amount || 0),
           0
         );
 
@@ -103,32 +74,29 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
     }
   };
 
-  // Mettre à jour les données groupées quand budgetData ou activeTab change
+  // Mettre à jour les données groupées
   useEffect(() => {
-    if (budgetData) {
+    if (budgetData && !loading) {
       const data = getGroupedData();
       setGroupedData(data);
     }
-  }, [budgetData, activeTab]);
+  }, [budgetData, activeTab, loading]);
 
-  // Fonction pour gérer le clic sur une ligne
+  // Reste du code reste inchangé...
   const handleRowClick = (itemId) => {
     setExpandedRow(expandedRow === itemId ? null : itemId);
   };
 
-  // Fonction pour gérer l'ouverture/fermeture du menu des sous-catégories
   const handleSubCategoryMenuToggle = (itemId, event) => {
     event.stopPropagation();
     setSubCategoryMenuOpen(subCategoryMenuOpen === itemId ? null : itemId);
   };
 
-  // Fonction pour fermer tous les menus
   const closeAllMenus = () => {
     setMenuOpen(null);
     setSubCategoryMenuOpen(null);
   };
 
-  // Fonctions de gestion des actions
   const handleEdit = (item, type, event) => {
     event.stopPropagation();
     closeAllMenus();
@@ -141,8 +109,19 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
     onDelete(item, type);
   };
 
-  // Formater la date
-  const formatDate = (dateString) => {
+  const handleViewDetails = (item, event) => {
+    event.stopPropagation();
+    closeAllMenus();
+    setSelectedSubCategory(item);
+    setDetailModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setDetailModalOpen(false);
+    setSelectedSubCategory(null);
+  };
+
+  const formatShortDate = (dateString) => {
     if (!dateString) return '';
     return new Date(dateString).toLocaleDateString('fr-FR', {
       month: 'short',
@@ -150,18 +129,17 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
     });
   };
 
-  // Fonction pour calculer la position du menu
   const getMenuPosition = (element) => {
     if (!element) return 'bottom';
-
     const rect = element.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
-    const menuHeight = 160; // Hauteur approximative du menu
+    const menuHeight = 100;
 
-    return spaceBelow < menuHeight && spaceAbove > spaceBelow
-      ? 'top'
-      : 'bottom';
+    if (spaceBelow < menuHeight && spaceAbove > spaceBelow) {
+      return 'top';
+    }
+    return 'bottom';
   };
 
   // Animations
@@ -202,8 +180,82 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
     },
   };
 
-  // Le return conditionnel doit être APRÈS tous les hooks
+  // Composant de ligne de chargement
+  const LoadingRow = () => (
+    <tr className="border-b animate-pulse">
+      <td className="py-3 px-4">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-gray-200 rounded-lg"></div>
+          <div className="space-y-2">
+            <div className="h-4 bg-gray-200 rounded w-32"></div>
+            <div className="h-3 bg-gray-200 rounded w-24"></div>
+          </div>
+        </div>
+      </td>
+      <td className="py-3 px-4 text-center">
+        <div className="h-6 bg-gray-200 rounded w-16 mx-auto"></div>
+      </td>
+      <td className="py-3 px-4 text-center">
+        <div className="h-4 bg-gray-200 rounded w-20 mx-auto"></div>
+      </td>
+      <td className="py-3 px-4 text-right">
+        <div className="h-6 bg-gray-200 rounded w-24 ml-auto"></div>
+      </td>
+      <td className="py-3 px-4 text-center">
+        <div className="h-6 bg-gray-200 rounded w-6 mx-auto"></div>
+      </td>
+    </tr>
+  );
+
   if (isMobile) return null;
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+        {/* En-tête de chargement */}
+        <div className="flex justify-between items-center mb-6">
+          <div className="h-6 bg-gray-200 rounded w-48 animate-pulse"></div>
+          <div className="h-8 bg-gray-200 rounded w-24 animate-pulse"></div>
+        </div>
+
+        {/* Tabs de chargement */}
+        <div className="flex space-x-1 rounded-lg bg-gray-100 p-1 mb-6">
+          <div className="flex-1 rounded-md px-3 py-2 bg-gray-200 animate-pulse"></div>
+          <div className="flex-1 rounded-md px-3 py-2 bg-gray-200 animate-pulse"></div>
+        </div>
+
+        {/* Tableau de chargement */}
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left py-3 px-4 font-medium text-gray-700">
+                  Catégorie
+                </th>
+                <th className="text-center py-3 px-4 font-medium text-gray-700">
+                  Fréquence
+                </th>
+                <th className="text-center py-3 px-4 font-medium text-gray-700">
+                  Période
+                </th>
+                <th className="text-right py-3 px-4 font-medium text-gray-700">
+                  Budget
+                </th>
+                <th className="text-center py-3 px-4 font-medium text-gray-700">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...Array(5)].map((_, index) => (
+                <LoadingRow key={index} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
@@ -257,12 +309,6 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
               <th className="text-right py-3 px-4 font-medium text-gray-700">
                 Budget
               </th>
-              <th className="text-right py-3 px-4 font-medium text-gray-700">
-                Réel
-              </th>
-              <th className="text-right py-3 px-4 font-medium text-gray-700">
-                Écart
-              </th>
               <th className="text-center py-3 px-4 font-medium text-gray-700">
                 Actions
               </th>
@@ -300,12 +346,12 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
                         </div>
                       </td>
 
-                      {/* Fréquence - Moyenne pour la catégorie */}
+                      {/* Fréquence */}
                       <td className="py-3 px-4 text-center">
                         {getFrequencyBadge('Mensuelle')}
                       </td>
 
-                      {/* Période - Plage pour la catégorie */}
+                      {/* Période */}
                       <td className="py-3 px-4 text-center text-sm text-gray-600">
                         <div className="flex items-center justify-center gap-1">
                           <Calendar className="w-4 h-4" />
@@ -322,17 +368,7 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
                         {formatCurrency(category.amount)}
                       </td>
 
-                      {/* Réel - Pour l'instant égal au budget */}
-                      <td className="text-right py-3 px-4">
-                        {formatCurrency(category.amount)}
-                      </td>
-
-                      {/* Écart - Pour l'instant 0 */}
-                      <td className="text-right py-3 px-4 font-medium text-gray-600">
-                        {formatCurrency(0)}
-                      </td>
-
-                      {/* Actions - Flèche d'expansion uniquement */}
+                      {/* Actions */}
                       <td className="py-3 px-4 text-center">
                         <div className="flex justify-center">
                           <button
@@ -352,7 +388,7 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
                       </td>
                     </tr>
 
-                    {/* Ligne de détails (sous-catégories) avec animation */}
+                    {/* Ligne de détails */}
                     <AnimatePresence>
                       {isExpanded && (
                         <motion.tr
@@ -362,7 +398,7 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
                           animate="visible"
                           exit="hidden"
                         >
-                          <td colSpan="7" className="py-4 px-4">
+                          <td colSpan="5" className="py-4 px-4">
                             <motion.div
                               className="pl-12"
                               variants={contentVariants}
@@ -375,7 +411,7 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
                                 {category.categoryName}
                               </h4>
                               <div className="grid gap-3">
-                                {category.items.map((item) => {
+                                {category.items.map((item, index) => {
                                   const isSubMenuOpen =
                                     subCategoryMenuOpen === item.id;
                                   const menuPosition = isSubMenuOpen
@@ -388,8 +424,9 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
                                       className="flex justify-between items-center py-2 px-4 bg-white rounded-lg border relative"
                                       initial={{ opacity: 0, y: 10 }}
                                       animate={{ opacity: 1, y: 0 }}
-                                      transition={{ delay: 0.1 }}
+                                      transition={{ delay: index * 0.05 }}
                                     >
+                                      {/* Contenu de la sous-catégorie */}
                                       <div className="flex items-center gap-3">
                                         <Square className="w-3 h-3 text-gray-400 fill-current" />
                                         <div className="flex flex-col">
@@ -414,32 +451,17 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
                                         </div>
                                         <div className="text-right">
                                           <div className="text-sm text-gray-600">
-                                            Réel
-                                          </div>
-                                          <div className="font-medium">
-                                            {formatCurrency(item.amount)}
-                                          </div>
-                                        </div>
-                                        <div className="text-right">
-                                          <div className="text-sm text-gray-600">
-                                            Écart
-                                          </div>
-                                          <div className="font-medium text-gray-600">
-                                            {formatCurrency(0)}
-                                          </div>
-                                        </div>
-                                        <div className="text-right">
-                                          <div className="text-sm text-gray-600">
                                             Période
                                           </div>
                                           <div className="text-xs text-gray-500">
-                                            {formatDate(item.start_date)}
+                                            {formatShortDate(item.start_date)}
                                             {item.is_duration_indefinite ? (
                                               <span> → ∞</span>
                                             ) : item.end_date ? (
                                               <span>
                                                 {' '}
-                                                → {formatDate(item.end_date)}
+                                                →{' '}
+                                                {formatShortDate(item.end_date)}
                                               </span>
                                             ) : null}
                                           </div>
@@ -469,46 +491,97 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
                                             <MoreVertical className="w-4 h-4" />
                                           </button>
 
-                                          {/* Menu modal pour sous-catégorie avec positionnement adaptatif */}
-                                          {isSubMenuOpen && (
-                                            <div
-                                              className={`absolute ${
-                                                menuPosition === 'top'
-                                                  ? 'bottom-full mb-1'
-                                                  : 'top-full mt-1'
-                                              } right-0 w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-50`}
-                                            >
-                                              <div className="py-1">
-                                                <button
-                                                  onClick={(e) =>
-                                                    handleEdit(
-                                                      item,
-                                                      activeTab,
-                                                      e
-                                                    )
-                                                  }
-                                                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                                                >
-                                                  <Edit className="w-4 h-4 mr-2" />
-                                                  Modifier
-                                                </button>
-                                                <div className="border-t border-gray-100 my-1"></div>
-                                                <button
-                                                  onClick={(e) =>
-                                                    handleDelete(
-                                                      item,
-                                                      activeTab,
-                                                      e
-                                                    )
-                                                  }
-                                                  className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                                                >
-                                                  <Trash2 className="w-4 h-4 mr-2" />
-                                                  Supprimer
-                                                </button>
-                                              </div>
-                                            </div>
-                                          )}
+                                          <AnimatePresence>
+                                            {isSubMenuOpen && (
+                                              <motion.div
+                                                className={`fixed w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-50 ${
+                                                  menuPosition === 'top'
+                                                    ? 'bottom-auto'
+                                                    : 'top-auto'
+                                                }`}
+                                                initial={{
+                                                  opacity: 0,
+                                                  scale: 0.95,
+                                                }}
+                                                animate={{
+                                                  opacity: 1,
+                                                  scale: 1,
+                                                }}
+                                                exit={{
+                                                  opacity: 0,
+                                                  scale: 0.95,
+                                                }}
+                                                transition={{ duration: 0.15 }}
+                                                style={{
+                                                  position: 'fixed',
+                                                  [menuPosition === 'top'
+                                                    ? 'bottom'
+                                                    : 'top']:
+                                                    menuPosition === 'top'
+                                                      ? `${
+                                                          window.innerHeight -
+                                                          menuRefs.current[
+                                                            item.id
+                                                          ]?.getBoundingClientRect()
+                                                            .top +
+                                                          8
+                                                        }px`
+                                                      : `${
+                                                          menuRefs.current[
+                                                            item.id
+                                                          ]?.getBoundingClientRect()
+                                                            .bottom + 8
+                                                        }px`,
+                                                  right: `${
+                                                    window.innerWidth -
+                                                    menuRefs.current[
+                                                      item.id
+                                                    ]?.getBoundingClientRect()
+                                                      .right
+                                                  }px`,
+                                                }}
+                                              >
+                                                <div className="py-1">
+                                                  <button
+                                                    onClick={(e) =>
+                                                      handleViewDetails(item, e)
+                                                    }
+                                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                                  >
+                                                    <Eye className="w-4 h-4 mr-2" />
+                                                    Voir les détails
+                                                  </button>
+                                                  <button
+                                                    onClick={(e) =>
+                                                      handleEdit(
+                                                        item,
+                                                        activeTab,
+                                                        e
+                                                      )
+                                                    }
+                                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                                  >
+                                                    <Edit className="w-4 h-4 mr-2" />
+                                                    Modifier
+                                                  </button>
+                                                  <div className="border-t border-gray-100 my-1"></div>
+                                                  <button
+                                                    onClick={(e) =>
+                                                      handleDelete(
+                                                        item,
+                                                        activeTab,
+                                                        e
+                                                      )
+                                                    }
+                                                    className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                                  >
+                                                    <Trash2 className="w-4 h-4 mr-2" />
+                                                    Supprimer
+                                                  </button>
+                                                </div>
+                                              </motion.div>
+                                            )}
+                                          </AnimatePresence>
                                         </div>
                                       </div>
                                     </motion.div>
@@ -525,7 +598,7 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
               })
             ) : (
               <tr>
-                <td colSpan="7" className="py-8 text-center text-gray-500">
+                <td colSpan="5" className="py-8 text-center text-gray-500">
                   <div className="flex flex-col items-center justify-center">
                     <div>Aucune donnée disponible</div>
                     <div className="text-sm text-gray-400 mt-1">
@@ -541,11 +614,50 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
         </table>
       </div>
 
-      {/* Overlay pour fermer les menus en cliquant ailleurs */}
+      {/* Modale de détails */}
+      <BudgetDetailModal
+        open={detailModalOpen}
+        onClose={handleCloseModal}
+        subCategory={selectedSubCategory}
+        type={activeTab}
+        onEdit={handleEdit}
+      />
+
+      {/* Overlay pour fermer les menus */}
       {(menuOpen || subCategoryMenuOpen) && (
         <div className="fixed inset-0 z-40" onClick={closeAllMenus} />
       )}
     </div>
+  );
+};
+
+// Fonctions utilitaires (doivent être définies)
+const getColorClasses = (categoryId) => {
+  const colors = {
+    1: 'bg-red-100 text-red-600',
+    2: 'bg-green-100 text-green-600',
+    3: 'bg-blue-100 text-blue-600',
+    4: 'bg-purple-100 text-purple-600',
+    5: 'bg-yellow-100 text-yellow-600',
+    6: 'bg-pink-100 text-pink-600',
+    7: 'bg-indigo-100 text-indigo-600',
+    9: 'bg-teal-100 text-teal-600',
+  };
+  return colors[categoryId] || 'bg-gray-100 text-gray-600';
+};
+
+const getFrequencyBadge = (frequency) => {
+  const frequencies = {
+    Mensuelle: 'Mensuel',
+    Trimestrielle: 'Trim',
+    Annuelle: 'Annuel',
+    Ponctuelle: 'Ponctuel',
+    Hebdomadaire: 'Hebdo',
+  };
+  return (
+    <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+      {frequencies[frequency] || frequency || 'Mensuel'}
+    </span>
   );
 };
 

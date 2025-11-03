@@ -1,32 +1,37 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useData } from '../../../components/context/DataContext.jsx';
 import { useUI } from '../../../components/context/UIContext';
 import { formatCurrency, formatPaymentTerms } from '../../../utils/formatting.js';
 import { HandCoins, TrendingDown, Plus, Trash2, Search, Edit, ChevronDown, Loader } from 'lucide-react';
 import EmptyState from '../../../components/emptystate/EmptyState.jsx';
 import AddCategoryFlowModal from '../../../components/modal/AddCategoryFlowModal.jsx';
-import { deleteEntry, saveEntry, updateSubCategoryCriticality } from '../../../components/context/actions'; // IMPORT MANQUANT AJOUTÉ
+import { deleteEntry, saveEntry, updateSubCategoryCriticality } from '../../../components/context/actions';
 import { expandVatEntries } from '../../../utils/budgetCalculations';
 import { useActiveProjectData } from '../../../utils/selectors.jsx';
 import CriticalityPicker from '../../../components/criticality/CriticalityPicker.jsx';
-import { motion, AnimatePresence } from 'framer-motion'; // IMPORT MANQUANT AJOUTÉ
+import { motion, AnimatePresence } from 'framer-motion';
 
-const BudgetStateView = ({ searchTerm }) => {
+const BudgetStateView = ({ searchTerm, budgetData, loading, onRefresh }) => {
     const { dataState, dataDispatch } = useData();
     const { uiState, uiDispatch } = useUI();
     const { projects, categories, settings, tiers, session } = dataState;
     
-    const { activeProject, budgetEntries, isConsolidated } = useActiveProjectData(dataState, uiState);
+    const { activeProject, isConsolidated } = useActiveProjectData(dataState, uiState);
+    
+    // ✅ CORRECTION : Utiliser les données passées en props au lieu de les recharger
+    const budgetEntries = budgetData?.budgetEntries || [];
     
     const [isAddCategoryFlowModalOpen, setIsAddCategoryFlowModalOpen] = useState(false);
     const [addCategoryFlowType, setAddCategoryFlowType] = useState(null);
     const [openDropdownId, setOpenDropdownId] = useState(null);
     const dropdownRef = useRef(null);
 
-    const toggleDropdown = (mainCatId) => {
+    // ✅ CORRECTION : Mémoriser la fonction toggleDropdown
+    const toggleDropdown = useCallback((mainCatId) => {
         setOpenDropdownId(prevId => (prevId === mainCatId ? null : mainCatId));
-    };
+    }, []);
 
+    // ✅ CORRECTION : Gestion du clic externe optimisée
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -39,25 +44,37 @@ const BudgetStateView = ({ searchTerm }) => {
         };
     }, []);
 
+    // ✅ CORRECTION : Mémoriser les entrées étendues avec useMemo
     const expandedEntries = useMemo(() => {
-        if (!budgetEntries) return [];
+        if (!budgetEntries || budgetEntries.length === 0) return [];
+        console.log('🔄 Calcul des entrées étendues...');
         return expandVatEntries(budgetEntries, categories);
     }, [budgetEntries, categories]);
 
+    // ✅ CORRECTION : Mémoriser le filtrage avec useMemo
     const filteredBudgetEntries = useMemo(() => {
         if (!searchTerm) {
             return expandedEntries;
         }
+        
+        const lowerSearchTerm = searchTerm.toLowerCase();
         return expandedEntries.filter(entry => 
-            entry.supplier?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            entry.category?.toLowerCase().includes(searchTerm.toLowerCase())
+            entry.supplier?.toLowerCase().includes(lowerSearchTerm) ||
+            entry.category?.toLowerCase().includes(lowerSearchTerm)
         );
     }, [expandedEntries, searchTerm]);
 
-    const handleAddEntry = (categoryName, mainCategoryType, mainCategoryId) => {
+    // ✅ CORRECTION : Mémoriser les handlers avec useCallback
+    const handleAddEntry = useCallback((categoryName, mainCategoryType, mainCategoryId) => {
         const onSave = (entryData) => {
             if (!activeProject) {
-                uiDispatch({ type: 'ADD_TOAST', payload: { message: 'Erreur: Le projet actif n\'est pas défini.', type: 'error' } });
+                uiDispatch({ 
+                    type: 'ADD_TOAST', 
+                    payload: { 
+                        message: 'Erreur: Le projet actif n\'est pas défini.', 
+                        type: 'error' 
+                    } 
+                });
                 return;
             }
             saveEntry({ dataDispatch, uiDispatch, dataState }, {
@@ -70,17 +87,27 @@ const BudgetStateView = ({ searchTerm }) => {
                 activeProjectId: activeProject.id
             });
         };
-        uiDispatch({ type: 'OPEN_BUDGET_DRAWER', payload: { 
-            entry: { category: categoryName, type: mainCategoryType, mainCategoryId }, 
-            onSave 
-        }});
-    };
+        uiDispatch({ 
+            type: 'OPEN_BUDGET_DRAWER', 
+            payload: { 
+                entry: { category: categoryName, type: mainCategoryType, mainCategoryId }, 
+                onSave 
+            }
+        });
+    }, [activeProject, dataDispatch, dataState, uiDispatch]);
 
-    const handleEditEntry = (entry) => {
+    const handleEditEntry = useCallback((entry) => {
         if (!activeProject) {
-            uiDispatch({ type: 'ADD_TOAST', payload: { message: 'Erreur: Le projet actif n\'est pas défini.', type: 'error' } });
+            uiDispatch({ 
+                type: 'ADD_TOAST', 
+                payload: { 
+                    message: 'Erreur: Le projet actif n\'est pas défini.', 
+                    type: 'error' 
+                } 
+            });
             return;
         }
+        
         const originalEntryId = entry.is_vat_child ? entry.id.replace('_vat', '') : entry.id;
         const originalEntry = budgetEntries.find(e => e.id === originalEntryId);
         if (!originalEntry) return;
@@ -96,29 +123,53 @@ const BudgetStateView = ({ searchTerm }) => {
                 activeProjectId: activeProject.id
             });
         };
+        
         const onDelete = () => {
-            deleteEntry({ dataDispatch, uiDispatch }, { entryId: originalEntry.id, entryProjectId: activeProject.id });
+            deleteEntry({ dataDispatch, uiDispatch }, { 
+                entryId: originalEntry.id, 
+                entryProjectId: activeProject.id 
+            });
         };
-        uiDispatch({ type: 'OPEN_BUDGET_DRAWER', payload: { entry: originalEntry, onSave, onDelete } });
-    };
+        
+        uiDispatch({ 
+            type: 'OPEN_BUDGET_DRAWER', 
+            payload: { entry: originalEntry, onSave, onDelete } 
+        });
+    }, [activeProject, budgetEntries, dataDispatch, dataState, uiDispatch]);
 
-    const handleDeleteEntry = (entry) => {
+    const handleDeleteEntry = useCallback((entry) => {
         if (!activeProject) {
-            uiDispatch({ type: 'ADD_TOAST', payload: { message: 'Erreur: Le projet actif n\'est pas défini.', type: 'error' } });
+            uiDispatch({ 
+                type: 'ADD_TOAST', 
+                payload: { 
+                    message: 'Erreur: Le projet actif n\'est pas défini.', 
+                    type: 'error' 
+                } 
+            });
             return;
         }
+        
         const originalEntryId = entry.is_vat_child ? entry.id.replace('_vat', '') : entry.id;
         const originalEntry = budgetEntries.find(e => e.id === originalEntryId);
         if (originalEntry) {
-            deleteEntry({dataDispatch, uiDispatch}, { entryId: originalEntry.id, entryProjectId: activeProject.id });
+            deleteEntry({ dataDispatch, uiDispatch }, { 
+                entryId: originalEntry.id, 
+                entryProjectId: activeProject.id 
+            });
         }
-    };
+    }, [activeProject, budgetEntries, dataDispatch, uiDispatch]);
 
-    const handleCategorySelectedForNewEntry = (mainCategoryId) => {
+    const handleCategorySelectedForNewEntry = useCallback((mainCategoryId) => {
         setIsAddCategoryFlowModalOpen(false);
         const onSave = (entryData) => {
             if (!activeProject) {
-                uiDispatch({ type: 'ADD_TOAST', payload: { message: 'Erreur: Le projet actif n\'est pas défini.', type: 'error' } });
+                uiDispatch({ 
+                    type: 'ADD_TOAST', 
+                    payload: { 
+                        message: 'Erreur: Le projet actif n\'est pas défini.', 
+                        type: 'error' 
+                    } 
+                });
                 return;
             }
             saveEntry({ dataDispatch, uiDispatch, dataState }, {
@@ -131,40 +182,56 @@ const BudgetStateView = ({ searchTerm }) => {
                 activeProjectId: activeProject.id
             });
         };
-        uiDispatch({ type: 'OPEN_BUDGET_DRAWER', payload: { 
-            entry: { type: addCategoryFlowType, mainCategoryId }, 
-            onSave 
-        }});
-    };
+        uiDispatch({ 
+            type: 'OPEN_BUDGET_DRAWER', 
+            payload: { 
+                entry: { type: addCategoryFlowType, mainCategoryId }, 
+                onSave 
+            }
+        });
+    }, [activeProject, addCategoryFlowType, dataDispatch, dataState, uiDispatch]);
 
-    const handleOpenDetailDrawer = (entry) => {
+    const handleOpenDetailDrawer = useCallback((entry) => {
         if (!activeProject) return;
+        
         const originalEntryId = entry.is_vat_child ? entry.id.replace('_vat', '') : entry.id;
         const originalEntry = budgetEntries.find(e => e.id === originalEntryId);
         if (originalEntry) {
-            uiDispatch({ type: 'OPEN_BUDGET_ENTRY_DETAIL_DRAWER', payload: { ...originalEntry, projectId: activeProject.id } });
+            uiDispatch({ 
+                type: 'OPEN_BUDGET_ENTRY_DETAIL_DRAWER', 
+                payload: { ...originalEntry, projectId: activeProject.id } 
+            });
         }
-    };
+    }, [activeProject, budgetEntries, uiDispatch]);
     
-    const handleCriticalityChange = (subCategoryId, newCriticality, type, parentId) => {
-        updateSubCategoryCriticality({ dataDispatch, uiDispatch }, { subCategoryId, newCriticality, type, parentId });
-    };
+    const handleCriticalityChange = useCallback((subCategoryId, newCriticality, type, parentId) => {
+        updateSubCategoryCriticality({ dataDispatch, uiDispatch }, { 
+            subCategoryId, 
+            newCriticality, 
+            type, 
+            parentId 
+        });
+    }, [dataDispatch, uiDispatch]);
 
-    // Vérification du chargement
-    if (!dataState || !categories) {
+    // ✅ CORRECTION : Gestion améliorée des états de chargement
+    if (loading) {
         return (
             <div className="flex justify-center items-center p-12">
                 <Loader className="w-8 h-8 animate-spin text-blue-500" />
-                <span className="ml-2 text-gray-600">Chargement des données...</span>
+                <span className="ml-2 text-gray-600">Chargement du budget...</span>
             </div>
         );
     }
 
     if (isConsolidated) {
-        return <div className="text-center p-8 text-gray-500">L'état des lieux est disponible uniquement pour les projets individuels.</div>;
+        return (
+            <div className="text-center p-8 text-gray-500">
+                L'état des lieux est disponible uniquement pour les projets individuels.
+            </div>
+        );
     }
 
-    if (activeProject) {
+    if (!activeProject) {
         return (
             <div className="flex justify-center items-center p-12">
                 <Loader className="w-8 h-8 animate-spin text-blue-500" />
@@ -173,29 +240,75 @@ const BudgetStateView = ({ searchTerm }) => {
         );
     }
 
-    if (!budgetEntries) {
+    if (!budgetData || budgetEntries.length === 0) {
         return (
-            <div className="flex justify-center items-center p-12">
-                <Loader className="w-8 h-8 animate-spin text-blue-500" />
-                <span className="ml-2 text-gray-600">Chargement des écritures budgétaires...</span>
+            <div className="text-center p-12">
+                <EmptyState 
+                    icon={HandCoins}
+                    title="Aucune donnée budgétaire"
+                    message="Commencez par ajouter vos premières entrées budgétaires."
+                    actionLabel="Ajouter une entrée"
+                    onAction={() => {
+                        setAddCategoryFlowType('depense');
+                        setIsAddCategoryFlowModalOpen(true);
+                    }}
+                />
             </div>
         );
     }
 
-    const renderSection = (type) => {
+    // ✅ CORRECTION : Mémoriser la fonction renderSection
+    const renderSection = useCallback((type) => {
         const isRevenue = type === 'revenu';
         const title = isRevenue ? 'Entrées' : 'Sorties';
         const Icon = isRevenue ? HandCoins : TrendingDown;
-        const mainCategories = isRevenue ? categories.revenue : categories.expense;
+        const mainCategories = isRevenue ? categories?.revenue : categories?.expense;
 
-        // Vérification que les catégories existent
-        if (!mainCategories || !Array.isArray(mainCategories)) {
-            return null;
+        // ✅ CORRECTION : Vérification plus robuste des catégories
+        if (!mainCategories || !Array.isArray(mainCategories) || mainCategories.length === 0) {
+            return (
+                <div className="mb-8">
+                    <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <Icon className={`w-5 h-5 ${isRevenue ? 'text-green-500' : 'text-red-500'}`} />
+                        {title}
+                    </h2>
+                    <div className="text-center py-8 text-gray-500">
+                        Aucune catégorie {isRevenue ? 'de revenu' : 'de dépense'} configurée.
+                    </div>
+                </div>
+            );
         }
 
         const sectionEntries = filteredBudgetEntries.filter(e => e.type === type);
         
-        const projectCurrency = activeProject?.currency || settings.currency;
+        // ✅ CORRECTION : Si aucune entrée après filtrage
+        if (sectionEntries.length === 0) {
+            return (
+                <div className="mb-8">
+                    <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <Icon className={`w-5 h-5 ${isRevenue ? 'text-green-500' : 'text-red-500'}`} />
+                        {title}
+                    </h2>
+                    <div className="text-center py-4 text-gray-500">
+                        Aucune entrée {isRevenue ? 'de revenu' : 'de dépense'} trouvée.
+                    </div>
+                    <div className="text-center mt-2">
+                        <button 
+                            onClick={() => { 
+                                setAddCategoryFlowType(type); 
+                                setIsAddCategoryFlowModalOpen(true); 
+                            }} 
+                            className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 font-normal mx-auto"
+                        >
+                            <Plus size={16} /> 
+                            Ajouter votre première entrée {isRevenue ? 'de revenu' : 'de dépense'}
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        const projectCurrency = activeProject?.currency || settings?.currency || 'EUR';
         const currencySettingsForProject = { ...settings, currency: projectCurrency };
 
         return (
@@ -210,8 +323,10 @@ const BudgetStateView = ({ searchTerm }) => {
                         if (!mainCat || !mainCat.subCategories) return null;
                         
                         const entriesForMainCat = sectionEntries.filter(entry => 
-                            mainCat.subCategories.some(sc => sc && sc.name === entry.category) || (entry.is_vat_child && (entry.category === 'TVA collectée' || entry.category === 'TVA déductible') && mainCat.name === 'IMPÔTS & CONTRIBUTIONS')
+                            mainCat.subCategories.some(sc => sc && sc.name === entry.category) || 
+                            (entry.is_vat_child && (entry.category === 'TVA collectée' || entry.category === 'TVA déductible') && mainCat.name === 'IMPÔTS & CONTRIBUTIONS')
                         );
+                        
                         if (entriesForMainCat.length === 0) return null;
 
                         return (
@@ -219,7 +334,10 @@ const BudgetStateView = ({ searchTerm }) => {
                                 <div className="flex items-center bg-gray-100 rounded-md p-2">
                                     <div className="relative" ref={openDropdownId === mainCat.id ? dropdownRef : null}>
                                         <button
-                                            onClick={(e) => { e.stopPropagation(); toggleDropdown(mainCat.id); }}
+                                            onClick={(e) => { 
+                                                e.stopPropagation(); 
+                                                toggleDropdown(mainCat.id); 
+                                            }}
                                             className="flex items-center justify-center w-6 h-6 rounded bg-gray-300 hover:bg-blue-200 text-gray-600 hover:text-blue-700 transition-colors"
                                             title="Ajouter une écriture"
                                         >
@@ -234,19 +352,22 @@ const BudgetStateView = ({ searchTerm }) => {
                                                     className="absolute left-0 top-full mt-2 w-64 bg-white rounded-lg shadow-lg border z-20"
                                                 >
                                                     <ul className="p-1 max-h-60 overflow-y-auto">
-                                                        {mainCat.subCategories.filter(sc => sc && !sc.isFixed).map(sc => (
-                                                            <li key={sc.id}>
-                                                                <button
-                                                                    onClick={() => {
-                                                                        handleAddEntry(sc.name, type, mainCat.id);
-                                                                        setOpenDropdownId(null);
-                                                                    }}
-                                                                    className="w-full text-left px-3 py-1.5 text-sm rounded-md text-gray-700 hover:bg-gray-100"
-                                                                >
-                                                                    {sc.name}
-                                                                </button>
-                                                            </li>
-                                                        ))}
+                                                        {mainCat.subCategories
+                                                            .filter(sc => sc && !sc.isFixed)
+                                                            .map(sc => (
+                                                                <li key={sc.id}>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            handleAddEntry(sc.name, type, mainCat.id);
+                                                                            setOpenDropdownId(null);
+                                                                        }}
+                                                                        className="w-full text-left px-3 py-1.5 text-sm rounded-md text-gray-700 hover:bg-gray-100"
+                                                                    >
+                                                                        {sc.name}
+                                                                    </button>
+                                                                </li>
+                                                            ))
+                                                        }
                                                         {mainCat.subCategories.filter(sc => sc && !sc.isFixed).length > 0 && <hr className="my-1" />}
                                                         <li>
                                                             <button
@@ -280,6 +401,7 @@ const BudgetStateView = ({ searchTerm }) => {
                                     {entriesForMainCat.map(entry => {
                                         const subCat = mainCat.subCategories.find(sc => sc && sc.name === entry.category);
                                         const criticality = subCat?.criticality;
+                                        
                                         return (
                                             <div key={entry.id} onClick={() => handleOpenDetailDrawer(entry)} className="border-b hover:bg-gray-50 group cursor-pointer">
                                                 {/* Mobile View */}
@@ -302,12 +424,19 @@ const BudgetStateView = ({ searchTerm }) => {
                                                 {/* Desktop View */}
                                                 <div className="hidden sm:flex items-center py-3 px-2">
                                                     <div className="w-[25%] flex items-center gap-2 pr-4">
-                                                        {criticality && entry.type === 'depense' && <CriticalityPicker value={criticality} onSelect={(newCrit) => handleCriticalityChange(subCat.id, newCrit, 'expense', mainCat.id)} />}
+                                                        {criticality && entry.type === 'depense' && (
+                                                            <CriticalityPicker 
+                                                                value={criticality} 
+                                                                onSelect={(newCrit) => handleCriticalityChange(subCat.id, newCrit, 'expense', mainCat.id)} 
+                                                            />
+                                                        )}
                                                         <span className="text-gray-600 truncate">{entry.category}</span>
                                                     </div>
                                                     <div className="w-[20%] text-gray-600 truncate pr-4">{entry.supplier}</div>
                                                     <div className="w-[15%] text-gray-600 truncate pr-4">{entry.frequency}</div>
-                                                    <div className="w-[15%] text-gray-600 truncate pr-4">{entry.startDate ? new Date(entry.startDate).toLocaleDateString('fr-FR') : (entry.date ? new Date(entry.date).toLocaleDateString('fr-FR') : '-')}</div>
+                                                    <div className="w-[15%] text-gray-600 truncate pr-4">
+                                                        {entry.startDate ? new Date(entry.startDate).toLocaleDateString('fr-FR') : (entry.date ? new Date(entry.date).toLocaleDateString('fr-FR') : '-')}
+                                                    </div>
                                                     <div className="w-[20%] text-right text-gray-700 font-medium pr-4">
                                                         {formatCurrency(entry.original_amount ?? entry.amount, { ...settings, currency: entry.currency || projectCurrency })}
                                                     </div>
@@ -324,14 +453,33 @@ const BudgetStateView = ({ searchTerm }) => {
                         );
                     })}
                     <div className="text-center mt-4">
-                        <button onClick={() => { setAddCategoryFlowType(type); setIsAddCategoryFlowModalOpen(true); }} className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 font-normal mx-auto">
-                            <Plus size={16} /> Ajouter une écriture dans une autre catégorie
+                        <button 
+                            onClick={() => { 
+                                setAddCategoryFlowType(type); 
+                                setIsAddCategoryFlowModalOpen(true); 
+                            }} 
+                            className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 font-normal mx-auto"
+                        >
+                            <Plus size={16} /> 
+                            Ajouter une écriture dans une autre catégorie
                         </button>
                     </div>
                 </div>
             </div>
         );
-    };
+    }, [
+        categories, 
+        filteredBudgetEntries, 
+        activeProject, 
+        settings, 
+        openDropdownId, 
+        toggleDropdown, 
+        handleAddEntry, 
+        handleOpenDetailDrawer, 
+        handleEditEntry, 
+        handleDeleteEntry, 
+        handleCriticalityChange
+    ]);
     
     return (
         <div>

@@ -1,52 +1,142 @@
-import React, { useEffect, useState } from 'react';
-import {
-  Plus,
-  Download,
-  Upload,
-  Filter,
-  Calendar,
-  MoreVertical,
-  Edit,
-  Trash2,
-  Archive,
-  Tag,
-} from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+import { useUI } from '../../../components/context/UIContext';
+import { Plus, Loader } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 
 import BudgetLineDialog from './BudgetLineDialog';
 import ConfirmationModal from './ui/alert-dialog';
 import { useMobile } from '../../../hooks/useMobile';
-import { getBudget } from '../../../components/context/budgetAction';
+import {
+  getBudget,
+  destroyBudget,
+} from '../../../components/context/budgetAction';
 import BudgetTable from './BudgetTable';
+import { formatCurrency } from '../../../utils/formatters';
 
 const BudgetPage = () => {
-  const idProjet = 1;
+  const { uiState } = useUI(); 
+  const activeProjectId = uiState.activeProject?.id;
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLine, setEditingLine] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [archiveModalOpen, setArchiveModalOpen] = useState(false);
   const [selectedLine, setSelectedLine] = useState(null);
+  const [deleteType, setDeleteType] = useState(null);
   const isMobile = useMobile();
-  const [loading, setLoading] = useState(false);
-  const [budget, setBudget] = useState({}); // Initialiser comme objet vide
+  
+  // État de chargement amélioré
+  const [loadingState, setLoadingState] = useState({
+    summary: false,
+    table: false,
+    initial: true
+  });
+  const [budget, setBudget] = useState({});
+  const [error, setError] = useState(null);
+  const currentRequestId = useRef(0);
 
-  // Fonction pour charger les données du budget
-  const fetchBudgetData = async () => {
+  const fetchBudgetData = async (retryCount = 0) => {
+    if (!activeProjectId || typeof activeProjectId === 'string') {
+      setError('Aucun projet valide sélectionné');
+      setLoadingState({ summary: false, table: false, initial: false });
+      return;
+    }
+
+    const requestId = ++currentRequestId.current;
+
     try {
-      setLoading(true);
-      const data = await getBudget(idProjet);
-      setBudget(data);
-      console.log('Données chargées:', data);
+      // 🔥 CORRECTION : Toujours charger les deux sections ensemble
+      setLoadingState({
+        summary: true,
+        table: true,
+        initial: retryCount === 0 && loadingState.initial
+      });
+
+      setError(null);
+      console.log(`🔄 Chargement budget projet ${activeProjectId}, tentative ${retryCount + 1}`);
+
+      const data = await getBudget(activeProjectId);
+
+      if (requestId === currentRequestId.current) {
+        setBudget(data);
+        
+        // 🔥 CORRECTION : Mettre à jour les deux états de chargement
+        setLoadingState({
+          summary: false,
+          table: false,
+          initial: false
+        });
+      }
+
     } catch (err) {
-      console.error('Erreur:', err);
-    } finally {
-      setLoading(false);
+      if (err.response?.status === 429) {
+        const delay = Math.pow(2, retryCount) * 1000;
+
+        if (retryCount < 3) {
+          console.warn(`⏳ Trop de requêtes, nouvelle tentative dans ${delay}ms...`);
+
+          setTimeout(() => {
+            if (requestId === currentRequestId.current) {
+              fetchBudgetData(retryCount + 1);
+            }
+          }, delay);
+          return;
+        } else {
+          setError('Trop de tentatives. Veuillez patienter quelques minutes.');
+        }
+      } else {
+        console.error('Erreur:', err);
+        setError('Erreur lors du chargement du budget');
+      }
+      
+      // 🔥 CORRECTION : Toujours arrêter le chargement en cas d'erreur
+      if (requestId === currentRequestId.current) {
+        setLoadingState({ 
+          summary: false, 
+          table: false, 
+          initial: false 
+        });
+      }
     }
   };
 
-  // Fonction appelée quand une nouvelle ligne est ajoutée
-  const handleBudgetAdded = async () => {
+  // Recharger les données quand le projet actif change
+  useEffect(() => {
+    if (activeProjectId && typeof activeProjectId === 'number') {
+      currentRequestId.current++;
+      
+      // Réinitialiser l'état de chargement pour un nouveau projet
+      setLoadingState({
+        summary: true,
+        table: true,
+        initial: true
+      });
+
+      const timer = setTimeout(() => {
+        fetchBudgetData();
+      }, 300);
+
+      return () => {
+        clearTimeout(timer);
+      };
+    } else {
+      // Si pas de projet valide, arrêter le chargement
+      setLoadingState({
+        summary: false,
+        table: false,
+        initial: false
+      });
+    }
+  }, [activeProjectId]);
+
+  // 🔥 CORRECTION : Ajouter un useEffect pour debugger
+  useEffect(() => {
+    console.log('📊 État de chargement:', loadingState);
+    console.log('📊 Données budget:', budget);
+    console.log('📊 GroupedData potentiel:', budget?.entries?.entry_items?.category_names);
+  }, [loadingState, budget]);
+
+  const handleBudgetUpdated = async () => {
     await fetchBudgetData();
   };
 
@@ -56,35 +146,37 @@ const BudgetPage = () => {
     setIsDialogOpen(true);
   };
 
-  const handleArchive = (item, type) => {
-    console.log('Archiver:', item, type);
-    setSelectedLine(item);
-    setArchiveModalOpen(true);
-  };
-
   const handleDelete = (item, type) => {
     console.log('Supprimer:', item, type);
     setSelectedLine(item);
+    setDeleteType(type);
     setDeleteModalOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (selectedLine) {
-      const type = selectedLine.type === 'revenue' ? 'revenus' : 'depenses';
-      setDeleteModalOpen(false);
-      setSelectedLine(null);
+      try {
+        console.log('Suppression confirmée pour:', selectedLine);
+        await destroyBudget(selectedLine.id);
+
+        setTimeout(() => {
+          fetchBudgetData();
+        }, 500);
+
+      } catch (error) {
+        console.error('Erreur lors de la suppression:', error);
+
+        if (error.response?.status === 429) {
+          setError('Trop de requêtes. Veuillez patienter avant de supprimer à nouveau.');
+        }
+      } finally {
+        setDeleteModalOpen(false);
+        setSelectedLine(null);
+        setDeleteType(null);
+      }
     }
   };
 
-  const confirmArchive = () => {
-    if (selectedLine) {
-      const type = selectedLine.type === 'revenue' ? 'revenus' : 'depenses';
-      setArchiveModalOpen(false);
-      setSelectedLine(null);
-    }
-  };
-
-  // Reset editingLine quand le dialog se ferme
   const handleDialogClose = (open) => {
     setIsDialogOpen(open);
     if (!open) {
@@ -92,37 +184,70 @@ const BudgetPage = () => {
     }
   };
 
-  useEffect(() => {
-    fetchBudgetData();
-  }, [idProjet]);
+  const handleAddNewLine = () => {
+    setEditingLine(null);
+    setIsDialogOpen(true);
+  };
 
-  if (loading) return <div>Chargement...</div>;
+  // Composant de chargement pour les cartes
+  const LoadingCard = () => (
+    <Card className="animate-pulse">
+      <CardHeader className="pb-2">
+        <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+      </CardHeader>
+      <CardContent>
+        <div className="h-8 bg-gray-200 rounded w-3/4"></div>
+      </CardContent>
+    </Card>
+  );
+
+  // Gestion des erreurs pour projets consolidés
+  if (typeof activeProjectId === 'string') {
+    return (
+      <div className="p-10 flex justify-center items-center">
+        <div className="text-yellow-600 text-center">
+          <h2 className="text-xl font-bold mb-2">Vue consolidée</h2>
+          <p>
+            La fonctionnalité Budget n'est pas disponible en vue consolidée.
+          </p>
+          <p className="text-sm mt-2">
+            Veuillez sélectionner un projet spécifique.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!activeProjectId) {
+    return (
+      <div className="p-10 flex justify-center items-center">
+        <div className="text-red-600">Aucun projet sélectionné</div>
+      </div>
+    );
+  }
+
+  if (error && !loadingState.initial) {
+    return (
+      <div className="p-10 flex justify-center items-center">
+        <div className="text-red-600">{error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-10 space-y-6">
-      {/* Header */}
+      {/* Header avec le nom du projet */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Budget</h1>
-          <p className="text-gray-600">Gérez vos revenus et dépenses</p>
+          <p className="text-gray-600">
+            Gérez vos revenus et dépenses -{' '}
+            {uiState.activeProject?.name || 'Projet'}
+          </p>
         </div>
-        {!isMobile && (
+        {!isMobile && !loadingState.initial && (
           <div className="flex gap-2">
-            <Button variant="outline">
-              <Upload className="w-4 h-4 mr-2" />
-              Importer
-            </Button>
-            <Button variant="outline">
-              <Download className="w-4 h-4 mr-2" />
-              Exporter
-            </Button>
-            <Button
-              onClick={() => {
-                console.log('Opening dialog...');
-                setEditingLine(null); // S'assurer qu'on est en mode création
-                setIsDialogOpen(true);
-              }}
-            >
+            <Button onClick={handleAddNewLine}>
               <Plus className="w-4 h-4 mr-2" />
               Nouvelle ligne
             </Button>
@@ -133,99 +258,109 @@ const BudgetPage = () => {
       {/* Budget Line Dialog */}
       <BudgetLineDialog
         open={isDialogOpen}
-        onOpenChange={handleDialogClose} // Utiliser la nouvelle fonction
-        onBudgetAdded={handleBudgetAdded} // Callback pour recharger les données
+        onOpenChange={handleDialogClose}
+        onBudgetAdded={handleBudgetUpdated}
+        onBudgetUpdated={handleBudgetUpdated}
         data={budget}
         editLine={editingLine}
+        projectId={activeProjectId}
       />
 
+      {/* Modal de suppression */}
       <ConfirmationModal
         isOpen={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setSelectedLine(null);
+          setDeleteType(null);
+        }}
         onConfirm={confirmDelete}
         title="Confirmer la suppression"
-        description="Êtes-vous sûr de vouloir supprimer cette ligne budgétaire ? Cette action est irréversible."
+        description={`Êtes-vous sûr de vouloir supprimer cette ligne de ${deleteType === 'revenus' ? 'revenu' : 'dépense'
+          } ? Cette action est irréversible.`}
         confirmText="Supprimer"
         confirmColor="bg-red-600 hover:bg-red-700"
       />
 
-      {/* Modal d'archivage */}
-      <ConfirmationModal
-        isOpen={archiveModalOpen}
-        onClose={() => setArchiveModalOpen(false)}
-        onConfirm={confirmArchive}
-        title="Confirmer l'archivage"
-        description="Êtes-vous sûr de vouloir archiver cette ligne budgétaire ?"
-        confirmText="Archiver"
-        confirmColor="bg-blue-600 hover:bg-blue-700"
-      />
-
-      {/* Summary Cards */}
+      {/* Summary Cards avec chargement progressif */}
       <div className="grid md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Revenus prévus
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {budget.sumEntries} €
-            </div>
-            <p className="text-xs text-gray-600 mt-1">
-              {/* Réalisé: {calculateReel(budget.revenus).toLocaleString()} € */}
-            </p>
-          </CardContent>
-        </Card>
+        {loadingState.summary ? (
+          <>
+            <LoadingCard />
+            <LoadingCard />
+            <LoadingCard />
+          </>
+        ) : (
+          <>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-gray-600">
+                  Revenus prévus
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  {formatCurrency(budget.sumEntries)}
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Dépenses prévues
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {budget.sumExpenses} €
-            </div>
-            <p className="text-xs text-gray-600 mt-1">
-              {/* Réalisé: {calculateReel(budget.depenses).toLocaleString()} € */}
-            </p>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-gray-600">
+                  Dépenses prévues
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">
+                  {formatCurrency(budget.sumExpenses)}
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Solde prévisionnel
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {budget.sumForecast}€
-            </div>
-            {/* <p className="text-xs text-gray-600 mt-1">
-              Réalisé:{' '}
-              {(
-                calculateReel(budget.revenus) -
-                calculateReel(budget.depenses)
-              ).toLocaleString()}{' '}
-              €
-            </p> */}
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-gray-600">
+                  Solde prévisionnel
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600">
+                  {formatCurrency(budget.sumForecast)}
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
-      {/* Budget Table */}
+      {/* Budget Table avec chargement indépendant */}
       {!isMobile && (
         <div>
-          <BudgetTable
-            budgetData={budget}
-            isMobile={false}
-            onEdit={handleEdit}
-            onArchive={handleArchive}
-            onDelete={handleDelete}
-          />
+          {loadingState.table ? (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <div className="flex justify-between items-center mb-6">
+                <div className="h-6 bg-gray-200 rounded w-48 animate-pulse"></div>
+                <div className="h-8 bg-gray-200 rounded w-24 animate-pulse"></div>
+              </div>
+              <div className="flex space-x-1 rounded-lg bg-gray-100 p-1 mb-6">
+                <div className="flex-1 rounded-md px-3 py-2 bg-gray-200 animate-pulse"></div>
+                <div className="flex-1 rounded-md px-3 py-2 bg-gray-200 animate-pulse"></div>
+              </div>
+              <div className="space-y-4">
+                {[...Array(3)].map((_, index) => (
+                  <div key={index} className="h-16 bg-gray-200 rounded animate-pulse"></div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <BudgetTable
+              budgetData={budget}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              loading={loadingState.table}
+            />
+          )}
         </div>
       )}
     </div>

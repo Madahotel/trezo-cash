@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DollarSign, Mail, Lock, User, ArrowLeft } from 'lucide-react';
-import { Button } from '../components/ui/button';
+import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Label } from '../components/ui/label';
+import { Label } from '../components/ui/Label';
 import { useAuth } from '../components/context/AuthContext';
 
-const AuthPage = ({ mode: initialMode = 'signup' }) => {
+const AuthPage = ({ mode: initialMode = 'login' }) => {
   const [mode, setMode] = useState(initialMode);
   const [formData, setFormData] = useState({
     name: '',
@@ -20,38 +20,40 @@ const AuthPage = ({ mode: initialMode = 'signup' }) => {
   const { login, register, error } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      let result;
+        let result;
 
-      if (mode === 'signup') {
-        result = await register(
-          formData.name,
-          formData.email,
-          formData.password,
-          formData.password_confirm
-        );
-      } else {
-        result = await login(formData.email, formData.password);
-      }
+        if (mode === 'signup') {
+            result = await register(
+                formData.name,
+                formData.email,
+                formData.password,
+                formData.password_confirm
+            );
+        } else {
+            result = await login(formData.email, formData.password);
+        }
 
-      if (result.success) {
-        // Redirection après succès
-        navigate('/client/dashboard');
-      } else {
-        // L'erreur est déjà gérée dans le contexte
-        console.error('Erreur:', result.message);
-      }
+        if (result.success) {
+            // Après connexion réussie, vérifier s'il y a des projets
+            // Vous devrez peut-être attendre que les projets soient chargés
+            // ou faire une requête pour vérifier
+            setTimeout(() => {
+                navigate('/client/projets'); // Le composant ProjectsPage gérera la redirection
+            }, 100);
+        } else {
+            console.error('Erreur:', result.message);
+        }
     } catch (error) {
-      console.error('Erreur inattendue:', error);
+        console.error('Erreur inattendue:', error);
     } finally {
-      setIsLoading(false);
+        setIsLoading(false);
     }
-  };
-
+};
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -62,6 +64,12 @@ const AuthPage = ({ mode: initialMode = 'signup' }) => {
   const switchMode = () => {
     setMode(mode === 'signup' ? 'login' : 'signup');
     // Réinitialiser les erreurs lors du changement de mode
+    setFormData({
+      name: '',
+      email: '',
+      password: '',
+      password_confirm: ''
+    });
   };
 
   return (
@@ -220,7 +228,7 @@ const AuthPage = ({ mode: initialMode = 'signup' }) => {
               </div>
             </div>
 
-            {/* Toggle mode */}
+            {/* Toggle mode - Mettre l'accent sur la création de compte */}
             <div className="mt-6 text-center text-sm">
               {mode === 'signup' ? (
                 <p className="text-gray-600">
@@ -239,9 +247,9 @@ const AuthPage = ({ mode: initialMode = 'signup' }) => {
                   <button
                     type="button"
                     onClick={switchMode}
-                    className="text-blue-600 hover:underline font-medium"
+                    className="text-blue-600 hover:underline font-semibold"
                   >
-                    Créer un compte
+                    Créer un compte gratuitement
                   </button>
                 </p>
               )}
