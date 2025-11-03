@@ -333,7 +333,7 @@ const DashboardView = () => {
       icon: ListChecks,
       title: 'Saisir votre budget',
       description: 'Définissez vos entrées et sorties prévisionnelles.',
-      path: '/app/budget',
+      path: '/client/budget',
       colorClass:
         'bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200',
       iconColorClass: 'text-blue-600',
@@ -343,7 +343,7 @@ const DashboardView = () => {
       title: 'Voir votre trézo',
       description:
         'Voyez la projection de vos entrées et sorties ventilées par mois de cette année.',
-      path: '/app/trezo',
+      path: '/client/trezo',
       colorClass:
         'bg-gradient-to-br from-pink-50 to-pink-100 hover:from-pink-100 hover:to-pink-200',
       iconColorClass: 'text-pink-600',
@@ -353,7 +353,7 @@ const DashboardView = () => {
       title: "Gérer l'échéancier",
       description:
         'Suivez et enregistrez vos paiements et encaissements réels.',
-      path: '/app/echeancier',
+      path: '/client/echeancier',
       colorClass:
         'bg-gradient-to-br from-green-50 to-green-100 hover:from-green-100 hover:to-green-200',
       iconColorClass: 'text-green-600',
@@ -362,7 +362,7 @@ const DashboardView = () => {
       icon: PieChart,
       title: 'Analyser vos flux',
       description: 'Comprenez la répartition de vos dépenses et revenus.',
-      path: '/app/analyse',
+      path: '/client/analyse',
       colorClass:
         'bg-gradient-to-br from-yellow-50 to-yellow-100 hover:from-yellow-100 hover:to-yellow-200',
       iconColorClass: 'text-yellow-600',
@@ -371,7 +371,7 @@ const DashboardView = () => {
       icon: Layers,
       title: 'Ajouter des simulations',
       description: "Anticipez l'impact de vos décisions avec les scénarios.",
-      path: '/app/scenarios',
+      path: '/client/scenarios',
       colorClass:
         'bg-gradient-to-br from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200',
       iconColorClass: 'text-purple-600',
@@ -380,7 +380,7 @@ const DashboardView = () => {
       icon: Wallet,
       title: 'Ajuster vos comptes',
       description: 'Consultez et mettez à jour vos soldes de trésorerie.',
-      path: '/app/comptes',
+      path: '/client/comptes',
       colorClass:
         'bg-gradient-to-br from-teal-50 to-teal-100 hover:from-teal-100 hover:to-teal-200',
       iconColorClass: 'text-teal-600',

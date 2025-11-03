@@ -141,7 +141,8 @@ const handleSelect = (id) => {
             });
 
             // Navigation vers le dashboard
-            navigate(`/client/project/${selectedProject.id}/dashboard`);
+            // navigate(`/client/project/${selectedProject.id}/dashboard`);
+            navigate(`/client/dashboard`);
         } else {
             console.log("❌ Aucun projet trouvé avec l'ID:", id);
         }

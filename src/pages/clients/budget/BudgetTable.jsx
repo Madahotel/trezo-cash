@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { formatCurrency } from '../../../utils/formatters';
 import BudgetDetailModal from './BudgetDetailModal';
 
-const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
+const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete, loading = false }) => {
   const [activeTab, setActiveTab] = useState('revenus');
   const [expandedRow, setExpandedRow] = useState(null);
   const [menuOpen, setMenuOpen] = useState(null);
@@ -25,47 +25,9 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
   const [selectedSubCategory, setSelectedSubCategory] = useState(null);
   const menuRefs = useRef({});
 
-  // Fonctions utilitaires simplifiées
-  const formatCurrency = (amount) => {
-    // Convertir en nombre si c'est une string
-    const numericAmount =
-      typeof amount === 'string' ? parseFloat(amount) : amount;
-    return `${numericAmount?.toLocaleString() || '0'} €`;
-  };
-
-  const getFrequencyBadge = (frequency) => {
-    const frequencies = {
-      Mensuelle: 'Mensuel',
-      Trimestrielle: 'Trim',
-      Annuelle: 'Annuel',
-      Ponctuelle: 'Ponctuel',
-      Hebdomadaire: 'Hebdo',
-    };
-    return (
-      <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-        {frequencies[frequency] || frequency || 'Mensuel'}
-      </span>
-    );
-  };
-
-  const getColorClasses = (categoryId) => {
-    const colors = {
-      1: 'bg-red-100 text-red-600', // Logement
-      2: 'bg-green-100 text-green-600', // Alimentation
-      3: 'bg-blue-100 text-blue-600', // Transport
-      4: 'bg-purple-100 text-purple-600', // Santé
-      5: 'bg-yellow-100 text-yellow-600', // Éducation
-      6: 'bg-pink-100 text-pink-600', // Loisirs
-      7: 'bg-indigo-100 text-indigo-600', // Salaire
-      9: 'bg-teal-100 text-teal-600', // Allocations
-    };
-    return colors[categoryId] || 'bg-gray-100 text-gray-600';
-  };
-
   // Fonction pour grouper les données par catégorie
   const getGroupedData = () => {
     if (activeTab === 'revenus') {
-      // Pour les revenus (entries)
       const entries = budgetData?.entries || {};
       const categories = entries?.entry_items?.category_names || [];
       const items = entries?.entry_items?.sub_categories || [];
@@ -75,7 +37,7 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
           (item) => item.category_id === category.category_id
         );
         const totalAmount = categoryItems.reduce(
-          (sum, item) => sum + parseFloat(item.amount || 0), // Convertir en nombre
+          (sum, item) => sum + parseFloat(item.amount || 0),
           0
         );
 
@@ -88,7 +50,6 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
         };
       });
     } else {
-      // Pour les dépenses (exits)
       const exits = budgetData?.exits || {};
       const categories = exits?.exit_items?.category_names || [];
       const items = exits?.exit_items?.sub_categories || [];
@@ -98,7 +59,7 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
           (item) => item.category_id === category.category_id
         );
         const totalAmount = categoryItems.reduce(
-          (sum, item) => sum + parseFloat(item.amount || 0), // Convertir en nombre
+          (sum, item) => sum + parseFloat(item.amount || 0),
           0
         );
 
@@ -113,32 +74,29 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
     }
   };
 
-  // Mettre à jour les données groupées quand budgetData ou activeTab change
+  // Mettre à jour les données groupées
   useEffect(() => {
-    if (budgetData) {
+    if (budgetData && !loading) {
       const data = getGroupedData();
       setGroupedData(data);
     }
-  }, [budgetData, activeTab]);
+  }, [budgetData, activeTab, loading]);
 
-  // Fonction pour gérer le clic sur une ligne
+  // Reste du code reste inchangé...
   const handleRowClick = (itemId) => {
     setExpandedRow(expandedRow === itemId ? null : itemId);
   };
 
-  // Fonction pour gérer l'ouverture/fermeture du menu des sous-catégories
   const handleSubCategoryMenuToggle = (itemId, event) => {
     event.stopPropagation();
     setSubCategoryMenuOpen(subCategoryMenuOpen === itemId ? null : itemId);
   };
 
-  // Fonction pour fermer tous les menus
   const closeAllMenus = () => {
     setMenuOpen(null);
     setSubCategoryMenuOpen(null);
   };
 
-  // Fonctions de gestion des actions
   const handleEdit = (item, type, event) => {
     event.stopPropagation();
     closeAllMenus();
@@ -151,7 +109,6 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
     onDelete(item, type);
   };
 
-  // Fonction pour ouvrir la modale de détails
   const handleViewDetails = (item, event) => {
     event.stopPropagation();
     closeAllMenus();
@@ -159,13 +116,11 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
     setDetailModalOpen(true);
   };
 
-  // Fonction pour fermer la modale
   const handleCloseModal = () => {
     setDetailModalOpen(false);
     setSelectedSubCategory(null);
   };
 
-  // Formater la date courte (pour affichage compact)
   const formatShortDate = (dateString) => {
     if (!dateString) return '';
     return new Date(dateString).toLocaleDateString('fr-FR', {
@@ -174,10 +129,8 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
     });
   };
 
-  // Fonction améliorée pour calculer la position du menu
   const getMenuPosition = (element) => {
     if (!element) return 'bottom';
-
     const rect = element.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
@@ -186,7 +139,6 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
     if (spaceBelow < menuHeight && spaceAbove > spaceBelow) {
       return 'top';
     }
-
     return 'bottom';
   };
 
@@ -228,8 +180,82 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
     },
   };
 
-  // Le return conditionnel doit être APRÈS tous les hooks
+  // Composant de ligne de chargement
+  const LoadingRow = () => (
+    <tr className="border-b animate-pulse">
+      <td className="py-3 px-4">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-gray-200 rounded-lg"></div>
+          <div className="space-y-2">
+            <div className="h-4 bg-gray-200 rounded w-32"></div>
+            <div className="h-3 bg-gray-200 rounded w-24"></div>
+          </div>
+        </div>
+      </td>
+      <td className="py-3 px-4 text-center">
+        <div className="h-6 bg-gray-200 rounded w-16 mx-auto"></div>
+      </td>
+      <td className="py-3 px-4 text-center">
+        <div className="h-4 bg-gray-200 rounded w-20 mx-auto"></div>
+      </td>
+      <td className="py-3 px-4 text-right">
+        <div className="h-6 bg-gray-200 rounded w-24 ml-auto"></div>
+      </td>
+      <td className="py-3 px-4 text-center">
+        <div className="h-6 bg-gray-200 rounded w-6 mx-auto"></div>
+      </td>
+    </tr>
+  );
+
   if (isMobile) return null;
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+        {/* En-tête de chargement */}
+        <div className="flex justify-between items-center mb-6">
+          <div className="h-6 bg-gray-200 rounded w-48 animate-pulse"></div>
+          <div className="h-8 bg-gray-200 rounded w-24 animate-pulse"></div>
+        </div>
+
+        {/* Tabs de chargement */}
+        <div className="flex space-x-1 rounded-lg bg-gray-100 p-1 mb-6">
+          <div className="flex-1 rounded-md px-3 py-2 bg-gray-200 animate-pulse"></div>
+          <div className="flex-1 rounded-md px-3 py-2 bg-gray-200 animate-pulse"></div>
+        </div>
+
+        {/* Tableau de chargement */}
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left py-3 px-4 font-medium text-gray-700">
+                  Catégorie
+                </th>
+                <th className="text-center py-3 px-4 font-medium text-gray-700">
+                  Fréquence
+                </th>
+                <th className="text-center py-3 px-4 font-medium text-gray-700">
+                  Période
+                </th>
+                <th className="text-right py-3 px-4 font-medium text-gray-700">
+                  Budget
+                </th>
+                <th className="text-center py-3 px-4 font-medium text-gray-700">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...Array(5)].map((_, index) => (
+                <LoadingRow key={index} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
@@ -320,12 +346,12 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
                         </div>
                       </td>
 
-                      {/* Fréquence - Moyenne pour la catégorie */}
+                      {/* Fréquence */}
                       <td className="py-3 px-4 text-center">
                         {getFrequencyBadge('Mensuelle')}
                       </td>
 
-                      {/* Période - Plage pour la catégorie */}
+                      {/* Période */}
                       <td className="py-3 px-4 text-center text-sm text-gray-600">
                         <div className="flex items-center justify-center gap-1">
                           <Calendar className="w-4 h-4" />
@@ -342,7 +368,7 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
                         {formatCurrency(category.amount)}
                       </td>
 
-                      {/* Actions - Flèche d'expansion uniquement */}
+                      {/* Actions */}
                       <td className="py-3 px-4 text-center">
                         <div className="flex justify-center">
                           <button
@@ -362,7 +388,7 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
                       </td>
                     </tr>
 
-                    {/* Ligne de détails (sous-catégories) avec animation */}
+                    {/* Ligne de détails */}
                     <AnimatePresence>
                       {isExpanded && (
                         <motion.tr
@@ -400,6 +426,7 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
                                       animate={{ opacity: 1, y: 0 }}
                                       transition={{ delay: index * 0.05 }}
                                     >
+                                      {/* Contenu de la sous-catégorie */}
                                       <div className="flex items-center gap-3">
                                         <Square className="w-3 h-3 text-gray-400 fill-current" />
                                         <div className="flex flex-col">
@@ -464,7 +491,6 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
                                             <MoreVertical className="w-4 h-4" />
                                           </button>
 
-                                          {/* Menu modal pour sous-catégorie avec positionnement adaptatif amélioré */}
                                           <AnimatePresence>
                                             {isSubMenuOpen && (
                                               <motion.div
@@ -588,7 +614,7 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
         </table>
       </div>
 
-      {/* Appel de la modale indépendante */}
+      {/* Modale de détails */}
       <BudgetDetailModal
         open={detailModalOpen}
         onClose={handleCloseModal}
@@ -597,11 +623,41 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete }) => {
         onEdit={handleEdit}
       />
 
-      {/* Overlay pour fermer les menus en cliquant ailleurs */}
+      {/* Overlay pour fermer les menus */}
       {(menuOpen || subCategoryMenuOpen) && (
         <div className="fixed inset-0 z-40" onClick={closeAllMenus} />
       )}
     </div>
+  );
+};
+
+// Fonctions utilitaires (doivent être définies)
+const getColorClasses = (categoryId) => {
+  const colors = {
+    1: 'bg-red-100 text-red-600',
+    2: 'bg-green-100 text-green-600',
+    3: 'bg-blue-100 text-blue-600',
+    4: 'bg-purple-100 text-purple-600',
+    5: 'bg-yellow-100 text-yellow-600',
+    6: 'bg-pink-100 text-pink-600',
+    7: 'bg-indigo-100 text-indigo-600',
+    9: 'bg-teal-100 text-teal-600',
+  };
+  return colors[categoryId] || 'bg-gray-100 text-gray-600';
+};
+
+const getFrequencyBadge = (frequency) => {
+  const frequencies = {
+    Mensuelle: 'Mensuel',
+    Trimestrielle: 'Trim',
+    Annuelle: 'Annuel',
+    Ponctuelle: 'Ponctuel',
+    Hebdomadaire: 'Hebdo',
+  };
+  return (
+    <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+      {frequencies[frequency] || frequency || 'Mensuel'}
+    </span>
   );
 };
 

@@ -67,33 +67,45 @@ const ProjectCard = ({
     ]);
 
     // FONCTION POUR RÉCUPÉRER LE BUDGET DU PROJET
-    const fetchProjectBudget = async () => {
-        if (!project.id || typeof project.id !== 'number') return;
+const fetchProjectBudget = async () => {
+    if (!project.id || typeof project.id !== 'number') return;
 
-        try {
-            setBudgetLoading(true);
-            const data = await getBudget(project.id);
-            setProjectBudget({
-                sumEntries: data.sumEntries || 0,
-                sumExpenses: data.sumExpenses || 0,
-                sumForecast: data.sumForecast || 0
-            });
-        } catch (err) {
-            console.error('Erreur lors du chargement du budget du projet:', err);
-            setProjectBudget({
-                sumEntries: 0,
-                sumExpenses: 0,
-                sumForecast: 0
-            });
-        } finally {
-            setBudgetLoading(false);
-        }
-    };
+    try {
+        setBudgetLoading(true);
+        
+        // 🔥 AJOUTER UN DÉLAI POUR ÉVITER LES REQUÊTES MASSIVES
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        const data = await getBudget(project.id);
+        setProjectBudget({
+            sumEntries: data.sumEntries || 0,
+            sumExpenses: data.sumExpenses || 0,
+            sumForecast: data.sumForecast || 0
+        });
+    } catch (err) {
+        console.error('Erreur lors du chargement du budget du projet:', err);
+        // 🔥 NE PAS RELANCER AUTOMATIQUEMENT
+        setProjectBudget({
+            sumEntries: 0,
+            sumExpenses: 0,
+            sumForecast: 0
+        });
+    } finally {
+        setBudgetLoading(false);
+    }
+};
 
-    // CHARGER LE BUDGET QUAND LE PROJET CHANGE
-    useEffect(() => {
+useEffect(() => {
+    let isMounted = true;
+    
+    if (project.id && !budgetLoading) {
         fetchProjectBudget();
-    }, [project.id]);
+    }
+    
+    return () => {
+        isMounted = false;
+    };
+}, [project.id]); // 🔥 SEULEMENT project.id comme dépendance
 
     const getProgressPercentage = (realized, budget) => {
         if (budget === 0) return 0;
@@ -477,11 +489,12 @@ const ProjectCard = ({
                         <Button
                             size="sm"
                             className="flex-1 text-xs h-8 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-sm"
-                            onClick={() => navigate(`/client/project/${project.id}/dashboard`)}
+                            // onClick={() => navigate(`/client/project/${project.id}/dashboard`)}
+                            onClick={() => navigate(`/client/dashboard`)}
                             disabled={project.is_archived || localLoading || budgetLoading}
                         >
                             <BarChart className="w-3 h-3 mr-1" />
-                            Tableau de bord
+                            Voir
                         </Button>
 
                         <div className="flex gap-1">

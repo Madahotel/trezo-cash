@@ -6,14 +6,15 @@ import {
     Plus,
     FolderOpen,
     RotateCw,
-    Briefcase, PartyPopper, Home,
-    Loader
+    Briefcase,
+    PartyPopper,
+    Home,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
-import { Card, CardContent, } from '../../../components/ui/card';
+import { Card, CardContent } from '../../../components/ui/card';
 import { useSettings } from '../../../contexts/SettingsContext';
 import { archiveService } from '../../../services/archiveService';
-import { useUI } from '../../../components/context/UIContext'; // IMPORT AJOUTÉ
+import { useUI } from '../../../components/context/UIContext';
 
 import ProjectCard from './ProjectCard';
 import ArchiveDialog from './ArchiveDialog';
@@ -44,7 +45,7 @@ const projectTypeColors = {
 const ProjectsPage = () => {
     const navigate = useNavigate();
     const { language, formatCurrency } = useSettings();
-    const { uiState } = useUI(); // NOUVEAU: Récupérer le contexte UI
+    const { uiState } = useUI();
 
     const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
     const [selectedProject, setSelectedProject] = useState(null);
@@ -69,7 +70,7 @@ const ProjectsPage = () => {
     const [editForm, setEditForm] = useState({});
     const [localLoading, setLocalLoading] = useState(false);
 
-    // NOUVEAU: Récupérer l'ID du projet actif
+    // Récupérer l'ID du projet actif
     const activeProjectId = uiState.activeProject?.id;
 
     // Debug: Afficher l'état du projet actif
@@ -86,39 +87,53 @@ const ProjectsPage = () => {
     // Redirection automatique selon l'état des projets
     useEffect(() => {
         if (!loading && !error) {
-            // Si pas de projets, rediriger vers l'onboarding
             if (projects.length === 0) {
                 console.log('Aucun projet trouvé, redirection vers onboarding');
                 navigate('/client/onboarding');
             }
-            // Si vous voulez aussi rediriger quand il y a des projets mais aucun actif :
             else if (projects.length > 0 && !activeProjectId) {
                 console.log('Projets existants mais aucun actif, rester sur la page de sélection');
-                // Vous pouvez choisir de rediriger ou non ici
             }
         }
     }, [loading, error, projects.length, activeProjectId, navigate]);
 
-    const fetchProjects = async () => {
+    const fetchProjects = async (retryCount = 0) => {
         try {
             setLoading(true);
             setError(null);
             const response = await axios.get('/projects');
             const data = response.data;
 
-            const transformedProjects = transformApiData(data);
-            setProjects(transformedProjects);
+            console.log('📥 Données brutes de l\'API:', data);
 
-            // Calcul sécurisé des stats
+            const transformedProjects = transformApiData(data);
+
+            // 🔥 CORRECTION : Filtrer uniquement les projets non archivés
+            const activeProjects = transformedProjects.filter(project => !project.is_archived);
+
+            setProjects(activeProjects);
+
+            // 🔥 CORRECTION : Mettre à jour les stats avec les projets actifs uniquement
             setProjectStats({
-                total: data.project_count || 0,
-                business: data.projects?.business?.project_business_count || 0,
-                events: data.projects?.events?.project_event_count || 0,
-                menages: data.projects?.menages?.project_menage_count || 0
+                total: activeProjects.length,
+                business: activeProjects.filter(p => p.type === 'business').length,
+                events: activeProjects.filter(p => p.type === 'evenement').length,
+                menages: activeProjects.filter(p => p.type === 'menage').length
             });
 
         } catch (err) {
             console.error('Erreur lors de la récupération des projets:', err);
+
+            if (err.response?.status === 429 && retryCount < 3) {
+                const delay = Math.pow(2, retryCount) * 1000;
+                console.log(`Trop de requêtes, nouvelle tentative dans ${delay}ms...`);
+
+                setTimeout(() => {
+                    fetchProjects(retryCount + 1);
+                }, delay);
+                return;
+            }
+
             setError(err.message);
             toast.error('Erreur lors du chargement des projets');
         } finally {
@@ -129,15 +144,17 @@ const ProjectsPage = () => {
     const transformApiData = (apiData) => {
         const transformedProjects = [];
 
-        // Vérifier d'abord si apiData.projects existe
         if (!apiData.projects) {
             console.warn('Aucun projet trouvé dans la réponse API');
             return transformedProjects;
         }
 
-        // Transformation des projets business - avec vérifications sécurisées
+        // Transformation des projets business
         if (apiData.projects.business?.project_business_items?.data) {
             apiData.projects.business.project_business_items.data.forEach(project => {
+                // 🔥 CORRECTION : Vérifier si entity_status_id existe et est égal à 3
+                const isArchived = project.entity_status_id === 3;
+
                 transformedProjects.push({
                     id: project.id,
                     name: project.name,
@@ -159,14 +176,18 @@ const ProjectsPage = () => {
                     updatedAt: project.updated_at,
                     userSubscriberId: project.user_subscriber_id,
                     collaborators: [],
-                    is_archived: project.is_archived || false
+                    // 🔥 CORRECTION : Utiliser entity_status_id pour déterminer l'archivage
+                    is_archived: isArchived,
+                    entity_status_id: project.entity_status_id || 1 // Par défaut à 1 (actif)
                 });
             });
         }
 
-        // Transformation des projets événements - avec vérifications sécurisées
+        // Transformation des projets événements
         if (apiData.projects.events?.project_event_items?.data) {
             apiData.projects.events.project_event_items.data.forEach(project => {
+                const isArchived = project.entity_status_id === 3;
+
                 transformedProjects.push({
                     id: project.id,
                     name: project.name,
@@ -188,14 +209,17 @@ const ProjectsPage = () => {
                     updatedAt: project.updated_at,
                     userSubscriberId: project.user_subscriber_id,
                     collaborators: [],
-                    is_archived: project.is_archived || false
+                    is_archived: isArchived,
+                    entity_status_id: project.entity_status_id || 1
                 });
             });
         }
 
-        // Transformation des projets ménages - avec vérifications sécurisées
+        // Transformation des projets ménages
         if (apiData.projects.menages?.project_menage_items?.data) {
             apiData.projects.menages.project_menage_items.data.forEach(project => {
+                const isArchived = project.entity_status_id === 3;
+
                 transformedProjects.push({
                     id: project.id,
                     name: project.name,
@@ -217,14 +241,27 @@ const ProjectsPage = () => {
                     updatedAt: project.updated_at,
                     userSubscriberId: project.user_subscriber_id,
                     collaborators: [],
-                    is_archived: project.is_archived || false
+                    is_archived: isArchived,
+                    entity_status_id: project.entity_status_id || 1
                 });
             });
         }
 
-        console.log(`${transformedProjects.length} projets transformés`);
+        console.log('📊 Projets transformés:', {
+            total: transformedProjects.length,
+            archivés: transformedProjects.filter(p => p.is_archived).length,
+            actifs: transformedProjects.filter(p => !p.is_archived).length,
+            détails: transformedProjects.map(p => ({
+                id: p.id,
+                name: p.name,
+                is_archived: p.is_archived,
+                entity_status_id: p.entity_status_id
+            }))
+        });
+
         return transformedProjects;
     };
+
     // Fonction pour obtenir l'icône basée sur le typeName
     const getProjectIcon = (typeName) => {
         return projectTypeIcons[typeName] || projectTypeIcons.default;
@@ -259,11 +296,17 @@ const ProjectsPage = () => {
                 }
             );
 
+            // 🔥 CORRECTION : Mettre à jour l'état local pour retirer le projet archivé
             setProjects((prevProjects) =>
-                prevProjects.map((p) =>
-                    p.id === project.id ? { ...p, is_archived: true } : p
-                )
+                prevProjects.filter((p) => p.id !== project.id)
             );
+
+            // 🔥 CORRECTION : Mettre à jour les stats
+            setProjectStats(prev => ({
+                ...prev,
+                total: prev.total - 1,
+                [project.type]: Math.max(0, prev[project.type] - 1)
+            }));
 
             toast.success('Projet archivé avec succès !', {
                 id: loadingToast,
@@ -351,13 +394,15 @@ const ProjectsPage = () => {
             setLocalLoading(true);
             const loadingToast = toast.loading('Restauration du projet en cours...');
 
-            await archiveService.restoreProject(projectId);
+            await axios.patch(`/projects/${projectId}/restore`, {}, {
+                headers: {
+                    Authorization: `Bearer ${localStorage.getItem('token')}`,
+                    'Content-Type': 'application/json',
+                },
+            });
 
-            setProjects((prevProjects) =>
-                prevProjects.map((p) =>
-                    p.id === projectId ? { ...p, is_archived: false } : p
-                )
-            );
+            // 🔥 CORRECTION : Rafraîchir toute la liste des projets
+            await fetchProjects();
 
             toast.success('Projet restauré avec succès !', {
                 id: loadingToast,
@@ -480,7 +525,6 @@ const ProjectsPage = () => {
             setLocalLoading(true);
             const loadingToast = toast.loading(`Suppression de ${selectedProjects.length} projet(s) en cours...`);
 
-            // Suppression en parallèle
             const deletePromises = selectedProjects.map(projectId =>
                 axios.delete(`/projects/${projectId}`, {
                     headers: {
@@ -491,10 +535,7 @@ const ProjectsPage = () => {
 
             await Promise.all(deletePromises);
 
-            // Mettre à jour la liste des projets
             setProjects(prev => prev.filter(project => !selectedProjects.includes(project.id)));
-
-            // Réinitialiser la sélection
             clearSelection();
 
             toast.success(`${selectedProjects.length} projet(s) supprimé(s) avec succès !`, {
@@ -512,13 +553,129 @@ const ProjectsPage = () => {
         }
     };
 
-    // Affichage du chargement initial
+    // Composant de squelette pour les cartes de projet
+    const ProjectCardSkeleton = () => (
+        <Card className="animate-pulse border-gray-200">
+            <CardContent className="p-4">
+                {/* En-tête */}
+                <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center space-x-3 flex-1">
+                        <div className="w-12 h-12 bg-gray-200 rounded-xl"></div>
+                        <div className="flex-1 space-y-2">
+                            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                            <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                        </div>
+                    </div>
+                    <div className="w-16 h-6 bg-gray-200 rounded"></div>
+                </div>
+
+                {/* Stats budget */}
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="p-3 bg-gray-100 rounded-xl">
+                        <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
+                        <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                        <div className="w-full bg-gray-200 rounded-full h-2"></div>
+                    </div>
+                    <div className="p-3 bg-gray-100 rounded-xl">
+                        <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
+                        <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                        <div className="w-full bg-gray-200 rounded-full h-2"></div>
+                    </div>
+                </div>
+
+                {/* Solde net */}
+                <div className="p-3 bg-gray-100 rounded-xl mb-4">
+                    <div className="h-3 bg-gray-200 rounded w-1/3 mx-auto mb-2"></div>
+                    <div className="flex justify-between">
+                        <div className="text-center">
+                            <div className="h-3 bg-gray-200 rounded w-8 mb-1"></div>
+                            <div className="h-4 bg-gray-200 rounded w-12"></div>
+                        </div>
+                        <div className="w-px h-8 bg-gray-300"></div>
+                        <div className="text-center">
+                            <div className="h-3 bg-gray-200 rounded w-8 mb-1"></div>
+                            <div className="h-4 bg-gray-200 rounded w-12"></div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Dates */}
+                <div className="bg-gray-100 p-3 rounded-xl mb-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                            <div className="w-4 h-4 bg-gray-200 rounded"></div>
+                            <div>
+                                <div className="h-3 bg-gray-200 rounded w-12 mb-1"></div>
+                                <div className="h-3 bg-gray-200 rounded w-16"></div>
+                            </div>
+                        </div>
+                        <div className="text-gray-300">→</div>
+                        <div className="flex items-center space-x-2">
+                            <div className="w-4 h-4 bg-gray-200 rounded"></div>
+                            <div>
+                                <div className="h-3 bg-gray-200 rounded w-12 mb-1"></div>
+                                <div className="h-3 bg-gray-200 rounded w-16"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 pt-3 border-t border-gray-200">
+                    <div className="flex-1 h-8 bg-gray-200 rounded"></div>
+                    <div className="flex gap-1">
+                        <div className="w-8 h-8 bg-gray-200 rounded"></div>
+                        <div className="w-8 h-8 bg-gray-200 rounded"></div>
+                        <div className="w-8 h-8 bg-gray-200 rounded"></div>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+
+    // Composant de squelette pour les stats
+    const StatsSkeleton = () => (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, index) => (
+                <Card key={index} className="animate-pulse">
+                    <CardContent className="p-4">
+                        <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-gray-200 rounded-lg"></div>
+                            <div className="flex-1">
+                                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                                <div className="h-6 bg-gray-200 rounded w-1/2"></div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            ))}
+        </div>
+    );
+
+    // Affichage du chargement avec squelettes
     if (loading) {
         return (
-            <div className="p-6 flex justify-center items-center h-64">
-                <div className="text-center">
-                    <Loader className="w-16 h-16 mx-auto mb-4 animate-spin text-blue-500" />
-                    <p className="mt-4 text-gray-500">Chargement des projets...</p>
+            <div className="p-4 sm:p-6 max-w-full space-y-6 sm:space-y-8 bg-gray-50/50 min-h-screen">
+                {/* Header skeleton */}
+                <div className="flex justify-between items-center sticky top-0 bg-white pt-4 pb-2 z-10">
+                    <div className="space-y-2">
+                        <div className="h-8 bg-gray-200 rounded w-48 animate-pulse"></div>
+                        <div className="h-4 bg-gray-200 rounded w-64 animate-pulse"></div>
+                    </div>
+                    <div className="flex gap-2">
+                        <div className="h-10 bg-gray-200 rounded w-32 animate-pulse"></div>
+                        <div className="h-10 bg-gray-200 rounded w-40 animate-pulse"></div>
+                    </div>
+                </div>
+
+                {/* Stats skeleton */}
+                <StatsSkeleton />
+
+                {/* Projects grid skeleton */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {[...Array(8)].map((_, index) => (
+                        <ProjectCardSkeleton key={index} />
+                    ))}
                 </div>
             </div>
         );
@@ -655,7 +812,6 @@ const ProjectsPage = () => {
                         />
                     ))}
                 </div>
-
             )}
 
             {/* Archive Dialog */}
