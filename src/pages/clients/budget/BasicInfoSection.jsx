@@ -316,7 +316,7 @@ const BasicInfoSection = ({
   const frequencyInfoMessage = getFrequencyInfoMessage();
   const periodDescription = getPeriodDescription();
 
-  // Styles pour le Select React
+  // Styles pour le Select React - CORRIGÉS POUR LE SCROLL
   const customStyles = {
     control: (base, state) => ({
       ...base,
@@ -334,7 +334,28 @@ const BasicInfoSection = ({
       borderRadius: '6px',
       border: '1px solid #e5e7eb',
       boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-      zIndex: 60,
+      zIndex: 9999,
+      position: 'absolute',
+    }),
+    menuList: (base) => ({
+      ...base,
+      maxHeight: '200px', // Hauteur maximale pour activer le scroll
+      overflowY: 'auto', // Activation du défilement vertical
+      padding: 0,
+      '&::-webkit-scrollbar': {
+        width: '8px',
+      },
+      '&::-webkit-scrollbar-track': {
+        background: '#f1f1f1',
+        borderRadius: '4px',
+      },
+      '&::-webkit-scrollbar-thumb': {
+        background: '#c1c1c1',
+        borderRadius: '4px',
+      },
+      '&::-webkit-scrollbar-thumb:hover': {
+        background: '#a8a8a8',
+      },
     }),
     option: (base, state) => ({
       ...base,
@@ -357,7 +378,13 @@ const BasicInfoSection = ({
       fontSize: '0.875rem',
       color: '#6b7280',
     }),
-    input: (base) => ({ ...base, fontSize: '0.875rem' }),
+    input: (base) => ({
+      ...base,
+      fontSize: '0.875rem',
+      '& input': {
+        boxShadow: 'none !important',
+      },
+    }),
   };
 
   // Composant personnalisé pour l'option du Select
@@ -630,7 +657,7 @@ const BasicInfoSection = ({
         </CustomDropdown>
       </div>
 
-      {/* Tiers */}
+      {/* Tiers - CORRIGÉ POUR LE SCROLL */}
       <div className="space-y-2">
         <Label htmlFor="thirdparty-select">Tiers *</Label>
         <Select
@@ -647,6 +674,8 @@ const BasicInfoSection = ({
           className="react-select-container"
           classNamePrefix="react-select"
           isDisabled={thirdPartyOptions.length === 0}
+          menuShouldScrollIntoView={true}
+          menuPlacement="auto"
         />
         {thirdPartyOptions.length === 0 && (
           <p className="text-xs text-gray-500 mt-1">
