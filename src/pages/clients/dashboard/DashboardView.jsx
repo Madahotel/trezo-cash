@@ -34,6 +34,7 @@ import {
   getDashboardSetting,
   updateDashboardSetting,
 } from '../../../components/context/dashboardAction.js';
+import { useUI } from '../../../components/context/UIContext.jsx';
 
 // Données statiques complètes
 const staticSettings = {
@@ -232,7 +233,8 @@ const DashboardView = () => {
 
   const isConsolidated = false;
   const activeProject = projects[0] || staticProjects[0];
-  const projectId = 1;
+  const { uiState } = useUI(); // Récupération du state global
+  const projectId = uiState.activeProject?.id; // ID du projet actif
 
   // Charger les paramètres depuis la base de données
   useEffect(() => {
