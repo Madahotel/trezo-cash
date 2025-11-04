@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
 import { useData } from '../../../components/context/DataContext';
 import { useUI } from '../../../components/context/UIContext';
+import { useAuth } from '../../../components/context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DollarSign } from 'lucide-react';
 import { projectInitializationService } from '../../../services/ProjectInitializationService';
@@ -19,11 +20,11 @@ import FinishStep from './steps/FinishStep';
 const OnboardingView = () => {
   const [templatesLoading, setTemplatesLoading] = useState(true);
   const navigate = useNavigate();
-  const { dataState, dataDispatch } = useData();
+  const { dataState, dataDispatch, fetchProjects } = useData();
   const { uiDispatch } = useUI();
+  const { user: currentUser } = useAuth();
+  
   const { projects, session, tiers, templates: userAndCommunityTemplates } = dataState;
-
-  const currentUser = session?.user;
 
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
@@ -48,9 +49,8 @@ const OnboardingView = () => {
     const loadTemplates = async () => {
       if (!userAndCommunityTemplates || userAndCommunityTemplates.length === 0) {
         await fetchTemplates({ dataDispatch, uiDispatch });
-      } else {
-        setTemplatesLoading(false);
       }
+      setTemplatesLoading(false);
     };
     loadTemplates();
   }, [userAndCommunityTemplates, dataDispatch, uiDispatch]);
@@ -133,8 +133,12 @@ const OnboardingView = () => {
   };
 
   const handleFinish = async () => {
+    console.log("🟡 handleFinish appelé");
     setIsLoading(true);
+    
     try {
+      console.log("🟡 Début de la création du projet...");
+      
       const payload = {
         projectName: data.projectName,
         projectDescription: data.projectDescription,
@@ -148,6 +152,8 @@ const OnboardingView = () => {
         description: data.projectDescription
       };
 
+      console.log("🟡 Payload de création:", payload);
+
       const result = await projectInitializationService.initializeProject(
         { dataDispatch, uiDispatch },
         payload,
@@ -156,11 +162,45 @@ const OnboardingView = () => {
         userAndCommunityTemplates
       );
 
-      setIsLoading(false);
-      if (result?.success) navigate("/client/projets");
+      console.log("🟡 Résultat de la création:", result);
+
+      if (result?.success) {
+        console.log("✅ Projet créé avec succès");
+        
+        console.log("🟡 Rafraîchissement des projets...");
+        await fetchProjects(currentUser.id);
+        
+        console.log("🟡 Définition du projet actif...");
+        if (result.project) {
+          uiDispatch({
+            type: 'SET_ACTIVE_PROJECT',
+            payload: result.project
+          });
+          
+          console.log("🟡 Déclenchement de l'événement projectCreated...");
+          const projectCreatedEvent = new CustomEvent('projectCreated', {
+            detail: { project: result.project }
+          });
+          window.dispatchEvent(projectCreatedEvent);
+        }
+        
+        console.log("🟡 Navigation vers /client/dashboard...");
+        navigate("/client/dashboard");
+        console.log("🟢 Navigation effectuée");
+        
+      } else {
+        console.error("❌ Échec de la création du projet");
+        setIsLoading(false);
+      }
     } catch (error) {
-      console.error("Erreur lors de la création du projet:", error);
+      console.error("🔴 Erreur lors de la création du projet:", error);
       setIsLoading(false);
+      
+      // ✅ Navigation de secours en cas d'erreur
+      setTimeout(() => {
+        console.log("🟡 Navigation de secours vers /client/dashboard");
+        navigate("/client/dashboard");
+      }, 1000);
     }
   };
 

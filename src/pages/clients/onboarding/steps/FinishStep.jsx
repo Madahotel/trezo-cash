@@ -1,7 +1,7 @@
 import React from 'react';
 import { Sparkles, Loader } from 'lucide-react';
 
-const FinishStep = ({ isLoading, handleFinish }) => {
+const FinishStep = ({ isLoading, handleFinish }) => { 
   return (
     <div className="text-center">
       <Sparkles className="w-16 h-16 text-yellow-400 mx-auto mb-4" />

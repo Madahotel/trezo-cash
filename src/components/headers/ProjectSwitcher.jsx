@@ -16,6 +16,9 @@ const ProjectSwitcher = () => {
 
   const projects = dataState?.projects || [];
 
+  // ✅ Référence pour suivre le dernier projet créé
+  const lastCreatedProjectId = useRef(null);
+
   const myProjects = projects.filter(project => {
     if (!project || project.isArchived || project.is_temp) return false;
 
@@ -28,12 +31,10 @@ const ProjectSwitcher = () => {
     return isOwner || isSubscriber || isCollaborator;
   });
 
-  // ✅ CORRECTION : Extraire l'ID de l'objet activeProject
   const activeProjectId = uiState.activeProject?.id || null;
 
   const [isListOpen, setIsListOpen] = useState(false);
   const listRef = useRef(null);
-
   const projectsLoaded = useRef(false);
   const sharedProjects = [];
   const consolidatedViews = [
@@ -47,9 +48,69 @@ const ProjectSwitcher = () => {
     return String(id1) === String(id2);
   }, []);
 
+  // ✅ CORRECTION : Ajouter la fonction findProjectById manquante
   const findProjectById = useCallback((id) => {
     return myProjects.find(project => areIdsEqual(project.id, id));
   }, [myProjects, areIdsEqual]);
+
+  // ✅ Fonction de rafraîchissement forcé
+  const refreshProjects = useCallback(async () => {
+    if (!user?.id) return;
+
+    console.log("🔄 Forcer le rafraîchissement des projets");
+    setLoading(true);
+    projectsLoaded.current = false;
+
+    try {
+      await fetchProjects(user.id);
+      projectsLoaded.current = true;
+    } catch (error) {
+      console.error("Erreur lors du rafraîchissement des projets:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, fetchProjects]);
+
+  // ✅ Écouter les événements de création de projet
+  useEffect(() => {
+    const handleProjectCreated = async (event) => {
+      console.log("🎯 Événement de projet créé détecté:", event.detail);
+
+      // Rafraîchir la liste des projets
+      await refreshProjects();
+
+      // Définir le nouveau projet comme actif si disponible
+      if (event.detail?.project) {
+        setTimeout(() => {
+          uiDispatch({
+            type: 'SET_ACTIVE_PROJECT',
+            payload: event.detail.project
+          });
+        }, 500);
+      }
+    };
+
+    window.addEventListener('projectCreated', handleProjectCreated);
+
+    return () => {
+      window.removeEventListener('projectCreated', handleProjectCreated);
+    };
+  }, [refreshProjects, uiDispatch]);
+
+  // ✅ Effet pour détecter les nouveaux projets
+  useEffect(() => {
+    if (myProjects.length > 0 && lastCreatedProjectId.current) {
+      const newProject = myProjects.find(p => p.id === lastCreatedProjectId.current);
+      if (newProject && activeProjectId !== newProject.id) {
+        console.log("🔄 Nouveau projet détecté, définition comme actif:", newProject.name);
+        uiDispatch({
+          type: 'SET_ACTIVE_PROJECT',
+          payload: newProject
+        });
+        lastCreatedProjectId.current = null;
+      }
+    }
+  }, [myProjects, activeProjectId, uiDispatch]);
 
   useEffect(() => {
     console.log("🔍 ProjectSwitcher - Active Project:", uiState.activeProject);
@@ -122,42 +183,41 @@ const ProjectSwitcher = () => {
     if (project) displayName = project.name;
   }
 
-// Dans ProjectSwitcher.jsx - la fonction handleSelect reste la même
-const handleSelect = (id) => {
-    console.log("🔍 handleSelect appelé avec id:", id, "type:", typeof id);
+  // ✅ CORRECTION : Fonction handleSelect corrigée
+  const handleSelect = async (id) => {
+    console.log("🔍 handleSelect appelé avec id:", id);
 
     const idString = String(id);
 
     if (idString !== "consolidated" && !idString.startsWith("consolidated_view_")) {
-        const selectedProject = findProjectById(id);
+      let selectedProject = findProjectById(id);
 
-        console.log("🔍 Projet sélectionné trouvé:", selectedProject);
+      console.log("🔍 Projet sélectionné trouvé:", selectedProject);
 
-        if (selectedProject) {
-            console.log("✅ Définition du projet actif:", selectedProject.name);
-            uiDispatch({
-                type: 'SET_ACTIVE_PROJECT',
-                payload: selectedProject // Envoyer l'objet projet complet
-            });
-
-            // Navigation vers le dashboard
-            // navigate(`/client/project/${selectedProject.id}/dashboard`);
-            navigate(`/client/dashboard`);
-        } else {
-            console.log("❌ Aucun projet trouvé avec l'ID:", id);
-        }
-    } else {
-        console.log("🔍 Sélection d'une vue consolidée");
+      if (selectedProject) {
+        console.log("✅ Définition du projet actif:", selectedProject.name);
         uiDispatch({
-            type: 'SET_ACTIVE_PROJECT',
-            payload: { id: idString, name: displayName, type: 'consolidated' }
+          type: 'SET_ACTIVE_PROJECT',
+          payload: selectedProject
         });
-
-        navigate('/dashboard');
+        navigate(`/client/dashboard`);
+      } else {
+        console.log("❌ Aucun projet trouvé avec l'ID:", id);
+        // ✅ Rafraîchir si le projet n'est pas trouvé
+        await refreshProjects();
+      }
+    } else {
+      console.log("🔍 Sélection d'une vue consolidée");
+      uiDispatch({
+        type: 'SET_ACTIVE_PROJECT',
+        payload: { id: idString, name: displayName, type: 'consolidated' }
+      });
+      navigate('/client/dashboard');
     }
 
     setIsListOpen(false);
-};
+  };
+
   const handleAddProject = () => {
     navigate("/client/onboarding");
     setIsListOpen(false);
