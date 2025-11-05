@@ -620,196 +620,196 @@ const dataReducer = (state, action) => {
 };
 
 export const DataProvider = ({ children }) => {
-  const { user, token, isAuthenticated } = useAuth();
-  const [state, dispatch] = useReducer(dataReducer, getInitialDataState());
-  
-  // Références pour éviter les appels en boucle
-  const fetchInProgress = useRef(false);
-  const lastFetchTime = useRef(0);
-  const initialized = useRef(false);
+    const { user, token, isAuthenticated } = useAuth();
+    const [state, dispatch] = useReducer(dataReducer, getInitialDataState());
 
-  console.log("🔍 DataProvider - Auth state:", { user, token, isAuthenticated });
+    // Références pour éviter les appels en boucle
+    const fetchInProgress = useRef(false);
+    const lastFetchTime = useRef(0);
+    const initialized = useRef(false);
 
-  const transformApiProjects = (apiData, currentUserId) => {
-    const projects = [];
-    
-    console.log("🔄 Transformation des données API pour l'utilisateur:", currentUserId);
+    console.log("🔍 DataProvider - Auth state:", { user, token, isAuthenticated });
 
-    if (apiData.status === 204) {
-      console.log("ℹ️ Aucun projet trouvé pour l'utilisateur");
-      return [];
-    }
+    const transformApiProjects = (apiData, currentUserId) => {
+        const projects = [];
 
-    const transformProject = (project, type) => {
-      return {
-        id: project.id,
-        name: project.name,
-        description: project.description,
-        start_date: project.start_date,
-        end_date: project.end_date,
-        is_duration_undetermined: project.is_duration_undetermined,
-        project_type_id: project.project_type_id,
-        project_type_name: project.type_name,
-        project_type_logo: project.project_type_logo,
-        template_id: project.template_id,
-        template_name: project.template_name,
-        user_id: currentUserId,
-        user_subscriber_id: project.user_subscriber_id,
-        collaborators: [],
-        isArchived: false,
-        is_temp: false,
-        is_owner: project.user_subscriber_id === currentUserId,
-        category_type: type
-      };
+        console.log("🔄 Transformation des données API pour l'utilisateur:", currentUserId);
+
+        if (apiData.status === 204) {
+            console.log("ℹ️ Aucun projet trouvé pour l'utilisateur");
+            return [];
+        }
+
+        const transformProject = (project, type) => {
+            return {
+                id: project.id,
+                name: project.name,
+                description: project.description,
+                start_date: project.start_date,
+                end_date: project.end_date,
+                is_duration_undetermined: project.is_duration_undetermined,
+                project_type_id: project.project_type_id,
+                project_type_name: project.type_name,
+                project_type_logo: project.project_type_logo,
+                template_id: project.template_id,
+                template_name: project.template_name,
+                user_id: currentUserId,
+                user_subscriber_id: project.user_subscriber_id,
+                collaborators: [],
+                isArchived: false,
+                is_temp: false,
+                is_owner: project.user_subscriber_id === currentUserId,
+                category_type: type
+            };
+        };
+
+        if (apiData.projects?.business?.project_business_items?.data) {
+            apiData.projects.business.project_business_items.data.forEach(project => {
+                projects.push(transformProject(project, 'business'));
+            });
+        }
+
+        if (apiData.projects?.events?.project_event_items?.data) {
+            apiData.projects.events.project_event_items.data.forEach(project => {
+                projects.push(transformProject(project, 'events'));
+            });
+        }
+
+        if (apiData.projects?.menages?.project_menage_items?.data) {
+            apiData.projects.menages.project_menage_items.data.forEach(project => {
+                projects.push(transformProject(project, 'menages'));
+            });
+        }
+
+        console.log("✅ Projets transformés pour l'utilisateur:", projects.length);
+        return projects;
     };
 
-    if (apiData.projects?.business?.project_business_items?.data) {
-      apiData.projects.business.project_business_items.data.forEach(project => {
-        projects.push(transformProject(project, 'business'));
-      });
-    }
-    
-    if (apiData.projects?.events?.project_event_items?.data) {
-      apiData.projects.events.project_event_items.data.forEach(project => {
-        projects.push(transformProject(project, 'events'));
-      });
-    }
-    
-    if (apiData.projects?.menages?.project_menage_items?.data) {
-      apiData.projects.menages.project_menage_items.data.forEach(project => {
-        projects.push(transformProject(project, 'menages'));
-      });
-    }
-    
-    console.log("✅ Projets transformés pour l'utilisateur:", projects.length);
-    return projects;
-  };
+    // fetchProjects corrigé
+    const fetchProjects = async (userId = user?.id) => {
+        // Vérifier que l'userId est défini
+        if (!userId) {
+            console.error("❌ userId non défini pour fetchProjects");
+            return [];
+        }
 
-  // fetchProjects corrigé
-  const fetchProjects = async (userId = user?.id) => {
-    // Vérifier que l'userId est défini
-    if (!userId) {
-      console.error("❌ userId non défini pour fetchProjects");
-      return [];
-    }
+        // Éviter les appels simultanés
+        if (fetchInProgress.current) {
+            console.log("⏳ Fetch déjà en cours, attente...");
+            return;
+        }
 
-    // Éviter les appels simultanés
-    if (fetchInProgress.current) {
-      console.log("⏳ Fetch déjà en cours, attente...");
-      return;
-    }
+        // Rate limiting: attendre au moins 3 secondes entre les appels
+        const now = Date.now();
+        const timeSinceLastFetch = now - lastFetchTime.current;
+        const minTimeBetweenFetches = 3000;
 
-    // Rate limiting: attendre au moins 3 secondes entre les appels
-    const now = Date.now();
-    const timeSinceLastFetch = now - lastFetchTime.current;
-    const minTimeBetweenFetches = 3000;
+        if (timeSinceLastFetch < minTimeBetweenFetches) {
+            console.log(`⏳ Rate limiting: attente de ${minTimeBetweenFetches - timeSinceLastFetch}ms`);
+            return; // On retourne simplement sans attendre
+        }
 
-    if (timeSinceLastFetch < minTimeBetweenFetches) {
-      console.log(`⏳ Rate limiting: attente de ${minTimeBetweenFetches - timeSinceLastFetch}ms`);
-      return; // On retourne simplement sans attendre
-    }
+        try {
+            fetchInProgress.current = true;
+            lastFetchTime.current = Date.now();
 
-    try {
-      fetchInProgress.current = true;
-      lastFetchTime.current = Date.now();
+            const authToken = token || localStorage.getItem("auth_token");
+            if (!authToken) {
+                throw new Error("Token d'authentification manquant");
+            }
 
-      const authToken = token || localStorage.getItem("auth_token");
-      if (!authToken) {
-        throw new Error("Token d'authentification manquant");
-      }
+            console.log("📡 Fetching projects for user:", userId);
 
-      console.log("📡 Fetching projects for user:", userId);
-      
-      const response = await axios.get('/projects', {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-        timeout: 10000,
-      });
+            const response = await axios.get('/projects', {
+                headers: {
+                    Authorization: `Bearer ${authToken}`,
+                },
+                timeout: 30000,
+            });
 
-      const data = response.data;
-      console.log("📦 Réponse API reçue");
+            const data = response.data;
+            console.log("📦 Réponse API reçue");
 
-      if (data.status === 204) {
-        console.log("ℹ️ Aucun projet trouvé");
-        dispatch({ type: "SET_PROJECTS", payload: [] });
-        return [];
-      }
+            if (data.status === 204) {
+                console.log("ℹ️ Aucun projet trouvé");
+                dispatch({ type: "SET_PROJECTS", payload: [] });
+                return [];
+            }
 
-      const transformedProjects = transformApiProjects(data, userId);
-      console.log("🔄 Envoi des projets au reducer:", transformedProjects.length);
+            const transformedProjects = transformApiProjects(data, userId);
+            console.log("🔄 Envoi des projets au reducer:", transformedProjects.length);
 
-      dispatch({ type: "SET_PROJECTS", payload: transformedProjects });
-      return transformedProjects;
+            dispatch({ type: "SET_PROJECTS", payload: transformedProjects });
+            return transformedProjects;
 
-    } catch (error) {
-      console.error("❌ Erreur fetchProjects:", error);
-      
-      if (error.response?.status === 429) {
-        console.error("🚫 Rate limit atteint");
-      }
-      
-      return [];
-    } finally {
-      fetchInProgress.current = false;
-    }
-  };
+        } catch (error) {
+            console.error("❌ Erreur fetchProjects:", error);
 
-  // Synchroniser la session - UNIQUEMENT quand user/token changent
-  useEffect(() => {
-    console.log("🔄 Synchronisation AuthContext -> DataContext");
-    
-    if (user && token) {
-      const sessionData = {
-        user: user,
-        access_token: token,
-        expires_at: Math.floor(Date.now() / 1000) + 3600
-      };
-      
-      console.log("✅ Mise à jour de la session dans DataContext");
-      dispatch({ type: 'SET_SESSION', payload: sessionData });
-      dispatch({ type: 'SET_PROFILE', payload: user });
-    } else {
-      console.log("🚪 Reset de la session dans DataContext");
-      dispatch({ type: 'SET_SESSION', payload: null });
-      dispatch({ type: 'SET_PROFILE', payload: null });
-      dispatch({ type: 'SET_PROJECTS', payload: [] });
-    }
-  }, [user, token]);
+            if (error.response?.status === 429) {
+                console.error("🚫 Rate limit atteint");
+            }
 
-  // Charger les projets UNE SEULE FOIS au montage ou quand l'utilisateur change
-  useEffect(() => {
-    // Éviter le rechargement si déjà initialisé
-    if (initialized.current && state.projects.length > 0) {
-      console.log("✅ Projets déjà chargés, pas de rechargement");
-      return;
-    }
+            return [];
+        } finally {
+            fetchInProgress.current = false;
+        }
+    };
 
-    if (user?.id && token && !fetchInProgress.current) {
-      console.log('🔄 Chargement initial des projets pour user:', user.id);
-      
-      const timer = setTimeout(() => {
-        fetchProjects(user.id).then(() => {
-          initialized.current = true;
-        });
-      }, 1000);
+    // Synchroniser la session - UNIQUEMENT quand user/token changent
+    useEffect(() => {
+        console.log("🔄 Synchronisation AuthContext -> DataContext");
 
-      return () => clearTimeout(timer);
-    }
-  }, [user?.id, token]); // Dépendances réduites
+        if (user && token) {
+            const sessionData = {
+                user: user,
+                access_token: token,
+                expires_at: Math.floor(Date.now() / 1000) + 3600
+            };
 
-  const value = {
-    dataState: state,
-    dataDispatch: dispatch,
-    fetchProjects,
-    createProject,
-  };
+            console.log("✅ Mise à jour de la session dans DataContext");
+            dispatch({ type: 'SET_SESSION', payload: sessionData });
+            dispatch({ type: 'SET_PROFILE', payload: user });
+        } else {
+            console.log("🚪 Reset de la session dans DataContext");
+            dispatch({ type: 'SET_SESSION', payload: null });
+            dispatch({ type: 'SET_PROFILE', payload: null });
+            dispatch({ type: 'SET_PROJECTS', payload: [] });
+        }
+    }, [user, token]);
 
-  return (
-    <DataContext.Provider value={value}>
-      {children}
-    </DataContext.Provider>
-  );
+    // Charger les projets UNE SEULE FOIS au montage ou quand l'utilisateur change
+    useEffect(() => {
+        // Éviter le rechargement si déjà initialisé
+        if (initialized.current && state.projects.length > 0) {
+            console.log("✅ Projets déjà chargés, pas de rechargement");
+            return;
+        }
+
+        if (user?.id && token && !fetchInProgress.current) {
+            console.log('🔄 Chargement initial des projets pour user:', user.id);
+
+            const timer = setTimeout(() => {
+                fetchProjects(user.id).then(() => {
+                    initialized.current = true;
+                });
+            }, 1000);
+
+            return () => clearTimeout(timer);
+        }
+    }, [user?.id, token]); // Dépendances réduites
+
+    const value = {
+        dataState: state,
+        dataDispatch: dispatch,
+        fetchProjects,
+        createProject,
+    };
+
+    return (
+        <DataContext.Provider value={value}>
+            {children}
+        </DataContext.Provider>
+    );
 };
 
 export const useData = () => {

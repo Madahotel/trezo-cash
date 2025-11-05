@@ -8,7 +8,7 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
   build: {
-    outDir: '../../back_tresocash/back/trezo.cash/public/react',
+    outDir: 'F:/Upskill/Trezocash/git/trezo.cash/public/react',
     emptyOutDir: true,
     manifest: true, // zava-dehibe
   },
