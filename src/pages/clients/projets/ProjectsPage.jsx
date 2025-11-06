@@ -15,6 +15,7 @@ import { Card, CardContent } from '../../../components/ui/card';
 import { useSettings } from '../../../contexts/SettingsContext';
 import { archiveService } from '../../../services/archiveService';
 import { useUI } from '../../../components/context/UIContext';
+import { useProjects } from '../../../hooks/useProjects';
 
 import ProjectCard from './ProjectCard';
 import ArchiveDialog from './ArchiveDialog';
@@ -47,6 +48,10 @@ const ProjectsPage = () => {
     const { language, formatCurrency } = useSettings();
     const { uiState } = useUI();
 
+    // Utilisation du hook useProjects
+    const { projects, loading, error, refetch: fetchProjects, setProjects } = useProjects();
+
+
     const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
     const [selectedProject, setSelectedProject] = useState(null);
     const [archiveReason, setArchiveReason] = useState('');
@@ -55,10 +60,6 @@ const ProjectsPage = () => {
     const [selectedProjects, setSelectedProjects] = useState([]);
     const [isSelectMode, setIsSelectMode] = useState(false);
 
-    // États pour les données de l'API
-    const [projects, setProjects] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
     const [projectStats, setProjectStats] = useState({
         total: 0,
         business: 0,
@@ -79,10 +80,17 @@ const ProjectsPage = () => {
         console.log("🔍 ProjectsPage - ID du projet actif:", activeProjectId);
     }, [uiState.activeProject, activeProjectId]);
 
-    // Récupération des données depuis l'API
+    // Mettre à jour les stats quand les projets changent
     useEffect(() => {
-        fetchProjects();
-    }, []);
+        if (!loading && projects) {
+            setProjectStats({
+                total: projects.length,
+                business: projects.filter(p => p.type === 'business').length,
+                events: projects.filter(p => p.type === 'evenement').length,
+                menages: projects.filter(p => p.type === 'menage').length
+            });
+        }
+    }, [projects, loading]);
 
     // Redirection automatique selon l'état des projets
     useEffect(() => {
@@ -96,171 +104,6 @@ const ProjectsPage = () => {
             }
         }
     }, [loading, error, projects.length, activeProjectId, navigate]);
-
-    const fetchProjects = async (retryCount = 0) => {
-        try {
-            setLoading(true);
-            setError(null);
-            const response = await axios.get('/projects');
-            const data = response.data;
-
-            console.log('📥 Données brutes de l\'API:', data);
-
-            const transformedProjects = transformApiData(data);
-
-            // 🔥 CORRECTION : Filtrer uniquement les projets non archivés
-            const activeProjects = transformedProjects.filter(project => !project.is_archived);
-
-            setProjects(activeProjects);
-
-            // 🔥 CORRECTION : Mettre à jour les stats avec les projets actifs uniquement
-            setProjectStats({
-                total: activeProjects.length,
-                business: activeProjects.filter(p => p.type === 'business').length,
-                events: activeProjects.filter(p => p.type === 'evenement').length,
-                menages: activeProjects.filter(p => p.type === 'menage').length
-            });
-
-        } catch (err) {
-            console.error('Erreur lors de la récupération des projets:', err);
-
-            if (err.response?.status === 429 && retryCount < 3) {
-                const delay = Math.pow(2, retryCount) * 1000;
-                console.log(`Trop de requêtes, nouvelle tentative dans ${delay}ms...`);
-
-                setTimeout(() => {
-                    fetchProjects(retryCount + 1);
-                }, delay);
-                return;
-            }
-
-            setError(err.message);
-            toast.error('Erreur lors du chargement des projets');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const transformApiData = (apiData) => {
-        const transformedProjects = [];
-
-        if (!apiData.projects) {
-            console.warn('Aucun projet trouvé dans la réponse API');
-            return transformedProjects;
-        }
-
-        // Transformation des projets business
-        if (apiData.projects.business?.project_business_items?.data) {
-            apiData.projects.business.project_business_items.data.forEach(project => {
-                // 🔥 CORRECTION : Vérifier si entity_status_id existe et est égal à 3
-                const isArchived = project.entity_status_id === 3;
-
-                transformedProjects.push({
-                    id: project.id,
-                    name: project.name,
-                    description: project.description || 'Aucune description',
-                    type: 'business',
-                    typeName: project.type_name || 'Business',
-                    mainCurrency: 'EUR',
-                    incomeBudget: project.income_budget || 0,
-                    expenseBudget: project.expense_budget || 0,
-                    incomeRealized: project.income_realized || 0,
-                    expenseRealized: project.expense_realized || 0,
-                    startDate: project.start_date,
-                    endDate: project.end_date || project.start_date,
-                    status: project.status || 'active',
-                    isDurationUndetermined: project.is_duration_undetermined === 1,
-                    templateId: project.template_id,
-                    projectTypeId: project.project_type_id,
-                    createdAt: project.created_at,
-                    updatedAt: project.updated_at,
-                    userSubscriberId: project.user_subscriber_id,
-                    collaborators: [],
-                    // 🔥 CORRECTION : Utiliser entity_status_id pour déterminer l'archivage
-                    is_archived: isArchived,
-                    entity_status_id: project.entity_status_id || 1 // Par défaut à 1 (actif)
-                });
-            });
-        }
-
-        // Transformation des projets événements
-        if (apiData.projects.events?.project_event_items?.data) {
-            apiData.projects.events.project_event_items.data.forEach(project => {
-                const isArchived = project.entity_status_id === 3;
-
-                transformedProjects.push({
-                    id: project.id,
-                    name: project.name,
-                    description: project.description || 'Aucune description',
-                    type: 'evenement',
-                    typeName: project.type_name || 'Événement',
-                    mainCurrency: 'EUR',
-                    incomeBudget: project.income_budget || 0,
-                    expenseBudget: project.expense_budget || 0,
-                    incomeRealized: project.income_realized || 0,
-                    expenseRealized: project.expense_realized || 0,
-                    startDate: project.start_date,
-                    endDate: project.end_date || project.start_date,
-                    status: project.status || 'active',
-                    isDurationUndetermined: project.is_duration_undetermined === 1,
-                    templateId: project.template_id,
-                    projectTypeId: project.project_type_id,
-                    createdAt: project.created_at,
-                    updatedAt: project.updated_at,
-                    userSubscriberId: project.user_subscriber_id,
-                    collaborators: [],
-                    is_archived: isArchived,
-                    entity_status_id: project.entity_status_id || 1
-                });
-            });
-        }
-
-        // Transformation des projets ménages
-        if (apiData.projects.menages?.project_menage_items?.data) {
-            apiData.projects.menages.project_menage_items.data.forEach(project => {
-                const isArchived = project.entity_status_id === 3;
-
-                transformedProjects.push({
-                    id: project.id,
-                    name: project.name,
-                    description: project.description || 'Aucune description',
-                    type: 'menage',
-                    typeName: project.type_name || 'Ménage',
-                    mainCurrency: 'EUR',
-                    incomeBudget: project.income_budget || 0,
-                    expenseBudget: project.expense_budget || 0,
-                    incomeRealized: project.income_realized || 0,
-                    expenseRealized: project.expense_realized || 0,
-                    startDate: project.start_date,
-                    endDate: project.end_date || project.start_date,
-                    status: project.status || 'active',
-                    isDurationUndetermined: project.is_duration_undetermined === 1,
-                    templateId: project.template_id,
-                    projectTypeId: project.project_type_id,
-                    createdAt: project.created_at,
-                    updatedAt: project.updated_at,
-                    userSubscriberId: project.user_subscriber_id,
-                    collaborators: [],
-                    is_archived: isArchived,
-                    entity_status_id: project.entity_status_id || 1
-                });
-            });
-        }
-
-        console.log('📊 Projets transformés:', {
-            total: transformedProjects.length,
-            archivés: transformedProjects.filter(p => p.is_archived).length,
-            actifs: transformedProjects.filter(p => !p.is_archived).length,
-            détails: transformedProjects.map(p => ({
-                id: p.id,
-                name: p.name,
-                is_archived: p.is_archived,
-                entity_status_id: p.entity_status_id
-            }))
-        });
-
-        return transformedProjects;
-    };
 
     // Fonction pour obtenir l'icône basée sur le typeName
     const getProjectIcon = (typeName) => {
@@ -285,28 +128,13 @@ const ProjectsPage = () => {
             setLocalLoading(true);
             const loadingToast = toast.loading('Archivage du projet en cours...');
 
-            await axios.patch(
-                `/projects/${project.id}/archive`,
-                {},
-                {
-                    headers: {
-                        Authorization: `Bearer ${localStorage.getItem('token')}`,
-                        'Content-Type': 'application/json',
-                    },
-                }
-            );
+            // Utiliser archiveService
+            await archiveService.archiveProject(project.id, "Archivage manuel");
 
-            // 🔥 CORRECTION : Mettre à jour l'état local pour retirer le projet archivé
+            // Mettre à jour l'état local en filtrant le projet archivé
             setProjects((prevProjects) =>
                 prevProjects.filter((p) => p.id !== project.id)
             );
-
-            // 🔥 CORRECTION : Mettre à jour les stats
-            setProjectStats(prev => ({
-                ...prev,
-                total: prev.total - 1,
-                [project.type]: Math.max(0, prev[project.type] - 1)
-            }));
 
             toast.success('Projet archivé avec succès !', {
                 id: loadingToast,
@@ -333,16 +161,14 @@ const ProjectsPage = () => {
 
             await archiveService.archiveProject(selectedProject.id, archiveReason);
 
+            // Mettre à jour l'état local
             setProjects((prevProjects) =>
-                prevProjects.map((p) =>
-                    p.id === selectedProject.id ? { ...p, is_archived: true } : p
-                )
+                prevProjects.filter((p) => p.id !== selectedProject.id)
             );
 
             setArchiveDialogOpen(false);
             setSelectedProject(null);
             setArchiveReason('');
-            setError('');
 
             toast.success(`Projet "${projectName}" archivé avec succès !`, {
                 id: loadingToast,
@@ -352,7 +178,6 @@ const ProjectsPage = () => {
         } catch (err) {
             console.error("Erreur lors de l'archivage:", err);
             const errorMsg = err.response?.data?.message || err.message || 'Erreur inconnue';
-            setError(errorMsg);
             toast.error(`Erreur lors de l'archivage : ${errorMsg}`, {
                 duration: 5000,
             });
@@ -360,7 +185,6 @@ const ProjectsPage = () => {
             setLocalLoading(false);
         }
     };
-
     const handleDeleteProject = async (projectId) => {
         try {
             setLocalLoading(true);
@@ -401,7 +225,7 @@ const ProjectsPage = () => {
                 },
             });
 
-            // 🔥 CORRECTION : Rafraîchir toute la liste des projets
+            // Rafraîchir toute la liste des projets
             await fetchProjects();
 
             toast.success('Projet restauré avec succès !', {
@@ -754,7 +578,7 @@ const ProjectsPage = () => {
 
                             <Button
                                 onClick={handleNewProject}
-                                className="bg-gray-500 text-white hover:bg-purple-700"
+                                className="bg-blue-500 text-white hover:bg-blue-600"
                                 disabled={localLoading}
                             >
                                 <Plus className="w-4 h-4 mr-2" />
