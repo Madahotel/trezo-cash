@@ -2,8 +2,14 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { Plus, Edit, Eye, Search, ChevronDown, Folder, TrendingUp, TrendingDown, Layers, ChevronLeft, ChevronRight, Filter, XCircle, Trash2, ArrowRightLeft, Calendar, Lock, MessageSquare, ChevronUp, Table, TableProperties, Banknote, Coins, PiggyBank } from 'lucide-react';
 import TransactionDetailDrawer from './TransactionDetailDrawer';
 import ResizableTh from './ResizableTh';
-import { getEntryAmountForPeriod, getActualAmountForPeriod, getTodayInTimezone, getStartOfWeek, expandVatEntries } from '../../../utils/budgetCalculations';
-import { useActiveProjectData, useProcessedEntries, useGroupedData, usePeriodPositions, calculateGeneralTotals, calculateMainCategoryTotals, calculatePeriodPositions } from '../../../utils/selectors.jsx';
+import { getEntryAmountForPeriod, getActualAmountForPeriod, getStartOfWeek, expandVatEntries } from '../../../utils/budgetCalculations';
+import { getTodayInTimezone } from '../../../utils/getTodayInTimezone.js';
+import {  calculateGeneralTotals } from '../../../hooks/calculateGeneralTotals.jsx';
+import { useActiveProjectData } from '../../../hooks/useActiveProjectData.jsx';
+import { useProcessedEntries } from '../../../hooks/useProcessedEntries.jsx';
+import { useGroupedData } from '../../../hooks/useGroupedData.jsx';
+import { usePeriodPositions } from '../../../hooks/usePeriodPositions.jsx';
+import { calculateMainCategoryTotals } from '../../../hooks/calculateMainCategoryTotals.jsx';
 import { formatCurrency } from '../../../utils/formatting';
 import { useData } from '../../../components/context/DataContext';
 import { useUI } from '../../../components/context/UIContext';

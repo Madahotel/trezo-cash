@@ -465,10 +465,10 @@ useEffect(() => {
                             <div className="flex items-center space-x-2">
                                 {isDurationUndetermined ? (
                                     <>
-                                        <Infinity className="w-4 h-4 text-yellow-500" />
+                                        
                                         <div className="text-sm">
                                             <p className="text-xs text-gray-500">Fin</p>
-                                            <p className="font-medium text-yellow-600">Indéterminée</p>
+                                            <Infinity className="w-4 h-4 text-yellow-500" />
                                         </div>
                                     </>
                                 ) : (

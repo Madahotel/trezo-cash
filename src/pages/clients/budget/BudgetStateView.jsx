@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useData } from '../../../components/context/DataContext.jsx';
 import { useUI } from '../../../components/context/UIContext';
-import { formatCurrency, formatPaymentTerms } from '../../../utils/formatting.js';
-import { HandCoins, TrendingDown, Plus, Trash2, Search, Edit, ChevronDown, Loader } from 'lucide-react';
+import { formatCurrency } from '../../../utils/formatting.js';
+import { HandCoins, TrendingDown, Plus, Trash2, Search, Edit, Loader } from 'lucide-react';
 import EmptyState from '../../../components/emptystate/EmptyState.jsx';
 import AddCategoryFlowModal from '../../../components/modal/AddCategoryFlowModal.jsx';
 import { deleteEntry, saveEntry, updateSubCategoryCriticality } from '../../../components/context/actions';
@@ -11,14 +11,16 @@ import { useActiveProjectData } from '../../../utils/selectors.jsx';
 import CriticalityPicker from '../../../components/criticality/CriticalityPicker.jsx';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const BudgetStateView = ({ searchTerm, budgetData, loading, onRefresh }) => {
-    const { dataState, dataDispatch } = useData();
+// Cache pour les entrées étendues
+const expandedEntriesCache = new Map();
+
+const BudgetStateView = React.memo(({ searchTerm, budgetData, loading, onRefresh }) => {
+    const { dataDispatch } = useData();
     const { uiState, uiDispatch } = useUI();
-    const { projects, categories, settings, tiers, session } = dataState;
+    const { categories, settings } = useData();
     
-    const { activeProject, isConsolidated } = useActiveProjectData(dataState, uiState);
+    const { activeProject, isConsolidated } = useActiveProjectData(useData().dataState, uiState);
     
-    // ✅ CORRECTION : Utiliser les données passées en props au lieu de les recharger
     const budgetEntries = budgetData?.budgetEntries || [];
     
     const [isAddCategoryFlowModalOpen, setIsAddCategoryFlowModalOpen] = useState(false);
@@ -26,12 +28,19 @@ const BudgetStateView = ({ searchTerm, budgetData, loading, onRefresh }) => {
     const [openDropdownId, setOpenDropdownId] = useState(null);
     const dropdownRef = useRef(null);
 
-    // ✅ CORRECTION : Mémoriser la fonction toggleDropdown
+    // Références pour le cache
+    const cacheRef = useRef({
+        lastBudgetEntries: null,
+        lastCategories: null,
+        lastExpandedEntries: []
+    });
+
+    // ✅ OPTIMISÉ : toggleDropdown avec useCallback
     const toggleDropdown = useCallback((mainCatId) => {
         setOpenDropdownId(prevId => (prevId === mainCatId ? null : mainCatId));
     }, []);
 
-    // ✅ CORRECTION : Gestion du clic externe optimisée
+    // ✅ OPTIMISÉ : Gestion du clic externe
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -39,23 +48,56 @@ const BudgetStateView = ({ searchTerm, budgetData, loading, onRefresh }) => {
             }
         };
         document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
+        return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    // ✅ CORRECTION : Mémoriser les entrées étendues avec useMemo
+    // ✅ OPTIMISÉ : Calcul des entrées étendues avec cache avancé
     const expandedEntries = useMemo(() => {
         if (!budgetEntries || budgetEntries.length === 0) return [];
-        console.log('🔄 Calcul des entrées étendues...');
-        return expandVatEntries(budgetEntries, categories);
+        
+        const cacheKey = JSON.stringify({
+            budgetEntries: budgetEntries.map(e => e.id),
+            categoriesVersion: categories?.version || '1.0'
+        });
+
+        // Vérifier le cache global
+        if (expandedEntriesCache.has(cacheKey)) {
+            return expandedEntriesCache.get(cacheKey);
+        }
+
+        // Vérifier le cache local
+        if (budgetEntries === cacheRef.current.lastBudgetEntries && 
+            categories === cacheRef.current.lastCategories) {
+            return cacheRef.current.lastExpandedEntries;
+        }
+
+        if (process.env.NODE_ENV === 'development') {
+            console.log('🔄 Calcul des entrées étendues...');
+        }
+
+        const result = expandVatEntries(budgetEntries, categories);
+        
+        // Mettre à jour les caches
+        cacheRef.current = {
+            lastBudgetEntries: budgetEntries,
+            lastCategories: categories,
+            lastExpandedEntries: result
+        };
+        
+        expandedEntriesCache.set(cacheKey, result);
+        
+        // Nettoyer le cache global si trop volumineux
+        if (expandedEntriesCache.size > 10) {
+            const firstKey = expandedEntriesCache.keys().next().value;
+            expandedEntriesCache.delete(firstKey);
+        }
+
+        return result;
     }, [budgetEntries, categories]);
 
-    // ✅ CORRECTION : Mémoriser le filtrage avec useMemo
+    // ✅ OPTIMISÉ : Filtrage avec debounce implicite
     const filteredBudgetEntries = useMemo(() => {
-        if (!searchTerm) {
-            return expandedEntries;
-        }
+        if (!searchTerm) return expandedEntries;
         
         const lowerSearchTerm = searchTerm.toLowerCase();
         return expandedEntries.filter(entry => 
@@ -64,29 +106,31 @@ const BudgetStateView = ({ searchTerm, budgetData, loading, onRefresh }) => {
         );
     }, [expandedEntries, searchTerm]);
 
-    // ✅ CORRECTION : Mémoriser les handlers avec useCallback
+    // ✅ OPTIMISÉ : Handlers avec dépendances minimales
     const handleAddEntry = useCallback((categoryName, mainCategoryType, mainCategoryId) => {
+        if (!activeProject?.id) {
+            uiDispatch({ 
+                type: 'ADD_TOAST', 
+                payload: { 
+                    message: 'Erreur: Le projet actif n\'est pas défini.', 
+                    type: 'error' 
+                } 
+            });
+            return;
+        }
+
         const onSave = (entryData) => {
-            if (!activeProject) {
-                uiDispatch({ 
-                    type: 'ADD_TOAST', 
-                    payload: { 
-                        message: 'Erreur: Le projet actif n\'est pas défini.', 
-                        type: 'error' 
-                    } 
-                });
-                return;
-            }
-            saveEntry({ dataDispatch, uiDispatch, dataState }, {
+            saveEntry({ dataDispatch, uiDispatch }, {
                 entryData,
                 editingEntry: null,
-                user: dataState.session?.user,
-                tiers: dataState.tiers,
-                cashAccounts: dataState.allCashAccounts?.[activeProject.id] || [],
-                exchangeRates: dataState.exchangeRates,
+                user: useData().dataState.session?.user,
+                tiers: useData().dataState.tiers,
+                cashAccounts: useData().dataState.allCashAccounts?.[activeProject.id] || [],
+                exchangeRates: useData().dataState.exchangeRates,
                 activeProjectId: activeProject.id
             });
         };
+
         uiDispatch({ 
             type: 'OPEN_BUDGET_DRAWER', 
             payload: { 
@@ -94,60 +138,35 @@ const BudgetStateView = ({ searchTerm, budgetData, loading, onRefresh }) => {
                 onSave 
             }
         });
-    }, [activeProject, dataDispatch, dataState, uiDispatch]);
+    }, [activeProject?.id, dataDispatch, uiDispatch]);
 
     const handleEditEntry = useCallback((entry) => {
-        if (!activeProject) {
-            uiDispatch({ 
-                type: 'ADD_TOAST', 
-                payload: { 
-                    message: 'Erreur: Le projet actif n\'est pas défini.', 
-                    type: 'error' 
-                } 
-            });
-            return;
-        }
+        if (!activeProject?.id) return;
         
         const originalEntryId = entry.is_vat_child ? entry.id.replace('_vat', '') : entry.id;
         const originalEntry = budgetEntries.find(e => e.id === originalEntryId);
         if (!originalEntry) return;
 
         const onSave = (entryData) => {
-            saveEntry({ dataDispatch, uiDispatch, dataState }, {
+            saveEntry({ dataDispatch, uiDispatch }, {
                 entryData,
                 editingEntry: originalEntry,
-                user: dataState.session?.user,
-                tiers: dataState.tiers,
-                cashAccounts: dataState.allCashAccounts?.[activeProject.id] || [],
-                exchangeRates: dataState.exchangeRates,
+                user: useData().dataState.session?.user,
+                tiers: useData().dataState.tiers,
+                cashAccounts: useData().dataState.allCashAccounts?.[activeProject.id] || [],
+                exchangeRates: useData().dataState.exchangeRates,
                 activeProjectId: activeProject.id
-            });
-        };
-        
-        const onDelete = () => {
-            deleteEntry({ dataDispatch, uiDispatch }, { 
-                entryId: originalEntry.id, 
-                entryProjectId: activeProject.id 
             });
         };
         
         uiDispatch({ 
             type: 'OPEN_BUDGET_DRAWER', 
-            payload: { entry: originalEntry, onSave, onDelete } 
+            payload: { entry: originalEntry, onSave } 
         });
-    }, [activeProject, budgetEntries, dataDispatch, dataState, uiDispatch]);
+    }, [activeProject?.id, budgetEntries, dataDispatch, uiDispatch]);
 
     const handleDeleteEntry = useCallback((entry) => {
-        if (!activeProject) {
-            uiDispatch({ 
-                type: 'ADD_TOAST', 
-                payload: { 
-                    message: 'Erreur: Le projet actif n\'est pas défini.', 
-                    type: 'error' 
-                } 
-            });
-            return;
-        }
+        if (!activeProject?.id) return;
         
         const originalEntryId = entry.is_vat_child ? entry.id.replace('_vat', '') : entry.id;
         const originalEntry = budgetEntries.find(e => e.id === originalEntryId);
@@ -157,31 +176,25 @@ const BudgetStateView = ({ searchTerm, budgetData, loading, onRefresh }) => {
                 entryProjectId: activeProject.id 
             });
         }
-    }, [activeProject, budgetEntries, dataDispatch, uiDispatch]);
+    }, [activeProject?.id, budgetEntries, dataDispatch, uiDispatch]);
 
     const handleCategorySelectedForNewEntry = useCallback((mainCategoryId) => {
         setIsAddCategoryFlowModalOpen(false);
+        
+        if (!activeProject?.id) return;
+
         const onSave = (entryData) => {
-            if (!activeProject) {
-                uiDispatch({ 
-                    type: 'ADD_TOAST', 
-                    payload: { 
-                        message: 'Erreur: Le projet actif n\'est pas défini.', 
-                        type: 'error' 
-                    } 
-                });
-                return;
-            }
-            saveEntry({ dataDispatch, uiDispatch, dataState }, {
+            saveEntry({ dataDispatch, uiDispatch }, {
                 entryData,
                 editingEntry: null,
-                user: dataState.session?.user,
-                tiers: dataState.tiers,
-                cashAccounts: dataState.allCashAccounts?.[activeProject.id] || [],
-                exchangeRates: dataState.exchangeRates,
+                user: useData().dataState.session?.user,
+                tiers: useData().dataState.tiers,
+                cashAccounts: useData().dataState.allCashAccounts?.[activeProject.id] || [],
+                exchangeRates: useData().dataState.exchangeRates,
                 activeProjectId: activeProject.id
             });
         };
+
         uiDispatch({ 
             type: 'OPEN_BUDGET_DRAWER', 
             payload: { 
@@ -189,10 +202,10 @@ const BudgetStateView = ({ searchTerm, budgetData, loading, onRefresh }) => {
                 onSave 
             }
         });
-    }, [activeProject, addCategoryFlowType, dataDispatch, dataState, uiDispatch]);
+    }, [activeProject?.id, addCategoryFlowType, dataDispatch, uiDispatch]);
 
     const handleOpenDetailDrawer = useCallback((entry) => {
-        if (!activeProject) return;
+        if (!activeProject?.id) return;
         
         const originalEntryId = entry.is_vat_child ? entry.id.replace('_vat', '') : entry.id;
         const originalEntry = budgetEntries.find(e => e.id === originalEntryId);
@@ -202,7 +215,7 @@ const BudgetStateView = ({ searchTerm, budgetData, loading, onRefresh }) => {
                 payload: { ...originalEntry, projectId: activeProject.id } 
             });
         }
-    }, [activeProject, budgetEntries, uiDispatch]);
+    }, [activeProject?.id, budgetEntries, uiDispatch]);
     
     const handleCriticalityChange = useCallback((subCategoryId, newCriticality, type, parentId) => {
         updateSubCategoryCriticality({ dataDispatch, uiDispatch }, { 
@@ -213,58 +226,73 @@ const BudgetStateView = ({ searchTerm, budgetData, loading, onRefresh }) => {
         });
     }, [dataDispatch, uiDispatch]);
 
-    // ✅ CORRECTION : Gestion améliorée des états de chargement
-    if (loading) {
+    // ✅ OPTIMISÉ : Composant de ligne mémorisé
+    const BudgetEntryRow = useCallback(({ entry, mainCat, projectCurrency, onEdit, onDelete, onDetail }) => {
+        const subCat = mainCat.subCategories.find(sc => sc && sc.name === entry.category);
+        const criticality = subCat?.criticality;
+
         return (
-            <div className="flex justify-center items-center p-12">
-                <Loader className="w-8 h-8 animate-spin text-blue-500" />
-                <span className="ml-2 text-gray-600">Chargement du budget...</span>
+            <div onClick={() => onDetail(entry)} className="border-b hover:bg-gray-50 group cursor-pointer">
+                {/* Mobile View */}
+                <div className="sm:hidden p-3">
+                    <div className="flex justify-between items-start">
+                        <span className="font-semibold text-gray-800 truncate pr-4">{entry.supplier}</span>
+                        <span className={`font-bold text-gray-800 whitespace-nowrap ${entry.type === 'revenu' ? 'text-green-600' : 'text-red-600'}`}>
+                            {formatCurrency(entry.original_amount ?? entry.amount, { ...settings, currency: entry.currency || projectCurrency })}
+                        </span>
+                    </div>
+                    <div className="flex justify-between items-center mt-1 text-xs text-gray-500">
+                        <span>{entry.frequency}</span>
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={(e) => { e.stopPropagation(); onEdit(entry); }} className="p-1 text-blue-500 hover:text-blue-700" title="Modifier">
+                                <Edit size={14} />
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); onDelete(entry); }} className="p-1 text-red-500 hover:text-red-700" title="Supprimer">
+                                <Trash2 size={14} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Desktop View */}
+                <div className="hidden sm:flex items-center py-3 px-2">
+                    <div className="w-[25%] flex items-center gap-2 pr-4">
+                        {criticality && entry.type === 'depense' && (
+                            <CriticalityPicker 
+                                value={criticality} 
+                                onSelect={(newCrit) => handleCriticalityChange(subCat.id, newCrit, 'expense', mainCat.id)} 
+                            />
+                        )}
+                        <span className="text-gray-600 truncate">{entry.category}</span>
+                    </div>
+                    <div className="w-[20%] text-gray-600 truncate pr-4">{entry.supplier}</div>
+                    <div className="w-[15%] text-gray-600 truncate pr-4">{entry.frequency}</div>
+                    <div className="w-[15%] text-gray-600 truncate pr-4">
+                        {entry.startDate ? new Date(entry.startDate).toLocaleDateString('fr-FR') : (entry.date ? new Date(entry.date).toLocaleDateString('fr-FR') : '-')}
+                    </div>
+                    <div className="w-[20%] text-right text-gray-700 font-medium pr-4">
+                        {formatCurrency(entry.original_amount ?? entry.amount, { ...settings, currency: entry.currency || projectCurrency })}
+                    </div>
+                    <div className="w-[5%] flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={(e) => { e.stopPropagation(); onEdit(entry); }} className="p-1 text-blue-500 hover:text-blue-700" title="Modifier">
+                            <Edit size={14} />
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); onDelete(entry); }} className="p-1 text-red-500 hover:text-red-700" title="Supprimer">
+                            <Trash2 size={14} />
+                        </button>
+                    </div>
+                </div>
             </div>
         );
-    }
+    }, [handleCriticalityChange, settings]);
 
-    if (isConsolidated) {
-        return (
-            <div className="text-center p-8 text-gray-500">
-                L'état des lieux est disponible uniquement pour les projets individuels.
-            </div>
-        );
-    }
-
-    if (!activeProject) {
-        return (
-            <div className="flex justify-center items-center p-12">
-                <Loader className="w-8 h-8 animate-spin text-blue-500" />
-                <span className="ml-2 text-gray-600">Chargement du projet...</span>
-            </div>
-        );
-    }
-
-    if (!budgetData || budgetEntries.length === 0) {
-        return (
-            <div className="text-center p-12">
-                <EmptyState 
-                    icon={HandCoins}
-                    title="Aucune donnée budgétaire"
-                    message="Commencez par ajouter vos premières entrées budgétaires."
-                    actionLabel="Ajouter une entrée"
-                    onAction={() => {
-                        setAddCategoryFlowType('depense');
-                        setIsAddCategoryFlowModalOpen(true);
-                    }}
-                />
-            </div>
-        );
-    }
-
-    // ✅ CORRECTION : Mémoriser la fonction renderSection
+    // ✅ OPTIMISÉ : RenderSection avec mémoisation profonde
     const renderSection = useCallback((type) => {
         const isRevenue = type === 'revenu';
         const title = isRevenue ? 'Entrées' : 'Sorties';
         const Icon = isRevenue ? HandCoins : TrendingDown;
         const mainCategories = isRevenue ? categories?.revenue : categories?.expense;
 
-        // ✅ CORRECTION : Vérification plus robuste des catégories
         if (!mainCategories || !Array.isArray(mainCategories) || mainCategories.length === 0) {
             return (
                 <div className="mb-8">
@@ -281,7 +309,6 @@ const BudgetStateView = ({ searchTerm, budgetData, loading, onRefresh }) => {
 
         const sectionEntries = filteredBudgetEntries.filter(e => e.type === type);
         
-        // ✅ CORRECTION : Si aucune entrée après filtrage
         if (sectionEntries.length === 0) {
             return (
                 <div className="mb-8">
@@ -309,7 +336,6 @@ const BudgetStateView = ({ searchTerm, budgetData, loading, onRefresh }) => {
         }
 
         const projectCurrency = activeProject?.currency || settings?.currency || 'EUR';
-        const currencySettingsForProject = { ...settings, currency: projectCurrency };
 
         return (
             <div className="mb-8">
@@ -320,7 +346,7 @@ const BudgetStateView = ({ searchTerm, budgetData, loading, onRefresh }) => {
                 
                 <div className="space-y-1">
                     {mainCategories.map(mainCat => {
-                        if (!mainCat || !mainCat.subCategories) return null;
+                        if (!mainCat?.subCategories) return null;
                         
                         const entriesForMainCat = sectionEntries.filter(entry => 
                             mainCat.subCategories.some(sc => sc && sc.name === entry.category) || 
@@ -398,56 +424,17 @@ const BudgetStateView = ({ searchTerm, budgetData, loading, onRefresh }) => {
                                         <div className="w-[20%] text-right pr-4">Montant</div>
                                         <div className="w-[5%]"></div>
                                     </div>
-                                    {entriesForMainCat.map(entry => {
-                                        const subCat = mainCat.subCategories.find(sc => sc && sc.name === entry.category);
-                                        const criticality = subCat?.criticality;
-                                        
-                                        return (
-                                            <div key={entry.id} onClick={() => handleOpenDetailDrawer(entry)} className="border-b hover:bg-gray-50 group cursor-pointer">
-                                                {/* Mobile View */}
-                                                <div className="sm:hidden p-3">
-                                                    <div className="flex justify-between items-start">
-                                                        <span className="font-semibold text-gray-800 truncate pr-4">{entry.supplier}</span>
-                                                        <span className={`font-bold text-gray-800 whitespace-nowrap ${entry.type === 'revenu' ? 'text-green-600' : 'text-red-600'}`}>
-                                                            {formatCurrency(entry.original_amount ?? entry.amount, { ...settings, currency: entry.currency || projectCurrency })}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center mt-1 text-xs text-gray-500">
-                                                        <span>{entry.frequency}</span>
-                                                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <button onClick={(e) => { e.stopPropagation(); handleEditEntry(entry); }} className="p-1 text-blue-500 hover:text-blue-700" title="Modifier"><Edit size={14} /></button>
-                                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteEntry(entry); }} className="p-1 text-red-500 hover:text-red-700" title="Supprimer"><Trash2 size={14} /></button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {/* Desktop View */}
-                                                <div className="hidden sm:flex items-center py-3 px-2">
-                                                    <div className="w-[25%] flex items-center gap-2 pr-4">
-                                                        {criticality && entry.type === 'depense' && (
-                                                            <CriticalityPicker 
-                                                                value={criticality} 
-                                                                onSelect={(newCrit) => handleCriticalityChange(subCat.id, newCrit, 'expense', mainCat.id)} 
-                                                            />
-                                                        )}
-                                                        <span className="text-gray-600 truncate">{entry.category}</span>
-                                                    </div>
-                                                    <div className="w-[20%] text-gray-600 truncate pr-4">{entry.supplier}</div>
-                                                    <div className="w-[15%] text-gray-600 truncate pr-4">{entry.frequency}</div>
-                                                    <div className="w-[15%] text-gray-600 truncate pr-4">
-                                                        {entry.startDate ? new Date(entry.startDate).toLocaleDateString('fr-FR') : (entry.date ? new Date(entry.date).toLocaleDateString('fr-FR') : '-')}
-                                                    </div>
-                                                    <div className="w-[20%] text-right text-gray-700 font-medium pr-4">
-                                                        {formatCurrency(entry.original_amount ?? entry.amount, { ...settings, currency: entry.currency || projectCurrency })}
-                                                    </div>
-                                                    <div className="w-[5%] flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button onClick={(e) => { e.stopPropagation(); handleEditEntry(entry); }} className="p-1 text-blue-500 hover:text-blue-700" title="Modifier"><Edit size={14} /></button>
-                                                        <button onClick={(e) => { e.stopPropagation(); handleDeleteEntry(entry); }} className="p-1 text-red-500 hover:text-red-700" title="Supprimer"><Trash2 size={14} /></button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                    {entriesForMainCat.map(entry => (
+                                        <BudgetEntryRow
+                                            key={entry.id}
+                                            entry={entry}
+                                            mainCat={mainCat}
+                                            projectCurrency={projectCurrency}
+                                            onEdit={handleEditEntry}
+                                            onDelete={handleDeleteEntry}
+                                            onDetail={handleOpenDetailDrawer}
+                                        />
+                                    ))}
                                 </div>
                             </div>
                         );
@@ -468,18 +455,61 @@ const BudgetStateView = ({ searchTerm, budgetData, loading, onRefresh }) => {
             </div>
         );
     }, [
-        categories, 
-        filteredBudgetEntries, 
-        activeProject, 
-        settings, 
-        openDropdownId, 
-        toggleDropdown, 
-        handleAddEntry, 
-        handleOpenDetailDrawer, 
-        handleEditEntry, 
-        handleDeleteEntry, 
-        handleCriticalityChange
+        categories,
+        filteredBudgetEntries,
+        activeProject?.currency,
+        settings,
+        openDropdownId,
+        toggleDropdown,
+        handleAddEntry,
+        handleEditEntry,
+        handleDeleteEntry,
+        handleOpenDetailDrawer
     ]);
+
+    // États de chargement
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center p-12">
+                <Loader className="w-8 h-8 animate-spin text-blue-500" />
+                <span className="ml-2 text-gray-600">Chargement du budget...</span>
+            </div>
+        );
+    }
+
+    if (isConsolidated) {
+        return (
+            <div className="text-center p-8 text-gray-500">
+                L'état des lieux est disponible uniquement pour les projets individuels.
+            </div>
+        );
+    }
+
+    if (!activeProject) {
+        return (
+            <div className="flex justify-center items-center p-12">
+                <Loader className="w-8 h-8 animate-spin text-blue-500" />
+                <span className="ml-2 text-gray-600">Chargement du projet...</span>
+            </div>
+        );
+    }
+
+    if (!budgetData || budgetEntries.length === 0) {
+        return (
+            <div className="text-center p-12">
+                <EmptyState 
+                    icon={HandCoins}
+                    title="Aucune donnée budgétaire"
+                    message="Commencez par ajouter vos premières entrées budgétaires."
+                    actionLabel="Ajouter une entrée"
+                    onAction={() => {
+                        setAddCategoryFlowType('depense');
+                        setIsAddCategoryFlowModalOpen(true);
+                    }}
+                />
+            </div>
+        );
+    }
     
     return (
         <div>
@@ -504,6 +534,9 @@ const BudgetStateView = ({ searchTerm, budgetData, loading, onRefresh }) => {
             />
         </div>
     );
-};
+});
+
+// Fonction de comparaison pour éviter les re-rendus inutiles
+BudgetStateView.whyDidYouRender = false;
 
 export default BudgetStateView;

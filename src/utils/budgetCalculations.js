@@ -1,13 +1,5 @@
 
 
-export const getTodayInTimezone = (offset = 0) => {
-    const now = new Date();
-    const utc = now.getTime() + (now.getTimezoneOffset() * 60000); // get UTC time in ms
-    const todayInTimezone = new Date(utc + (3600000 * offset));
-    todayInTimezone.setHours(0, 0, 0, 0); // reset time part for date-only comparisons
-    return todayInTimezone;
-};
-
 export const getStartOfWeek = (date) => { 
     const d = new Date(date); 
     const day = d.getDay(); 

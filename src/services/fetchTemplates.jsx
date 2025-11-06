@@ -1,8 +1,8 @@
-import { apiService } from '../utils/ApiService'; // Chemin vers votre ApiService
+import { apiService } from '../utils/ApiService';
 
-export const fetchTemplates = async ({ dataDispatch, uiDispatch }) => {
+export const fetchTemplates = async () => {
   try {
-    uiDispatch({ type: 'SET_LOADING', payload: true });
+    console.log('📡 Chargement des templates...');
 
     const response = await apiService.get('/templates');
     console.log('📡 Réponse API templates:', response);
@@ -38,31 +38,22 @@ export const fetchTemplates = async ({ dataDispatch, uiDispatch }) => {
 
       const uniqueTemplates = Array.from(templateMap.values());
 
-      dataDispatch({
-        type: 'SET_TEMPLATES',
-        payload: uniqueTemplates,
-      });
+      console.log(`✅ ${uniqueTemplates.length} templates chargés avec succès`);
+      return uniqueTemplates;
 
-      uiDispatch({
-        type: 'ADD_TOAST',
-        payload: {
-          message: `Modèles chargés (${uniqueTemplates.length} templates)`,
-          type: 'success',
-        },
-      });
     } else if (response.status === 204) {
-      dataDispatch({ type: 'SET_TEMPLATES', payload: [] });
+      console.log('ℹ️ Aucun template trouvé');
+      return [];
+    } else {
+      throw new Error(`Statut de réponse inattendu: ${response.status}`);
     }
   } catch (error) {
     console.error('❌ Erreur chargement templates:', error);
-    uiDispatch({
-      type: 'ADD_TOAST',
-      payload: {
-        message: error.error || 'Erreur lors du chargement des templates',
-        type: 'error',
-      },
-    });
-  } finally {
-    uiDispatch({ type: "SET_LOADING", payload: false });
+    
+    // Retourner une erreur structurée
+    throw {
+      message: error.error || 'Erreur lors du chargement des templates',
+      originalError: error
+    };
   }
 };

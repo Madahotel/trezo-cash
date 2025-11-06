@@ -2,14 +2,13 @@ import { apiService } from '../utils/ApiService';
 
 class ProjectInitializationService {
     async initializeProject(
-        { dataDispatch, uiDispatch },
         payload,
         user,
-        existingTiersData,
-        allTemplates
+        existingTiersData = [],
+        allTemplates = []
     ) {
         try {
-            uiDispatch({ type: "SET_LOADING", payload: true });
+            console.log("🚀 Initialisation du projet...");
 
             if (!user?.id) {
                 throw new Error("Utilisateur non connecté");
@@ -19,15 +18,17 @@ class ProjectInitializationService {
                 projectName,
                 projectStartDate,
                 projectEndDate,
-                isEndDateIndefinite,
+                isDurationUndetermined,
                 templateId,
                 startOption,
                 projectTypeId = 1,
                 projectDescription = '',
                 description = projectDescription || '',
+                projectClass = 'treasury'
             } = payload;
 
             console.log("📥 Données reçues:", payload);
+            
             if (!projectName?.trim()) {
                 throw new Error("Le nom du projet est obligatoire");
             }
@@ -36,16 +37,18 @@ class ProjectInitializationService {
                 throw new Error("La date de début est obligatoire");
             }
 
-            const finalTemplateId = await this.resolveTemplateId(templateId);
+            const finalTemplateId = await this.resolveTemplateId(templateId, allTemplates);
 
             const projectData = {
                 name: projectName.trim(),
                 description: description?.trim() || 'Nouveau projet',
                 start_date: this.formatDateForAPI(projectStartDate),
-                end_date: isEndDateIndefinite ? null : this.formatDateForAPI(projectEndDate),
-                is_duration_undetermined: isEndDateIndefinite ? true : false,
+                end_date: isDurationUndetermined ? null : this.formatDateForAPI(projectEndDate),
+                is_duration_undetermined: isDurationUndetermined ? 1 : 0,
                 template_id: finalTemplateId,
                 project_type_id: parseInt(projectTypeId),
+                user_id: user.id,
+                user_subscriber_id: user.id
             };
 
             console.log("📤 Données envoyées à l'API:", projectData);
@@ -55,29 +58,44 @@ class ProjectInitializationService {
 
             console.log('✅ Réponse API création projet:', response);
 
-            if (response && response.status === 200) {
-                const projectId = response.project_id;
+            if (response && (response.status === 200 || response.status === 201)) {
+                const projectId = response.project_id || response.data?.id;
 
                 console.log(`✅ Projet créé avec succès. ID: ${projectId}`);
 
-                const minimalProject = {
+                const newProject = {
                     id: projectId,
                     name: projectName,
                     start_date: projectStartDate,
+                    end_date: isDurationUndetermined ? null : projectEndDate,
                     description: description,
                     project_type_id: projectTypeId,
                     template_id: finalTemplateId,
-                    is_duration_undetermined: isEndDateIndefinite,
-                    end_date: isEndDateIndefinite ? null : projectEndDate,
+                    is_duration_undetermined: isDurationUndetermined,
+                    isDurationUndetermined: isDurationUndetermined,
+                    type: this.getProjectTypeFromClass(projectClass),
+                    typeName: this.getTypeNameFromClass(projectClass),
+                    mainCurrency: 'EUR',
+                    user_id: user.id,
+                    user_subscriber_id: user.id,
+                    incomeBudget: 0,
+                    expenseBudget: 0,
+                    incomeRealized: 0,
+                    expenseRealized: 0,
+                    status: 'active',
+                    is_archived: false,
+                    isArchived: false,
+                    is_temp: false,
+                    collaborators: []
                 };
 
-                this.dispatchSuccessActions(
-                    { dataDispatch, uiDispatch },
-                    minimalProject,
-                    response
-                );
+                console.log("🎉 Projet initialisé avec succès:", newProject);
 
-                return { success: true, projectId };
+                return { 
+                    success: true, 
+                    project: newProject,
+                    message: response.message || 'Projet créé avec succès!'
+                };
             } else {
                 throw new Error(response?.message || "Réponse invalide du serveur");
             }
@@ -87,11 +105,27 @@ class ProjectInitializationService {
             const errorDetails = this.getErrorDetails(error);
             console.error('🔍 Détails de l\'erreur:', errorDetails);
 
-            this.handleError({ uiDispatch }, error, errorDetails);
-            throw error;
-        } finally {
-            uiDispatch({ type: "SET_LOADING", payload: false });
+            // Propager l'erreur pour la gérer dans le composant
+            throw this.formatErrorForComponent(error, errorDetails);
         }
+    }
+
+    // Méthode utilitaire pour déterminer le type de projet
+    getProjectTypeFromClass(projectClass) {
+        const classMapping = {
+            'treasury': 'business',
+            'event': 'evenement'
+        };
+        return classMapping[projectClass] || 'business';
+    }
+
+    // Méthode utilitaire pour déterminer le nom du type
+    getTypeNameFromClass(projectClass) {
+        const nameMapping = {
+            'treasury': 'Business',
+            'event': 'Événement'
+        };
+        return nameMapping[projectClass] || 'Business';
     }
 
     formatDateForAPI(dateString) {
@@ -106,10 +140,18 @@ class ProjectInitializationService {
         }
     }
 
-    async resolveTemplateId(templateId) {
+    async resolveTemplateId(templateId, availableTemplates = []) {
         if (!templateId || templateId === 'blank' || templateId === 'null') {
             console.log('🔄 Recherche d\'un template par défaut...');
 
+            // Si des templates sont fournis, utiliser le premier
+            if (availableTemplates.length > 0) {
+                const defaultTemplate = availableTemplates[0];
+                console.log(`✅ Template par défaut trouvé: ${defaultTemplate.name} (ID: ${defaultTemplate.id})`);
+                return defaultTemplate.id;
+            }
+
+            // Sinon, chercher via API
             try {
                 const templatesResponse = await apiService.get('/templates');
 
@@ -138,7 +180,22 @@ class ProjectInitializationService {
             return finalTemplateId;
         }
 
-        // Sinon chercher par nom
+        // Chercher par nom dans les templates disponibles
+        if (availableTemplates.length > 0) {
+            const foundTemplate = availableTemplates.find(
+                (t) =>
+                    t.id &&
+                    (t.id.toString() === templateId.toString() ||
+                        t.name?.toLowerCase() === templateId.toLowerCase())
+            );
+
+            if (foundTemplate) {
+                console.log(`✅ Template trouvé: ${foundTemplate.name} (ID: ${foundTemplate.id})`);
+                return foundTemplate.id;
+            }
+        }
+
+        // Fallback: chercher via API
         try {
             const templatesResponse = await apiService.get('/templates');
 
@@ -179,10 +236,6 @@ class ProjectInitializationService {
             errors.push('Le nom du projet doit contenir au moins 2 caractères');
         }
 
-        if (!projectData.description || projectData.description.trim().length === 0) {
-            errors.push('La description est requise');
-        }
-
         if (!projectData.start_date) {
             errors.push('La date de début est requise');
         }
@@ -193,10 +246,6 @@ class ProjectInitializationService {
 
         if (!projectData.project_type_id) {
             errors.push('Le type de projet est requis');
-        }
-
-        if (typeof projectData.is_duration_undetermined !== 'boolean') {
-            errors.push('is_duration_undetermined doit être un boolean');
         }
 
         if (errors.length > 0) {
@@ -223,42 +272,7 @@ class ProjectInitializationService {
         };
     }
 
-    dispatchSuccessActions(
-        { dataDispatch, uiDispatch },
-        minimalProject,
-        apiResponse
-    ) {
-          uiDispatch({
-            type: 'SET_ACTIVE_PROJECT',
-            payload: minimalProject
-        });
-
-
-        dataDispatch({
-            type: "INITIALIZE_PROJECT_SUCCESS",
-            payload: {
-                newProject: minimalProject,
-                finalCashAccounts: [],
-                newAllEntries: [],
-                newAllActuals: [],
-                newTiers: [],
-                newLoans: [],
-                newCategories: null,
-            },
-        });
-
-        uiDispatch({
-            type: 'ADD_TOAST',
-            payload: {
-                message: apiResponse.message || 'Projet créé avec succès!',
-                type: 'success',
-            },
-        });
-
-        uiDispatch({ type: 'CANCEL_ONBOARDING' });
-    }
-
-    handleError({ uiDispatch }, error, errorDetails) {
+    formatErrorForComponent(error, errorDetails) {
         let errorMessage = 'Erreur lors de la création du projet';
 
         if (errorDetails.status === 422) {
@@ -280,16 +294,7 @@ class ProjectInitializationService {
             errorMessage = error.message;
         }
 
-        console.error('🚨 Erreur détaillée:', errorDetails);
-
-        uiDispatch({
-            type: 'ADD_TOAST',
-            payload: {
-                message: errorMessage,
-                type: 'error',
-                duration: 8000
-            },
-        });
+        return new Error(errorMessage);
     }
 
     getFieldDisplayName(field) {

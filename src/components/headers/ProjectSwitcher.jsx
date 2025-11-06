@@ -159,15 +159,45 @@ const ProjectSwitcher = () => {
   }, [projectsLoading, user?.id, refreshProjects]);
 
   // Écouter les événements de création de projet
-  useEffect(() => {
-    const handleProjectCreated = async (event) => {
-      console.log("🎯 Projet créé détecté");
-      await refreshProjects();
-    };
+useEffect(() => {
+  const handleProjectCreated = async (event) => {
+    console.log("🎯 ProjectSwitcher - Événement projectCreated reçu:", event.detail);
+    
+    // Rafraîchir immédiatement la liste des projets
+    await refreshProjects();
+    
+    // Sélectionner automatiquement le nouveau projet
+    if (event.detail?.project) {
+      console.log("🎯 ProjectSwitcher - Sélection automatique du projet créé:", event.detail.project.name);
+      uiDispatch({
+        type: 'SET_ACTIVE_PROJECT',
+        payload: event.detail.project
+      });
+    }
+  };
 
-    window.addEventListener('projectCreated', handleProjectCreated);
-    return () => window.removeEventListener('projectCreated', handleProjectCreated);
-  }, [refreshProjects]);
+  const handleProjectsUpdated = async (event) => {
+    console.log("🎯 ProjectSwitcher - Événement projectsUpdated reçu:", event.detail);
+    await refreshProjects();
+    
+    // Si un nouveau projet a été créé, le sélectionner
+    if (event.detail?.newProject && event.detail?.action === 'created') {
+      console.log("🎯 ProjectSwitcher - Sélection auto du nouveau projet:", event.detail.newProject.name);
+      uiDispatch({
+        type: 'SET_ACTIVE_PROJECT',
+        payload: event.detail.newProject
+      });
+    }
+  };
+
+  window.addEventListener('projectCreated', handleProjectCreated);
+  window.addEventListener('projectsUpdated', handleProjectsUpdated);
+  
+  return () => {
+    window.removeEventListener('projectCreated', handleProjectCreated);
+    window.removeEventListener('projectsUpdated', handleProjectsUpdated);
+  };
+}, [refreshProjects, uiDispatch]);
 
   // Gestion du clic en dehors
   useEffect(() => {

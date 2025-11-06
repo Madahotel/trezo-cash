@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useData } from '../../../components/context/DataContext';
 import { useUI } from '../../../components/context/UIContext';
-import { useActiveProjectData } from '../../../utils/selectors.jsx';
+import { useActiveProjectData } from '../../../hooks/useActiveProjectData.jsx';
 import { formatCurrency } from '../../../utils/formatting';
 import EmptyState from '../../../components/emptystate/EmptyState.jsx';
 import { Lock, PiggyBank } from 'lucide-react';

@@ -230,3 +230,5 @@ export const useProjects = () => {
     setProjects
   };
 };
+
+//Ity hook ity no maka sy mitantana ny lisitry ny projets avy amin’ny API

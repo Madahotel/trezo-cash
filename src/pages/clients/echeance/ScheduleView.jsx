@@ -2,8 +2,9 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useData } from '../../../components/context/DataContext';
 import { useUI } from '../../../components/context/UIContext';
 import { ChevronLeft, ChevronRight, AlertTriangle, Calendar, ArrowUp, ArrowDown, ChevronDown } from 'lucide-react';
-import { getTodayInTimezone } from '../../../utils/budgetCalculations';
-import { useActiveProjectData, useScheduleData } from '../../../utils/selectors.jsx';
+import { getTodayInTimezone } from '../../../utils/getTodayInTimezone';
+import {  useScheduleData } from '../../../hooks/useScheduleData.jsx';
+import { useActiveProjectData } from '../../../hooks/useActiveProjectData.jsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatCurrency } from '../../../utils/formatting';
 

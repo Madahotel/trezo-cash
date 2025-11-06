@@ -12,12 +12,11 @@ import {
     FolderOpen
 } from 'lucide-react';
 import NavTooltip from './NavTooltip';
-import { useActiveProjectData, useScheduleData } from '../../utils/selectors';
+import { useScheduleData } from '../../hooks/useScheduleData';
+import {useActiveProjectData} from '../../hooks/useActiveProjectData';
 import { AnimatePresence, motion } from 'framer-motion';
 import AmbassadorIcon from './AmbassadorIcon';
-import TrezocashLogo from '../../components/logo/TrezocashLogo';
 import { useSettings } from '../context/SettingsContext';
-import ProjectsPage from '../../pages/clients/projets/ProjectsPage';
 
 const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
     const { dataState } = useData();

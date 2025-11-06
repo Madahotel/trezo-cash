@@ -6,7 +6,7 @@ import BudgetStateView from './BudgetStateView';
 import { useUI } from '../../../components/context/UIContext';
 import { useData } from '../../../components/context/DataContext';
 import { updateProjectOnboardingStep } from '../../../components/context/actions';
-import { useActiveProjectData } from '../../../utils/selectors';
+import { useActiveProjectData } from '../../../hooks/useActiveProjectData';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getBudget } from '../../../components/context/budgetAction';
 
@@ -19,7 +19,6 @@ const BudgetPage = () => {
     const [isDownloadMenuOpen, setIsDownloadMenuOpen] = useState(false);
     const downloadMenuRef = useRef(null);
 
-    // ✅ NOUVEAU : États pour gérer le budget centralisé
     const [budgetData, setBudgetData] = useState(null);
     const [budgetLoading, setBudgetLoading] = useState(false);
     const [budgetError, setBudgetError] = useState(null);
@@ -27,7 +26,6 @@ const BudgetPage = () => {
     const { activeProject } = useActiveProjectData(dataState, uiState);
     const showValidationButton = activeProject && activeProject.onboarding_step === 'budget';
 
-    // ✅ CORRECTION : Fonction centralisée pour charger le budget
     const fetchBudgetData = async (retryCount = 0) => {
         if (!activeProject?.id || typeof activeProject.id !== 'number') {
             setBudgetError('Aucun projet valide sélectionné');
@@ -44,7 +42,6 @@ const BudgetPage = () => {
         } catch (err) {
             console.error('Erreur lors du chargement du budget:', err);
             
-            // ✅ Gestion du rate limiting avec retry
             if (err.response?.status === 429 && retryCount < 2) {
                 const delay = Math.pow(2, retryCount) * 1000;
                 console.warn(`⏳ Trop de requêtes, nouvelle tentative dans ${delay}ms...`);
@@ -61,10 +58,8 @@ const BudgetPage = () => {
         }
     };
 
-    // ✅ CORRECTION : Charger le budget uniquement quand le projet change
     useEffect(() => {
         if (activeProject?.id && typeof activeProject.id === 'number') {
-            // ✅ Délai pour éviter les appels trop rapides
             const timer = setTimeout(() => {
                 fetchBudgetData();
             }, 200);
@@ -73,7 +68,6 @@ const BudgetPage = () => {
         }
     }, [activeProject?.id]);
 
-    // ✅ Gestion du clic externe
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (downloadMenuRef.current && !downloadMenuRef.current.contains(event.target)) {
@@ -93,7 +87,6 @@ const BudgetPage = () => {
         }
 
         try {
-            console.log('✅ Validation du budget pour le projet:', activeProject.name);
             await updateProjectOnboardingStep(
                 { dataDispatch, uiDispatch }, 
                 { projectId: activeProject.id, step: 'accounts' }
@@ -104,14 +97,12 @@ const BudgetPage = () => {
         }
     };
 
-    // ✅ Ajouter des logs de débogage
     useEffect(() => {
         console.log('🔍 BudgetPage - Projet actif:', activeProject);
         console.log('🔍 BudgetPage - Budget chargé:', !!budgetData);
         console.log('🔍 BudgetPage - En cours de chargement:', budgetLoading);
     }, [activeProject, budgetData, budgetLoading]);
 
-    // ✅ Afficher l'état de chargement
     if (budgetLoading) {
         return (
             <div className="p-6 max-w-full">
@@ -125,7 +116,6 @@ const BudgetPage = () => {
         );
     }
 
-    // ✅ Afficher les erreurs
     if (budgetError) {
         return (
             <div className="p-6 max-w-full">
@@ -223,7 +213,6 @@ const BudgetPage = () => {
                 </div>
             )}
             
-            {/* ✅ CORRECTION : Passer les données du budget à BudgetStateView */}
             <BudgetStateView 
                 searchTerm={searchTerm} 
                 budgetData={budgetData}
