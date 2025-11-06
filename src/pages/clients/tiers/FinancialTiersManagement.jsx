@@ -15,6 +15,7 @@ import EmptyState from '../../../components/emptystate/EmptyState';
 import {
   getUserFinancials,
   storeTiers,
+  updateTiers,
 } from '../../../components/context/tiersActions';
 
 // Composant pour l'ajout de prêteurs/emprunteurs
@@ -24,13 +25,13 @@ const FinancialTierForm = ({ onAddFinancialTier, onRefreshData }) => {
     useState('');
   const [newFinancialTierEmail, setNewFinancialTierEmail] = useState('');
   const [newFinancialTierPhone, setNewFinancialTierPhone] = useState('');
-  const [newFinancialTierType, setNewFinancialTierType] = useState(7); // Changé en number
+  const [newFinancialTierType, setNewFinancialTierType] = useState(7);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
 
   const financialTierOptions = [
-    { value: 7, label: 'Prêteur' }, // Changé en number
-    { value: 5, label: 'Emprunteur' }, // Changé en number
+    { value: 7, label: 'Prêteur' },
+    { value: 5, label: 'Emprunteur' },
   ];
 
   const handleSubmit = async (e) => {
@@ -44,19 +45,21 @@ const FinancialTierForm = ({ onAddFinancialTier, onRefreshData }) => {
         firstname: newFinancialTierFirstName.trim(),
         email: newFinancialTierEmail.trim(),
         phone_number: newFinancialTierPhone.trim(),
-        user_type_id: newFinancialTierType, // Déjà en number
+        user_type_id: newFinancialTierType,
       };
 
       try {
         await storeTiers(formData);
 
-        onAddFinancialTier({
-          name: newFinancialTierName.trim(),
-          first_name: newFinancialTierFirstName.trim(),
-          email: newFinancialTierEmail.trim(),
-          phone: newFinancialTierPhone.trim(),
-          user_type_id: newFinancialTierType,
-        });
+        if (onAddFinancialTier) {
+          onAddFinancialTier({
+            name: newFinancialTierName.trim(),
+            first_name: newFinancialTierFirstName.trim(),
+            email: newFinancialTierEmail.trim(),
+            phone: newFinancialTierPhone.trim(),
+            user_type_id: newFinancialTierType,
+          });
+        }
 
         await onRefreshData();
 
@@ -95,7 +98,6 @@ const FinancialTierForm = ({ onAddFinancialTier, onRefreshData }) => {
       </h2>
       <form onSubmit={handleSubmit}>
         <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
-          {/* Nom */}
           <div className="flex flex-col flex-grow min-w-[120px]">
             <label className="block text-xs font-medium text-gray-600 mb-1">
               Nom *
@@ -113,7 +115,6 @@ const FinancialTierForm = ({ onAddFinancialTier, onRefreshData }) => {
             />
           </div>
 
-          {/* Prénom */}
           <div className="flex flex-col flex-grow min-w-[120px]">
             <label className="block text-xs font-medium text-gray-600 mb-1">
               Prénom *
@@ -131,7 +132,6 @@ const FinancialTierForm = ({ onAddFinancialTier, onRefreshData }) => {
             />
           </div>
 
-          {/* Email */}
           <div className="flex flex-col flex-grow min-w-[140px]">
             <label className="block text-xs font-medium text-gray-600 mb-1">
               Email
@@ -148,7 +148,6 @@ const FinancialTierForm = ({ onAddFinancialTier, onRefreshData }) => {
             />
           </div>
 
-          {/* Téléphone */}
           <div className="flex flex-col flex-grow min-w-[140px]">
             <label className="block text-xs font-medium text-gray-600 mb-1">
               Téléphone
@@ -165,14 +164,13 @@ const FinancialTierForm = ({ onAddFinancialTier, onRefreshData }) => {
             />
           </div>
 
-          {/* Type */}
           <div className="flex flex-col flex-shrink-0 min-w-[140px]">
             <label className="block text-xs font-medium text-gray-600 mb-1">
               Type
             </label>
             <select
               value={newFinancialTierType}
-              onChange={(e) => setNewFinancialTierType(Number(e.target.value))} // Conversion en number
+              onChange={(e) => setNewFinancialTierType(Number(e.target.value))}
               onFocus={() => setFocusedField('type')}
               onBlur={() => setFocusedField(null)}
               className={getFieldClasses('type')}
@@ -186,7 +184,6 @@ const FinancialTierForm = ({ onAddFinancialTier, onRefreshData }) => {
             </select>
           </div>
 
-          {/* Bouton */}
           <button
             type="submit"
             disabled={isSubmitting}
@@ -325,11 +322,10 @@ const FinancialTierRow = ({
   onStartEditFinancial,
   onSaveEditFinancial,
   onCancelEditFinancial,
-  onDeleteFinancialTier,
-  isFinancialTierUsed,
+  // onDeleteFinancialTier,
+  // isFinancialTierUsed,
 }) => {
-  // Déterminer le type une seule fois de manière cohérente
-  const isPreteur = tier.user_type_id === 7; // Changé en number
+  const isPreteur = tier.user_type_id === 7;
 
   return (
     <tr className="group border-b border-gray-200 last:border-b-0 hover:bg-gray-50">
@@ -374,7 +370,7 @@ const FinancialTierRow = ({
             onChange={(e) =>
               onStartEditFinancial({
                 ...editingFinancialTier,
-                user_type_id: Number(e.target.value), // Conversion en number
+                user_type_id: Number(e.target.value),
               })
             }
             className="w-full px-2 py-1 border border-gray-200 rounded-md text-sm text-gray-900"
@@ -461,7 +457,7 @@ const FinancialTierRow = ({
             >
               <Edit className="w-4 h-4" />
             </button>
-            <button
+            {/* <button
               onClick={() => onDeleteFinancialTier(tier.id)}
               className="p-1 text-red-600 hover:text-red-800 disabled:text-gray-300 disabled:cursor-not-allowed"
               title={
@@ -471,7 +467,7 @@ const FinancialTierRow = ({
               }
             >
               <Trash2 className="w-4 h-4" />
-            </button>
+            </button> */}
           </div>
         )}
       </td>
@@ -484,10 +480,8 @@ const LoadingTable = () => {
   return (
     <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-300 space-y-4">
       <div className="animate-pulse">
-        {/* Barre de recherche en chargement */}
         <div className="h-10 bg-gray-200 rounded-md mb-4"></div>
 
-        {/* En-têtes du tableau */}
         <div className="grid grid-cols-6 gap-4 mb-4">
           <div className="h-4 bg-gray-200 rounded"></div>
           <div className="h-4 bg-gray-200 rounded"></div>
@@ -497,7 +491,6 @@ const LoadingTable = () => {
           <div className="h-4 bg-gray-200 rounded"></div>
         </div>
 
-        {/* Lignes du tableau en chargement */}
         {[...Array(5)].map((_, index) => (
           <div key={index} className="grid grid-cols-6 gap-4 mb-3">
             <div className="h-6 bg-gray-200 rounded"></div>
@@ -546,14 +539,13 @@ const FinancialTiersManagement = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(15);
 
-  // Transformer les données de l'API en format utilisable
   const transformApiData = (data) => {
     if (!data?.users?.user_financials?.user_financial_items?.data) {
       return [];
     }
 
     return data.users.user_financials.user_financial_items.data.map((user) => {
-      const userTypeId = parseInt(user.user_type_id, 10); // Conversion en number
+      const userTypeId = parseInt(user.user_type_id, 10);
       const isPreteur = userTypeId === 7;
 
       return {
@@ -565,12 +557,11 @@ const FinancialTiersManagement = ({
         email: user.user_email,
         phone: user.user_phone_number,
         unpaid: user.unpaid_amount || 0,
-        user_type_id: userTypeId, // Maintenant un number
+        user_type_id: userTypeId,
       };
     });
   };
 
-  // Charger les données
   const fetchData = async (page = 1) => {
     try {
       setTableLoading(true);
@@ -593,7 +584,6 @@ const FinancialTiersManagement = ({
     return transformApiData(apiData);
   }, [apiData]);
 
-  // Pagination
   const totalItems =
     apiData?.users?.user_financials?.user_financial_items?.total || 0;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
@@ -605,24 +595,50 @@ const FinancialTiersManagement = ({
       user_first_name: tier.user_first_name,
       email: tier.email,
       phone: tier.phone,
-      user_type_id: tier.user_type_id, // Déjà en number
+      user_type_id: tier.user_type_id,
     });
 
   const handleCancelEditFinancial = () => setEditingFinancialTier(null);
 
-  const handleSaveEditFinancial = () => {
-    if (
-      editingFinancialTier?.user_name?.trim() &&
-      editingFinancialTier?.user_first_name?.trim()
-    ) {
-      onEditFinancialTier(editingFinancialTier.id, {
-        user_name: editingFinancialTier.user_name.trim(),
-        user_first_name: editingFinancialTier.user_first_name.trim(),
-        email: editingFinancialTier.email?.trim() || '',
-        phone: editingFinancialTier.phone?.trim() || '',
-        user_type_id: editingFinancialTier.user_type_id, // Déjà en number
-      });
-      handleCancelEditFinancial();
+  const handleSaveEditFinancial = async () => {
+    if (editingFinancialTier?.user_name?.trim()) {
+      try {
+        const formData = {
+          id: editingFinancialTier.id,
+          name: editingFinancialTier.user_name.trim(),
+          firstname: editingFinancialTier.user_first_name
+            ? editingFinancialTier.user_first_name.trim()
+            : '',
+          email: editingFinancialTier.email?.trim() || '',
+          phone_number: editingFinancialTier.phone?.trim() || '',
+          user_type_id: editingFinancialTier.user_type_id,
+        };
+
+        await updateTiers(formData, editingFinancialTier.id);
+
+        if (onEditFinancialTier) {
+          onEditFinancialTier(editingFinancialTier.id, {
+            user_name: editingFinancialTier.user_name.trim(),
+            user_first_name: editingFinancialTier.user_first_name
+              ? editingFinancialTier.user_first_name.trim()
+              : '',
+            email: editingFinancialTier.email?.trim() || '',
+            phone: editingFinancialTier.phone?.trim() || '',
+            user_type_id: editingFinancialTier.user_type_id,
+          });
+        }
+
+        await fetchData(currentPage);
+        handleCancelEditFinancial();
+      } catch (error) {
+        console.error(
+          'Erreur lors de la modification du tier financier:',
+          error
+        );
+        alert(
+          'Erreur lors de la modification du tier financier. Veuillez réessayer.'
+        );
+      }
     }
   };
 
@@ -647,9 +663,15 @@ const FinancialTiersManagement = ({
         `Supprimer "${tierToDelete.name}" ?\nCette action est irréversible.`
       )
     ) {
-      onDeleteFinancialTier(tierId);
-      // Recharger les données après suppression
-      await fetchData(currentPage);
+      try {
+        if (onDeleteFinancialTier) {
+          await onDeleteFinancialTier(tierId);
+        }
+        await fetchData(currentPage);
+      } catch (error) {
+        console.error('Erreur lors de la suppression:', error);
+        alert('Erreur lors de la suppression. Veuillez réessayer.');
+      }
     }
   };
 
@@ -750,7 +772,6 @@ const FinancialTiersManagement = ({
           {renderFinancialTiersTable()}
         </div>
 
-        {/* Pagination */}
         {totalPages > 1 && (
           <Pagination
             currentPage={currentPage}
@@ -764,13 +785,11 @@ const FinancialTiersManagement = ({
 
   return (
     <div className="space-y-4">
-      {/* Formulaire toujours visible */}
       <FinancialTierForm
         onAddFinancialTier={onAddFinancialTier}
         onRefreshData={() => fetchData(currentPage)}
       />
 
-      {/* Tableau avec état de chargement/erreur */}
       {renderTableContent()}
     </div>
   );

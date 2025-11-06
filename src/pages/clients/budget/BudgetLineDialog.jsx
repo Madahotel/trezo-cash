@@ -139,12 +139,7 @@ const BudgetLineDialog = ({
 
   // Options tiers mémorisées
   const thirdPartyOptions = React.useMemo(() => {
-    console.log('listThirdParty raw:', listThirdParty);
-    console.log('formData.type:', formData.type);
-
     const options = getFilteredThirdPartyOptions(formData.type, listThirdParty);
-    console.log('Filtered options:', options);
-
     return options;
   }, [formData.type, listThirdParty, getFilteredThirdPartyOptions]);
   // Calcul des montants
