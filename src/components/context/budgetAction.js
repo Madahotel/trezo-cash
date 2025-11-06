@@ -1,4 +1,4 @@
-import axios from '../config/Axios';
+import axios from "../config/Axios";
 
 export async function getBudget(idProjet) {
   try {
@@ -9,7 +9,7 @@ export async function getBudget(idProjet) {
       throw new Error(`Statut inattendu: ${res.data.status}`);
     }
   } catch (error) {
-    console.error('Erreur lors de la récupération du budget:', error);
+    console.error("Erreur lors de la récupération du budget:", error);
     throw error; // Relancer l'erreur pour que l'appelant puisse la gérer
   }
 }
@@ -22,7 +22,7 @@ export async function getOptions() {
       throw new Error(`Statut inattendu: ${res.data.status}`);
     }
   } catch (error) {
-    console.error('Erreur lors de la récupération du budget:', error);
+    console.error("Erreur lors de la récupération du budget:", error);
     throw error; // Relancer l'erreur pour que l'appelant puisse la gérer
   }
 }
@@ -35,27 +35,27 @@ export async function showEditBudget(budgetId) {
       throw new Error(`Statut inattendu: ${res.data.status}`);
     }
   } catch (error) {
-    console.error('Erreur lors de la récupération du budget:', error);
+    console.error("Erreur lors de la récupération du budget:", error);
     throw error;
   }
 }
 
 export async function storeBudget(formData, idProjet) {
   try {
-    console.log('URL appelée:', `/budget-projects/${idProjet}`);
-    console.log('Données envoyées:', formData);
-    
+    console.log("URL appelée:", `/budget-projects/${idProjet}`);
+    console.log("Données envoyées:", formData);
+
     const res = await axios.post(`/budget-projects/${idProjet}`, formData);
-    
-    console.log('Réponse reçue:', res);
-    
+
+    console.log("Réponse reçue:", res);
+
     if (res.data.status === 200) {
       return res.data.message;
     } else {
       throw new Error(`Statut inattendu: ${res.data.status}`);
     }
   } catch (error) {
-    console.error('Erreur détaillée:', error.response || error);
+    console.error("Erreur détaillée:", error.response || error);
     throw error; // Relancer l'erreur pour mieux la gérer
   }
 }

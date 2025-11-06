@@ -61,7 +61,7 @@ const ProjectTypeStep = ({ projectTypes, loadingTypes, setProjectTypes, setLoadi
 
   return (
     <div className="text-center">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Quel type de projet souhaitez-vous créer ?</h2>
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">Quel type de projet souhaitez-vous créer ? </h2>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
         {projectTypes.map((projectType) => (
