@@ -9,7 +9,7 @@ import {
     HelpCircle, Trash2, FolderCog, Hash, Banknote, LayoutTemplate, Lock, FolderKanban,
     Users as UsersIcon, Archive, Settings,
     DollarSign,
-    FolderOpen
+    FolderOpen,User2Icon
 } from 'lucide-react';
 import NavTooltip from './NavTooltip';
 import { useScheduleData } from '../../hooks/useScheduleData';
@@ -150,6 +150,7 @@ const handleLogout = async () => {
         { label: 'Échéancier', id: 'echeancier', path: '/client/echeancier', icon: Calendar },
         { label: 'Analyse', id: 'analyse', path: '/client/analyse', icon: PieChart },
         { label: 'Scénarios', id: 'scenarios', path: '/client/scenarios', icon: Layers },
+        { label: 'Collaborateurs', id: 'Collaborateurs', path: '/client/Collaborators', icon: User2Icon },
         { label: 'Comptes', id: 'comptes', path: '/client/comptes', icon: Wallet },
     ], []);
 
