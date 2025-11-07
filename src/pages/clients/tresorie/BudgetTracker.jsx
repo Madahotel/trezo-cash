@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Plus, Edit, Eye, Search, ChevronDown, Folder, TrendingUp, TrendingDown, Layers, ChevronLeft, ChevronRight, Filter, XCircle, Trash2, ArrowRightLeft, Calendar, Lock, MessageSquare, ChevronUp, Table, TableProperties, Banknote, Coins, PiggyBank } from 'lucide-react';
-import TransactionDetailDrawer from './TransactionDetailDrawer';
-import ResizableTh from './ResizableTh';
-import { getEntryAmountForPeriod, getActualAmountForPeriod, getStartOfWeek, expandVatEntries } from '../../../utils/budgetCalculations';
+import TransactionDetailDrawer from './TransactionDetailDrawer.jsx';
+import ResizableTh from './ResizableTh.jsx';
+import { getEntryAmountForPeriod, getActualAmountForPeriod, getStartOfWeek, expandVatEntries } from '../../../utils/budgetCalculations.js';
 import { getTodayInTimezone } from '../../../utils/getTodayInTimezone.js';
 import {  calculateGeneralTotals } from '../../../hooks/calculateGeneralTotals.jsx';
 import { useActiveProjectData } from '../../../hooks/useActiveProjectData.jsx';
@@ -10,9 +10,9 @@ import { useProcessedEntries } from '../../../hooks/useProcessedEntries.jsx';
 import { useGroupedData } from '../../../hooks/useGroupedData.jsx';
 import { usePeriodPositions } from '../../../hooks/usePeriodPositions.jsx';
 import { calculateMainCategoryTotals } from '../../../hooks/calculateMainCategoryTotals.jsx';
-import { formatCurrency } from '../../../utils/formatting';
-import { useData } from '../../../components/context/DataContext';
-import { useUI } from '../../../components/context/UIContext';
+import { formatCurrency } from '../../../utils/formatting.js';
+import { useData } from '../../../components/context/DataContext.jsx';
+import { useUI } from '../../../components/context/UIContext.jsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { deleteEntry, saveEntry } from '../../../components/context/actions.js';
 
@@ -157,6 +157,7 @@ const BudgetTracker = ({
     showViewModeSwitcher = true, 
     showNewEntryButton = true 
 }) => {
+
   const { dataState, dataDispatch } = useData();
   const { uiState, uiDispatch } = useUI();
   const { projects, categories, settings, allComments, vatRegimes, taxConfigs, loans, tiers } = dataState;
@@ -440,9 +441,9 @@ const BudgetTracker = ({
   }, [isMobile, timeUnit, horizonLength, periodOffset, activeQuickSelect, settings.timezoneOffset]);
 
   const filteredBudgetEntries = useMemo(() => {
-    let entries = budgetEntries;
+    let entries = budgetEntries || [];
     if (searchTerm) {
-        entries = entries.filter(entry => entry.supplier.toLowerCase().includes(searchTerm.toLowerCase()));
+        entries = entries.filter(entry => entry.supplier?.toLowerCase().includes(searchTerm.toLowerCase()));
     }
     if ((isConsolidated || isCustomConsolidated) && projectSearchTerm) {
         entries = entries.filter(entry => {
@@ -476,7 +477,26 @@ const BudgetTracker = ({
     return false;
   }, [periods, actualTransactions]);
 
-  const expandedAndVatEntries = useProcessedEntries(filteredBudgetEntries, actualTransactions, categories, vatRegimes, taxConfigs, activeProjectId, periods, isConsolidated, isCustomConsolidated);
+  // CORRECTION : S'assurer que toutes les dépendances sont des tableaux valides
+  const safeBudgetEntries = useMemo(() => filteredBudgetEntries || [], [filteredBudgetEntries]);
+  const safeActualTransactions = useMemo(() => actualTransactions || [], [actualTransactions]);
+  const safeCategories = useMemo(() => categories || {}, [categories]);
+  const safeVatRegimes = useMemo(() => vatRegimes || {}, [vatRegimes]);
+  const safeTaxConfigs = useMemo(() => taxConfigs || [], [taxConfigs]);
+  const safePeriods = useMemo(() => periods || [], [periods]);
+
+  const expandedAndVatEntries = useProcessedEntries(
+    safeBudgetEntries, 
+    safeActualTransactions, 
+    safeCategories, 
+    safeVatRegimes, 
+    safeTaxConfigs, 
+    activeProjectId, 
+    safePeriods, 
+    isConsolidated, 
+    isCustomConsolidated
+  );
+
   const hasOffBudgetRevenues = useMemo(() => expandedAndVatEntries.some(e => e.isOffBudget && e.type === 'revenu' && isRowVisibleInPeriods(e)), [expandedAndVatEntries, isRowVisibleInPeriods]);
   const hasOffBudgetExpenses = useMemo(() => expandedAndVatEntries.some(e => e.isOffBudget && e.type === 'depense' && isRowVisibleInPeriods(e)), [expandedAndVatEntries, isRowVisibleInPeriods]);
   const groupedData = useGroupedData(expandedAndVatEntries, categories, isRowVisibleInPeriods);
@@ -499,12 +519,13 @@ const BudgetTracker = ({
     };
   }, [isMobile, mobileMonthOffset]);
 
+  // CORRECTION : S'assurer que les dépendances pour mobileProcessedEntries sont valides
   const mobileProcessedEntries = useProcessedEntries(
-    budgetEntries, 
-    actualTransactions, 
-    categories, 
-    vatRegimes, 
-    taxConfigs, 
+    safeBudgetEntries, 
+    safeActualTransactions, 
+    safeCategories, 
+    safeVatRegimes, 
+    safeTaxConfigs, 
     activeProjectId, 
     mobilePeriod ? [mobilePeriod] : [],
     isConsolidated, 

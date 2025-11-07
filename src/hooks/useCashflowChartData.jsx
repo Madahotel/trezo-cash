@@ -1,3 +1,11 @@
+import { useCallback, useMemo } from 'react';
+import { useActiveProjectData } from './useActiveProjectData';
+import { useProcessedEntries } from './useProcessedEntries';
+import { useGroupedData } from './useGroupedData';
+import { getTodayInTimezone } from '../utils/getTodayInTimezone';
+import { calculatePeriodPositions } from '../hooks/calculatePeriodPositions';
+import { calculateGeneralTotals } from '../hooks/calculateGeneralTotals';
+
 export const useCashflowChartData = (dataState, uiState, periods) => {
     const { categories, vatRegimes, taxConfigs } = dataState;
     const { budgetEntries, actualTransactions, cashAccounts, activeProjectId, isConsolidated, isCustomConsolidated } = useActiveProjectData(dataState, uiState);

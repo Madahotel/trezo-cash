@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useUI } from '../../../components/context/UIContext';
-import { Plus, Loader } from 'lucide-react';
+import { Plus } from '../../../utils/Icons';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 
@@ -221,7 +221,7 @@ const BudgetPage = () => {
   if (!activeProjectId) {
     return (
       <div className="p-10 flex justify-center items-center">
-        <div className="text-red-600">Aucun projet sélectionné</div>
+        <div className="text-gray-500">Vous devez selectionner un projet</div>
       </div>
     );
   }

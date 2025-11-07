@@ -11,7 +11,8 @@ import {
     Users,
     UserPlus,
     Infinity,
-} from 'lucide-react';
+} from '../../../utils/Icons';
+import { Home, User } from '@/utils/Icons';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Textarea } from '../../../components/ui/textarea';
@@ -465,10 +466,9 @@ useEffect(() => {
                             <div className="flex items-center space-x-2">
                                 {isDurationUndetermined ? (
                                     <>
-                                        
                                         <div className="text-sm">
                                             <p className="text-xs text-gray-500">Fin</p>
-                                            <Infinity className="w-4 h-4 text-yellow-500" />
+                                            <Infinity className="w-6 h-7 text-yellow-500" />
                                         </div>
                                     </>
                                 ) : (

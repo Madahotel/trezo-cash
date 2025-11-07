@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Check, ChevronDown, User, Tag, Plus } from 'lucide-react';
+import { Check, ChevronDown, User, Tag, Plus } from '../../../utils/Icons';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Checkbox } from './ui/checkbox';

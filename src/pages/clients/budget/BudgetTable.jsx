@@ -17,6 +17,13 @@ import BudgetDetailModal from './BudgetDetailModal';
 
 // 🔥 OPTIMISATION : Cache pour les données groupées
 const groupedDataCache = new Map();
+const formatShortDate = (dateString) => {
+  if (!dateString) return '';
+  return new Date(dateString).toLocaleDateString('fr-FR', {
+    month: 'short',
+    year: 'numeric',
+  });
+};
 
 // 🔥 OPTIMISATION : Composant mémorisé pour les sous-catégories
 const SubCategoryRow = React.memo(({ 
@@ -28,7 +35,7 @@ const SubCategoryRow = React.memo(({
   onViewDetails,
   isSubMenuOpen,
   onSubCategoryMenuToggle,
-  menuRefs 
+  menuRefs, 
 }) => {
   const menuPosition = isSubMenuOpen
     ? getMenuPosition(menuRefs.current[item.id])
@@ -159,6 +166,7 @@ const SubCategoryMenu = React.memo(({
     </motion.div>
   );
 });
+
 
 const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete, loading = false }) => {
   const [activeTab, setActiveTab] = useState('revenus');
@@ -293,14 +301,7 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete, loading = false }
     };
   }, []);
 
-  // 🔥 OPTIMISATION : Formatage de date mémorisé
-  const formatShortDate = useCallback((dateString) => {
-    if (!dateString) return '';
-    return new Date(dateString).toLocaleDateString('fr-FR', {
-      month: 'short',
-      year: 'numeric',
-    });
-  }, []);
+
 
   // Composant de ligne de chargement
   const LoadingRow = useCallback(() => (

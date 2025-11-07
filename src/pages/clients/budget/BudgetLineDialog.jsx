@@ -159,65 +159,76 @@ const BudgetLineDialog = ({
   }, [formData.type, listThirdParty, getFilteredThirdPartyOptions]);
 
 
-  const createThirdParty = async (thirdPartyData) => {
-    try {
-      setIsCreatingThirdParty(true);
+const createThirdParty = async (thirdPartyData) => {
+  try {
+    setIsCreatingThirdParty(true);
 
-      console.log('📤 DONNÉES ENVOYÉES au backend:', thirdPartyData);
+    console.log('📤 DONNÉES ENVOYÉES au backend:', thirdPartyData);
 
-      const response = await apiService.request('POST', '/users/third-parties', thirdPartyData);
+    const response = await apiService.post('/users/third-parties', thirdPartyData);
 
-      if (response.success) {
-        console.log('✅ Tiers créé avec succès:', response.data);
-        await fetchOptions();
-        return response.data;
-      } else {
-        console.error('❌ Réponse d\'erreur du backend:', response);
+    console.log('📥 RÉPONSE COMPLÈTE DU BACKEND:', response);
 
-        let errorMessage = 'Erreur lors de la création du tiers';
+    // ✅ CORRECTION : Vérifiez le status 200 au lieu de response.success
+    if (response.status === 200) {
+      console.log('✅ Tiers créé avec succès');
+      
+      // Attendre un peu pour être sûr que le backend a fini
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await fetchOptions();
+      
+      // Retourner les données si disponibles, sinon un objet de succès
+      return response.data || { success: true, message: response.message };
+    } else {
+      console.error('❌ Réponse d\'erreur du backend:', response);
 
-        // Gestion spécifique des erreurs de validation
-        if (response.status === 422 && response.validationErrors) {
-          const errors = Object.entries(response.validationErrors)
-            .map(([field, messages]) => {
-              // Message personnalisé pour l'email unique
-              if (field === 'email' && messages.some(msg => msg.includes('unique'))) {
-                return `L'adresse email "${thirdPartyData.email}" est déjà utilisée par un autre tiers. Veuillez utiliser une adresse email différente.`;
-              }
-              return `${field}: ${messages.join(', ')}`;
-            })
-            .join('; ');
-          errorMessage = errors;
-        }
-        // Gestion des erreurs serveur avec message spécifique
-        else if (response.status === 500) {
-          // Vérifie si l'erreur concerne un email dupliqué
-          const errorDetail = response.data?.error || response.data?.message || '';
-          if (errorDetail.includes('email') && errorDetail.includes('unique')) {
-            errorMessage = `L'adresse email "${thirdPartyData.email}" est déjà utilisée. Veuillez utiliser une autre adresse email.`;
-          } else if (errorDetail.includes('Duplicate entry')) {
-            errorMessage = 'Cette adresse email est déjà utilisée par un autre tiers.';
-          } else {
-            errorMessage = response.data?.message || 'Erreur serveur. Veuillez réessayer.';
-          }
-        }
-        // Autres erreurs
-        else if (response.error) {
-          errorMessage = response.error;
-        }
+      let errorMessage = 'Erreur lors de la création du tiers';
 
-        throw new Error(errorMessage);
+      // Gestion spécifique des erreurs de validation
+      if (response.status === 422 && response.validationErrors) {
+        const errors = Object.entries(response.validationErrors)
+          .map(([field, messages]) => {
+            if (field === 'email' && messages.some(msg => msg.includes('unique'))) {
+              return `L'adresse email "${thirdPartyData.email}" est déjà utilisée.`;
+            }
+            return `${field}: ${messages.join(', ')}`;
+          })
+          .join('; ');
+        errorMessage = errors;
       }
-    } catch (error) {
-      console.error('❌ Erreur création tiers:', {
-        message: error.message,
-        data: thirdPartyData
-      });
-      throw error;
-    } finally {
-      setIsCreatingThirdParty(false);
+      // Gestion des erreurs serveur
+      else if (response.status === 500) {
+        const errorDetail = response.data?.error || response.data?.message || '';
+        if (errorDetail.includes('email') && errorDetail.includes('unique')) {
+          errorMessage = `L'adresse email "${thirdPartyData.email}" est déjà utilisée.`;
+        } else if (errorDetail.includes('Duplicate entry')) {
+          errorMessage = 'Cette adresse email est déjà utilisée par un autre tiers.';
+        } else {
+          errorMessage = response.data?.message || 'Erreur serveur. Veuillez réessayer.';
+        }
+      }
+      // Autres erreurs
+      else if (response.error) {
+        errorMessage = response.error;
+      }
+      // Cas où le status n'est pas 200 mais pas d'erreur spécifique
+      else if (response.status && response.status !== 200) {
+        errorMessage = response.message || `Erreur ${response.status} lors de la création`;
+      }
+
+      throw new Error(errorMessage);
     }
-  };
+  } catch (error) {
+    console.error('❌ Erreur création tiers:', {
+      message: error.message,
+      data: thirdPartyData,
+      error
+    });
+    throw error;
+  } finally {
+    setIsCreatingThirdParty(false);
+  }
+};
   const handleAddNewThirdParty = async () => {
     if (!newThirdPartyData.name.trim()) {
       alert('Le nom du tiers est obligatoire');

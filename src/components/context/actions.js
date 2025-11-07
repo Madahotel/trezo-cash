@@ -1,4 +1,4 @@
-export * from '../../hooks/useApiActions';
+export * from '../../hooks/useApiActions.jsx';
 import axios from '../../components/config/Axios';
 
 export const updateProjectOnboardingStep = async (

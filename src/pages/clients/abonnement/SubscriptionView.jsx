@@ -30,11 +30,11 @@ const SubscriptionView = () => {
         "Gestion multi-projets", "Consolidation des projets", "Support client prioritaire", "Toutes les futures mises à jour"
     ];
 
-    const plans = [
-        { id: 'solo', name: 'Pack Solo', description: 'Pour les indépendants et les budgets personnels.', monthly: { price: 12, id: 'price_1PZ9ZfRxX9E0X9Zf9Zf9Zf9Z' }, annual: { price: 96, id: 'price_1PZ9ZfRxX9E0X9Zf9Zf9Zf9Z' } },
-        { id: 'team', name: 'Pack Team', description: 'Pour les équipes et les entreprises qui collaborent.', monthly: { price: 20, id: 'price_1PZ9ZfRxX9E0X9Zf9Zf9Zf9Z' }, annual: { price: 160, id: 'price_1PZ9ZfRxX9E0X9Zf9Zf9Zf9Z' }, highlight: true },
-        { id: 'lifetime', name: 'Pack Lifetime', description: 'Un paiement unique, un accès à vie.', price: 499, id: 'price_1PZ9ZfRxX9E0X9Zf9Zf9Zf9Z', special: true },
-    ];
+    // const plans = [
+    //     { id: 'solo', name: 'Pack Solo', description: 'Pour les indépendants et les budgets personnels.', monthly: { price: 12, id: 'price_1PZ9ZfRxX9E0X9Zf9Zf9Zf9Z' }, annual: { price: 96, id: 'price_1PZ9ZfRxX9E0X9Zf9Zf9Zf9Z' } },
+    //     { id: 'team', name: 'Pack Team', description: 'Pour les équipes et les entreprises qui collaborent.', monthly: { price: 20, id: 'price_1PZ9ZfRxX9E0X9Zf9Zf9Zf9Z' }, annual: { price: 160, id: 'price_1PZ9ZfRxX9E0X9Zf9Zf9Zf9Z' }, highlight: true },
+    //     { id: 'lifetime', name: 'Pack Lifetime', description: 'Un paiement unique, un accès à vie.', price: 499, id: 'price_1PZ9ZfRxX9E0X9Zf9Zf9Zf9Z', special: true },
+    // ];
 
     return (
         <div className="space-y-8">

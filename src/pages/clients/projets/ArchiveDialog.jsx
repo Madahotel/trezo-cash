@@ -11,7 +11,7 @@ import {
 } from '../../../components/ui/alert-dialog';
 import { Label } from '../../../components/ui/Label';
 import { Textarea } from '../../../components/ui/textarea';
-import { Archive } from 'lucide-react';
+import { Archive } from '../../../utils/Icons';
 
 const ArchiveDialog = ({
     open,

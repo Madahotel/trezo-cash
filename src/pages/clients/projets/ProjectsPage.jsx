@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo,lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../../components/config/Axios';
 import toast from 'react-hot-toast';
@@ -9,7 +9,7 @@ import {
     Briefcase,
     PartyPopper,
     Home,
-} from 'lucide-react';
+} from '../../../utils/Icons';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/card';
 import { useSettings } from '../../../contexts/SettingsContext';
@@ -17,10 +17,9 @@ import { archiveService } from '../../../services/archiveService';
 import { useUI } from '../../../components/context/UIContext';
 import { useProjects } from '../../../hooks/useProjects';
 
-import ProjectCard from './ProjectCard';
-import ArchiveDialog from './ArchiveDialog';
-import ProjectStats from './ProjectStats';
-
+const ProjectCard = lazy(() => import('./ProjectCard'));
+const ArchiveDialog = lazy(() => import('./ArchiveDialog'));
+const ProjectStats = lazy(() => import('./ProjectStats'));
 // Configuration des icônes par type de projet
 const projectTypeIcons = {
     'Business': Briefcase,
