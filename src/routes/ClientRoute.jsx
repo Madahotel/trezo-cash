@@ -29,12 +29,18 @@ import ProtectedRoute from "../routes/ProtectedRoute"; // Ataovy araka ny làlan
 import ProjectsPage from "../pages/clients/projets/ProjectsPage";
 import { SettingsProvider } from "../contexts/SettingsContext";
 import DashboardProject from "../pages/clients/dashboard/DashboardProject";
+import ReferralsPage from "../pages/clients/ambassador/ReferralPage";
+import AmbassadorPage from "../pages/clients/ambassador/AmbassadorPage";
+import AmbassadorLayout from "../layouts/clients/ambassador/AmbassadorLayout";
+import ReferralDashboard from "../pages/clients/ambassador/ReferralDashboard";
+import PaymentHistoryPage from "../pages/clients/ambassador/PaymentHistoryPage";
+import ProgramInfoPage from "../pages/clients/ambassador/ProgramInfoPage";
 const ClientRoute = {
   path: "/client",
   element: (
     <ProtectedRoute>
       <SettingsProvider>
-      <ProjetLayoutClient />
+        <ProjetLayoutClient />
       </SettingsProvider>
     </ProtectedRoute>
   ),
@@ -62,10 +68,21 @@ const ClientRoute = {
     { path: "aide", element: <Aide title="Centre d'aide" /> },
     { path: "abonnement", element: <SubscriptionPage /> },
     { path: "onboarding", element: <OnboardingView /> },
-    { path: "parrainage", element: <ReferralPage /> },
+    // { path: "parrainage", element: <AmbassadorPage /> },
+    // { path: "parrainage/refferals", element: <ReferralsPage /> },
+    {
+      path: "parrainage",
+      element: <AmbassadorLayout />,
+      children: [
+        { index: true, element: <ReferralDashboard /> },
+        { path: "refferals", element: <ReferralsPage /> },
+        { path: "history", element: <PaymentHistoryPage /> },
+        { path: "program-info", element: <ProgramInfoPage /> },
+      ],
+    },
     { path: "projets", element: <ProjectsPage /> },
     { path: "project/:projectId/dashboard", element: <DashboardProject /> },
-   
+
   ],
 };
 
