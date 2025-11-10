@@ -18,23 +18,23 @@ import ArchivesPage from "../pages/clients/archives/ArchivesPage";
 import ProfilePage from "../pages/clients/profil/ProfilePage";
 import SecurityPage from "../pages/clients/security/SecurityPage";
 import UnderConstructionView from "../pages/clients/facture/UnderConstructionView";
-import { path } from "framer-motion/client";
 import Aide from "../pages/clients/aide/Aide";
 import SubscriptionPage from "../pages/clients/abonnement/SubscriptionPage";
 import OnboardingView from "../pages/clients/onboarding/OnboardingView";
 import BudgetPage from "../pages/clients/budget/Budget";
-import ReferralPage from "../pages/clients/ambassador/ReferralPage";
+import AmbassadorPage from "../pages/clients/ambassador/AmbassadorPage";
 
 import ProtectedRoute from "../routes/ProtectedRoute"; // Ataovy araka ny làlana marina
 import ProjectsPage from "../pages/clients/projets/ProjectsPage";
 import { SettingsProvider } from "../contexts/SettingsContext";
 import DashboardProject from "../pages/clients/dashboard/DashboardProject";
+import ReferralsPage from "../pages/clients/ambassador/RefferalsPage";
 const ClientRoute = {
   path: "/client",
   element: (
     <ProtectedRoute>
       <SettingsProvider>
-      <ProjetLayoutClient />
+        <ProjetLayoutClient />
       </SettingsProvider>
     </ProtectedRoute>
   ),
@@ -62,10 +62,11 @@ const ClientRoute = {
     { path: "aide", element: <Aide title="Centre d'aide" /> },
     { path: "abonnement", element: <SubscriptionPage /> },
     { path: "onboarding", element: <OnboardingView /> },
-    { path: "parrainage", element: <ReferralPage /> },
+    { path: "parrainage", element: <AmbassadorPage /> },
+    { path: "parrainage/refferals", element: <ReferralsPage /> },
     { path: "projets", element: <ProjectsPage /> },
     { path: "project/:projectId/dashboard", element: <DashboardProject /> },
-   
+
   ],
 };
 
