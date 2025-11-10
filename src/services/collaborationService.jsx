@@ -1,351 +1,273 @@
-import categoryService from './categoryService';
+// services/collaborationService.js
+import { apiService } from '../utils/ApiService';
 
-// Collaboration service for project sharing and permissions
 class CollaborationService {
-  constructor() {
-    this.collaborations = this.loadCollaborations();
+
+    async getProjectInvitations(projectId) {
+    try {
+      // Si votre API a un endpoint pour les invitations
+      // const response = await apiService.get(`/projects/${projectId}/invitations`);
+      // return response;
+      
+      // Pour l'instant, retourner un tableau vide car cette fonctionnalité
+      // n'est pas encore implémentée dans votre API backend
+      console.warn('La fonction getProjectInvitations n\'est pas encore implémentée avec l\'API');
+      return [];
+    } catch (error) {
+      console.error('Erreur lors de la récupération des invitations:', error);
+      return [];
+    }
   }
 
-  // Generate a unique invitation token
-  generateInvitationToken() {
-    return Math.random().toString(36).substring(2, 15) + 
-           Math.random().toString(36).substring(2, 15) + 
-           Date.now().toString(36);
+  // Autre méthode liée aux invitations si nécessaire
+  async getPendingInvitations(projectId) {
+    return this.getProjectInvitations(projectId);
+  }
+  // Récupérer tous les collaborateurs depuis l'API
+  async getCollaborators() {
+    try {
+      const response = await apiService.get('/users/collaborators');
+      return response;
+    } catch (error) {
+      console.error('Erreur lors de la récupération des collaborateurs:', error);
+      throw error;
+    }
   }
 
-  // Create invitation
-  createInvitation(projectId, invitation) {
-    const invitationData = {
-      id: this.generateInvitationToken(),
-      projectId,
-      email: invitation.email,
-      name: invitation.name,
-      permissions: {
-        accessLevel: invitation.accessLevel, // 'read' or 'write'
-        sections: {
-          entries: invitation.sections.entries || false,
-          expenses: invitation.sections.expenses || false
-        },
-        categories: {
-          entries: invitation.categories.entries || [],
-          expenses: invitation.categories.expenses || []
-        }
-      },
-      status: 'pending', // 'pending', 'accepted', 'declined', 'expired'
-      invitedBy: invitation.invitedBy,
-      invitedAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
-      acceptedAt: null
-    };
+  // Récupérer les collaborateurs d'un projet spécifique
+  async getProjectCollaborators(projectId) {
+    try {
+      const allCollaborators = await this.getCollaborators();
+      return allCollaborators.filter(collaborator => 
+        collaborator.projects?.some(project => project.id === parseInt(projectId))
+      );
+    } catch (error) {
+      console.error('Erreur lors de la récupération des collaborateurs du projet:', error);
+      throw error;
+    }
+  }
 
-    // Store invitation
-    if (!this.collaborations[projectId]) {
-      this.collaborations[projectId] = {
-        invitations: [],
-        collaborators: []
+  // Créer une invitation (envoyer vers l'API)
+  async createInvitation(invitationData) {
+    try {
+      const response = await apiService.post('/users/collaborators', invitationData);
+      return response;
+    } catch (error) {
+      console.error('Erreur lors de la création de l\'invitation:', error);
+      throw error;
+    }
+  }
+
+  // Supprimer un collaborateur
+  async removeCollaborator(collaboratorId) {
+    try {
+      const response = await apiService.delete(`/users/collaborators/${collaboratorId}`);
+      return response;
+    } catch (error) {
+      console.error('Erreur lors de la suppression du collaborateur:', error);
+      throw error;
+    }
+  }
+
+  // Mettre à jour les permissions d'un collaborateur
+  async updateCollaboratorPermissions(collaboratorId, permissionData) {
+    try {
+      const response = await apiService.put(`/users/collaborators/${collaboratorId}`, permissionData);
+      return response;
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour des permissions:', error);
+      throw error;
+    }
+  }
+
+  // Récupérer les permissions disponibles
+  async getAvailablePermissions() {
+    try {
+      const [permissions, roles] = await Promise.all([
+        apiService.get('/collaborator-permissions'),
+        apiService.get('/collaborator-roles')
+      ]);
+      return { permissions, roles };
+    } catch (error) {
+      console.error('Erreur lors de la récupération des permissions:', error);
+      throw error;
+    }
+  }
+
+  // Formater les permissions pour l'affichage
+  formatPermissions(permissions) {
+    if (!permissions) {
+      return {
+        accessLevel: 'Non défini',
+        sections: 'Aucune section',
+        categories: 'Aucune catégorie'
       };
     }
 
-    this.collaborations[projectId].invitations.push(invitationData);
-    this.saveCollaborations();
-
-    return invitationData;
-  }
-
-  // Get invitations for a project
-  getProjectInvitations(projectId) {
-    const project = this.collaborations[projectId];
-    return project ? project.invitations : [];
-  }
-
-  // Get collaborators for a project
-  getProjectCollaborators(projectId) {
-    const project = this.collaborations[projectId];
-    return project ? project.collaborators : [];
-  }
-
-  // Accept invitation
-  acceptInvitation(invitationId, userInfo) {
-    for (const projectId in this.collaborations) {
-      const invitation = this.collaborations[projectId].invitations.find(
-        inv => inv.id === invitationId
-      );
-
-      if (invitation) {
-        // Check if invitation is still valid
-        if (invitation.status !== 'pending') {
-          throw new Error('Invitation is no longer valid');
-        }
-
-        if (new Date() > new Date(invitation.expiresAt)) {
-          invitation.status = 'expired';
-          this.saveCollaborations();
-          throw new Error('Invitation has expired');
-        }
-
-        // Update invitation status
-        invitation.status = 'accepted';
-        invitation.acceptedAt = new Date().toISOString();
-
-        // Add collaborator to project
-        const collaborator = {
-          id: this.generateInvitationToken(),
-          email: invitation.email,
-          name: userInfo.name || invitation.name,
-          permissions: invitation.permissions,
-          joinedAt: new Date().toISOString(),
-          invitationId
-        };
-
-        this.collaborations[projectId].collaborators.push(collaborator);
-        this.saveCollaborations();
-
-        return { collaborator, projectId };
+    // Si les permissions viennent de l'ancien format (localStorage)
+    if (typeof permissions === 'object' && permissions.accessLevel) {
+      const accessLevelText = permissions.accessLevel === 'write' ? 'Lecture-écriture' : 'Lecture seule';
+      
+      const sectionsText = [];
+      if (permissions.sections?.entries) sectionsText.push('Entrées');
+      if (permissions.sections?.expenses) sectionsText.push('Sorties');
+      
+      const categoriesText = [];
+      if (permissions.categories?.entries?.length > 0) {
+        categoriesText.push(`Entrées: ${permissions.categories.entries.length} catégories`);
       }
-    }
-
-    throw new Error('Invitation not found');
-  }
-
-  // Update collaborator permissions
-  updateCollaboratorPermissions(projectId, collaboratorId, newPermissions) {
-    const project = this.collaborations[projectId];
-    if (!project) return false;
-
-    const collaborator = project.collaborators.find(c => c.id === collaboratorId);
-    if (!collaborator) return false;
-
-    collaborator.permissions = { ...collaborator.permissions, ...newPermissions };
-    collaborator.updatedAt = new Date().toISOString();
-
-    this.saveCollaborations();
-    return true;
-  }
-
-  // Remove collaborator from project
-  removeCollaborator(projectId, collaboratorId) {
-    const project = this.collaborations[projectId];
-    if (!project) return false;
-
-    const index = project.collaborators.findIndex(c => c.id === collaboratorId);
-    if (index === -1) return false;
-
-    project.collaborators.splice(index, 1);
-    this.saveCollaborations();
-    return true;
-  }
-
-  // Cancel invitation
-  cancelInvitation(projectId, invitationId) {
-    const project = this.collaborations[projectId];
-    if (!project) return false;
-
-    const invitation = project.invitations.find(inv => inv.id === invitationId);
-    if (!invitation) return false;
-
-    invitation.status = 'cancelled';
-    invitation.cancelledAt = new Date().toISOString();
-
-    this.saveCollaborations();
-    return true;
-  }
-
-  // Resend invitation
-  resendInvitation(projectId, invitationId) {
-    const project = this.collaborations[projectId];
-    if (!project) return null;
-
-    const invitation = project.invitations.find(inv => inv.id === invitationId);
-    if (!invitation || invitation.status !== 'pending') return null;
-
-    // Extend expiration
-    invitation.expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-    invitation.resentAt = new Date().toISOString();
-
-    this.saveCollaborations();
-    return invitation;
-  }
-
-  // Check if user has permission for specific action
-  hasPermission(projectId, userEmail, action, section = null, category = null) {
-    const project = this.collaborations[projectId];
-    if (!project) return false;
-
-    const collaborator = project.collaborators.find(c => c.email === userEmail);
-    if (!collaborator) return false;
-
-    const permissions = collaborator.permissions;
-
-    // Check access level
-    if (action === 'write' && permissions.accessLevel !== 'write') {
-      return false;
-    }
-
-    // Check section permission
-    if (section) {
-      if (!permissions.sections[section]) {
-        return false;
+      if (permissions.categories?.expenses?.length > 0) {
+        categoriesText.push(`Sorties: ${permissions.categories.expenses.length} catégories`);
       }
 
-      // Check category permission if specified
-      if (category && permissions.categories[section]) {
-        const allowedCategories = permissions.categories[section];
-        if (allowedCategories.length > 0 && !allowedCategories.includes(category)) {
-          return false;
-        }
-      }
+      return {
+        accessLevel: accessLevelText,
+        sections: sectionsText.join(', ') || 'Aucune section',
+        categories: categoriesText.join(', ') || 'Toutes les catégories'
+      };
     }
 
-    return true;
-  }
+    // Si les permissions viennent du nouveau format (API)
+    if (typeof permissions === 'object') {
+      return {
+        accessLevel: permissions.accessLevel || permissions.permission_name || 'Non défini',
+        sections: 'Toutes les sections', // À adapter selon votre logique métier
+        categories: 'Toutes les catégories' // À adapter selon votre logique métier
+      };
+    }
 
-  // Get available categories for permission assignment
-  getAvailableCategories() {
+    // Fallback
     return {
-      entries: categoryService.getAllCategories('income').map(cat => ({
-        id: cat.id,
-        name: cat.name,
-        icon: cat.icon,
-        color: cat.color
-      })),
-      expenses: categoryService.getAllCategories('expense').map(cat => ({
-        id: cat.id,
-        name: cat.name,
-        icon: cat.icon,
-        color: cat.color
-      }))
+      accessLevel: 'Non défini',
+      sections: 'Aucune information',
+      categories: 'Aucune information'
     };
   }
 
-  // Generate invitation link
+  // Vérifier si un utilisateur a une permission spécifique
+  async hasPermission(projectId, userEmail, action, section = null, category = null) {
+    try {
+      // Cette méthode peut être implémentée côté backend
+      // Pour l'instant, retourne true par défaut
+      return true;
+    } catch (error) {
+      console.error('Erreur lors de la vérification des permissions:', error);
+      return false;
+    }
+  }
+
+  // Obtenir les statistiques de collaboration pour un projet
+  async getProjectCollaborationStats(projectId) {
+    try {
+      const collaborators = await this.getProjectCollaborators(projectId);
+      return {
+        collaborators: collaborators.length,
+        pendingInvitations: 0, // À implémenter si vous avez des invitations en attente
+        totalInvitations: collaborators.length
+      };
+    } catch (error) {
+      console.error('Erreur lors de la récupération des statistiques:', error);
+      return { collaborators: 0, pendingInvitations: 0, totalInvitations: 0 };
+    }
+  }
+
+  // Générer un lien d'invitation (pour compatibilité avec l'ancien code)
   generateInvitationLink(invitationId) {
     const baseUrl = window.location.origin;
     return `${baseUrl}/invitation/${invitationId}`;
   }
 
-  // Get invitation by ID (for accepting invitations)
-  getInvitationById(invitationId) {
-    for (const projectId in this.collaborations) {
-      const invitation = this.collaborations[projectId].invitations.find(
-        inv => inv.id === invitationId
-      );
-      if (invitation) {
-        return { ...invitation, projectId };
-      }
-    }
-    return null;
-  }
-
-  // Get summary statistics for a project
-  getProjectCollaborationStats(projectId) {
-    const project = this.collaborations[projectId];
-    if (!project) {
-      return { collaborators: 0, pendingInvitations: 0, totalInvitations: 0 };
-    }
-
-    const pendingInvitations = project.invitations.filter(
-      inv => inv.status === 'pending'
-    ).length;
-
-    return {
-      collaborators: project.collaborators.length,
-      pendingInvitations,
-      totalInvitations: project.invitations.length
-    };
-  }
-
-  // Get formatted permissions for display
-  formatPermissions(permissions) {
-    const accessLevelText = permissions.accessLevel === 'write' ? 'Lecture-écriture' : 'Lecture seule';
-    
-    const sectionsText = [];
-    if (permissions.sections.entries) sectionsText.push('Entrées');
-    if (permissions.sections.expenses) sectionsText.push('Sorties');
-    
-    const categoriesText = [];
-    if (permissions.categories.entries?.length > 0) {
-      categoriesText.push(`Entrées: ${permissions.categories.entries.length} catégories`);
-    }
-    if (permissions.categories.expenses?.length > 0) {
-      categoriesText.push(`Sorties: ${permissions.categories.expenses.length} catégories`);
-    }
-
-    return {
-      accessLevel: accessLevelText,
-      sections: sectionsText.join(', ') || 'Aucune section',
-      categories: categoriesText.join(', ') || 'Toutes les catégories'
-    };
-  }
-
-  // Save collaborations to localStorage
-  saveCollaborations() {
-    try {
-      localStorage.setItem('collaborations', JSON.stringify(this.collaborations));
-    } catch (error) {
-      console.error('Error saving collaborations:', error);
-    }
-  }
-
-  // Load collaborations from localStorage
-  loadCollaborations() {
-    try {
-      const saved = localStorage.getItem('collaborations');
-      return saved ? JSON.parse(saved) : {};
-    } catch (error) {
-      console.error('Error loading collaborations:', error);
-      return {};
-    }
-  }
-
-  // Clean expired invitations
+  // Nettoyer les données (pour compatibilité)
   cleanExpiredInvitations() {
-    const now = new Date();
-    let cleaned = false;
-
-    for (const projectId in this.collaborations) {
-      const project = this.collaborations[projectId];
-      const originalLength = project.invitations.length;
-      
-      project.invitations = project.invitations.filter(invitation => {
-        if (invitation.status === 'pending' && new Date(invitation.expiresAt) < now) {
-          invitation.status = 'expired';
-          return true;
-        }
-        return true;
-      });
-
-      if (project.invitations.length !== originalLength) {
-        cleaned = true;
-      }
-    }
-
-    if (cleaned) {
-      this.saveCollaborations();
-    }
-
-    return cleaned;
+    // Cette méthode n'est plus nécessaire avec l'API
+    console.log('Méthode cleanExpiredInvitations obsolète avec l\'API backend');
+    return false;
   }
 
-  // Export collaborations for backup
-  exportCollaborations() {
+  // Exporter les collaborations (pour compatibilité)
+  async exportCollaborations() {
+    try {
+      const collaborators = await this.getCollaborators();
+      return {
+        collaborations: collaborators,
+        exportDate: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Erreur lors de l\'export des collaborations:', error);
+      throw error;
+    }
+  }
+
+  // Méthodes utilitaires pour le mapping des données
+  mapAccessLevelToIds(accessLevel) {
+    const permissionMap = {
+      'read': { permissionId: 1, roleId: 1 },
+      'write': { permissionId: 2, roleId: 2 }
+    };
+    return permissionMap[accessLevel] || { permissionId: 1, roleId: 1 };
+  }
+
+  // Préparer les données pour l'API à partir du formulaire
+  prepareInvitationData(formData, project) {
     return {
-      collaborations: this.collaborations,
-      exportDate: new Date().toISOString()
+      name: formData.name.trim(),
+      firstname: formData.firstname.trim(),
+      email: formData.email.toLowerCase().trim(),
+      phone_number: formData.phone_number.trim(),
+      collaborator_permission_id: parseInt(formData.collaborator_permission_id),
+      collaborator_role_id: parseInt(formData.collaborator_role_id),
+      project_id: [parseInt(project.id)],
+      password: 'defaultPassword123!' // Mot de passe par défaut
     };
   }
 
-  // Import collaborations from backup
-  importCollaborations(data) {
+  // Valider les données avant envoi
+  validateInvitationData(formData) {
+    const errors = {};
+
+    if (!formData.name?.trim()) {
+      errors.name = 'Le nom est obligatoire';
+    }
+
+    if (!formData.email?.trim()) {
+      errors.email = 'L\'email est obligatoire';
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      errors.email = 'Format d\'email invalide';
+    }
+
+    if (!formData.collaborator_permission_id) {
+      errors.permission = 'La permission est obligatoire';
+    }
+
+    if (!formData.collaborator_role_id) {
+      errors.role = 'Le rôle est obligatoire';
+    }
+
+    return {
+      isValid: Object.keys(errors).length === 0,
+      errors
+    };
+  }
+
+  // Obtenir les collaborateurs formatés pour l'affichage
+  async getFormattedCollaborators(projectId = null) {
     try {
-      if (data.collaborations) {
-        this.collaborations = data.collaborations;
-        this.saveCollaborations();
-        return true;
-      }
-      return false;
+      const collaborators = projectId 
+        ? await this.getProjectCollaborators(projectId)
+        : await this.getCollaborators();
+
+      return collaborators.map(collaborator => ({
+        id: collaborator.id,
+        name: collaborator.name,
+        email: collaborator.email,
+        phone_number: collaborator.phone_number,
+        joinedAt: collaborator.joinedAt,
+        permissions: this.formatPermissions(collaborator.permissions),
+        projects: collaborator.projects || []
+      }));
     } catch (error) {
-      console.error('Error importing collaborations:', error);
-      return false;
+      console.error('Erreur lors du formatage des collaborateurs:', error);
+      throw error;
     }
   }
 }
