@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, Check, Clock, XCircle, Calendar, Package, UserCheck, Mail, Phone } from 'lucide-react';
+import axios from '../../../components/config/Axios';
 
 const ReferralsPage = () => {
     const [data, setData] = useState(null);
@@ -9,24 +10,48 @@ const ReferralsPage = () => {
     const [statusFilter, setStatusFilter] = useState('all');
     const [sortConfig, setSortConfig] = useState({ key: 'registrationDate', direction: 'descending' });
 
-    // Données de démonstration
-    const mockData = [
-        { id: 1, name: 'Jean Dupont', status: 'actif', pack: 'Premium', registrationDate: '2024-11-01', email: 'jean.dupont@email.com', phone: '+33 6 12 34 56 78' },
-        { id: 2, name: 'Marie Martin', status: 'essai', pack: 'Starter', registrationDate: '2024-11-05', email: 'marie.martin@email.com', phone: '+33 6 23 45 67 89' },
-        { id: 3, name: 'Pierre Lambert', status: 'actif', pack: 'Business', registrationDate: '2024-10-28', email: 'pierre.lambert@email.com', phone: '+33 6 34 56 78 90' },
-        { id: 4, name: 'Sophie Bernard', status: 'inactif', pack: 'Starter', registrationDate: '2024-10-15', email: 'sophie.bernard@email.com', phone: '+33 6 45 67 89 01' },
-        { id: 5, name: 'Thomas Moreau', status: 'actif', pack: 'Premium', registrationDate: '2024-11-08', email: 'thomas.moreau@email.com', phone: '+33 6 56 78 90 12' },
-        { id: 6, name: 'Julie Dubois', status: 'essai', pack: 'Business', registrationDate: '2024-11-10', email: 'julie.dubois@email.com', phone: '+33 6 67 89 01 23' },
-        { id: 7, name: 'Lucas Petit', status: 'actif', pack: 'Premium', registrationDate: '2024-10-22', email: 'lucas.petit@email.com', phone: '+33 6 78 90 12 34' },
-        { id: 8, name: 'Emma Roux', status: 'inactif', pack: 'Starter', registrationDate: '2024-10-10', email: 'emma.roux@email.com', phone: '+33 6 89 01 23 45' },
-    ];
-
     useEffect(() => {
-        // Simulation du chargement des données
-        setTimeout(() => {
-            setData(mockData);
-            setLoading(false);
-        }, 800);
+        const fetchFilleuls = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+
+                const response = await axios.get('/api/ambassadeur/getFilleul', {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        // 'Authorization': `Bearer ${votre_token}`, // si besoin
+                    },
+                    withCredentials: true, // ⚠️ pour axios, c'est "withCredentials" et non "credentials"
+                });
+
+                // Axios met déjà les données dans response.data
+                const result = response.data;
+
+                // Vérifie que result.filleuls existe bien avant de mapper
+                const transformedData = (result.filleuls || []).map((filleul) => ({
+                    id: filleul.id,
+                    name: filleul.name,
+                    email: filleul.email,
+                    status: filleul.status || 'inactif',
+                    pack: filleul.pack || 'Aucun',
+                    registrationDate: filleul.date_inscription,
+                }));
+
+                setData(transformedData);
+            } catch (err) {
+                console.error('Erreur lors du chargement des filleuls:', err);
+                setError(
+                    err.response?.data?.message ||
+                    err.message ||
+                    'Impossible de charger les filleuls'
+                );
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchFilleuls();
     }, []);
 
     const filteredAndSortedReferrals = useMemo(() => {
@@ -233,24 +258,12 @@ const ReferralsPage = () => {
                                     </th>
                                     <th className="px-6 py-4 text-xs font-semibold tracking-wider text-left text-gray-600 uppercase">
                                         <button
-                                            onClick={() => handleSort('pack')}
-                                            className="flex items-center gap-2 transition-colors hover:text-blue-600"
-                                        >
-                                            Pack
-                                            {getSortIcon('pack')}
-                                        </button>
-                                    </th>
-                                    <th className="px-6 py-4 text-xs font-semibold tracking-wider text-left text-gray-600 uppercase">
-                                        <button
                                             onClick={() => handleSort('registrationDate')}
                                             className="flex items-center gap-2 transition-colors hover:text-blue-600"
                                         >
                                             Inscription
                                             {getSortIcon('registrationDate')}
                                         </button>
-                                    </th>
-                                    <th className="px-6 py-4 text-xs font-semibold tracking-wider text-left text-gray-600 uppercase">
-                                        Contact
                                     </th>
                                 </tr>
                             </thead>
@@ -283,25 +296,9 @@ const ReferralsPage = () => {
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <Package className="w-4 h-4 text-gray-400" />
-                                                        <span className="text-sm font-medium text-gray-900">{referral.pack}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4">
                                                     <div className="flex items-center gap-2 text-sm text-gray-600">
                                                         <Calendar className="w-4 h-4 text-gray-400" />
                                                         {formatDate(referral.registrationDate)}
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <button className="p-2 transition-colors rounded-lg hover:bg-blue-50 group">
-                                                            <Mail className="w-4 h-4 text-gray-400 group-hover:text-blue-600" />
-                                                        </button>
-                                                        <button className="p-2 transition-colors rounded-lg hover:bg-blue-50 group">
-                                                            <Phone className="w-4 h-4 text-gray-400 group-hover:text-blue-600" />
-                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
