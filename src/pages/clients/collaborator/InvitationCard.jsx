@@ -1,4 +1,3 @@
-// components/InvitationCard.jsx
 import React from 'react';
 import { Mail, Copy, RefreshCw, X, Settings } from 'lucide-react';
 import { Card, CardContent } from '../../../components/ui/Card';
@@ -23,13 +22,13 @@ const InvitationCard = ({ invitation, onResend, onCancel, onCopyLink }) => {
       <CardContent className="p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+            <div className="flex items-center justify-center w-10 h-10 bg-orange-100 rounded-full">
               <Mail className="w-5 h-5 text-orange-600" />
             </div>
             <div>
               <h3 className="font-medium">{invitation.name}</h3>
               <p className="text-sm text-gray-500">{invitation.email}</p>
-              <div className="flex items-center space-x-2 mt-1">
+              <div className="flex items-center mt-1 space-x-2">
                 <StatusBadge status={invitation.status} />
                 <span className="text-xs text-gray-400">
                   {isExpired ? 'Expirée' : `Expire le ${new Date(invitation.expiresAt).toLocaleDateString('fr-FR')}`}

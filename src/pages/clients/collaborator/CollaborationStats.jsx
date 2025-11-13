@@ -1,10 +1,9 @@
-// components/CollaborationStats.jsx
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 
 const CollaborationStats = ({ stats }) => {
   return (
-    <div className="grid md:grid-cols-3 gap-4">
+    <div className="grid gap-4 md:grid-cols-3">
       <Card className="bg-white border border-gray-200">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-gray-600">Collaborateurs actifs</CardTitle>

@@ -1,4 +1,3 @@
-// components/CollaboratorsPage.jsx
 import React, { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
@@ -94,8 +93,8 @@ const CollaboratorsPage = () => {
   if (!project) {
     return (
       <div className="p-6 space-y-6">
-        <div className="text-center py-12">
-          <h1 className="text-2xl font-bold text-gray-600 mb-4">Aucun projet sélectionné</h1>
+        <div className="py-12 text-center">
+          <h1 className="mb-4 text-2xl font-bold text-gray-600">Aucun projet sélectionné</h1>
           <p className="text-gray-500">Veuillez sélectionner un projet pour gérer les collaborateurs.</p>
         </div>
       </div>
@@ -105,9 +104,9 @@ const CollaboratorsPage = () => {
   if (loading) {
     return (
       <div className="p-6 space-y-6">
-        <div className="flex justify-center items-center py-12">
+        <div className="flex items-center justify-center py-12">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <div className="w-12 h-12 mx-auto mb-4 border-b-2 border-blue-600 rounded-full animate-spin"></div>
             <p className="text-gray-600">Chargement des collaborateurs...</p>
           </div>
         </div>
@@ -118,10 +117,10 @@ const CollaboratorsPage = () => {
   if (error) {
     return (
       <div className="p-6 space-y-6">
-        <div className="text-center py-8">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
-            <h3 className="text-lg font-semibold text-red-800 mb-2">Erreur de chargement</h3>
-            <p className="text-red-600 mb-4">{error}</p>
+        <div className="py-8 text-center">
+          <div className="max-w-md p-6 mx-auto border border-red-200 rounded-lg bg-red-50">
+            <h3 className="mb-2 text-lg font-semibold text-red-800">Erreur de chargement</h3>
+            <p className="mb-4 text-red-600">{error}</p>
             <Button onClick={loadCollaborationData} variant="outline">
               Réessayer
             </Button>
