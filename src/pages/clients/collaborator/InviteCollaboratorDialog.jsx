@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Send, Eye, Edit } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
-import { Input } from '../../../components/ui/input';
+import { Input } from '../../../components/ui/Input';
 import { Label } from '../../../components/ui/label';
 import { Textarea } from '../../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
@@ -234,7 +234,7 @@ const InviteCollaboratorDialog = ({ open, onOpenChange, project, onInviteSent })
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 mt-4">
+        <div className="mt-4 space-y-6">
           {/* Informations de base */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -253,7 +253,7 @@ const InviteCollaboratorDialog = ({ open, onOpenChange, project, onInviteSent })
                 disabled={loading}
               />
               {validationErrors.name && (
-                <p className="text-red-500 text-xs">{validationErrors.name}</p>
+                <p className="text-xs text-red-500">{validationErrors.name}</p>
               )}
             </div>
             <div className="space-y-2">
@@ -290,7 +290,7 @@ const InviteCollaboratorDialog = ({ open, onOpenChange, project, onInviteSent })
                 disabled={loading}
               />
               {validationErrors.email && (
-                <p className="text-red-500 text-xs">{validationErrors.email}</p>
+                <p className="text-xs text-red-500">{validationErrors.email}</p>
               )}
             </div>
             <div className="space-y-2">
@@ -337,7 +337,7 @@ const InviteCollaboratorDialog = ({ open, onOpenChange, project, onInviteSent })
                   </SelectContent>
                 </Select>
                 {validationErrors.permission && (
-                  <p className="text-red-500 text-xs">{validationErrors.permission}</p>
+                  <p className="text-xs text-red-500">{validationErrors.permission}</p>
                 )}
               </div>
 
@@ -364,7 +364,7 @@ const InviteCollaboratorDialog = ({ open, onOpenChange, project, onInviteSent })
                   </SelectContent>
                 </Select>
                 {validationErrors.role && (
-                  <p className="text-red-500 text-xs">{validationErrors.role}</p>
+                  <p className="text-xs text-red-500">{validationErrors.role}</p>
                 )}
               </div>
             </div>
@@ -403,7 +403,7 @@ const InviteCollaboratorDialog = ({ open, onOpenChange, project, onInviteSent })
             >
               {loading ? (
                 <>
-                  <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <div className="w-4 h-4 mr-2 border-2 border-white rounded-full border-t-transparent animate-spin" />
                   Envoi en cours...
                 </>
               ) : (

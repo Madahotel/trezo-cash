@@ -1,4 +1,3 @@
-// components/CollaboratorsTabs.jsx
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import CollaboratorsList from './CollaboratorsList';
@@ -14,7 +13,7 @@ const CollaboratorsTabs = ({
 }) => {
   return (
     <Tabs defaultValue="collaborators" className="space-y-4">
-      <TabsList className="bg-gray-100 p-1 rounded-lg">
+      <TabsList className="p-1 bg-gray-100 rounded-lg">
         <TabsTrigger value="collaborators" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
           Collaborateurs ({collaborators.length})
         </TabsTrigger>

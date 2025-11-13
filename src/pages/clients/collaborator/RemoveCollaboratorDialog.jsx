@@ -1,4 +1,3 @@
-// components/RemoveCollaboratorDialog.jsx
 import React from 'react';
 import {
   AlertDialog,

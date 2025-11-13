@@ -1,8 +1,8 @@
-// components/CollaboratorTable.jsx
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Edit, Trash2, MoreVertical, Mail, Phone, Calendar, Building, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import Badge from '../../../components/ui/badge';
+import { useUI } from '../../../components/context/UIContext';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,16 +12,32 @@ import {
 } from '../../../components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 
-const CollaboratorCard = ({ 
+const CollaboratorTable = ({ 
   collaborators, 
   visibleColumns, 
   onRemoveCollaborator, 
   onUpdatePermissions,
   emptyMessage 
 }) => {
+  const { uiState } = useUI(); 
   const [expandedRows, setExpandedRows] = useState(new Set());
   const [sortField, setSortField] = useState('name');
   const [sortDirection, setSortDirection] = useState('asc');
+  const filteredCollaborators = useMemo(() => {
+    if (!uiState.activeProject?.id) {
+      return collaborators;
+    }
+if (uiState.activeProject && typeof uiState.activeProject.id === "string" &&
+    (uiState.activeProject.id === "consolidated" || 
+     uiState.activeProject.id.startsWith("consolidated_view_"))) {
+  return collaborators;
+}
+    return collaborators.filter(collaborator => {
+      return collaborator.projects?.some(project => 
+        project.id === uiState.activeProject.id
+      );
+    });
+  }, [collaborators, uiState.activeProject]);
 
   const toggleRowExpansion = (collaboratorId) => {
     const newExpanded = new Set(expandedRows);
@@ -42,20 +58,21 @@ const CollaboratorCard = ({
     }
   };
 
-  // Fonction de tri
-  const sortedCollaborators = [...collaborators].sort((a, b) => {
-    let aValue = a[sortField];
-    let bValue = b[sortField];
-    
-    if (sortField === 'name') {
-      aValue = `${a.firstname} ${a.name}`;
-      bValue = `${b.firstname} ${b.name}`;
-    }
-    
-    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-    return 0;
-  });
+  const sortedCollaborators = useMemo(() => {
+    return [...filteredCollaborators].sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+      
+      if (sortField === 'name') {
+        aValue = `${a.firstname} ${a.name}`;
+        bValue = `${b.firstname} ${b.name}`;
+      }
+      
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [filteredCollaborators, sortField, sortDirection]);
 
   const getBadgeVariant = (type, value) => {
     if (type === 'permission') {
@@ -109,21 +126,42 @@ const CollaboratorCard = ({
     </TableHead>
   );
 
-  if (collaborators.length === 0) {
+  if (filteredCollaborators.length === 0) {
     return (
-      <div className="text-center py-16 border-2 border-dashed border-gray-300 rounded-lg bg-white">
+      <div className="py-16 text-center bg-white border-2 border-gray-300 border-dashed rounded-lg">
         <Building className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-        <h3 className="text-lg font-semibold text-gray-600 mb-2">Aucun collaborateur</h3>
-        <p className="text-gray-500 mb-6">{emptyMessage}</p>
+        <h3 className="mb-2 text-lg font-semibold text-gray-600">
+          {uiState.activeProject ? 
+            "Aucun collaborateur pour ce projet" : 
+            "Aucun collaborateur"
+          }
+        </h3>
+        <p className="mb-6 text-gray-500">
+          {uiState.activeProject ? 
+            "Aucun collaborateur n'est actuellement associé à ce projet." : 
+            emptyMessage
+          }
+        </p>
         <Button className="bg-blue-600 hover:bg-blue-700">
-          Inviter le premier collaborateur
+          Inviter un collaborateur
         </Button>
       </div>
     );
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+    <div className="overflow-hidden bg-white border border-gray-200 rounded-lg">
+      {uiState.activeProject && (
+        <div className="px-4 py-2 border-b border-blue-100 bg-blue-50">
+          <p className="text-sm text-blue-700">
+            Affichage des collaborateurs du projet : <strong>{uiState.activeProject.name}</strong>
+            <span className="ml-2 text-blue-500">
+              ({filteredCollaborators.length} collaborateur{filteredCollaborators.length > 1 ? 's' : ''})
+            </span>
+          </p>
+        </div>
+      )}
+      
       <Table>
         <TableHeader>
           <TableRow className="bg-gray-50 hover:bg-gray-50">
@@ -160,13 +198,13 @@ const CollaboratorCard = ({
         <TableBody>
           {sortedCollaborators.map((collaborator) => (
             <React.Fragment key={collaborator.id}>
-              <TableRow className="hover:bg-gray-50 border-b border-gray-100">
+              <TableRow className="border-b border-gray-100 hover:bg-gray-50">
                 <TableCell>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => toggleRowExpansion(collaborator.id)}
-                    className="h-8 w-8 p-0"
+                    className="w-8 h-8 p-0"
                   >
                     {expandedRows.has(collaborator.id) ? (
                       <ChevronUp className="w-4 h-4" />
@@ -180,7 +218,7 @@ const CollaboratorCard = ({
                   <TableCell className="font-medium">
                     <div>
                       <div className="font-semibold">
-                        {collaborator.firstname} {collaborator.name}
+                        {/* {collaborator.firstname} {collaborator.name} */}
                       </div>
                       {collaborator.full_name && (
                         <div className="text-sm text-gray-500">{collaborator.full_name}</div>
@@ -192,7 +230,6 @@ const CollaboratorCard = ({
                 {visibleColumns.email && (
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Mail className="w-4 h-4 text-gray-400" />
                       <span className="truncate max-w-[200px]">{collaborator.email}</span>
                     </div>
                   </TableCell>
@@ -202,7 +239,6 @@ const CollaboratorCard = ({
                   <TableCell>
                     {collaborator.phone_number ? (
                       <div className="flex items-center gap-2">
-                        <Phone className="w-4 h-4 text-gray-400" />
                         <span>{collaborator.phone_number}</span>
                       </div>
                     ) : (
@@ -245,7 +281,6 @@ const CollaboratorCard = ({
                 {visibleColumns.joinDate && (
                   <TableCell>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Calendar className="w-4 h-4" />
                       {formatDate(collaborator.joined_at)}
                     </div>
                   </TableCell>
@@ -256,7 +291,6 @@ const CollaboratorCard = ({
                     <div className="text-sm">
                       {collaborator.projects && collaborator.projects.length > 0 ? (
                         <div className="flex items-center gap-2">
-                          <Building className="w-4 h-4 text-gray-400" />
                           <span>{collaborator.projects.length} projet(s)</span>
                         </div>
                       ) : (
@@ -270,13 +304,13 @@ const CollaboratorCard = ({
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <Button variant="ghost" size="sm" className="w-8 h-8 p-0">
                           <MoreVertical className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-white border border-gray-200 w-48">
+                      <DropdownMenuContent align="end" className="w-48 bg-white border border-gray-200">
                         <DropdownMenuItem 
-                          className="cursor-pointer flex items-center"
+                          className="flex items-center cursor-pointer"
                           onClick={() => onUpdatePermissions(collaborator.id, {})}
                         >
                           <Edit className="w-4 h-4 mr-2" />
@@ -285,7 +319,7 @@ const CollaboratorCard = ({
                         <DropdownMenuSeparator />
                         <DropdownMenuItem 
                           onClick={() => onRemoveCollaborator(collaborator.id)}
-                          className="text-red-600 cursor-pointer flex items-center"
+                          className="flex items-center text-red-600 cursor-pointer"
                         >
                           <Trash2 className="w-4 h-4 mr-2" />
                           Supprimer l'accès
@@ -298,26 +332,23 @@ const CollaboratorCard = ({
               
               {/* Ligne détaillée expandable */}
               {expandedRows.has(collaborator.id) && (
-                <TableRow className="bg-blue-50 border-b border-blue-100">
+                <TableRow className="border-b border-blue-100 bg-blue-50">
                   <TableCell colSpan={Object.values(visibleColumns).filter(Boolean).length + 1}>
                     <div className="p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                         {/* Informations de contact */}
                         <div>
-                          <h4 className="font-semibold text-sm text-gray-700 mb-3">Informations de contact</h4>
+                          <h4 className="mb-3 text-sm font-semibold text-gray-700">Informations de contact</h4>
                           <div className="space-y-2 text-sm">
                             <div className="flex items-center gap-2">
-                              <Mail className="w-4 h-4 text-gray-400" />
                               <span>{collaborator.email}</span>
                             </div>
                             {collaborator.phone_number && (
                               <div className="flex items-center gap-2">
-                                <Phone className="w-4 h-4 text-gray-400" />
                                 <span>{collaborator.phone_number}</span>
                               </div>
                             )}
                             <div className="flex items-center gap-2">
-                              <Calendar className="w-4 h-4 text-gray-400" />
                               <span>Rejoint le {formatDate(collaborator.joined_at)}</span>
                             </div>
                           </div>
@@ -325,7 +356,7 @@ const CollaboratorCard = ({
                         
                         {/* Détails des permissions */}
                         <div>
-                          <h4 className="font-semibold text-sm text-gray-700 mb-3">Détails des accès</h4>
+                          <h4 className="mb-3 text-sm font-semibold text-gray-700">Détails des accès</h4>
                           <div className="space-y-2 text-sm">
                             <div className="flex justify-between">
                               <span>Type de permission:</span>
@@ -339,33 +370,26 @@ const CollaboratorCard = ({
                                 {collaborator.role}
                               </Badge>
                             </div>
-                            <div className="flex justify-between">
-                              <span>ID Collaborateur:</span>
-                              <span className="text-gray-600">{collaborator.id}</span>
-                            </div>
                           </div>
                         </div>
                         
                         {/* Projets assignés */}
                         <div>
-                          <h4 className="font-semibold text-sm text-gray-700 mb-3">
+                          <h4 className="mb-3 text-sm font-semibold text-gray-700">
                             Projets assignés ({collaborator.projects?.length || 0})
                           </h4>
-                          <div className="space-y-1 max-h-32 overflow-y-auto">
+                          <div className="space-y-1 overflow-y-auto max-h-32">
                             {collaborator.projects && collaborator.projects.length > 0 ? (
                               collaborator.projects.map((project, index) => (
                                 <div 
                                   key={project.id || index}
-                                  className="flex items-center justify-between text-sm bg-white border border-gray-200 rounded px-3 py-2"
+                                  className="flex items-center justify-between px-3 py-2 text-sm bg-white border border-gray-200 rounded"
                                 >
                                   <span className="truncate">{project.name}</span>
-                                  <Badge variant="outline" className="text-xs">
-                                    ID: {project.id}
-                                  </Badge>
                                 </div>
                               ))
                             ) : (
-                              <div className="text-sm text-gray-500 bg-white border border-gray-200 rounded px-3 py-2">
+                              <div className="px-3 py-2 text-sm text-gray-500 bg-white border border-gray-200 rounded">
                                 Aucun projet assigné
                               </div>
                             )}
@@ -384,4 +408,4 @@ const CollaboratorCard = ({
   );
 };
 
-export default CollaboratorCard;
+export default CollaboratorTable;
