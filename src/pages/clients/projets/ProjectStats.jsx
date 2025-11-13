@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, CardContent } from '../../../components/ui/card';
-import { Briefcase, PartyPopper, Home, FolderOpen } from 'lucide-react';
+import { Briefcase, PartyPopper, Home, FolderOpen } from '../../../utils/Icons';
 
 const ProjectStats = ({ stats, loading = false }) => {
     const statItems = [

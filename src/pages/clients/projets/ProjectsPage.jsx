@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo,lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../../components/config/Axios';
 import toast from 'react-hot-toast';
@@ -9,17 +9,17 @@ import {
     Briefcase,
     PartyPopper,
     Home,
-} from 'lucide-react';
+} from '../../../utils/Icons';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/card';
 import { useSettings } from '../../../contexts/SettingsContext';
 import { archiveService } from '../../../services/archiveService';
 import { useUI } from '../../../components/context/UIContext';
+import { useProjects } from '../../../hooks/useProjects';
 
-import ProjectCard from './ProjectCard';
-import ArchiveDialog from './ArchiveDialog';
-import ProjectStats from './ProjectStats';
-
+const ProjectCard = lazy(() => import('./ProjectCard'));
+const ArchiveDialog = lazy(() => import('./ArchiveDialog'));
+const ProjectStats = lazy(() => import('./ProjectStats'));
 // Configuration des icônes par type de projet
 const projectTypeIcons = {
     'Business': Briefcase,
@@ -44,28 +44,17 @@ const projectTypeColors = {
 
 const ProjectsPage = () => {
     const navigate = useNavigate();
-    const { language, formatCurrency } = useSettings();
+    const { formatCurrency } = useSettings();
     const { uiState } = useUI();
+
+    // Utilisation du hook useProjects
+    const { projects, loading, error, refetch: fetchProjects, setProjects } = useProjects();
 
     const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
     const [selectedProject, setSelectedProject] = useState(null);
     const [archiveReason, setArchiveReason] = useState('');
-
-    // Nouveaux états pour la sélection multiple
     const [selectedProjects, setSelectedProjects] = useState([]);
     const [isSelectMode, setIsSelectMode] = useState(false);
-
-    // États pour les données de l'API
-    const [projects, setProjects] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [projectStats, setProjectStats] = useState({
-        total: 0,
-        business: 0,
-        events: 0,
-        menages: 0
-    });
-
     const [editingProjectId, setEditingProjectId] = useState(null);
     const [editForm, setEditForm] = useState({});
     const [localLoading, setLocalLoading] = useState(false);
@@ -73,16 +62,19 @@ const ProjectsPage = () => {
     // Récupérer l'ID du projet actif
     const activeProjectId = uiState.activeProject?.id;
 
-    // Debug: Afficher l'état du projet actif
-    useEffect(() => {
-        console.log("🔍 ProjectsPage - Projet actif:", uiState.activeProject);
-        console.log("🔍 ProjectsPage - ID du projet actif:", activeProjectId);
-    }, [uiState.activeProject, activeProjectId]);
+    // Stats optimisées avec useMemo
+    const projectStats = useMemo(() => {
+        if (!projects || projects.length === 0) {
+            return { total: 0, business: 0, events: 0, menages: 0 };
+        }
 
-    // Récupération des données depuis l'API
-    useEffect(() => {
-        fetchProjects();
-    }, []);
+        return {
+            total: projects.length,
+            business: projects.filter(p => p.type === 'business').length,
+            events: projects.filter(p => p.type === 'evenement').length,
+            menages: projects.filter(p => p.type === 'menage').length
+        };
+    }, [projects]);
 
     // Redirection automatique selon l'état des projets
     useEffect(() => {
@@ -97,186 +89,20 @@ const ProjectsPage = () => {
         }
     }, [loading, error, projects.length, activeProjectId, navigate]);
 
-    const fetchProjects = async (retryCount = 0) => {
-        try {
-            setLoading(true);
-            setError(null);
-            const response = await axios.get('/projects');
-            const data = response.data;
-
-            console.log('📥 Données brutes de l\'API:', data);
-
-            const transformedProjects = transformApiData(data);
-
-            // 🔥 CORRECTION : Filtrer uniquement les projets non archivés
-            const activeProjects = transformedProjects.filter(project => !project.is_archived);
-
-            setProjects(activeProjects);
-
-            // 🔥 CORRECTION : Mettre à jour les stats avec les projets actifs uniquement
-            setProjectStats({
-                total: activeProjects.length,
-                business: activeProjects.filter(p => p.type === 'business').length,
-                events: activeProjects.filter(p => p.type === 'evenement').length,
-                menages: activeProjects.filter(p => p.type === 'menage').length
-            });
-
-        } catch (err) {
-            console.error('Erreur lors de la récupération des projets:', err);
-
-            if (err.response?.status === 429 && retryCount < 3) {
-                const delay = Math.pow(2, retryCount) * 1000;
-                console.log(`Trop de requêtes, nouvelle tentative dans ${delay}ms...`);
-
-                setTimeout(() => {
-                    fetchProjects(retryCount + 1);
-                }, delay);
-                return;
-            }
-
-            setError(err.message);
-            toast.error('Erreur lors du chargement des projets');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const transformApiData = (apiData) => {
-        const transformedProjects = [];
-
-        if (!apiData.projects) {
-            console.warn('Aucun projet trouvé dans la réponse API');
-            return transformedProjects;
-        }
-
-        // Transformation des projets business
-        if (apiData.projects.business?.project_business_items?.data) {
-            apiData.projects.business.project_business_items.data.forEach(project => {
-                // 🔥 CORRECTION : Vérifier si entity_status_id existe et est égal à 3
-                const isArchived = project.entity_status_id === 3;
-
-                transformedProjects.push({
-                    id: project.id,
-                    name: project.name,
-                    description: project.description || 'Aucune description',
-                    type: 'business',
-                    typeName: project.type_name || 'Business',
-                    mainCurrency: 'EUR',
-                    incomeBudget: project.income_budget || 0,
-                    expenseBudget: project.expense_budget || 0,
-                    incomeRealized: project.income_realized || 0,
-                    expenseRealized: project.expense_realized || 0,
-                    startDate: project.start_date,
-                    endDate: project.end_date || project.start_date,
-                    status: project.status || 'active',
-                    isDurationUndetermined: project.is_duration_undetermined === 1,
-                    templateId: project.template_id,
-                    projectTypeId: project.project_type_id,
-                    createdAt: project.created_at,
-                    updatedAt: project.updated_at,
-                    userSubscriberId: project.user_subscriber_id,
-                    collaborators: [],
-                    // 🔥 CORRECTION : Utiliser entity_status_id pour déterminer l'archivage
-                    is_archived: isArchived,
-                    entity_status_id: project.entity_status_id || 1 // Par défaut à 1 (actif)
-                });
-            });
-        }
-
-        // Transformation des projets événements
-        if (apiData.projects.events?.project_event_items?.data) {
-            apiData.projects.events.project_event_items.data.forEach(project => {
-                const isArchived = project.entity_status_id === 3;
-
-                transformedProjects.push({
-                    id: project.id,
-                    name: project.name,
-                    description: project.description || 'Aucune description',
-                    type: 'evenement',
-                    typeName: project.type_name || 'Événement',
-                    mainCurrency: 'EUR',
-                    incomeBudget: project.income_budget || 0,
-                    expenseBudget: project.expense_budget || 0,
-                    incomeRealized: project.income_realized || 0,
-                    expenseRealized: project.expense_realized || 0,
-                    startDate: project.start_date,
-                    endDate: project.end_date || project.start_date,
-                    status: project.status || 'active',
-                    isDurationUndetermined: project.is_duration_undetermined === 1,
-                    templateId: project.template_id,
-                    projectTypeId: project.project_type_id,
-                    createdAt: project.created_at,
-                    updatedAt: project.updated_at,
-                    userSubscriberId: project.user_subscriber_id,
-                    collaborators: [],
-                    is_archived: isArchived,
-                    entity_status_id: project.entity_status_id || 1
-                });
-            });
-        }
-
-        // Transformation des projets ménages
-        if (apiData.projects.menages?.project_menage_items?.data) {
-            apiData.projects.menages.project_menage_items.data.forEach(project => {
-                const isArchived = project.entity_status_id === 3;
-
-                transformedProjects.push({
-                    id: project.id,
-                    name: project.name,
-                    description: project.description || 'Aucune description',
-                    type: 'menage',
-                    typeName: project.type_name || 'Ménage',
-                    mainCurrency: 'EUR',
-                    incomeBudget: project.income_budget || 0,
-                    expenseBudget: project.expense_budget || 0,
-                    incomeRealized: project.income_realized || 0,
-                    expenseRealized: project.expense_realized || 0,
-                    startDate: project.start_date,
-                    endDate: project.end_date || project.start_date,
-                    status: project.status || 'active',
-                    isDurationUndetermined: project.is_duration_undetermined === 1,
-                    templateId: project.template_id,
-                    projectTypeId: project.project_type_id,
-                    createdAt: project.created_at,
-                    updatedAt: project.updated_at,
-                    userSubscriberId: project.user_subscriber_id,
-                    collaborators: [],
-                    is_archived: isArchived,
-                    entity_status_id: project.entity_status_id || 1
-                });
-            });
-        }
-
-        console.log('📊 Projets transformés:', {
-            total: transformedProjects.length,
-            archivés: transformedProjects.filter(p => p.is_archived).length,
-            actifs: transformedProjects.filter(p => !p.is_archived).length,
-            détails: transformedProjects.map(p => ({
-                id: p.id,
-                name: p.name,
-                is_archived: p.is_archived,
-                entity_status_id: p.entity_status_id
-            }))
-        });
-
-        return transformedProjects;
-    };
-
-    // Fonction pour obtenir l'icône basée sur le typeName
-    const getProjectIcon = (typeName) => {
+    // Fonctions mémoïsées
+    const getProjectIcon = useCallback((typeName) => {
         return projectTypeIcons[typeName] || projectTypeIcons.default;
-    };
+    }, []);
 
-    // Fonction pour obtenir la couleur basée sur le typeName
-    const getProjectColor = (typeName) => {
+    const getProjectColor = useCallback((typeName) => {
         return projectTypeColors[typeName] || projectTypeColors.default;
-    };
+    }, []);
 
-    const handleNewProject = () => {
+    const handleNewProject = useCallback(() => {
         navigate('/client/onboarding');
-    };
+    }, [navigate]);
 
-    const handleArchiveProject = async (project) => {
+    const handleArchiveProject = useCallback(async (project) => {
         if (!window.confirm(`Voulez-vous vraiment archiver le projet "${project.name}" ?`)) {
             return;
         }
@@ -285,28 +111,12 @@ const ProjectsPage = () => {
             setLocalLoading(true);
             const loadingToast = toast.loading('Archivage du projet en cours...');
 
-            await axios.patch(
-                `/projects/${project.id}/archive`,
-                {},
-                {
-                    headers: {
-                        Authorization: `Bearer ${localStorage.getItem('token')}`,
-                        'Content-Type': 'application/json',
-                    },
-                }
-            );
+            await archiveService.archiveProject(project.id, "Archivage manuel");
 
-            // 🔥 CORRECTION : Mettre à jour l'état local pour retirer le projet archivé
+            // Mettre à jour l'état local en filtrant le projet archivé
             setProjects((prevProjects) =>
                 prevProjects.filter((p) => p.id !== project.id)
             );
-
-            // 🔥 CORRECTION : Mettre à jour les stats
-            setProjectStats(prev => ({
-                ...prev,
-                total: prev.total - 1,
-                [project.type]: Math.max(0, prev[project.type] - 1)
-            }));
 
             toast.success('Projet archivé avec succès !', {
                 id: loadingToast,
@@ -321,9 +131,9 @@ const ProjectsPage = () => {
         } finally {
             setLocalLoading(false);
         }
-    };
+    }, [setProjects]);
 
-    const confirmArchiveProject = async () => {
+    const confirmArchiveProject = useCallback(async () => {
         if (!selectedProject) return;
 
         try {
@@ -334,15 +144,12 @@ const ProjectsPage = () => {
             await archiveService.archiveProject(selectedProject.id, archiveReason);
 
             setProjects((prevProjects) =>
-                prevProjects.map((p) =>
-                    p.id === selectedProject.id ? { ...p, is_archived: true } : p
-                )
+                prevProjects.filter((p) => p.id !== selectedProject.id)
             );
 
             setArchiveDialogOpen(false);
             setSelectedProject(null);
             setArchiveReason('');
-            setError('');
 
             toast.success(`Projet "${projectName}" archivé avec succès !`, {
                 id: loadingToast,
@@ -352,16 +159,15 @@ const ProjectsPage = () => {
         } catch (err) {
             console.error("Erreur lors de l'archivage:", err);
             const errorMsg = err.response?.data?.message || err.message || 'Erreur inconnue';
-            setError(errorMsg);
             toast.error(`Erreur lors de l'archivage : ${errorMsg}`, {
                 duration: 5000,
             });
         } finally {
             setLocalLoading(false);
         }
-    };
+    }, [selectedProject, archiveReason, setProjects]);
 
-    const handleDeleteProject = async (projectId) => {
+    const handleDeleteProject = useCallback(async (projectId) => {
         try {
             setLocalLoading(true);
             const loadingToast = toast.loading('Suppression du projet en cours...');
@@ -387,9 +193,9 @@ const ProjectsPage = () => {
         } finally {
             setLocalLoading(false);
         }
-    };
+    }, [setProjects]);
 
-    const handleRestoreProject = async (projectId) => {
+    const handleRestoreProject = useCallback(async (projectId) => {
         try {
             setLocalLoading(true);
             const loadingToast = toast.loading('Restauration du projet en cours...');
@@ -401,7 +207,6 @@ const ProjectsPage = () => {
                 },
             });
 
-            // 🔥 CORRECTION : Rafraîchir toute la liste des projets
             await fetchProjects();
 
             toast.success('Projet restauré avec succès !', {
@@ -417,9 +222,9 @@ const ProjectsPage = () => {
         } finally {
             setLocalLoading(false);
         }
-    };
+    }, [fetchProjects]);
 
-    const updateProject = async (updatedProject) => {
+    const updateProject = useCallback(async (updatedProject) => {
         try {
             setLocalLoading(true);
             const loadingToast = toast.loading('Mise à jour du projet en cours...');
@@ -485,31 +290,31 @@ const ProjectsPage = () => {
         } finally {
             setLocalLoading(false);
         }
-    };
+    }, [setProjects]);
 
     // Fonctions pour la sélection multiple
-    const toggleProjectSelection = (projectId) => {
+    const toggleProjectSelection = useCallback((projectId) => {
         setSelectedProjects(prev =>
             prev.includes(projectId)
                 ? prev.filter(id => id !== projectId)
                 : [...prev, projectId]
         );
-    };
+    }, []);
 
-    const toggleSelectAll = () => {
+    const toggleSelectAll = useCallback(() => {
         if (selectedProjects.length === projects.length) {
             setSelectedProjects([]);
         } else {
             setSelectedProjects(projects.map(project => project.id));
         }
-    };
+    }, [selectedProjects.length, projects]);
 
-    const clearSelection = () => {
+    const clearSelection = useCallback(() => {
         setSelectedProjects([]);
         setIsSelectMode(false);
-    };
+    }, []);
 
-    const handleDeleteMultiple = async () => {
+    const handleDeleteMultiple = useCallback(async () => {
         if (selectedProjects.length === 0) return;
 
         const projectNames = projects
@@ -551,112 +356,123 @@ const ProjectsPage = () => {
         } finally {
             setLocalLoading(false);
         }
-    };
+    }, [selectedProjects, projects, setProjects, clearSelection]);
 
-    // Composant de squelette pour les cartes de projet
-    const ProjectCardSkeleton = () => (
-        <Card className="animate-pulse border-gray-200">
-            <CardContent className="p-4">
-                {/* En-tête */}
-                <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center space-x-3 flex-1">
-                        <div className="w-12 h-12 bg-gray-200 rounded-xl"></div>
-                        <div className="flex-1 space-y-2">
-                            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                            <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                        </div>
-                    </div>
-                    <div className="w-16 h-6 bg-gray-200 rounded"></div>
-                </div>
+    // Props communs mémoïsés pour ProjectCard
+    const commonProjectCardProps = useMemo(() => ({
+        projectTypeIcons,
+        projectTypeColors,
+        getProjectIcon,
+        getProjectColor,
+        editingProjectId,
+        editForm,
+        setEditForm,
+        setEditingProjectId,
+        updateProject,
+        navigate,
+        handleArchiveProject,
+        handleRestoreProject,
+        handleDeleteProject,
+        localLoading,
+        isSelectMode,
+        activeProjectId,
+        onToggleSelection: toggleProjectSelection
+    }), [
+        getProjectIcon,
+        getProjectColor,
+        editingProjectId,
+        editForm,
+        updateProject,
+        navigate,
+        handleArchiveProject,
+        handleRestoreProject,
+        handleDeleteProject,
+        localLoading,
+        isSelectMode,
+        activeProjectId,
+        toggleProjectSelection
+    ]);
 
-                {/* Stats budget */}
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                    <div className="p-3 bg-gray-100 rounded-xl">
-                        <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
-                        <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                        <div className="w-full bg-gray-200 rounded-full h-2"></div>
-                    </div>
-                    <div className="p-3 bg-gray-100 rounded-xl">
-                        <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
-                        <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                        <div className="w-full bg-gray-200 rounded-full h-2"></div>
-                    </div>
-                </div>
-
-                {/* Solde net */}
-                <div className="p-3 bg-gray-100 rounded-xl mb-4">
-                    <div className="h-3 bg-gray-200 rounded w-1/3 mx-auto mb-2"></div>
-                    <div className="flex justify-between">
-                        <div className="text-center">
-                            <div className="h-3 bg-gray-200 rounded w-8 mb-1"></div>
-                            <div className="h-4 bg-gray-200 rounded w-12"></div>
-                        </div>
-                        <div className="w-px h-8 bg-gray-300"></div>
-                        <div className="text-center">
-                            <div className="h-3 bg-gray-200 rounded w-8 mb-1"></div>
-                            <div className="h-4 bg-gray-200 rounded w-12"></div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Dates */}
-                <div className="bg-gray-100 p-3 rounded-xl mb-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                            <div className="w-4 h-4 bg-gray-200 rounded"></div>
-                            <div>
-                                <div className="h-3 bg-gray-200 rounded w-12 mb-1"></div>
-                                <div className="h-3 bg-gray-200 rounded w-16"></div>
+    // Squelettes mémoïsés
+    const ProjectCardSkeleton = useMemo(() => {
+        const Skeleton = () => (
+            <Card className="animate-pulse border-gray-200">
+                <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center space-x-3 flex-1">
+                            <div className="w-12 h-12 bg-gray-200 rounded-xl"></div>
+                            <div className="flex-1 space-y-2">
+                                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                                <div className="h-3 bg-gray-200 rounded w-1/2"></div>
                             </div>
                         </div>
-                        <div className="text-gray-300">→</div>
-                        <div className="flex items-center space-x-2">
-                            <div className="w-4 h-4 bg-gray-200 rounded"></div>
-                            <div>
-                                <div className="h-3 bg-gray-200 rounded w-12 mb-1"></div>
-                                <div className="h-3 bg-gray-200 rounded w-16"></div>
+                        <div className="w-16 h-6 bg-gray-200 rounded"></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                        <div className="p-3 bg-gray-100 rounded-xl">
+                            <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
+                            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                            <div className="w-full bg-gray-200 rounded-full h-2"></div>
+                        </div>
+                        <div className="p-3 bg-gray-100 rounded-xl">
+                            <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
+                            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                            <div className="w-full bg-gray-200 rounded-full h-2"></div>
+                        </div>
+                    </div>
+                    <div className="p-3 bg-gray-100 rounded-xl mb-4">
+                        <div className="h-3 bg-gray-200 rounded w-1/3 mx-auto mb-2"></div>
+                        <div className="flex justify-between">
+                            <div className="text-center">
+                                <div className="h-3 bg-gray-200 rounded w-8 mb-1"></div>
+                                <div className="h-4 bg-gray-200 rounded w-12"></div>
+                            </div>
+                            <div className="w-px h-8 bg-gray-300"></div>
+                            <div className="text-center">
+                                <div className="h-3 bg-gray-200 rounded w-8 mb-1"></div>
+                                <div className="h-4 bg-gray-200 rounded w-12"></div>
                             </div>
                         </div>
                     </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-2 pt-3 border-t border-gray-200">
-                    <div className="flex-1 h-8 bg-gray-200 rounded"></div>
-                    <div className="flex gap-1">
-                        <div className="w-8 h-8 bg-gray-200 rounded"></div>
-                        <div className="w-8 h-8 bg-gray-200 rounded"></div>
-                        <div className="w-8 h-8 bg-gray-200 rounded"></div>
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
-    );
-
-    // Composant de squelette pour les stats
-    const StatsSkeleton = () => (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[...Array(4)].map((_, index) => (
-                <Card key={index} className="animate-pulse">
-                    <CardContent className="p-4">
-                        <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-gray-200 rounded-lg"></div>
-                            <div className="flex-1">
-                                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                                <div className="h-6 bg-gray-200 rounded w-1/2"></div>
-                            </div>
+                    <div className="flex gap-2 pt-3 border-t border-gray-200">
+                        <div className="flex-1 h-8 bg-gray-200 rounded"></div>
+                        <div className="flex gap-1">
+                            <div className="w-8 h-8 bg-gray-200 rounded"></div>
+                            <div className="w-8 h-8 bg-gray-200 rounded"></div>
+                            <div className="w-8 h-8 bg-gray-200 rounded"></div>
                         </div>
-                    </CardContent>
-                </Card>
-            ))}
-        </div>
-    );
+                    </div>
+                </CardContent>
+            </Card>
+        );
+        return Skeleton;
+    }, []);
+
+    const StatsSkeleton = useMemo(() => {
+        const Skeleton = () => (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[...Array(4)].map((_, index) => (
+                    <Card key={index} className="animate-pulse">
+                        <CardContent className="p-4">
+                            <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 bg-gray-200 rounded-lg"></div>
+                                <div className="flex-1">
+                                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                                    <div className="h-6 bg-gray-200 rounded w-1/2"></div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+        );
+        return Skeleton;
+    }, []);
 
     // Affichage du chargement avec squelettes
     if (loading) {
         return (
             <div className="p-4 sm:p-6 max-w-full space-y-6 sm:space-y-8 bg-gray-50/50 min-h-screen">
-                {/* Header skeleton */}
                 <div className="flex justify-between items-center sticky top-0 bg-white pt-4 pb-2 z-10">
                     <div className="space-y-2">
                         <div className="h-8 bg-gray-200 rounded w-48 animate-pulse"></div>
@@ -668,10 +484,8 @@ const ProjectsPage = () => {
                     </div>
                 </div>
 
-                {/* Stats skeleton */}
                 <StatsSkeleton />
 
-                {/* Projects grid skeleton */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {[...Array(8)].map((_, index) => (
                         <ProjectCardSkeleton key={index} />
@@ -699,7 +513,6 @@ const ProjectsPage = () => {
 
     return (
         <div className="p-4 sm:p-6 max-w-full space-y-6 sm:space-y-8 bg-gray-50/50 min-h-screen">
-            {/* Overlay de chargement local */}
             {localLoading && (
                 <div className="fixed inset-0 bg-black bg-opacity-10 flex items-center justify-center z-50">
                     <div className="bg-white rounded-lg p-4 flex items-center space-x-3">
@@ -709,7 +522,6 @@ const ProjectsPage = () => {
                 </div>
             )}
 
-            {/* Header */}
             <div className="flex justify-between items-center sticky top-0 bg-white pt-4 pb-2 z-10">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Projets</h1>
@@ -717,13 +529,11 @@ const ProjectsPage = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    {/* Mode sélection */}
                     {isSelectMode ? (
                         <>
                             <span className="text-sm text-gray-600 mr-2">
                                 {selectedProjects.length} sélectionné(s)
                             </span>
-
                             {selectedProjects.length > 0 && (
                                 <Button
                                     onClick={handleDeleteMultiple}
@@ -733,7 +543,6 @@ const ProjectsPage = () => {
                                     Supprimer ({selectedProjects.length})
                                 </Button>
                             )}
-
                             <Button
                                 onClick={clearSelection}
                                 variant="outline"
@@ -751,10 +560,9 @@ const ProjectsPage = () => {
                             >
                                 Sélection multiple
                             </Button>
-
                             <Button
                                 onClick={handleNewProject}
-                                className="bg-gray-500 text-white hover:bg-purple-700"
+                                className="bg-blue-500 text-white hover:bg-blue-600"
                                 disabled={localLoading}
                             >
                                 <Plus className="w-4 h-4 mr-2" />
@@ -765,10 +573,8 @@ const ProjectsPage = () => {
                 </div>
             </div>
 
-            {/* Stats */}
             <ProjectStats stats={projectStats} />
 
-            {/* Projects Grid */}
             {projects.length === 0 ? (
                 <Card className="text-center p-8">
                     <CardContent className="pt-6">
@@ -791,30 +597,13 @@ const ProjectsPage = () => {
                         <ProjectCard
                             key={project.id}
                             project={project}
-                            projectTypeIcons={projectTypeIcons}
-                            projectTypeColors={projectTypeColors}
-                            getProjectIcon={getProjectIcon}
-                            getProjectColor={getProjectColor}
-                            editingProjectId={editingProjectId}
-                            editForm={editForm}
-                            setEditForm={setEditForm}
-                            setEditingProjectId={setEditingProjectId}
-                            updateProject={updateProject}
-                            navigate={navigate}
-                            handleArchiveProject={handleArchiveProject}
-                            handleRestoreProject={handleRestoreProject}
-                            handleDeleteProject={handleDeleteProject}
-                            localLoading={localLoading}
-                            isSelectMode={isSelectMode}
                             isSelected={selectedProjects.includes(project.id)}
-                            onToggleSelection={toggleProjectSelection}
-                            activeProjectId={activeProjectId}
+                            {...commonProjectCardProps}
                         />
                     ))}
                 </div>
             )}
 
-            {/* Archive Dialog */}
             <ArchiveDialog
                 open={archiveDialogOpen}
                 onOpenChange={setArchiveDialogOpen}
@@ -828,4 +617,4 @@ const ProjectsPage = () => {
     );
 };
 
-export default ProjectsPage;
+export default React.memo(ProjectsPage);

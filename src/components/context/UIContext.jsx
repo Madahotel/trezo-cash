@@ -4,8 +4,8 @@ import { v4 as uuidv4 } from 'uuid';
 const UIContext = createContext();
 
 const getInitialUIState = () => ({
-    activeProject: null, // ✅ Ajouté ici
-    showDashboard: false, // ✅ Ajouté ici
+    activeProject: null, 
+    showDashboard: false, 
     activeProjectId: null,
     activeTrezoView: sessionStorage.getItem('activeTrezoView') || 'tableau',
     displayYear: new Date().getFullYear(),

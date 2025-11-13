@@ -23,7 +23,6 @@ export const useProjectInitialization = () => {
         return result;
       } catch (error) {
         console.error("❌ Erreur dans le hook:", error);
-        // L'erreur est déjà gérée par le service, on peut la relancer si besoin
         throw error;
       } finally {
         setLoading(false);
@@ -45,3 +44,4 @@ export const useProjectInitialization = () => {
     createProject,
   };
 };
+//Ity dia manokana amin’ny fanombohana na création d’un projet amin’ny rafitra manokana

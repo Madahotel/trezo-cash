@@ -4,7 +4,7 @@ import BudgetTracker from './BudgetTracker';
 import { useUI } from '../../../components/context/UIContext';
 import { useData } from '../../../components/context/DataContext';
 import { updateProjectOnboardingStep } from '../../../components/context/actions';
-import { useActiveProjectData } from '../../../utils/selectors';
+import { useActiveProjectData } from '../../../hooks/useActiveProjectData';
 import { Lock, PiggyBank, Banknote, Coins } from 'lucide-react';
 import WidgetIcon from '../../../pages/clients/dashboard/WidgetIcon';
 

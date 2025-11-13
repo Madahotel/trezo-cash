@@ -3,83 +3,84 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  AlertTriangle,
-  ArrowUp,
-  ArrowDown,
+  Calendar,
+  RefreshCw,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CollectionModal } from './collection-modal';
 import { getBudgets } from '../../../components/context/collectionActions';
 import { useUI } from '../../../components/context/UIContext';
 
-// Fonction CORRIGÉE pour générer les dates d'échéance
+// Fonction pour formater une date en YYYY-MM-DD (temps local)
+const formatDateToKey = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Fonction pour obtenir la date d'aujourd'hui
+const getTodayKey = () => {
+  return formatDateToKey(new Date());
+};
+
+// Fonction pour générer les dates d'échéance (utilise le format local)
 const generateDatesByFrequency = (frequencyId, startDate, endDate = null) => {
   const dates = [];
-  const firstDueDate = new Date(startDate);
-  firstDueDate.setHours(0, 0, 0, 0);
 
-  // CAS 1: Transaction ponctuelle (fréquence ponctuelle/irrégulière)
+  // Convertir les dates d'entrée en objets Date avec heure locale
+  const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0);
+
   if (frequencyId === 1 || frequencyId === 9) {
-    dates.push(new Date(firstDueDate));
+    dates.push(new Date(start));
     return dates;
   }
 
-  // CAS 2: Budget avec end_date défini → la PREMIÈRE échéance est à l'end_date
   if (endDate) {
-    const firstOccurrence = new Date(endDate); // ← PREMIÈRE ÉCHÉANCE = end_date
-    firstOccurrence.setHours(0, 0, 0, 0);
-    dates.push(firstOccurrence);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
 
-    // Pour les fréquences récurrentes, continuer à générer après l'end_date
-    if (frequencyId !== 1 && frequencyId !== 9) {
-      const futureEndDate = new Date(firstOccurrence);
-      futureEndDate.setFullYear(futureEndDate.getFullYear() + 2);
-      futureEndDate.setHours(23, 59, 59, 999);
+    let currentDate = new Date(start);
 
-      let currentDate = new Date(firstOccurrence);
+    while (currentDate <= end) {
+      dates.push(new Date(currentDate));
 
-      while (currentDate <= futureEndDate) {
-        const nextDate = new Date(currentDate);
-        switch (frequencyId) {
-          case 2: // Quotidienne
-            nextDate.setDate(nextDate.getDate() + 1);
-            break;
-          case 3: // Mensuelle
-            nextDate.setMonth(nextDate.getMonth() + 1);
-            break;
-          case 4: // Hebdomadaire
-            nextDate.setDate(nextDate.getDate() + 7);
-            break;
-          case 5: // Bimensuelle
-            nextDate.setDate(nextDate.getDate() + 15);
-            break;
-          case 6: // Trimestrielle
-            nextDate.setMonth(nextDate.getMonth() + 3);
-            break;
-          case 7: // Semestrielle
-            nextDate.setMonth(nextDate.getMonth() + 6);
-            break;
-          case 8: // Annuelle
-            nextDate.setFullYear(nextDate.getFullYear() + 1);
-            break;
-          default:
-            return dates;
-        }
-
-        if (nextDate <= futureEndDate) {
-          dates.push(nextDate);
-        }
-        currentDate = nextDate;
+      const nextDate = new Date(currentDate);
+      switch (frequencyId) {
+        case 2: // Quotidienne
+          nextDate.setDate(nextDate.getDate() + 1);
+          break;
+        case 3: // Mensuelle
+          nextDate.setMonth(nextDate.getMonth() + 1);
+          break;
+        case 4: // Hebdomadaire
+          nextDate.setDate(nextDate.getDate() + 7);
+          break;
+        case 5: // Bimensuelle
+          nextDate.setDate(nextDate.getDate() + 15);
+          break;
+        case 6: // Trimestrielle
+          nextDate.setMonth(nextDate.getMonth() + 3);
+          break;
+        case 7: // Semestrielle
+          nextDate.setMonth(nextDate.getMonth() + 6);
+          break;
+        case 8: // Annuelle
+          nextDate.setFullYear(nextDate.getFullYear() + 1);
+          break;
+        default:
+          return dates;
       }
+
+      currentDate = nextDate;
     }
-  }
-  // CAS 3: Budget sans end_date → commencer au start_date
-  else {
-    const futureEndDate = new Date(firstDueDate);
+  } else {
+    const futureEndDate = new Date(start);
     futureEndDate.setFullYear(futureEndDate.getFullYear() + 2);
     futureEndDate.setHours(23, 59, 59, 999);
 
-    let currentDate = new Date(firstDueDate);
+    let currentDate = new Date(start);
 
     while (currentDate <= futureEndDate) {
       dates.push(new Date(currentDate));
@@ -117,7 +118,7 @@ const generateDatesByFrequency = (frequencyId, startDate, endDate = null) => {
 
   return dates;
 };
-// Fonction transformBudgetData (inchangée sauf l'appel)
+
 const transformBudgetData = (budgetData) => {
   const transactions = {};
 
@@ -125,7 +126,6 @@ const transformBudgetData = (budgetData) => {
     const frequencyId = budget.frequency_id;
     const type = budget.category_type_id === 2 ? 'receivable' : 'payable';
 
-    // Appel simplifié sans is_duration_indefinite
     const dates = generateDatesByFrequency(
       frequencyId,
       budget.start_date,
@@ -133,10 +133,8 @@ const transformBudgetData = (budgetData) => {
     );
 
     dates.forEach((date, occurrenceIndex) => {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const dateKey = `${year}-${month}-${day}`;
+      // Utiliser formatDateToKey au lieu de manipulation manuelle
+      const dateKey = formatDateToKey(date);
 
       if (!transactions[dateKey]) {
         transactions[dateKey] = [];
@@ -164,7 +162,7 @@ const transformBudgetData = (budgetData) => {
         budget_type_name: budget.budget_type_name,
         category_type_name: budget.category_type_name,
         entity_status_id: budget.entity_status_id,
-        is_duration_indefinite: budget.is_duration_indefinite, // Gardé pour référence mais pas utilisé
+        is_duration_indefinite: budget.is_duration_indefinite,
         due_date: dateKey,
         occurrence_index: occurrenceIndex,
       });
@@ -173,39 +171,8 @@ const transformBudgetData = (budgetData) => {
 
   return transactions;
 };
-// Fonction pour calculer les transactions en retard
-const calculateOverdueTransactions = (transactions) => {
-  // Aujourd'hui en YYYY-MM-DD
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayKey = today.toISOString().split('T')[0];
 
-  const overdue = [];
-
-  Object.keys(transactions).forEach((dateKey) => {
-    // Comparer directement les strings YYYY-MM-DD
-    if (dateKey < todayKey) {
-      transactions[dateKey].forEach((tx) => {
-        if (tx.type === 'payable') {
-          // Calculer les jours de retard
-          const transactionDate = new Date(dateKey);
-          const todayDate = new Date(todayKey);
-          const daysOverdue = Math.floor(
-            (todayDate - transactionDate) / (1000 * 60 * 60 * 24)
-          );
-          overdue.push({
-            ...tx,
-            daysOverdue,
-          });
-        }
-      });
-    }
-  });
-
-  return overdue;
-};
-
-// Composant DayCell avec liste déroulante complète
+// Composant DayCell (inchangé sauf pour le formatage des dates)
 const DayCell = ({
   day,
   transactions = [],
@@ -216,12 +183,10 @@ const DayCell = ({
   const dayNumber = day.getDate();
   const dropdownRef = useRef(null);
 
-  // États pour la liste déroulante et le modal
   const [showTransactionList, setShowTransactionList] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
-  // Calcul des totaux
   const { totalPayable, totalReceivable } = useMemo(() => {
     const payable = transactions.filter((tx) => tx.type === 'payable');
     const receivable = transactions.filter((tx) => tx.type === 'receivable');
@@ -238,7 +203,6 @@ const DayCell = ({
     };
   }, [transactions]);
 
-  // Fermeture au clic extérieur
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -266,114 +230,107 @@ const DayCell = ({
   };
 
   const cellHeightClass =
-    viewMode === 'week' ? 'h-[calc(100vh-22rem)]' : 'h-32';
+    viewMode === 'week' ? 'h-[calc(100vh-20rem)]' : 'h-28';
 
   return (
     <>
       <div
-        className={`border-t border-r border-gray-200 p-2 flex flex-col ${cellHeightClass} ${
-          isCurrentMonth ? 'bg-white' : 'bg-gray-50'
-        } relative`}
+        className={`p-2 flex flex-col ${cellHeightClass} ${
+          isCurrentMonth
+            ? isToday
+              ? 'bg-blue-50'
+              : 'bg-white hover:bg-gray-50'
+            : 'bg-gray-50/30'
+        } transition-colors duration-150 relative group`}
       >
-        {/* Numéro du jour en haut à droite */}
-        <div
-          className={`flex-shrink-0 text-sm font-medium ${
-            isCurrentMonth ? 'text-gray-700' : 'text-gray-400'
-          } self-end`}
-        >
+        <div className="flex justify-between items-start mb-1">
           <span
-            className={`w-6 h-6 flex items-center justify-center rounded-full ${
-              isToday ? 'bg-blue-600 text-white' : ''
+            className={`text-sm font-medium ${
+              isCurrentMonth
+                ? isToday
+                  ? 'text-blue-600'
+                  : 'text-gray-700'
+                : 'text-gray-400'
             }`}
           >
             {dayNumber}
           </span>
         </div>
 
-        {/* Totaux centraux - bouton pour ouvrir la liste */}
         <div
           className="flex-grow flex flex-col justify-center space-y-1"
           ref={dropdownRef}
         >
-          {/* Bouton principal pour ouvrir la liste */}
           {transactions.length > 0 && (
             <div className="relative">
               <button
                 onClick={handleCellClick}
-                className="w-full text-center space-y-1 hover:bg-gray-100 rounded transition-colors p-1"
+                className="w-full text-center space-y-1 hover:bg-white/60 rounded-lg transition-colors p-1"
               >
-                {/* Total des revenus (vert) */}
                 {totalReceivable > 0 && (
-                  <div className="text-sm font-semibold text-green-600">
-                    +{totalReceivable.toFixed(2)} €
+                  <div className="text-xs font-semibold text-green-600">
+                    +{totalReceivable.toFixed(0)}€
                   </div>
                 )}
 
-                {/* Total des dépenses (rouge) */}
                 {totalPayable > 0 && (
-                  <div className="text-sm font-semibold text-red-600">
-                    -{totalPayable.toFixed(2)} €
+                  <div className="text-xs font-semibold text-red-600">
+                    -{totalPayable.toFixed(0)}€
                   </div>
                 )}
               </button>
 
-              {/* Liste déroulante complète avec toutes les transactions */}
               <AnimatePresence>
                 {showTransactionList && (
                   <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 overflow-hidden"
+                    initial={{ opacity: 0, scale: 0.95, y: -5 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -5 }}
+                    className="absolute left-1/2 transform -translate-x-1/2 top-full mt-1 w-64 bg-white rounded-lg border border-gray-200 z-20"
                   >
-                    <div className="max-h-48 overflow-y-auto">
-                      {/* Transactions de revenus */}
-                      {transactions
-                        .filter((tx) => tx.type === 'receivable')
-                        .map((tx, index) => (
-                          <div
-                            key={`receivable-${tx.id}-${index}`}
-                            className="px-3 py-2 border-b border-gray-100 last:border-b-0 hover:bg-green-50 transition-colors flex justify-between items-center cursor-pointer"
-                            onClick={(e) => handleTransactionClick(e, tx)}
-                          >
-                            <div className="flex-1 min-w-0">
-                              {tx.category && (
-                                <div className="text-xs text-gray-500 mt-0.5">
-                                  {tx.subCategory}
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 ml-2 flex-shrink-0">
-                              <span className="text-xs font-mono text-green-600 whitespace-nowrap">
-                                +{parseFloat(tx.amount).toFixed(2)} €
-                              </span>
-                            </div>
-                          </div>
-                        ))}
+                    <div className="p-3 border-b border-gray-100">
+                      <h3 className="font-semibold text-gray-900 text-sm">
+                        {day.toLocaleDateString('fr-FR', {
+                          weekday: 'long',
+                          day: 'numeric',
+                          month: 'long',
+                        })}
+                      </h3>
+                    </div>
 
-                      {/* Transactions de dépenses */}
-                      {transactions
-                        .filter((tx) => tx.type === 'payable')
-                        .map((tx, index) => (
-                          <div
-                            key={`payable-${tx.id}-${index}`}
-                            className="px-3 py-2 border-b border-gray-100 last:border-b-0 hover:bg-red-50 transition-colors flex justify-between items-center cursor-pointer"
-                            onClick={(e) => handleTransactionClick(e, tx)}
-                          >
+                    <div className="max-h-64 overflow-y-auto">
+                      {transactions.map((tx, index) => (
+                        <div
+                          key={`${tx.id}-${index}`}
+                          className={`p-3 border-b border-gray-100 last:border-b-0 transition-colors cursor-pointer ${
+                            tx.type === 'receivable'
+                              ? 'hover:bg-green-50'
+                              : 'hover:bg-red-50'
+                          }`}
+                          onClick={(e) => handleTransactionClick(e, tx)}
+                        >
+                          <div className="flex justify-between items-start">
                             <div className="flex-1 min-w-0">
-                              {tx.category && (
-                                <div className="text-xs text-gray-500 mt-0.5">
-                                  {tx.subCategory}
-                                </div>
-                              )}
+                              <p className="font-medium text-gray-900 text-sm truncate">
+                                {tx.thirdParty}
+                              </p>
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                {tx.subCategory}
+                              </p>
                             </div>
-                            <div className="flex items-center gap-2 ml-2 flex-shrink-0">
-                              <span className="text-xs font-mono text-red-600 whitespace-nowrap">
-                                -{parseFloat(tx.amount).toFixed(2)} €
-                              </span>
+                            <div
+                              className={`text-sm font-semibold ml-2 ${
+                                tx.type === 'receivable'
+                                  ? 'text-green-600'
+                                  : 'text-red-600'
+                              }`}
+                            >
+                              {tx.type === 'receivable' ? '+' : '-'}
+                              {parseFloat(tx.amount).toFixed(2)}€
                             </div>
                           </div>
-                        ))}
+                        </div>
+                      ))}
                     </div>
                   </motion.div>
                 )}
@@ -383,33 +340,30 @@ const DayCell = ({
         </div>
       </div>
 
-      {/* Modal d'encaissement - Ajout de la prop cellDate */}
       <CollectionModal
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
         transaction={selectedTransaction}
-        cellDate={day} // ← Ici on passe la date de la cellule
+        cellDate={day}
       />
     </>
   );
 };
 
-// Composant principal ScheduleView
+// Composant principal ScheduleView avec corrections des dates
 const ScheduleView = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState('month');
   const [isViewModeMenuOpen, setIsViewModeMenuOpen] = useState(false);
   const viewModeMenuRef = useRef(null);
   const [budgetData, setBudgetData] = useState([]);
-  const [frequency, setFrequency] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const { uiState } = useUI();
   const projectId = uiState.activeProject?.id;
 
-  // Définir todayKey une fois pour toutes
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayKey = today.toISOString().split('T')[0];
+  // CORRECTION : Utiliser getTodayKey() au lieu de toISOString()
+  const todayKey = getTodayKey();
 
   // Gestion du clic en dehors du menu
   useEffect(() => {
@@ -427,20 +381,12 @@ const ScheduleView = () => {
     };
   }, []);
 
-  // Transformation des données de l'API
-  const { transactionsByDate, overdueTransactions } = useMemo(() => {
+  // Transformation des données
+  const { transactionsByDate } = useMemo(() => {
     if (!budgetData || budgetData.length === 0) {
-      return { transactionsByDate: {}, overdueTransactions: [] };
+      return { transactionsByDate: {} };
     }
-
-    const transformedTransactions = transformBudgetData(budgetData);
-
-    const overdue = calculateOverdueTransactions(transformedTransactions);
-
-    return {
-      transactionsByDate: transformedTransactions,
-      overdueTransactions: overdue,
-    };
+    return { transactionsByDate: transformBudgetData(budgetData) };
   }, [budgetData]);
 
   // Génération de la grille du calendrier
@@ -529,26 +475,25 @@ const ScheduleView = () => {
     setCurrentDate(new Date());
   };
 
-  // const handleTransactionClick = (e, tx) => {
-  //   e.preventDefault();
-  //   e.stopPropagation();
-  //   console.log('Transaction cliquée:', tx);
-  // };
-
   // Chargement des données
-  const fetchData = async () => {
+  const fetchData = async (showRefresh = false) => {
     if (projectId) {
       try {
-        setLoading(true);
+        if (showRefresh) {
+          setRefreshing(true);
+        } else {
+          setLoading(true);
+        }
+
         const res = await getBudgets(projectId);
         if (res.status === 200) {
           setBudgetData(res.budget);
-          setFrequency(res.frequencies);
         }
       } catch (error) {
         console.error('Erreur lors du chargement des données:', error);
       } finally {
         setLoading(false);
+        setRefreshing(false);
       }
     }
   };
@@ -557,263 +502,189 @@ const ScheduleView = () => {
     fetchData();
   }, [projectId]);
 
-  const daysOfWeek = [
-    'Lundi',
-    'Mardi',
-    'Mercredi',
-    'Jeudi',
-    'Vendredi',
-    'Samedi',
-    'Dimanche',
-  ];
+  const daysOfWeek = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6 max-w-full">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-lg text-gray-600">Chargement des données...</div>
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Chargement du calendrier...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-full">
-      <div className="flex flex-col lg:flex-row gap-8 h-full">
-        {/* Calendrier - Partie principale */}
-        <div className="flex-grow flex flex-col">
-          {/* En-tête avec contrôles */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
-              <div>
-                <p className="text-xl font-semibold text-gray-800">
-                  {headerLabel}
-                </p>
-              </div>
+    <div className="min-h-screen bg-white p-6">
+      <div className=" mx-auto">
+        {/* En-tête épuré */}
+        <div className="mb-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900">
+                Calendrier Financier
+              </h1>
+              <p className="text-gray-600 mt-1">
+                Aujourd'hui :{' '}
+                {new Date().toLocaleDateString('fr-FR', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+              </p>
             </div>
-            <div className="flex items-center gap-4">
-              {/* Sélecteur de vue */}
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => fetchData(true)}
+                disabled={refreshing}
+                className="p-2 text-gray-500 hover:text-gray-700 rounded-lg transition-colors"
+                title="Rafraîchir"
+              >
+                <RefreshCw
+                  className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`}
+                />
+              </button>
+
               <div className="relative" ref={viewModeMenuRef}>
                 <button
                   onClick={() => setIsViewModeMenuOpen((p) => !p)}
-                  className="flex items-center gap-2 px-3 h-9 rounded-md bg-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-300 transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                 >
-                  <span>{viewMode === 'month' ? 'Mois' : 'Semaine'}</span>
+                  <Calendar className="w-4 h-4" />
+                  <span className="text-sm">
+                    {viewMode === 'month' ? 'Mois' : 'Semaine'}
+                  </span>
                   <ChevronDown
                     className={`w-4 h-4 transition-transform ${
                       isViewModeMenuOpen ? 'rotate-180' : ''
                     }`}
                   />
                 </button>
+
                 <AnimatePresence>
                   {isViewModeMenuOpen && (
                     <motion.div
-                      initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                      initial={{ opacity: 0, scale: 0.95, y: -5 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                      className="absolute right-0 top-full mt-2 w-40 bg-white rounded-lg shadow-lg border z-20"
+                      exit={{ opacity: 0, scale: 0.95, y: -5 }}
+                      className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg border border-gray-200 z-10"
                     >
-                      <ul className="p-1">
-                        <li>
-                          <button
-                            onClick={() => {
-                              setViewMode('month');
-                              setIsViewModeMenuOpen(false);
-                            }}
-                            className={`w-full text-left px-3 py-1.5 text-sm rounded-md ${
-                              viewMode === 'month'
-                                ? 'bg-blue-50 text-blue-700 font-semibold'
-                                : 'text-gray-700 hover:bg-gray-100'
-                            }`}
-                          >
-                            Mois
-                          </button>
-                        </li>
-                        <li>
-                          <button
-                            onClick={() => {
-                              setViewMode('week');
-                              setIsViewModeMenuOpen(false);
-                            }}
-                            className={`w-full text-left px-3 py-1.5 text-sm rounded-md ${
-                              viewMode === 'week'
-                                ? 'bg-blue-50 text-blue-700 font-semibold'
-                                : 'text-gray-700 hover:bg-gray-100'
-                            }`}
-                          >
-                            Semaine
-                          </button>
-                        </li>
-                      </ul>
+                      <div className="py-1">
+                        <button
+                          onClick={() => {
+                            setViewMode('month');
+                            setIsViewModeMenuOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                            viewMode === 'month'
+                              ? 'bg-blue-50 text-blue-700'
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          Vue mensuelle
+                        </button>
+                        <button
+                          onClick={() => {
+                            setViewMode('week');
+                            setIsViewModeMenuOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                            viewMode === 'week'
+                              ? 'bg-blue-50 text-blue-700'
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          Vue hebdomadaire
+                        </button>
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
-
-              {/* Contrôles de navigation */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={goToToday}
-                  className="px-3 py-1.5 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                >
-                  Aujourd'hui
-                </button>
-                <button
-                  onClick={goToPrevious}
-                  className="p-2 rounded-full hover:bg-gray-100"
-                >
-                  <ChevronLeft className="w-5 h-5 text-gray-600" />
-                </button>
-                <button
-                  onClick={goToNext}
-                  className="p-2 rounded-full hover:bg-gray-100"
-                >
-                  <ChevronRight className="w-5 h-5 text-gray-600" />
-                </button>
-              </div>
             </div>
           </div>
+        </div>
 
-          {/* Calendrier */}
-          <div className="bg-white rounded-lg shadow-md border overflow-hidden flex flex-col flex-grow">
-            {/* En-tête des jours de la semaine */}
-            <div className="grid grid-cols-7 border-b">
-              {daysOfWeek.map((day) => (
-                <div
-                  key={day}
-                  className="py-2 text-center text-xs font-semibold text-gray-500 uppercase"
-                >
-                  {day}
-                </div>
-              ))}
+        {/* Contrôles de navigation */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-medium text-gray-900">{headerLabel}</h2>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={goToToday}
+              className="px-3 py-1.5 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Aujourd'hui
+            </button>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={goToPrevious}
+                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4 text-gray-600" />
+              </button>
+              <button
+                onClick={goToNext}
+                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ChevronRight className="w-4 h-4 text-gray-600" />
+              </button>
             </div>
+          </div>
+        </div>
 
-            {/* Grille des jours */}
-            <div className="grid grid-cols-7 flex-grow">
-              {calendarGrid.map((day, index) => {
-                // Créer la dateKey de manière cohérente
-                const year = day.getFullYear();
-                const month = String(day.getMonth() + 1).padStart(2, '0');
-                const dayNumber = String(day.getDate()).padStart(2, '0');
-                const dateKey = `${year}-${month}-${dayNumber}`;
+        {/* Calendrier */}
+        <div className="bg-white">
+          <div className="grid grid-cols-7 mb-2">
+            {daysOfWeek.map((day) => (
+              <div
+                key={day}
+                className="py-2 text-center text-xs font-medium text-gray-500"
+              >
+                {day}
+              </div>
+            ))}
+          </div>
 
-                const isTodayCell = dateKey === todayKey;
-                const isCurrentMonth =
-                  day.getMonth() === currentDate.getMonth();
+          <div className="grid grid-cols-7 border-t border-l border-gray-100">
+            {calendarGrid.map((day, index) => {
+              // CORRECTION : Utiliser formatDateToKey au lieu de manipulation manuelle
+              const dateKey = formatDateToKey(day);
+              const isTodayCell = dateKey === todayKey;
+              const isCurrentMonth = day.getMonth() === currentDate.getMonth();
 
-                return (
+              return (
+                <div key={index} className="border-b border-r border-gray-100">
                   <DayCell
-                    key={index}
                     day={day}
                     transactions={transactionsByDate[dateKey] || []}
                     isToday={isTodayCell}
                     isCurrentMonth={isCurrentMonth}
                     viewMode={viewMode}
                   />
-                );
-              })}
-            </div>
-            <div className="border-t bg-gray-50 px-4 py-3">
-              <div className="flex items-center justify-center gap-6 text-xs text-gray-600">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-green-500 rounded"></div>
-                  <span>Vert : Revenus (entrées d'argent)</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-red-500 rounded"></div>
-                  <span>Rouge : Dépenses (sorties d'argent)</span>
-                </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </div>
 
-        {/* Panneau latéral pour les échéances en retard */}
-        {/* <div className="w-full lg:w-80 xl:w-96 flex-shrink-0">
-          <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-yellow-500" />
-            Échéances en Retard
-          </h2>
-          <div className="bg-white rounded-lg shadow-md border p-4 h-[calc(100vh-12rem)] overflow-y-auto custom-scrollbar">
-            {overdueTransactions.length > 0 ? (
-              <ul className="space-y-2">
-                {overdueTransactions.map((tx, index) => {
-                  const isPayable = tx.type === 'payable';
-                  return (
-                    <li key={index}>
-                      <button
-                        onClick={(e) => handleTransactionClick(e, tx)}
-                        className="w-full text-left p-2 rounded-lg border border-gray-200 bg-white transition-colors hover:bg-gray-50"
-                      >
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={`flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full ${
-                                isPayable ? 'bg-red-100' : 'bg-green-100'
-                              }`}
-                            >
-                              {isPayable ? (
-                                <ArrowDown className="w-4 h-4 text-red-600" />
-                              ) : (
-                                <ArrowUp className="w-4 h-4 text-green-600" />
-                              )}
-                            </div>
-                            <div className="overflow-hidden">
-                              <p
-                                className="font-semibold truncate text-gray-800"
-                                title={tx.thirdParty}
-                              >
-                                {tx.thirdParty}
-                              </p>
-                              <div className="text-xs text-gray-500 flex items-center gap-1.5">
-                                <span>
-                                  {new Date(tx.date).toLocaleDateString(
-                                    'fr-FR'
-                                  )}
-                                </span>
-                                <span className="text-gray-500">
-                                  ({tx.daysOverdue}j en retard)
-                                </span>
-                              </div>
-                              <div className="text-xs text-blue-600 mt-0.5">
-                                {tx.frequency_name &&
-                                tx.frequency_name !== 'Ponctuelle' &&
-                                tx.frequency_name !== 'Irrégulière' ? (
-                                  <span>
-                                    À partir du{' '}
-                                    {new Date(tx.start_date).toLocaleDateString(
-                                      'fr-FR'
-                                    )}
-                                    {` (${tx.frequency_name.toLowerCase()})`}
-                                  </span>
-                                ) : (
-                                  <span>
-                                    Le{' '}
-                                    {new Date(tx.start_date).toLocaleDateString(
-                                      'fr-FR'
-                                    )}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <p className="text-base font-normal whitespace-nowrap pl-2 text-gray-600">
-                            {parseFloat(tx.amount || 0).toFixed(2)} €
-                          </p>
-                        </div>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <div className="text-center py-10 text-gray-500">
-                <p>Aucune échéance en retard.</p>
-                <p className="text-sm mt-1">Félicitations !</p>
-              </div>
-            )}
+        {/* Légende simple */}
+        <div className="mt-4 flex justify-center">
+          <div className="flex items-center gap-6 text-sm text-gray-600">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span>Revenus</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+              <span>Dépenses</span>
+            </div>
           </div>
-        </div> */}
+        </div>
       </div>
     </div>
   );

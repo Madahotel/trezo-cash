@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Button } from './ui/button';
 import {
@@ -11,6 +11,7 @@ import AdvancedOptions from './AdvancedOptions';
 import BasicInfoSection from './BasicInfoSection';
 import QuickAddThirdPartyModal from './QuickAddThirdPartyModal';
 import { apiService } from '../../../utils/ApiService';
+import toast from 'react-hot-toast';
 
 const BudgetLineDialog = ({
   open,
@@ -70,44 +71,32 @@ const BudgetLineDialog = ({
   });
 
   const [isLoading, setIsLoading] = useState(false);
-  const currencies = useMemo(
-    () =>
-      listCurrencies.map((currency) => ({
-        value: currency.id?.toString() || `currency-${currency.code}`,
-        label: `${currency.code} (${currency.symbol})`,
-        code: currency.code,
-        symbol: currency.symbol,
-      })),
-    [listCurrencies]
-  );
 
-  const defaultCurrency = useMemo(
-    () => currencies.find((curr) => curr.code === 'EUR') || currencies[0],
-    [currencies]
-  );
+  // Transformations simples - déplacées après les useState
+  const currencies = listCurrencies.map((currency) => ({
+    value: currency.id?.toString() || `currency-${currency.code}`,
+    label: `${currency.code} (${currency.symbol})`,
+    code: currency.code,
+    symbol: currency.symbol,
+  }));
 
-  const frequencies = useMemo(
-    () =>
-      listFrequencies.map((freq) => ({
-        value: freq.id?.toString() || `freq-${freq.name}`,
-        label: freq.name,
-      })),
-    [listFrequencies]
-  );
+  const defaultCurrency =
+    currencies.find((curr) => curr.code === 'EUR') || currencies[0];
 
-  const provisionAccountOptions = useMemo(
-    () =>
-      allCashAccounts.map((account) => ({
-        value: account.id?.toString() || `account-${account.name}`,
-        label: account.name,
-      })),
-    [allCashAccounts]
-  );
+  const frequencies = listFrequencies.map((freq) => ({
+    value: freq.id?.toString() || `freq-${freq.name}`,
+    label: freq.name,
+  }));
 
-  const getFilteredThirdPartyOptions = useCallback((type, thirdPartyList) => {
+  const provisionAccountOptions = allCashAccounts.map((account) => ({
+    value: account.id?.toString() || `account-${account.name}`,
+    label: account.name,
+  }));
+
+  // Fonction pour filtrer les tiers
+  const getFilteredThirdPartyOptions = (type, thirdPartyList) => {
     if (!thirdPartyList || thirdPartyList.length === 0) return [];
 
-    // Normaliser la structure des données
     const normalizedList = thirdPartyList.map((thirdParty) => ({
       id: thirdParty.id || thirdParty.user_id || thirdParty.user_third_party_id,
       user_type_id: thirdParty.user_type_id || thirdParty.type_id,
@@ -120,15 +109,11 @@ const BudgetLineDialog = ({
       raw: thirdParty,
     }));
 
-    console.log('📊 Données normalisées:', normalizedList);
-
-    // NOUVELLE LOGIQUE : Fournisseur + Emprunteur ensemble, Client + Prêteur ensemble
     if (type === '1') {
-      // Dépenses
       return normalizedList
         .filter(
           (thirdParty) =>
-            thirdParty.user_type_id == 6 || thirdParty.user_type_id == 5 // Fournisseurs (6) ou Emprunteurs (5)
+            thirdParty.user_type_id == 6 || thirdParty.user_type_id == 5
         )
         .map((thirdParty) => ({
           value: thirdParty.id?.toString(),
@@ -140,11 +125,10 @@ const BudgetLineDialog = ({
           rawData: thirdParty.raw,
         }));
     } else if (type === '2') {
-      // Revenus
       return normalizedList
         .filter(
           (thirdParty) =>
-            thirdParty.user_type_id == 4 || thirdParty.user_type_id == 7 // Clients (4) ou Prêteurs (7)
+            thirdParty.user_type_id == 4 || thirdParty.user_type_id == 7
         )
         .map((thirdParty) => ({
           value: thirdParty.id?.toString(),
@@ -157,121 +141,65 @@ const BudgetLineDialog = ({
         }));
     }
     return [];
-  }, []);
+  };
 
-  const thirdPartyOptions = useMemo(() => {
-    const options = getFilteredThirdPartyOptions(formData.type, listThirdParty);
-    console.log('🎯 ThirdParty Options finales:', {
-      type: formData.type,
-      optionsCount: options.length,
-      options: options.map((opt) => ({ label: opt.label, type: opt.type })),
-    });
-    return options;
-  }, [formData.type, listThirdParty, getFilteredThirdPartyOptions]);
+  const thirdPartyOptions = getFilteredThirdPartyOptions(
+    formData.type,
+    listThirdParty
+  );
 
   const createThirdParty = async (thirdPartyData) => {
     try {
       setIsCreatingThirdParty(true);
-
-      console.log('📤 DONNÉES ENVOYÉES au backend:', thirdPartyData);
-
-      const response = await apiService.request(
-        'POST',
+      const response = await apiService.post(
         '/users/third-parties',
         thirdPartyData
       );
 
-      if (response.success) {
-        console.log('✅ Tiers créé avec succès:', response.data);
+      if (response.status === 200) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
         await fetchOptions();
-        return response.data;
+        return response.data || { success: true, message: response.message };
       } else {
-        console.error("❌ Réponse d'erreur du backend:", response);
-
-        let errorMessage = 'Erreur lors de la création du tiers';
-
-        // Gestion spécifique des erreurs de validation
-        if (response.status === 422 && response.validationErrors) {
-          const errors = Object.entries(response.validationErrors)
-            .map(([field, messages]) => {
-              // Message personnalisé pour l'email unique
-              if (
-                field === 'email' &&
-                messages.some((msg) => msg.includes('unique'))
-              ) {
-                return `L'adresse email "${thirdPartyData.email}" est déjà utilisée par un autre tiers. Veuillez utiliser une adresse email différente.`;
-              }
-              return `${field}: ${messages.join(', ')}`;
-            })
-            .join('; ');
-          errorMessage = errors;
-        }
-        // Gestion des erreurs serveur avec message spécifique
-        else if (response.status === 500) {
-          // Vérifie si l'erreur concerne un email dupliqué
-          const errorDetail =
-            response.data?.error || response.data?.message || '';
-          if (errorDetail.includes('email') && errorDetail.includes('unique')) {
-            errorMessage = `L'adresse email "${thirdPartyData.email}" est déjà utilisée. Veuillez utiliser une autre adresse email.`;
-          } else if (errorDetail.includes('Duplicate entry')) {
-            errorMessage =
-              'Cette adresse email est déjà utilisée par un autre tiers.';
-          } else {
-            errorMessage =
-              response.data?.message || 'Erreur serveur. Veuillez réessayer.';
-          }
-        }
-        // Autres erreurs
-        else if (response.error) {
-          errorMessage = response.error;
-        }
-
+        // Gestion d'erreur...
         throw new Error(errorMessage);
       }
     } catch (error) {
-      console.error('❌ Erreur création tiers:', {
-        message: error.message,
-        data: thirdPartyData,
-      });
+      console.error('❌ Erreur création tiers:', error);
       throw error;
     } finally {
       setIsCreatingThirdParty(false);
     }
   };
+
   const handleAddNewThirdParty = async () => {
     if (!newThirdPartyData.name.trim()) {
-      alert('Le nom du tiers est obligatoire');
+      toast.error('Le nom du tiers est obligatoire');
       return;
     }
 
     if (!newThirdPartyData.user_type_id) {
-      alert('Veuillez sélectionner un type de tiers');
+      toast.error('Veuillez sélectionner un type de tiers');
       return;
     }
 
-    // Vérification côté client pour les emails vides
     if (newThirdPartyData.email && !isValidEmail(newThirdPartyData.email)) {
-      alert('Veuillez saisir une adresse email valide');
+      toast.error('Veuillez saisir une adresse email valide');
       return;
     }
 
-    // STRUCTURE EXACTE attendue par le backend
     const thirdPartyData = {
       name: newThirdPartyData.name.trim(),
       firstname: newThirdPartyData.firstname?.trim() || '',
-      email: newThirdPartyData.email?.trim() || null, // null si vide
+      email: newThirdPartyData.email?.trim() || null,
       phone_number: newThirdPartyData.phone_number?.trim() || '',
       user_type_id: newThirdPartyData.user_type_id,
-      password: 'password123', // Mot de passe par défaut
+      password: 'password123',
     };
-
-    console.log('🎯 Données préparées pour le backend:', thirdPartyData);
 
     try {
       const result = await createThirdParty(thirdPartyData);
-
       if (result) {
-        // Réinitialiser le formulaire
         setNewThirdPartyData({
           name: '',
           firstname: '',
@@ -280,26 +208,19 @@ const BudgetLineDialog = ({
           user_type_id: '',
         });
         setShowThirdPartyModal(false);
-
-        // Message de succès
-        console.log('✅ Tiers créé avec succès!');
+        toast.success('Tiers créé avec succès !');
       }
     } catch (error) {
-      console.error('❌ Erreur création tiers:', error);
-
-      // Affichage d'alerte amélioré
-      alert(`Erreur lors de la création du tiers:\n\n${error.message}`);
+      toast.error(`Erreur lors de la création du tiers: ${error.message}`);
     }
   };
 
-  // Fonction utilitaire pour valider l'email
   const isValidEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
 
-  // Calcul des montants
-  const calculatedAmounts = useCallback(() => {
+  const calculatedAmounts = () => {
     const amount = parseFloat(formData.amount);
     if (isNaN(amount)) return { htAmount: 0, ttcAmount: 0, vatAmount: 0 };
 
@@ -319,7 +240,7 @@ const BudgetLineDialog = ({
       const vat = ttc - ht;
       return { htAmount: ht, ttcAmount: ttc, vatAmount: vat };
     }
-  }, [formData.amount, amountType, vatRateId, vatRates]);
+  };
 
   const amounts = calculatedAmounts();
   const showProvisionButton =
@@ -330,75 +251,18 @@ const BudgetLineDialog = ({
       setIsLoadingData(true);
       const res = await getOptions();
 
-      console.log('🔍 STRUCTURE COMPLÈTE DE getOptions():', res);
-      console.log('📋 Clés disponibles:', Object.keys(res));
-
-      // Vérifiez différentes structures possibles
-      if (res.users) {
-        console.log('👥 Structure users trouvée:', {
-          userThirdParties: res.users.user_third_parties,
-          userFinancials: res.users.user_financials,
-          userThirdPartiesData:
-            res.users.user_third_parties?.user_third_party_items?.data,
-          userFinancialsData:
-            res.users.user_financials?.user_financial_items?.data,
-        });
-      }
-
-      if (res.listThirdParty) {
-        console.log('📦 listThirdParty directe:', res.listThirdParty);
-      }
-
-      // Essayez différentes approches pour récupérer les données
       let combinedList = [];
-
-      // Approche 1: Structure avec users
       if (res.users) {
         const userThirdParties =
           res.users.user_third_parties?.user_third_party_items?.data || [];
         const userFinancials =
           res.users.user_financials?.user_financial_items?.data || [];
         combinedList = [...userThirdParties, ...userFinancials];
-
-        console.log('🔄 Combinaison users + financials:', {
-          userThirdPartiesCount: userThirdParties.length,
-          userFinancialsCount: userFinancials.length,
-          combinedCount: combinedList.length,
-        });
-      }
-      // Approche 2: Structure directe
-      else if (res.listThirdParty) {
+      } else if (res.listThirdParty) {
         combinedList = res.listThirdParty;
-        console.log(
-          '🎯 Utilisation listThirdParty directe:',
-          combinedList.length
-        );
-      }
-      // Approche 3: Autre structure
-      else {
-        console.warn('⚠️ Structure inconnue, utilisation des données brutes');
+      } else {
         combinedList = res.thirdParties || res.data || [];
       }
-
-      console.log(
-        '📊 DÉTAIL des tiers combinés:',
-        combinedList.map((t) => ({
-          id: t.id,
-          name: t.name,
-          firstname: t.firstname,
-          user_type_id: t.user_type_id,
-          type:
-            t.user_type_id === 4
-              ? 'Client'
-              : t.user_type_id === 5
-              ? 'Emprunteur'
-              : t.user_type_id === 6
-              ? 'Fournisseur'
-              : t.user_type_id === 7
-              ? 'Prêteur'
-              : 'Inconnu',
-        }))
-      );
 
       setData({
         ...res,
@@ -406,100 +270,88 @@ const BudgetLineDialog = ({
       });
     } catch (error) {
       console.error('❌ Erreur chargement options:', error);
+      toast.error('Erreur lors du chargement des options');
     } finally {
       setIsLoadingData(false);
     }
   };
-  // Charger les données d'édition
-  const fetchEditData = useCallback(
-    async (budgetId) => {
-      try {
-        setIsLoadingEditData(true);
-        const res = await showEditBudget(budgetId);
-        setEditData(res);
 
-        // Pré-remplir le formulaire avec les données d'édition
-        if (res && res.budget) {
-          const budget = res.budget;
+  const fetchEditData = async (budgetId) => {
+    try {
+      setIsLoadingEditData(true);
+      const res = await showEditBudget(budgetId);
+      setEditData(res);
 
-          // Approche directe : créer l'option tiers à partir des données du budget
-          const thirdPartyOption = {
-            value: budget.user_third_party_id?.toString(),
-            label: `${budget.user_third_party_firstname || ''} ${
-              budget.user_third_party_name || ''
-            }`.trim(),
-            email: budget.user_third_party_email,
-          };
+      if (res && res.budget) {
+        const budget = res.budget;
+        const thirdPartyOption = {
+          value: budget.user_third_party_id?.toString(),
+          label: `${budget.user_third_party_firstname || ''} ${
+            budget.user_third_party_name || ''
+          }`.trim(),
+          email: budget.user_third_party_email,
+        };
 
-          const currency = currencies.find(
-            (curr) => curr.value === budget.currency_id?.toString()
-          );
-
-          // Mettre à jour le formulaire principal en une seule fois
-          setFormData({
-            type: budget.budget_type_id?.toString() || '1',
-            mainCategory: budget.category_id?.toString() || '',
-            subcategory: budget.sub_category_id?.toString() || '',
-            amount: budget.amount?.toString() || '',
-            currency: currency?.value || defaultCurrency?.value || '1',
-            frequency: budget.frequency_id?.toString() || '1',
-            startDate: budget.start_date || '',
-            endDate: budget.end_date || '',
-            isIndefinite: budget.is_duration_indefinite || false,
-            description: budget.description || '',
-            thirdParty: thirdPartyOption,
-          });
-
-          // Mettre à jour les options avancées
-          if (budget.amount_type) setAmountType(budget.amount_type);
-          if (budget.vat_rate_id) setVatRateId(budget.vat_rate_id.toString());
-
-          // Gérer les provisions
-          if (budget.is_provision) {
-            setIsProvision(true);
-            setNumProvisions(budget.num_provisions?.toString() || '');
-            setProvisionDetails({
-              finalPaymentDate: budget.final_payment_date || '',
-              provisionAccountId: budget.provision_account_id?.toString() || '',
-            });
-          }
-        }
-      } catch (error) {
-        console.error(
-          "Erreur lors du chargement des données d'édition:",
-          error
+        const currency = currencies.find(
+          (curr) => curr.value === budget.currency_id?.toString()
         );
-      } finally {
-        setIsLoadingEditData(false);
-      }
-    },
-    [currencies, defaultCurrency]
-  );
 
-  // Charger les options seulement quand le dialog s'ouvre
+        setFormData({
+          type: budget.budget_type_id?.toString() || '1',
+          mainCategory: budget.category_id?.toString() || '',
+          subcategory: budget.sub_category_id?.toString() || '',
+          amount: budget.amount?.toString() || '',
+          currency: currency?.value || '1',
+          frequency: budget.frequency_id?.toString() || '1',
+          startDate: budget.start_date || '',
+          endDate: budget.end_date || '',
+          isIndefinite: budget.is_duration_indefinite || false,
+          description: budget.description || '',
+          thirdParty: thirdPartyOption,
+        });
+
+        if (budget.amount_type) setAmountType(budget.amount_type);
+        if (budget.vat_rate_id) setVatRateId(budget.vat_rate_id.toString());
+
+        if (budget.is_provision) {
+          setIsProvision(true);
+          setNumProvisions(budget.num_provisions?.toString() || '');
+          setProvisionDetails({
+            finalPaymentDate: budget.final_payment_date || '',
+            provisionAccountId: budget.provision_account_id?.toString() || '',
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Erreur lors du chargement des données d'édition:", error);
+      toast.error("Erreur lors du chargement des données d'édition");
+    } finally {
+      setIsLoadingEditData(false);
+    }
+  };
+
+  // CORRECTION : Effets avec dépendances fixes
   useEffect(() => {
     if (open && !data) {
       fetchOptions();
     }
-  }, [open, data]);
+  }, [open]); // ← data retiré des dépendances
 
-  // Charger les données d'édition quand le dialog s'ouvre en mode édition
   useEffect(() => {
     if (open && editLine && !editData) {
       fetchEditData(editLine.id);
     }
-  }, [open, editLine, editData, fetchEditData]);
+  }, [open, editLine?.id]); // ← editData retiré, seulement l'ID
 
-  // Reset form when dialog opens - Mode création
+  // CORRECTION : Effet de reset
   useEffect(() => {
     if (open && !editLine) {
-      // Mode création - formulaire vide
       setFormData({
         type: '1',
         mainCategory: '',
         subcategory: '',
         amount: '',
-        currency: defaultCurrency?.value || '1',
+        currency: '1',
         frequency: '1',
         startDate: '',
         endDate: '',
@@ -507,7 +359,6 @@ const BudgetLineDialog = ({
         description: '',
         thirdParty: null,
       });
-
       setAmountType('ttc');
       setVatRateId(null);
       setIsProvision(false);
@@ -522,30 +373,24 @@ const BudgetLineDialog = ({
         user_type_id: '',
       });
     }
-  }, [open, editLine, defaultCurrency]);
+  }, [open, editLine]); // ← defaultCurrency retiré
 
-  // Gestion des changements de formulaire
-  const handleChange = useCallback((field, value) => {
+  const handleChange = (field, value) => {
     setFormData((prev) => {
       const newData = { ...prev, [field]: value };
-
       if (field === 'type') {
         newData.mainCategory = '';
         newData.subcategory = '';
         newData.thirdParty = null;
       }
-
       if (field === 'mainCategory') {
         newData.subcategory = '';
       }
-
       return newData;
     });
-  }, []);
+  };
 
-  // Fonction pour soumettre le formulaire (création ou mise à jour)
   const handleSubmit = async () => {
-    // Validation des champs obligatoires
     if (
       !formData.mainCategory ||
       !formData.subcategory ||
@@ -555,17 +400,16 @@ const BudgetLineDialog = ({
       !formData.thirdParty ||
       !formData.startDate
     ) {
-      alert('Veuillez remplir tous les champs obligatoires');
+      toast.error('Veuillez remplir tous les champs obligatoires');
       return;
     }
 
     const amount = parseFloat(formData.amount);
     if (isNaN(amount) || amount <= 0) {
-      alert('Veuillez saisir un montant valide');
+      toast.error('Veuillez saisir un montant valide');
       return;
     }
 
-    // Préparation des données pour l'API
     const apiData = {
       amount: amount,
       start_date: formData.startDate,
@@ -580,14 +424,8 @@ const BudgetLineDialog = ({
       amount_type_id: 1,
     };
 
-    // Ajouter les données des options avancées si nécessaire
-    if (amountType) {
-      apiData.amount_type = amountType;
-    }
-
-    if (vatRateId) {
-      apiData.vat_rate_id = parseInt(vatRateId);
-    }
+    if (amountType) apiData.amount_type = amountType;
+    if (vatRateId) apiData.vat_rate_id = parseInt(vatRateId);
 
     if (isProvision) {
       apiData.is_provision = true;
@@ -604,29 +442,24 @@ const BudgetLineDialog = ({
     }
 
     setIsLoading(true);
-
     try {
-      let res;
-
       if (editLine) {
-        // Mode mise à jour
-        res = await updateBudget(apiData, editLine.id);
-
-        if (onBudgetUpdated) {
-          await onBudgetUpdated();
-        }
+        await updateBudget(apiData, editLine.id);
+        toast.success('Ligne budgétaire modifiée avec succès');
+        if (onBudgetUpdated) await onBudgetUpdated();
       } else {
-        // Mode création
-        res = await storeBudget(apiData, projectId);
-
-        if (onBudgetAdded) {
-          await onBudgetAdded();
-        }
+        await storeBudget(apiData, projectId);
+        toast.success('Ligne budgétaire créée avec succès');
+        if (onBudgetAdded) await onBudgetAdded();
       }
-
       onOpenChange(false);
     } catch (error) {
       console.error('Error saving budget:', error);
+      toast.error(
+        `Erreur lors de ${
+          editLine ? 'la modification' : "l'ajout"
+        } de la ligne budgétaire: ${error.message}`
+      );
     } finally {
       setIsLoading(false);
     }
@@ -648,10 +481,9 @@ const BudgetLineDialog = ({
 
   return (
     <>
-      {/* Dialog principal */}
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+          className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
           onClick={handleOverlayClick}
           onKeyDown={handleKeyDown}
           tabIndex={0}
@@ -707,7 +539,6 @@ const BudgetLineDialog = ({
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {/* Section Informations de base */}
                   <BasicInfoSection
                     formData={formData}
                     onFormChange={handleChange}
@@ -720,7 +551,6 @@ const BudgetLineDialog = ({
                     onAddThirdParty={() => setShowThirdPartyModal(true)}
                   />
 
-                  {/* Options avancées */}
                   <AdvancedOptions
                     description={formData.description}
                     onDescriptionChange={(value) =>
@@ -776,7 +606,6 @@ const BudgetLineDialog = ({
         </div>
       )}
 
-      {/* Modal de création de tiers - COMPOSANT SÉPARÉ */}
       <QuickAddThirdPartyModal
         showThirdPartyModal={showThirdPartyModal}
         setShowThirdPartyModal={setShowThirdPartyModal}

@@ -31,10 +31,13 @@ const getEntryAmountForPeriod = (entry, rangeStart, rangeEnd) => {
   return 0;
 };
 
-const expandVatEntries = (entries, categories) => {
+export const expandVatEntries = (entries, categories) => {
+  if (!entries || !Array.isArray(entries)) return [];
+  
   return entries.map((entry) => ({
     ...entry,
-    amountWithVat: entry.amount * 1.2, // Ajout de 20% de TVA pour l'exemple
+    amountWithVat: entry.amount * 1.2, // Exemple simple
+    // Ajoutez ici votre logique d'expansion VAT sans utiliser de Hooks
   }));
 };
 
@@ -234,14 +237,14 @@ const staticData = {
   ],
 };
 
-const ExpenseAnalysisView = ({
-  isFocusMode = false,
-  rangeStart: rangeStartProp,
-  rangeEnd: rangeEndProp,
-  analysisType: analysisTypeProp,
-  analysisMode: analysisModeProp,
-  setAnalysisMode: setAnalysisModeProp,
-}) => {
+const ExpenseAnalysisView = ({ 
+  isFocusMode = false, 
+  rangeStart: rangeStartProp, 
+  rangeEnd: rangeEndProp, 
+  analysisType: analysisTypeProp, 
+  analysisMode: analysisModeProp, 
+  setAnalysisMode: setAnalysisModeProp 
+})=> {
   // États locaux
   const [localTimeUnit, setLocalTimeUnit] = useState('month');
   const [localHorizonLength, setLocalHorizonLength] = useState(1);

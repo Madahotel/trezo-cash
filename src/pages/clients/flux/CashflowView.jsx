@@ -6,8 +6,10 @@ import BudgetModal from '../../../components/modal/BudgetModal.jsx';
 import { formatCurrency } from '../../../utils/formatting.js';
 import { useData } from '../../../components/context/DataContext';
 import { useUI } from '../../../components/context/UIContext';
-import { getTodayInTimezone, getStartOfWeek } from '../../../utils/budgetCalculations';
-import { useActiveProjectData, useCashflowChartData } from '../../../utils/selectors.jsx';
+import { getStartOfWeek } from '../../../utils/budgetCalculations';
+import {getTodayInTimezone} from '../../../utils/getTodayInTimezone.js';
+import { useCashflowChartData } from '../../../hooks/useCashflowChartData';
+import { useActiveProjectData } from '../../../hooks/useActiveProjectData';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const CashflowView = ({ isFocusMode = false }) => {

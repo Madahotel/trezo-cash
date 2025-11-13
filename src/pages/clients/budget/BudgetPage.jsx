@@ -1,14 +1,18 @@
-// BudgetPage.jsx - Version corrigée avec gestion centralisée
-import React, { useState, useRef, useEffect } from 'react';
+// BudgetPage.jsx - Version ultra-optimisée
+import React, { useState, useRef, useEffect, useCallback,lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Download, FileSpreadsheet, FileText } from 'lucide-react';
 import BudgetStateView from './BudgetStateView';
 import { useUI } from '../../../components/context/UIContext';
 import { useData } from '../../../components/context/DataContext';
 import { updateProjectOnboardingStep } from '../../../components/context/actions';
-import { useActiveProjectData } from '../../../utils/selectors';
+import { useActiveProjectData } from '../../../hooks/useActiveProjectData';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getBudget } from '../../../components/context/budgetAction';
+import { getBudget, invalidateBudgetCache } from '../../../components/context/budgetAction';
+
+const BudgetStateView = lazy(() => import ('./BudgetStateView'));
+// 🔥 Cache local pour éviter les rechargements inutiles
+const budgetPageCache = new Map();
 
 const BudgetPage = () => {
     const { uiState, uiDispatch } = useUI();
@@ -19,7 +23,6 @@ const BudgetPage = () => {
     const [isDownloadMenuOpen, setIsDownloadMenuOpen] = useState(false);
     const downloadMenuRef = useRef(null);
 
-    // ✅ NOUVEAU : États pour gérer le budget centralisé
     const [budgetData, setBudgetData] = useState(null);
     const [budgetLoading, setBudgetLoading] = useState(false);
     const [budgetError, setBudgetError] = useState(null);
@@ -27,10 +30,20 @@ const BudgetPage = () => {
     const { activeProject } = useActiveProjectData(dataState, uiState);
     const showValidationButton = activeProject && activeProject.onboarding_step === 'budget';
 
-    // ✅ CORRECTION : Fonction centralisée pour charger le budget
-    const fetchBudgetData = async (retryCount = 0) => {
+    // 🔥 OPTIMISATION : useCallback pour éviter les re-créations
+    const fetchBudgetData = useCallback(async (retryCount = 0) => {
         if (!activeProject?.id || typeof activeProject.id !== 'number') {
             setBudgetError('Aucun projet valide sélectionné');
+            return;
+        }
+
+        // 🔥 Vérifier le cache d'abord
+        const cacheKey = `budget-${activeProject.id}`;
+        const cached = budgetPageCache.get(cacheKey);
+        
+        if (cached && Date.now() - cached.timestamp < 30000) { // 30 secondes
+            console.log('📦 Retour cache BudgetPage:', activeProject.id);
+            setBudgetData(cached.data);
             return;
         }
 
@@ -40,11 +53,17 @@ const BudgetPage = () => {
             console.log('🔄 Chargement du budget pour le projet:', activeProject.name);
             
             const data = await getBudget(activeProject.id);
+            
+            // 🔥 Mettre en cache
+            budgetPageCache.set(cacheKey, {
+                data,
+                timestamp: Date.now()
+            });
+            
             setBudgetData(data);
         } catch (err) {
             console.error('Erreur lors du chargement du budget:', err);
             
-            // ✅ Gestion du rate limiting avec retry
             if (err.response?.status === 429 && retryCount < 2) {
                 const delay = Math.pow(2, retryCount) * 1000;
                 console.warn(`⏳ Trop de requêtes, nouvelle tentative dans ${delay}ms...`);
@@ -59,41 +78,44 @@ const BudgetPage = () => {
         } finally {
             setBudgetLoading(false);
         }
-    };
+    }, [activeProject?.id, activeProject?.name]);
 
-    // ✅ CORRECTION : Charger le budget uniquement quand le projet change
+    // 🔥 OPTIMISATION : useEffect optimisé
     useEffect(() => {
         if (activeProject?.id && typeof activeProject.id === 'number') {
-            // ✅ Délai pour éviter les appels trop rapides
             const timer = setTimeout(() => {
                 fetchBudgetData();
-            }, 200);
+            }, 100); // Réduit le délai
             
             return () => clearTimeout(timer);
+        } else {
+            // Nettoyer les données si pas de projet valide
+            setBudgetData(null);
+            setBudgetError(null);
         }
-    }, [activeProject?.id]);
+    }, [activeProject?.id, fetchBudgetData]);
 
-    // ✅ Gestion du clic externe
+    // 🔥 OPTIMISATION : Gestion des clics externes avec useCallback
+    const handleClickOutside = useCallback((event) => {
+        if (downloadMenuRef.current && !downloadMenuRef.current.contains(event.target)) {
+            setIsDownloadMenuOpen(false);
+        }
+    }, []);
+
     useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (downloadMenuRef.current && !downloadMenuRef.current.contains(event.target)) {
-                setIsDownloadMenuOpen(false);
-            }
-        };
         document.addEventListener("mousedown", handleClickOutside);
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
         };
-    }, []);
+    }, [handleClickOutside]);
 
-    const handleValidation = async () => {
+    const handleValidation = useCallback(async () => {
         if (!activeProject?.id) {
             console.error('❌ Aucun projet actif pour la validation');
             return;
         }
 
         try {
-            console.log('✅ Validation du budget pour le projet:', activeProject.name);
             await updateProjectOnboardingStep(
                 { dataDispatch, uiDispatch }, 
                 { projectId: activeProject.id, step: 'accounts' }
@@ -102,16 +124,26 @@ const BudgetPage = () => {
         } catch (error) {
             console.error('❌ Erreur lors de la validation:', error);
         }
-    };
+    }, [activeProject?.id, dataDispatch, uiDispatch, navigate]);
 
-    // ✅ Ajouter des logs de débogage
+    // 🔥 OPTIMISATION : Fonction de rafraîchissement optimisée
+    const handleRefresh = useCallback(() => {
+        if (activeProject?.id) {
+            invalidateBudgetCache(activeProject.id);
+            budgetPageCache.delete(`budget-${activeProject.id}`);
+        }
+        fetchBudgetData();
+    }, [activeProject?.id, fetchBudgetData]);
+
+    // 🔥 OPTIMISATION : Éviter les logs en production
     useEffect(() => {
-        console.log('🔍 BudgetPage - Projet actif:', activeProject);
-        console.log('🔍 BudgetPage - Budget chargé:', !!budgetData);
-        console.log('🔍 BudgetPage - En cours de chargement:', budgetLoading);
-    }, [activeProject, budgetData, budgetLoading]);
+        if (process.env.NODE_ENV === 'development') {
+            console.log('🔍 BudgetPage - Projet actif:', activeProject);
+            console.log('🔍 BudgetPage - Budget chargé:', !!budgetData);
+        }
+    }, [activeProject, budgetData]);
 
-    // ✅ Afficher l'état de chargement
+    // États de chargement
     if (budgetLoading) {
         return (
             <div className="p-6 max-w-full">
@@ -125,7 +157,6 @@ const BudgetPage = () => {
         );
     }
 
-    // ✅ Afficher les erreurs
     if (budgetError) {
         return (
             <div className="p-6 max-w-full">
@@ -133,7 +164,7 @@ const BudgetPage = () => {
                     <h3 className="text-red-800 font-semibold mb-2">Erreur</h3>
                     <p className="text-red-600">{budgetError}</p>
                     <button
-                        onClick={fetchBudgetData}
+                        onClick={handleRefresh}
                         className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
                     >
                         Réessayer
@@ -223,15 +254,14 @@ const BudgetPage = () => {
                 </div>
             )}
             
-            {/* ✅ CORRECTION : Passer les données du budget à BudgetStateView */}
             <BudgetStateView 
                 searchTerm={searchTerm} 
                 budgetData={budgetData}
                 loading={budgetLoading}
-                onRefresh={fetchBudgetData}
+                onRefresh={handleRefresh}
             />
         </div>
     );
 };
 
-export default BudgetPage;
+export default React.memo(BudgetPage);

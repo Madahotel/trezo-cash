@@ -1,12 +1,13 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from "react-router-dom";
-import { useData } from '../../../components/context/DataContext';
 import { useUI } from '../../../components/context/UIContext';
 import { useAuth } from '../../../components/context/AuthContext';
+import { useProjects } from '../../../hooks/useProjects';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DollarSign } from 'lucide-react';
 import { projectInitializationService } from '../../../services/ProjectInitializationService';
 import { fetchTemplates } from '../../../services/fetchTemplates';
+import { fetchProjectTypes } from '../../../services/fetchProjectTypes'; // Nouveau service
 
 // Import des sous-composants
 import OnboardingHeader from './OnboardingHeader';
@@ -17,43 +18,42 @@ import TemplateSelectionStep from './steps/TemplateSelectionStep';
 import StartOptionStep from './steps/StartOptionStep';
 import FinishStep from './steps/FinishStep';
 
+// Types de projet par défaut (fallback si l'API est lente)
+const DEFAULT_PROJECT_TYPES = [
+  { id: 1, name: 'Business', description: 'Projet professionnel ou commercial', icon: '💼' },
+  { id: 2, name: 'Événement', description: 'Organisation d\'événements', icon: '🎪' },
+  { id: 3, name: 'Ménage', description: 'Gestion du budget familial', icon: '🏠' },
+];
+
 const OnboardingView = () => {
-  const [templatesLoading, setTemplatesLoading] = useState(true);
   const navigate = useNavigate();
-  const { dataState, dataDispatch, fetchProjects } = useData();
   const { uiDispatch } = useUI();
   const { user: currentUser } = useAuth();
-  
-  const { projects, session, tiers, templates: userAndCommunityTemplates } = dataState;
+  const { refetch: fetchProjects } = useProjects();
+
+  // États optimisés
+  const [templates, setTemplates] = useState([]);
+  const [projectTypes, setProjectTypes] = useState(DEFAULT_PROJECT_TYPES); // Utiliser les types par défaut immédiatement
+  const [loadingStates, setLoadingStates] = useState({
+    templates: false,
+    projectTypes: false,
+    submission: false
+  });
 
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
-  const [projectTypes, setProjectTypes] = useState([]);
-  const [loadingTypes, setLoadingTypes] = useState(true);
-
+  
   const [data, setData] = useState({
     projectName: '',
     projectDescription: '',
     projectStartDate: new Date().toISOString().split('T')[0],
     projectEndDate: '',
-    isDurationUndetermined: true, 
+    isDurationUndetermined: true,
     templateId: 'blank',
     startOption: 'blank',
     projectTypeId: null,
     projectClass: 'treasury',
   });
-
-  // Chargement des templates
-  useEffect(() => {
-    const loadTemplates = async () => {
-      if (!userAndCommunityTemplates || userAndCommunityTemplates.length === 0) {
-        await fetchTemplates({ dataDispatch, uiDispatch });
-      }
-      setTemplatesLoading(false);
-    };
-    loadTemplates();
-  }, [userAndCommunityTemplates, dataDispatch, uiDispatch]);
 
   const steps = [
     { id: 'type', title: 'Type de projet' },
@@ -65,10 +65,47 @@ const OnboardingView = () => {
 
   const currentStepInfo = steps[step];
 
-  const hasExistingProjects = useMemo(() => {
-    if (!projects) return false;
-    return projects.filter(p => !p.isArchived).length > 0;
-  }, [projects]);
+  // Chargement parallèle des données (templates et types de projet)
+  useEffect(() => {
+    const loadInitialData = async () => {
+      console.log('🚀 Chargement des données initiales...');
+      
+      try {
+        // Charger en parallèle
+        const [templatesData, projectTypesData] = await Promise.allSettled([
+          fetchTemplates(),
+          fetchProjectTypes()
+        ]);
+
+        // Traiter les templates
+        if (templatesData.status === 'fulfilled') {
+          setTemplates(templatesData.value || []);
+          console.log('✅ Templates chargés:', templatesData.value?.length || 0);
+        } else {
+          console.warn('⚠️ Erreur chargement templates:', templatesData.reason);
+          setTemplates([]);
+        }
+
+        // Traiter les types de projet
+        if (projectTypesData.status === 'fulfilled' && projectTypesData.value?.length > 0) {
+          setProjectTypes(projectTypesData.value);
+          console.log('✅ Types de projet chargés:', projectTypesData.value.length);
+        } else {
+          console.warn('⚠️ Utilisation des types de projet par défaut');
+          // Les types par défaut sont déjà définis dans l'état initial
+        }
+
+      } catch (error) {
+        console.error('❌ Erreur lors du chargement des données:', error);
+      } finally {
+        setLoadingStates(prev => ({ ...prev, templates: false, projectTypes: false }));
+      }
+    };
+
+    loadInitialData();
+  }, []);
+
+  const hasExistingProjects = false; // Simplifié pour l'onboarding
 
   const variants = {
     enter: (direction) => ({ x: direction > 0 ? 100 : -100, opacity: 0 }),
@@ -76,7 +113,7 @@ const OnboardingView = () => {
     exit: (direction) => ({ zIndex: 0, x: direction < 0 ? 100 : -100, opacity: 0 }),
   };
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (step === 1 && !data.projectName.trim()) {
       uiDispatch({ type: 'ADD_TOAST', payload: { message: "Le nom du projet est obligatoire.", type: 'error' } });
       return;
@@ -91,9 +128,9 @@ const OnboardingView = () => {
       setDirection(1);
       setStep(step + 1);
     }
-  };
+  }, [step, data.projectName, data.templateId, uiDispatch]);
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     if (step === 4 && data.templateId === 'blank') {
       setDirection(-1);
       setStep(2);
@@ -103,12 +140,14 @@ const OnboardingView = () => {
       setDirection(-1);
       setStep(step - 1);
     }
-  };
+  }, [step, data.templateId]);
 
-  const handleCancel = () => uiDispatch({ type: 'CANCEL_ONBOARDING' });
+  const handleCancel = useCallback(() => {
+    uiDispatch({ type: 'CANCEL_ONBOARDING' });
+  }, [uiDispatch]);
 
   // Fonction pour gérer la sélection du type de projet
-  const handleProjectTypeSelect = (projectType) => {
+  const handleProjectTypeSelect = useCallback((projectType) => {
     const getProjectClassFromType = (typeName) => {
       const classMapping = {
         'Business': 'treasury',
@@ -122,23 +161,21 @@ const OnboardingView = () => {
     };
 
     const projectClass = getProjectClassFromType(projectType.name);
-    
-    setData(prev => ({ 
-      ...prev, 
+
+    setData(prev => ({
+      ...prev,
       projectTypeId: projectType.id,
       projectClass: projectClass
     }));
-    
-    handleNext();
-  };
 
-  const handleFinish = async () => {
-    console.log("🟡 handleFinish appelé");
-    setIsLoading(true);
-    
+    handleNext();
+  }, [handleNext]);
+
+  const handleFinish = useCallback(async () => {
+    console.log("🟡 Début de la création du projet...");
+    setLoadingStates(prev => ({ ...prev, submission: true }));
+
     try {
-      console.log("🟡 Début de la création du projet...");
-      
       const payload = {
         projectName: data.projectName,
         projectDescription: data.projectDescription,
@@ -149,72 +186,81 @@ const OnboardingView = () => {
         startOption: data.startOption,
         projectTypeId: data.projectTypeId,
         projectClass: data.projectClass,
-        description: data.projectDescription
       };
 
       console.log("🟡 Payload de création:", payload);
 
       const result = await projectInitializationService.initializeProject(
-        { dataDispatch, uiDispatch },
         payload,
         currentUser,
-        tiers,
-        userAndCommunityTemplates
+        [],
+        templates
       );
 
       console.log("🟡 Résultat de la création:", result);
 
       if (result?.success) {
         console.log("✅ Projet créé avec succès");
-        
-        console.log("🟡 Rafraîchissement des projets...");
-        await fetchProjects(currentUser.id);
-        
-        console.log("🟡 Définition du projet actif...");
+
+        // Émettre les événements pour la synchronisation
+        const projectCreatedEvent = new CustomEvent('projectCreated', {
+          detail: { 
+            project: result.project,
+            source: 'onboarding'
+          }
+        });
+        window.dispatchEvent(projectCreatedEvent);
+
+        const projectsUpdatedEvent = new CustomEvent('projectsUpdated', {
+          detail: { 
+            newProject: result.project,
+            action: 'created'
+          }
+        });
+        window.dispatchEvent(projectsUpdatedEvent);
+
+        // Rafraîchir la liste des projets en arrière-plan
+        fetchProjects().catch(error => 
+          console.warn("⚠️ Erreur rafraîchissement projets:", error)
+        );
+
+        // Définir le projet actif et naviguer
         if (result.project) {
           uiDispatch({
             type: 'SET_ACTIVE_PROJECT',
             payload: result.project
           });
-          
-          console.log("🟡 Déclenchement de l'événement projectCreated...");
-          const projectCreatedEvent = new CustomEvent('projectCreated', {
-            detail: { project: result.project }
-          });
-          window.dispatchEvent(projectCreatedEvent);
+
+          navigate("/client/dashboard");
         }
-        
-        console.log("🟡 Navigation vers /client/dashboard...");
-        navigate("/client/dashboard");
-        console.log("🟢 Navigation effectuée");
-        
       } else {
-        console.error("❌ Échec de la création du projet");
-        setIsLoading(false);
+        throw new Error(result?.message || "Échec de la création du projet");
       }
     } catch (error) {
       console.error("🔴 Erreur lors de la création du projet:", error);
-      setIsLoading(false);
-      
-      // ✅ Navigation de secours en cas d'erreur
-      setTimeout(() => {
-        console.log("🟡 Navigation de secours vers /client/dashboard");
-        navigate("/client/dashboard");
-      }, 1000);
+      uiDispatch({
+        type: 'ADD_TOAST',
+        payload: {
+          message: error.message,
+          type: 'error',
+        },
+      });
+    } finally {
+      setLoadingStates(prev => ({ ...prev, submission: false }));
     }
-  };
+  }, [data, currentUser, templates, uiDispatch, navigate, fetchProjects]);
 
-  const renderStepContent = () => {
+  const renderStepContent = useCallback(() => {
     const stepProps = {
       data,
       setData,
       currentUser,
-      userAndCommunityTemplates,
-      templatesLoading,
+      userAndCommunityTemplates: templates,
+      templatesLoading: loadingStates.templates,
       projectTypes,
-      loadingTypes,
+      loadingTypes: loadingStates.projectTypes,
       setProjectTypes,
-      setLoadingTypes,
+      setLoadingTypes: (loading) => setLoadingStates(prev => ({ ...prev, projectTypes: loading })),
       handleNext,
       handleProjectTypeSelect
     };
@@ -229,13 +275,13 @@ const OnboardingView = () => {
       case 'start':
         return <StartOptionStep {...stepProps} />;
       case 'finish':
-        return <FinishStep isLoading={isLoading} handleFinish={handleFinish} />;
+        return <FinishStep isLoading={loadingStates.submission} handleFinish={handleFinish} />;
       default:
         return null;
     }
-  };
+  }, [currentStepInfo.id, data, currentUser, templates, loadingStates, projectTypes, handleNext, handleProjectTypeSelect, handleFinish]);
 
-  if (!session || !currentUser) {
+  if (!currentUser) {
     return (
       <div className="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
         <div className="bg-white p-8 rounded-2xl shadow-xl text-center">
@@ -258,23 +304,23 @@ const OnboardingView = () => {
   return (
     <div className="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4 antialiased">
       <OnboardingHeader />
-      
+
       <div className="w-full max-w-4xl mx-auto bg-white rounded-2xl shadow-xl flex flex-col" style={{ minHeight: '600px' }}>
         <div className="p-8 border-b">
           {/* Progress bar peut être ajoutée ici */}
         </div>
-        
+
         <div className="flex-grow flex flex-col items-center justify-center p-8">
           <div className="w-full">
             <AnimatePresence mode="wait" custom={direction}>
-              <motion.div 
-                key={step} 
-                custom={direction} 
-                variants={variants} 
-                initial="enter" 
-                animate="center" 
-                exit="exit" 
-                transition={{ type: "spring", stiffness: 300, damping: 30 }} 
+              <motion.div
+                key={step}
+                custom={direction}
+                variants={variants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
                 className="w-full"
               >
                 {renderStepContent()}
@@ -286,7 +332,7 @@ const OnboardingView = () => {
         <OnboardingNavigation
           step={step}
           steps={steps}
-          isLoading={isLoading}
+          isLoading={loadingStates.submission}
           data={data}
           hasExistingProjects={hasExistingProjects}
           handleBack={handleBack}
@@ -298,4 +344,4 @@ const OnboardingView = () => {
   );
 };
 
-export default OnboardingView;
+export default React.memo(OnboardingView);
