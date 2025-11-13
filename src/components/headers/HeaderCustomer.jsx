@@ -39,14 +39,6 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
 
     const [themeActive, setThemeActive] = useState("");
 
-    // Charger les projets quand l'utilisateur se connecte
-    useEffect(() => {
-        if (user?.id && token) {
-            console.log('🔄 Header: Chargement des projets pour user:', user.id);
-            fetchProjects();
-        }
-    }, [user?.id, token, fetchProjects]);
-
     // Close menu when clicking outside
     useEffect(() => {
         const selectedTheme = getAllThemes().find(themeOption => theme === themeOption.id);
@@ -164,11 +156,6 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
         navigate('/app/collaborateurs');
     };
 
-    // Debug amélioré
-    useEffect(() => {
-        console.log('Header Debug - activeProjectId:', activeProjectId, 'type:', typeof activeProjectId);
-        console.log('Header Debug - activeProjectOrView:', activeProjectOrView);
-    }, [activeProjectId, activeProjectOrView]);
 
     return (
         <header className="sticky top-0 z-50 bg-white border-b border-gray-200">

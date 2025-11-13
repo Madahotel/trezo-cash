@@ -17,6 +17,7 @@ import EmptyState from '../../../components/emptystate/EmptyState';
 import {
   getUserThirdParty,
   storeTiers,
+  updateTiers,
 } from '../../../components/context/tiersActions';
 
 // Composant pour l'ajout de tiers commerciaux
@@ -25,13 +26,13 @@ const CommercialTierForm = ({ onAddTier, onRefreshData }) => {
   const [newTierFirstName, setNewTierFirstName] = useState('');
   const [newTierEmail, setNewTierEmail] = useState('');
   const [newTierPhone, setNewTierPhone] = useState('');
-  const [newTierType, setNewTierType] = useState(6); // Changé en number
+  const [newTierType, setNewTierType] = useState(6);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
 
   const tierOptions = [
-    { value: 6, label: 'Fournisseur' }, // Changé en number
-    { value: 4, label: 'Client' }, // Changé en number
+    { value: 6, label: 'Fournisseur' },
+    { value: 4, label: 'Client' },
   ];
 
   const handleSubmit = async (e) => {
@@ -45,25 +46,24 @@ const CommercialTierForm = ({ onAddTier, onRefreshData }) => {
         firstname: newTierFirstName.trim(),
         email: newTierEmail.trim(),
         phone_number: newTierPhone.trim(),
-        user_type_id: newTierType, // Déjà en number
+        user_type_id: newTierType,
       };
 
       try {
         await storeTiers(formData);
 
-        // Appeler la callback pour ajouter le tier localement
-        onAddTier({
-          name: newTierName.trim(),
-          first_name: newTierFirstName.trim(),
-          email: newTierEmail.trim(),
-          phone: newTierPhone.trim(),
-          user_type_id: newTierType,
-        });
+        if (onAddTier) {
+          onAddTier({
+            name: newTierName.trim(),
+            first_name: newTierFirstName.trim(),
+            email: newTierEmail.trim(),
+            phone: newTierPhone.trim(),
+            user_type_id: newTierType,
+          });
+        }
 
-        // Recharger les données depuis l'API
         await onRefreshData();
 
-        // Réinitialiser le formulaire
         setNewTierName('');
         setNewTierFirstName('');
         setNewTierEmail('');
@@ -99,7 +99,6 @@ const CommercialTierForm = ({ onAddTier, onRefreshData }) => {
       </h2>
       <form onSubmit={handleSubmit}>
         <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
-          {/* Nom */}
           <div className="flex flex-col flex-grow min-w-[120px]">
             <label className="block text-xs font-medium text-gray-600 mb-1">
               Nom *
@@ -117,7 +116,6 @@ const CommercialTierForm = ({ onAddTier, onRefreshData }) => {
             />
           </div>
 
-          {/* Prénom */}
           <div className="flex flex-col flex-grow min-w-[120px]">
             <label className="block text-xs font-medium text-gray-600 mb-1">
               Prénom *
@@ -135,7 +133,6 @@ const CommercialTierForm = ({ onAddTier, onRefreshData }) => {
             />
           </div>
 
-          {/* Email */}
           <div className="flex flex-col flex-grow min-w-[140px]">
             <label className="block text-xs font-medium text-gray-600 mb-1">
               Email
@@ -152,7 +149,6 @@ const CommercialTierForm = ({ onAddTier, onRefreshData }) => {
             />
           </div>
 
-          {/* Téléphone */}
           <div className="flex flex-col flex-grow min-w-[140px]">
             <label className="block text-xs font-medium text-gray-600 mb-1">
               Téléphone
@@ -169,14 +165,13 @@ const CommercialTierForm = ({ onAddTier, onRefreshData }) => {
             />
           </div>
 
-          {/* Type */}
           <div className="flex flex-col flex-shrink-0 min-w-[140px]">
             <label className="block text-xs font-medium text-gray-600 mb-1">
               Type
             </label>
             <select
               value={newTierType}
-              onChange={(e) => setNewTierType(Number(e.target.value))} // Conversion en number
+              onChange={(e) => setNewTierType(Number(e.target.value))}
               onFocus={() => setFocusedField('type')}
               onBlur={() => setFocusedField(null)}
               className={getFieldClasses('type')}
@@ -190,7 +185,6 @@ const CommercialTierForm = ({ onAddTier, onRefreshData }) => {
             </select>
           </div>
 
-          {/* Bouton */}
           <button
             type="submit"
             disabled={isSubmitting}
@@ -236,7 +230,6 @@ const SearchBar = ({ searchTerm, onSearchChange }) => {
 const Pagination = ({ currentPage, totalPages, onPageChange }) => {
   const pages = [];
 
-  // Générer les numéros de page à afficher
   for (let i = 1; i <= totalPages; i++) {
     if (
       i === 1 ||
@@ -249,7 +242,6 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
     }
   }
 
-  // Éliminer les doublons de "..."
   const uniquePages = pages.filter((page, index, array) => {
     if (page === '...') {
       return array[index - 1] !== '...';
@@ -332,13 +324,12 @@ const TierRow = ({
   onStartEdit,
   onSaveEdit,
   onCancelEdit,
-  onDeleteTier,
-  onOpenPaymentTerms,
-  isTierUsed,
+  // onDeleteTier,
+  // onOpenPaymentTerms,
+  // isTierUsed,
   safeFormatPaymentTerms,
 }) => {
-  // Déterminer le type une seule fois de manière cohérente
-  const isFournisseur = tier.user_type_id === 6; // Changé en number
+  const isFournisseur = tier.user_type_id === 6;
 
   return (
     <tr className="group border-b border-gray-200 last:border-b-0 hover:bg-gray-50">
@@ -413,7 +404,7 @@ const TierRow = ({
             onChange={(e) =>
               onStartEdit({
                 ...editingTier,
-                user_type_id: Number(e.target.value), // Conversion en number
+                user_type_id: Number(e.target.value),
               })
             }
             className="w-full px-2 py-1 border border-gray-200 rounded-md text-sm text-gray-900"
@@ -465,20 +456,20 @@ const TierRow = ({
           </div>
         ) : (
           <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
+            {/* <button
               onClick={() => onOpenPaymentTerms(tier)}
               className="p-1 text-gray-500 hover:text-purple-600"
               title="Définir les conditions de paiement"
             >
               <CreditCard className="w-4 h-4" />
-            </button>
+            </button> */}
             <button
               onClick={() => onStartEdit(tier)}
               className="p-1 text-blue-600 hover:text-blue-800"
             >
               <Edit className="w-4 h-4" />
             </button>
-            <button
+            {/* <button
               onClick={() => onDeleteTier(tier.id)}
               className="p-1 text-red-600 hover:text-red-800 disabled:text-gray-300 disabled:cursor-not-allowed"
               title={
@@ -488,7 +479,7 @@ const TierRow = ({
               }
             >
               <Trash2 className="w-4 h-4" />
-            </button>
+            </button> */}
           </div>
         )}
       </td>
@@ -501,10 +492,8 @@ const LoadingTable = () => {
   return (
     <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-300 space-y-4">
       <div className="animate-pulse">
-        {/* Barre de recherche en chargement */}
         <div className="h-10 bg-gray-200 rounded-md mb-4"></div>
 
-        {/* En-têtes du tableau */}
         <div className="grid grid-cols-7 gap-4 mb-4">
           <div className="h-4 bg-gray-200 rounded"></div>
           <div className="h-4 bg-gray-200 rounded"></div>
@@ -515,7 +504,6 @@ const LoadingTable = () => {
           <div className="h-4 bg-gray-200 rounded"></div>
         </div>
 
-        {/* Lignes du tableau en chargement */}
         {[...Array(5)].map((_, index) => (
           <div key={index} className="grid grid-cols-7 gap-4 mb-3">
             <div className="h-6 bg-gray-200 rounded"></div>
@@ -566,7 +554,6 @@ const CommercialTiersManagement = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(15);
 
-  // Données mock pour les impayés
   const mockUnpaid = useMemo(
     () => ({
       'DUPONT Marie': 12500,
@@ -575,7 +562,6 @@ const CommercialTiersManagement = ({
     []
   );
 
-  // Transformer les données de l'API en format utilisable
   const transformApiData = (data) => {
     if (!data?.users?.user_third_parties?.user_third_party_items?.data) {
       return [];
@@ -583,7 +569,7 @@ const CommercialTiersManagement = ({
 
     return data.users.user_third_parties.user_third_party_items.data.map(
       (user) => {
-        const userTypeId = parseInt(user.user_type_id, 10); // Conversion en number
+        const userTypeId = parseInt(user.user_type_id, 10);
         const isFournisseur = userTypeId === 6;
 
         return {
@@ -594,14 +580,13 @@ const CommercialTiersManagement = ({
           type: isFournisseur ? 'fournisseur' : 'client',
           email: user.user_email,
           phone: user.user_phone_number,
-          payment_terms: 30, // Valeur par défaut
-          user_type_id: userTypeId, // Maintenant un number
+          payment_terms: 30,
+          user_type_id: userTypeId,
         };
       }
     );
   };
 
-  // Charger les données
   const fetchData = async (page = 1) => {
     try {
       setTableLoading(true);
@@ -624,7 +609,6 @@ const CommercialTiersManagement = ({
     return transformApiData(apiData);
   }, [apiData]);
 
-  // Pagination
   const totalItems =
     apiData?.users?.user_third_parties?.user_third_party_items?.total || 0;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
@@ -645,24 +629,45 @@ const CommercialTiersManagement = ({
       user_first_name: tier.user_first_name,
       email: tier.email,
       phone: tier.phone,
-      user_type_id: tier.user_type_id, // Déjà en number
+      user_type_id: tier.user_type_id,
     });
 
   const handleCancelEdit = () => setEditingTier(null);
 
-  const handleSaveEdit = () => {
-    if (
-      editingTier?.user_name?.trim() &&
-      editingTier?.user_first_name?.trim()
-    ) {
-      onEditTier(editingTier.id, {
-        user_name: editingTier.user_name.trim(),
-        user_first_name: editingTier.user_first_name.trim(),
-        email: editingTier.email?.trim() || '',
-        phone: editingTier.phone?.trim() || '',
-        user_type_id: editingTier.user_type_id, // Déjà en number
-      });
-      handleCancelEdit();
+  const handleSaveEdit = async () => {
+    if (editingTier?.user_name?.trim()) {
+      try {
+        const formData = {
+          id: editingTier.id,
+          name: editingTier.user_name.trim(),
+          firstname: editingTier.user_first_name
+            ? editingTier.user_first_name.trim()
+            : '',
+          email: editingTier.email?.trim() || '',
+          phone_number: editingTier.phone?.trim() || '',
+          user_type_id: editingTier.user_type_id,
+        };
+
+        await updateTiers(formData, parseInt(editingTier.id));
+
+        if (onEditTier) {
+          onEditTier(editingTier.id, {
+            user_name: editingTier.user_name.trim(),
+            user_first_name: editingTier.user_first_name
+              ? editingTier.user_first_name.trim()
+              : '',
+            email: editingTier.email?.trim() || '',
+            phone: editingTier.phone?.trim() || '',
+            user_type_id: editingTier.user_type_id,
+          });
+        }
+
+        await fetchData(currentPage);
+        handleCancelEdit();
+      } catch (error) {
+        console.error('Erreur lors de la modification du tier:', error);
+        alert('Erreur lors de la modification du tier. Veuillez réessayer.');
+      }
     }
   };
 
@@ -687,9 +692,15 @@ const CommercialTiersManagement = ({
         `Supprimer "${tierToDelete.name}" ?\nCette action est irréversible.`
       )
     ) {
-      onDeleteTier(tierId);
-      // Recharger les données après suppression
-      await fetchData(currentPage);
+      try {
+        if (onDeleteTier) {
+          await onDeleteTier(tierId);
+        }
+        await fetchData(currentPage);
+      } catch (error) {
+        console.error('Erreur lors de la suppression:', error);
+        alert('Erreur lors de la suppression. Veuillez réessayer.');
+      }
     }
   };
 
@@ -793,7 +804,6 @@ const CommercialTiersManagement = ({
           {renderTiersTable()}
         </div>
 
-        {/* Pagination */}
         {totalPages > 1 && (
           <Pagination
             currentPage={currentPage}
@@ -807,13 +817,11 @@ const CommercialTiersManagement = ({
 
   return (
     <div className="space-y-4">
-      {/* Formulaire toujours visible */}
       <CommercialTierForm
         onAddTier={onAddTier}
         onRefreshData={() => fetchData(currentPage)}
       />
 
-      {/* Tableau avec état de chargement/erreur */}
       {renderTableContent()}
     </div>
   );

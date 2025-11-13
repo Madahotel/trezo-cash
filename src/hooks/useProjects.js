@@ -10,12 +10,9 @@ export const useProjects = () => {
 
   const transformApiData = useCallback((apiData) => {
     const transformedProjects = [];
-    
-    console.log('📥 Données brutes de l\'API useProjects:', apiData);
 
     // Vérification plus robuste de la structure des données
     if (!apiData || !apiData.projects || apiData.status === 204) {
-      console.warn('Aucun projet trouvé dans la réponse API');
       return transformedProjects;
     }
 
@@ -148,7 +145,6 @@ export const useProjects = () => {
 
   const fetchProjects = useCallback(async (retryCount = 0) => {
     if (!user?.id || !token) {
-      console.log('❌ useProjects: Utilisateur non connecté');
       setError('Utilisateur non connecté');
       setLoading(false);
       return [];
@@ -158,27 +154,21 @@ export const useProjects = () => {
       setLoading(true);
       setError(null);
       
-      console.log('🔄 useProjects: Fetching projects from API...', { userId: user.id });
-      
       const response = await axios.get('/projects', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-
-      console.log('useProjects - Réponse API reçue:', response.data);
       const data = response.data;
 
       // Vérification plus robuste du statut 204
       if (data.status === 204 || !data.projects) {
-        console.log('useProjects: Aucun projet trouvé');
         setProjects([]);
         return [];
       }
 
       const transformedProjects = transformApiData(data);
-      
-      console.log('✅ useProjects - Projets transformés:', transformedProjects.length);
+    
       setProjects(transformedProjects);
       return transformedProjects;
 
@@ -192,8 +182,6 @@ export const useProjects = () => {
       // Gestion du rate limiting
       if (err.response?.status === 429 && retryCount < 3) {
         const delay = Math.pow(2, retryCount) * 1000;
-        console.log(`useProjects - Too many requests, retrying in ${delay}ms...`);
-
         await new Promise(resolve => setTimeout(resolve, delay));
         return fetchProjects(retryCount + 1);
       }
@@ -207,11 +195,6 @@ export const useProjects = () => {
   }, [user?.id, token, transformApiData]);
 
   useEffect(() => {
-    console.log('useProjects - useEffect triggered', { 
-      user: user?.id, 
-      token: !!token,
-      loading 
-    });
     
     if (user?.id && token) {
       fetchProjects();

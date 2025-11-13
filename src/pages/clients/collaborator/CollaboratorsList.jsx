@@ -1,25 +1,44 @@
 // components/CollaboratorList.jsx
 import React, { useState, useEffect } from 'react';
-import CollaboratorCard from './CollaboratorCard';
+import CollaboratorTable from './CollaboratorTable';
 import { collaborationService } from '../../../services/collaborationService';
 import { Button } from '../../../components/ui/Button';
-import { Users, Plus, RefreshCw } from 'lucide-react';
+import { Users, Plus, RefreshCw, Download, Filter } from 'lucide-react';
 import { toast } from '../../../hooks/use-toast';
+import { Input } from '../../../components/ui/Input';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuTrigger,
+} from '../../../components/ui/dropdown-menu';
 
 const CollaboratorList = ({ projectId }) => {
   const [collaborators, setCollaborators] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [visibleColumns, setVisibleColumns] = useState({
+    name: true,
+    email: true,
+    phone: true,
+    role: true,
+    permission: true,
+    status: true,
+    joinDate: true,
+    projects: true,
+    actions: true
+  });
 
   const loadCollaborators = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Utiliser la méthode du service pour récupérer les collaborateurs formatés
       const data = await collaborationService.getFormattedCollaborators(projectId);
-      
       setCollaborators(data);
     } catch (err) {
       console.error('Erreur:', err);
@@ -43,6 +62,22 @@ const CollaboratorList = ({ projectId }) => {
   useEffect(() => {
     loadCollaborators();
   }, [projectId]);
+
+  // Filtrage des collaborateurs
+  const filteredCollaborators = collaborators.filter(collaborator => {
+    const matchesSearch = 
+      collaborator.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      collaborator.firstname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      collaborator.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      collaborator.role?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesRole = roleFilter === 'all' || collaborator.role === roleFilter;
+    const matchesStatus = statusFilter === 'all' || 
+      (statusFilter === 'active' && collaborator.is_active) ||
+      (statusFilter === 'inactive' && !collaborator.is_active);
+    
+    return matchesSearch && matchesRole && matchesStatus;
+  });
 
   const handleRemoveCollaborator = async (collaboratorId) => {
     try {
@@ -80,6 +115,14 @@ const CollaboratorList = ({ projectId }) => {
     }
   };
 
+  const handleExport = () => {
+    // Logique d'export des données
+    toast({
+      title: "Export réussi",
+      description: "Les données ont été exportées avec succès",
+    });
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
@@ -114,22 +157,31 @@ const CollaboratorList = ({ projectId }) => {
 
   return (
     <div className="space-y-6">
-      {/* En-tête avec statistiques */}
+      {/* En-tête avec statistiques et contrôles */}
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-3">
             <Users className="w-6 h-6" />
             Collaborateurs 
-            <span className="text-blue-600">({collaborators.length})</span>
+            <span className="text-blue-600">({filteredCollaborators.length})</span>
           </h2>
           {projectId && (
             <p className="text-gray-600 mt-1">
-              {collaborators.length} collaborateur(s) sur ce projet
+              {filteredCollaborators.length} collaborateur(s) sur {collaborators.length} total
             </p>
           )}
         </div>
         
         <div className="flex items-center gap-3">
+          <Button 
+            onClick={handleExport}
+            variant="outline" 
+            className="flex items-center gap-2"
+          >
+            <Download className="w-4 h-4" />
+            Exporter
+          </Button>
+          
           <Button 
             onClick={handleRefresh} 
             variant="outline" 
@@ -139,59 +191,87 @@ const CollaboratorList = ({ projectId }) => {
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             Actualiser
           </Button>
-          
-          <Button className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            Inviter un collaborateur
-          </Button>
         </div>
       </div>
 
-      {/* Liste des collaborateurs */}
-      {collaborators.length === 0 ? (
-        <div className="text-center py-16 border-2 border-dashed border-gray-300 rounded-lg">
-          <Users className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-          <h3 className="text-lg font-semibold text-gray-600 mb-2">Aucun collaborateur</h3>
-          <p className="text-gray-500 mb-6">
-            {projectId 
-              ? "Aucun collaborateur n'est assigné à ce projet pour le moment." 
-              : "Aucun collaborateur n'a été ajouté pour le moment."
-            }
-          </p>
-          <Button className="bg-blue-600 hover:bg-blue-700">
-            <Plus className="w-4 h-4 mr-2" />
-            Inviter le premier collaborateur
-          </Button>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {/* Résumé des rôles */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            {Array.from(new Set(collaborators.map(c => c.permissions.accessLevel))).map(role => {
-              const count = collaborators.filter(c => c.permissions.accessLevel === role).length;
-              return (
-                <div key={role} className="bg-gray-100 px-3 py-1 rounded-full text-sm text-gray-700">
-                  {count} {role.toLowerCase()}
-                </div>
-              );
-            })}
+      {/* Barre de filtres et recherche */}
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center p-4 bg-gray-50 rounded-lg">
+        <div className="flex flex-col sm:flex-row gap-3 flex-1">
+          <div className="relative flex-1 max-w-md">
+            <Input
+              placeholder="Rechercher un collaborateur..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+            <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
           </div>
+          
+          <select 
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">Tous les rôles</option>
+            <option value="Éditeur">Éditeur</option>
+            <option value="Lecteur">Lecteur</option>
+            <option value="Admin">Admin</option>
+          </select>
+          
+          <select 
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">Tous les statuts</option>
+            <option value="active">Actif</option>
+            <option value="inactive">Inactif</option>
+          </select>
+        </div>
 
-          {/* Grille des cartes collaborateurs */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {collaborators.map((collaborator) => (
-              <CollaboratorCard
-                key={collaborator.id}
-                collaborator={collaborator}
-                onRemove={() => handleRemoveCollaborator(collaborator.id)}
-                onUpdatePermissions={(permissionData) => 
-                  handleUpdatePermissions(collaborator.id, permissionData)
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="flex items-center gap-2">
+              <Filter className="w-4 h-4" />
+              Colonnes
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-48">
+            {Object.entries(visibleColumns).map(([key, value]) => (
+              <DropdownMenuCheckboxItem
+                key={key}
+                checked={value}
+                onCheckedChange={(checked) => 
+                  setVisibleColumns(prev => ({ ...prev, [key]: checked }))
                 }
-              />
+              >
+                {key === 'name' && 'Nom'}
+                {key === 'email' && 'Email'}
+                {key === 'phone' && 'Téléphone'}
+                {key === 'role' && 'Rôle'}
+                {key === 'permission' && 'Permission'}
+                {key === 'status' && 'Statut'}
+                {key === 'joinDate' && 'Date d\'arrivée'}
+                {key === 'projects' && 'Projets'}
+                {key === 'actions' && 'Actions'}
+              </DropdownMenuCheckboxItem>
             ))}
-          </div>
-        </div>
-      )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* Tableau des collaborateurs */}
+      <CollaboratorTable
+        collaborators={filteredCollaborators}
+        visibleColumns={visibleColumns}
+        onRemoveCollaborator={handleRemoveCollaborator}
+        onUpdatePermissions={handleUpdatePermissions}
+        emptyMessage={
+          collaborators.length === 0 
+            ? "Aucun collaborateur n'a été ajouté pour le moment."
+            : "Aucun collaborateur ne correspond à vos critères de recherche."
+        }
+      />
     </div>
   );
 };

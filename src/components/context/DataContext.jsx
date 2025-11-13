@@ -18,20 +18,15 @@ const createProject = async (projectData, user, token) => {
     }
 
     try {
-        console.log('🔄 Création d\'un nouveau projet:', projectData);
-
         const response = await axios.post('/projects', {
             ...projectData,
             user_id: user.id,
             user_subscriber_id: user.id
         });
 
-        console.log('✅ Projet créé:', response.data);
-
         return response.data;
 
     } catch (error) {
-        console.error('❌ Erreur lors de la création du projet:', error);
         throw error;
     }
 };
@@ -263,7 +258,6 @@ const initialSettings = {
     displayUnit: 'standard', decimalPlaces: 2, currency: 'EUR', exchangeRates: {}, timezoneOffset: 0,
 };
 
-
 // Fonction utilitaire pour générer des UUID
 const uuidv4 = () => {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
@@ -310,13 +304,11 @@ const getInitialDataState = () => ({
 const dataReducer = (state, action) => {
     switch (action.type) {
         case 'SET_PROJECTS':
-            console.log('🔄 SET_PROJECTS action:', action.payload);
             return {
                 ...state,
                 projects: action.payload
             };
         case 'SET_TEMPLATES':
-            console.log('🔄 SET_TEMPLATES action:', action.payload);
             return { ...state, templates: action.payload };
         case 'SET_SESSION':
             return { ...state, session: action.payload };
@@ -628,15 +620,10 @@ export const DataProvider = ({ children }) => {
   const lastFetchTime = useRef(0);
   const initialized = useRef(false);
 
-  console.log("🔍 DataProvider - Auth state:", { user, token, isAuthenticated });
-
   const transformApiProjects = (apiData, currentUserId) => {
     const projects = [];
-    
-    console.log("🔄 Transformation des données API pour l'utilisateur:", currentUserId);
 
     if (apiData.status === 204) {
-      console.log("ℹ️ Aucun projet trouvé pour l'utilisateur");
       return [];
     }
 
@@ -680,8 +667,6 @@ export const DataProvider = ({ children }) => {
         projects.push(transformProject(project, 'menages'));
       });
     }
-    
-    console.log("✅ Projets transformés pour l'utilisateur:", projects.length);
     return projects;
   };
 
@@ -689,13 +674,11 @@ export const DataProvider = ({ children }) => {
   const fetchProjects = async (userId = user?.id) => {
     // Vérifier que l'userId est défini
     if (!userId) {
-      console.error("❌ userId non défini pour fetchProjects");
       return [];
     }
 
     // Éviter les appels simultanés
     if (fetchInProgress.current) {
-      console.log("⏳ Fetch déjà en cours, attente...");
       return;
     }
 
@@ -705,7 +688,6 @@ export const DataProvider = ({ children }) => {
     const minTimeBetweenFetches = 3000;
 
     if (timeSinceLastFetch < minTimeBetweenFetches) {
-      console.log(`⏳ Rate limiting: attente de ${minTimeBetweenFetches - timeSinceLastFetch}ms`);
       return; // On retourne simplement sans attendre
     }
 
@@ -717,8 +699,6 @@ export const DataProvider = ({ children }) => {
       if (!authToken) {
         throw new Error("Token d'authentification manquant");
       }
-
-      console.log("📡 Fetching projects for user:", userId);
       
       const response = await axios.get('/projects', {
         headers: {
@@ -728,25 +708,20 @@ export const DataProvider = ({ children }) => {
       });
 
       const data = response.data;
-      console.log("📦 Réponse API reçue");
 
       if (data.status === 204) {
-        console.log("ℹ️ Aucun projet trouvé");
         dispatch({ type: "SET_PROJECTS", payload: [] });
         return [];
       }
 
       const transformedProjects = transformApiProjects(data, userId);
-      console.log("🔄 Envoi des projets au reducer:", transformedProjects.length);
 
       dispatch({ type: "SET_PROJECTS", payload: transformedProjects });
       return transformedProjects;
 
     } catch (error) {
-      console.error("❌ Erreur fetchProjects:", error);
       
       if (error.response?.status === 429) {
-        console.error("🚫 Rate limit atteint");
       }
       
       return [];
@@ -757,7 +732,6 @@ export const DataProvider = ({ children }) => {
 
   // Synchroniser la session - UNIQUEMENT quand user/token changent
   useEffect(() => {
-    console.log("🔄 Synchronisation AuthContext -> DataContext");
     
     if (user && token) {
       const sessionData = {
@@ -766,11 +740,9 @@ export const DataProvider = ({ children }) => {
         expires_at: Math.floor(Date.now() / 1000) + 3600
       };
       
-      console.log("✅ Mise à jour de la session dans DataContext");
       dispatch({ type: 'SET_SESSION', payload: sessionData });
       dispatch({ type: 'SET_PROFILE', payload: user });
     } else {
-      console.log("🚪 Reset de la session dans DataContext");
       dispatch({ type: 'SET_SESSION', payload: null });
       dispatch({ type: 'SET_PROFILE', payload: null });
       dispatch({ type: 'SET_PROJECTS', payload: [] });
@@ -781,12 +753,10 @@ export const DataProvider = ({ children }) => {
   useEffect(() => {
     // Éviter le rechargement si déjà initialisé
     if (initialized.current && state.projects.length > 0) {
-      console.log("✅ Projets déjà chargés, pas de rechargement");
       return;
     }
 
     if (user?.id && token && !fetchInProgress.current) {
-      console.log('🔄 Chargement initial des projets pour user:', user.id);
       
       const timer = setTimeout(() => {
         fetchProjects(user.id).then(() => {
