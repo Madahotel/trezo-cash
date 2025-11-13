@@ -15,7 +15,7 @@ import BudgetTable from './BudgetTable';
 import { formatCurrency } from '../../../utils/formatters';
 
 const BudgetPage = () => {
-  const { uiState } = useUI(); 
+  const { uiState } = useUI();
   const activeProjectId = uiState.activeProject?.id;
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -24,7 +24,7 @@ const BudgetPage = () => {
   const [selectedLine, setSelectedLine] = useState(null);
   const [deleteType, setDeleteType] = useState(null);
   const isMobile = useMobile();
-  
+
   // État de chargement amélioré
   const [loadingState, setLoadingState] = useState({
     summary: false,
@@ -53,13 +53,12 @@ const BudgetPage = () => {
       });
 
       setError(null);
-      console.log(`🔄 Chargement budget projet ${activeProjectId}, tentative ${retryCount + 1}`);
 
       const data = await getBudget(activeProjectId);
 
       if (requestId === currentRequestId.current) {
         setBudget(data);
-        
+
         // 🔥 CORRECTION : Mettre à jour les deux états de chargement
         setLoadingState({
           summary: false,
@@ -73,7 +72,6 @@ const BudgetPage = () => {
         const delay = Math.pow(2, retryCount) * 1000;
 
         if (retryCount < 3) {
-          console.warn(`⏳ Trop de requêtes, nouvelle tentative dans ${delay}ms...`);
 
           setTimeout(() => {
             if (requestId === currentRequestId.current) {
@@ -88,13 +86,13 @@ const BudgetPage = () => {
         console.error('Erreur:', err);
         setError('Erreur lors du chargement du budget');
       }
-      
+
       // 🔥 CORRECTION : Toujours arrêter le chargement en cas d'erreur
       if (requestId === currentRequestId.current) {
-        setLoadingState({ 
-          summary: false, 
-          table: false, 
-          initial: false 
+        setLoadingState({
+          summary: false,
+          table: false,
+          initial: false
         });
       }
     }
@@ -104,7 +102,7 @@ const BudgetPage = () => {
   useEffect(() => {
     if (activeProjectId && typeof activeProjectId === 'number') {
       currentRequestId.current++;
-      
+
       // Réinitialiser l'état de chargement pour un nouveau projet
       setLoadingState({
         summary: true,
@@ -129,25 +127,17 @@ const BudgetPage = () => {
     }
   }, [activeProjectId]);
 
-  // 🔥 CORRECTION : Ajouter un useEffect pour debugger
-  useEffect(() => {
-    console.log('📊 État de chargement:', loadingState);
-    console.log('📊 Données budget:', budget);
-    console.log('📊 GroupedData potentiel:', budget?.entries?.entry_items?.category_names);
-  }, [loadingState, budget]);
 
   const handleBudgetUpdated = async () => {
     await fetchBudgetData();
   };
 
   const handleEdit = (item, type) => {
-    console.log('Modifier:', item, type);
     setEditingLine(item);
     setIsDialogOpen(true);
   };
 
   const handleDelete = (item, type) => {
-    console.log('Supprimer:', item, type);
     setSelectedLine(item);
     setDeleteType(type);
     setDeleteModalOpen(true);
@@ -156,7 +146,6 @@ const BudgetPage = () => {
   const confirmDelete = async () => {
     if (selectedLine) {
       try {
-        console.log('Suppression confirmée pour:', selectedLine);
         await destroyBudget(selectedLine.id);
 
         setTimeout(() => {

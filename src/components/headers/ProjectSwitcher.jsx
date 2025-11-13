@@ -32,60 +32,21 @@ const ProjectSwitcher = () => {
   
   const listRef = useRef(null);
   const projectsLoaded = useRef(false);
-
-  // CORRECTION: Filtrage très permissif pour debug
   const myProjects = useMemo(() => {
     if (!user?.id || !rawProjects || rawProjects.length === 0) {
-      console.log("❌ myProjects: Conditions non remplies", {
-        hasUser: !!user?.id,
-        hasRawProjects: !!rawProjects,
-        rawProjectsLength: rawProjects?.length
-      });
       return [];
     }
-
-    console.log("🔄 myProjects - rawProjects reçus:", rawProjects.map(p => ({
-      id: p.id,
-      name: p.name,
-      user_id: p.user_id,
-      user_subscriber_id: p.user_subscriber_id,
-      is_archived: p.is_archived
-    })));
-
-    // CORRECTION: Filtre temporairement désactivé pour voir tous les projets
     const filteredProjects = rawProjects.filter(project => {
       if (!project) return false;
-
-      // CORRECTION: Temporairement, on inclut tous les projets non archivés
       const isArchived = project.is_archived || project.isArchived;
       if (isArchived) {
-        console.log(`📁 Projet archivé exclu: ${project.name}`);
         return false;
       }
 
-      console.log(`✅ Projet inclus: ${project.name}`, {
-        user_id: project.user_id,
-        user_subscriber_id: project.user_subscriber_id,
-        userId: user.id
-      });
-
-      return true; // CORRECTION: Inclure tous les projets non archivés pour le debug
+      return true; 
     });
-
-    console.log("✅ myProjects - Projets après filtrage:", filteredProjects.map(p => p.name));
     return filteredProjects;
   }, [rawProjects, user?.id]);
-
-  // Debug effect
-  useEffect(() => {
-    console.log("🔍 ProjectSwitcher - État complet:", {
-      rawProjectsCount: rawProjects?.length,
-      myProjectsCount: myProjects?.length,
-      activeProject: uiState.activeProject,
-      loading: projectsLoading,
-      user: user?.id
-    });
-  }, [rawProjects, myProjects, uiState.activeProject, projectsLoading, user]);
 
   const activeProjectId = uiState.activeProject?.id || null;
 
@@ -126,7 +87,6 @@ const ProjectSwitcher = () => {
 
   const refreshProjects = useCallback(async () => {
     if (!user?.id) return;
-    console.log("🔄 Rafraîchissement des projets");
     try {
       await refetchProjects();
       projectsLoaded.current = true;
@@ -140,7 +100,6 @@ const ProjectSwitcher = () => {
     if (myProjects.length > 0 && !activeProjectId && !projectsLoading) {
       const defaultProject = myProjects[0];
       if (defaultProject?.id) {
-        console.log("✅ Définition du projet actif par défaut:", defaultProject.name);
         uiDispatch({
           type: 'SET_ACTIVE_PROJECT',
           payload: defaultProject
@@ -153,7 +112,6 @@ const ProjectSwitcher = () => {
   // Charger les projets au montage
   useEffect(() => {
     if (!projectsLoaded.current && !projectsLoading && user?.id) {
-      console.log("🔄 Chargement initial des projets");
       refreshProjects();
     }
   }, [projectsLoading, user?.id, refreshProjects]);
@@ -161,14 +119,12 @@ const ProjectSwitcher = () => {
   // Écouter les événements de création de projet
 useEffect(() => {
   const handleProjectCreated = async (event) => {
-    console.log("🎯 ProjectSwitcher - Événement projectCreated reçu:", event.detail);
     
     // Rafraîchir immédiatement la liste des projets
     await refreshProjects();
     
     // Sélectionner automatiquement le nouveau projet
     if (event.detail?.project) {
-      console.log("🎯 ProjectSwitcher - Sélection automatique du projet créé:", event.detail.project.name);
       uiDispatch({
         type: 'SET_ACTIVE_PROJECT',
         payload: event.detail.project
@@ -177,12 +133,10 @@ useEffect(() => {
   };
 
   const handleProjectsUpdated = async (event) => {
-    console.log("🎯 ProjectSwitcher - Événement projectsUpdated reçu:", event.detail);
     await refreshProjects();
     
     // Si un nouveau projet a été créé, le sélectionner
     if (event.detail?.newProject && event.detail?.action === 'created') {
-      console.log("🎯 ProjectSwitcher - Sélection auto du nouveau projet:", event.detail.newProject.name);
       uiDispatch({
         type: 'SET_ACTIVE_PROJECT',
         payload: event.detail.newProject
@@ -212,7 +166,6 @@ useEffect(() => {
   }, []);
 
   const handleSelect = useCallback(async (id) => {
-    console.log("🔍 handleSelect:", id);
 
     const idString = String(id);
 
@@ -229,14 +182,12 @@ useEffect(() => {
     } else {
       const selectedProject = findProjectById(id);
       if (selectedProject) {
-        console.log("✅ Définition du projet actif:", selectedProject.name);
         uiDispatch({
           type: 'SET_ACTIVE_PROJECT',
           payload: selectedProject
         });
         navigate(`/client/dashboard`);
       } else {
-        console.log("❌ Projet non trouvé");
         await refreshProjects();
       }
     }

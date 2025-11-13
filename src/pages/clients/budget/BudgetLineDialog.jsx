@@ -117,8 +117,6 @@ const BudgetLineDialog = ({
       raw: thirdParty
     }));
 
-    console.log('📊 Données normalisées:', normalizedList);
-
     // NOUVELLE LOGIQUE : Fournisseur + Emprunteur ensemble, Client + Prêteur ensemble
     if (type === '1') { // Dépenses
       return normalizedList
@@ -150,85 +148,73 @@ const BudgetLineDialog = ({
 
   const thirdPartyOptions = useMemo(() => {
     const options = getFilteredThirdPartyOptions(formData.type, listThirdParty);
-    console.log('🎯 ThirdParty Options finales:', {
-      type: formData.type,
-      optionsCount: options.length,
-      options: options.map(opt => ({ label: opt.label, type: opt.type }))
-    });
     return options;
   }, [formData.type, listThirdParty, getFilteredThirdPartyOptions]);
 
 
-const createThirdParty = async (thirdPartyData) => {
-  try {
-    setIsCreatingThirdParty(true);
+  const createThirdParty = async (thirdPartyData) => {
+    try {
+      setIsCreatingThirdParty(true);
+      const response = await apiService.post('/users/third-parties', thirdPartyData);
+      if (response.status === 200) {
+        console.log('✅ Tiers créé avec succès');
 
-    console.log('📤 DONNÉES ENVOYÉES au backend:', thirdPartyData);
+        // Attendre un peu pour être sûr que le backend a fini
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await fetchOptions();
 
-    const response = await apiService.post('/users/third-parties', thirdPartyData);
+        // Retourner les données si disponibles, sinon un objet de succès
+        return response.data || { success: true, message: response.message };
+      } else {
+        console.error('❌ Réponse d\'erreur du backend:', response);
 
-    console.log('📥 RÉPONSE COMPLÈTE DU BACKEND:', response);
+        let errorMessage = 'Erreur lors de la création du tiers';
 
-    // ✅ CORRECTION : Vérifiez le status 200 au lieu de response.success
-    if (response.status === 200) {
-      console.log('✅ Tiers créé avec succès');
-      
-      // Attendre un peu pour être sûr que le backend a fini
-      await new Promise(resolve => setTimeout(resolve, 500));
-      await fetchOptions();
-      
-      // Retourner les données si disponibles, sinon un objet de succès
-      return response.data || { success: true, message: response.message };
-    } else {
-      console.error('❌ Réponse d\'erreur du backend:', response);
-
-      let errorMessage = 'Erreur lors de la création du tiers';
-
-      // Gestion spécifique des erreurs de validation
-      if (response.status === 422 && response.validationErrors) {
-        const errors = Object.entries(response.validationErrors)
-          .map(([field, messages]) => {
-            if (field === 'email' && messages.some(msg => msg.includes('unique'))) {
-              return `L'adresse email "${thirdPartyData.email}" est déjà utilisée.`;
-            }
-            return `${field}: ${messages.join(', ')}`;
-          })
-          .join('; ');
-        errorMessage = errors;
-      }
-      // Gestion des erreurs serveur
-      else if (response.status === 500) {
-        const errorDetail = response.data?.error || response.data?.message || '';
-        if (errorDetail.includes('email') && errorDetail.includes('unique')) {
-          errorMessage = `L'adresse email "${thirdPartyData.email}" est déjà utilisée.`;
-        } else if (errorDetail.includes('Duplicate entry')) {
-          errorMessage = 'Cette adresse email est déjà utilisée par un autre tiers.';
-        } else {
-          errorMessage = response.data?.message || 'Erreur serveur. Veuillez réessayer.';
+        // Gestion spécifique des erreurs de validation
+        if (response.status === 422 && response.validationErrors) {
+          const errors = Object.entries(response.validationErrors)
+            .map(([field, messages]) => {
+              if (field === 'email' && messages.some(msg => msg.includes('unique'))) {
+                return `L'adresse email "${thirdPartyData.email}" est déjà utilisée.`;
+              }
+              return `${field}: ${messages.join(', ')}`;
+            })
+            .join('; ');
+          errorMessage = errors;
         }
-      }
-      // Autres erreurs
-      else if (response.error) {
-        errorMessage = response.error;
-      }
-      // Cas où le status n'est pas 200 mais pas d'erreur spécifique
-      else if (response.status && response.status !== 200) {
-        errorMessage = response.message || `Erreur ${response.status} lors de la création`;
-      }
+        // Gestion des erreurs serveur
+        else if (response.status === 500) {
+          const errorDetail = response.data?.error || response.data?.message || '';
+          if (errorDetail.includes('email') && errorDetail.includes('unique')) {
+            errorMessage = `L'adresse email "${thirdPartyData.email}" est déjà utilisée.`;
+          } else if (errorDetail.includes('Duplicate entry')) {
+            errorMessage = 'Cette adresse email est déjà utilisée par un autre tiers.';
+          } else {
+            errorMessage = response.data?.message || 'Erreur serveur. Veuillez réessayer.';
+          }
+        }
+        // Autres erreurs
+        else if (response.error) {
+          errorMessage = response.error;
+        }
+        // Cas où le status n'est pas 200 mais pas d'erreur spécifique
+        else if (response.status && response.status !== 200) {
+          errorMessage = response.message || `Erreur ${response.status} lors de la création`;
+        }
 
-      throw new Error(errorMessage);
+        throw new Error(errorMessage);
+      }
+    } catch (error) {
+      console.error('❌ Erreur création tiers:', {
+        message: error.message,
+        data: thirdPartyData,
+        error
+      });
+      throw error;
+    } finally {
+      setIsCreatingThirdParty(false);
     }
-  } catch (error) {
-    console.error('❌ Erreur création tiers:', {
-      message: error.message,
-      data: thirdPartyData,
-      error
-    });
-    throw error;
-  } finally {
-    setIsCreatingThirdParty(false);
-  }
-};
+  };
   const handleAddNewThirdParty = async () => {
     if (!newThirdPartyData.name.trim()) {
       alert('Le nom du tiers est obligatoire');
@@ -271,9 +257,6 @@ const createThirdParty = async (thirdPartyData) => {
           user_type_id: ''
         });
         setShowThirdPartyModal(false);
-
-        // Message de succès
-        console.log('✅ Tiers créé avec succès!');
       }
     } catch (error) {
       console.error('❌ Erreur création tiers:', error);
@@ -320,24 +303,6 @@ const createThirdParty = async (thirdPartyData) => {
     try {
       setIsLoadingData(true);
       const res = await getOptions();
-
-      console.log('🔍 STRUCTURE COMPLÈTE DE getOptions():', res);
-      console.log('📋 Clés disponibles:', Object.keys(res));
-
-      // Vérifiez différentes structures possibles
-      if (res.users) {
-        console.log('👥 Structure users trouvée:', {
-          userThirdParties: res.users.user_third_parties,
-          userFinancials: res.users.user_financials,
-          userThirdPartiesData: res.users.user_third_parties?.user_third_party_items?.data,
-          userFinancialsData: res.users.user_financials?.user_financial_items?.data
-        });
-      }
-
-      if (res.listThirdParty) {
-        console.log('📦 listThirdParty directe:', res.listThirdParty);
-      }
-
       // Essayez différentes approches pour récupérer les données
       let combinedList = [];
 
@@ -347,33 +312,16 @@ const createThirdParty = async (thirdPartyData) => {
         const userFinancials = res.users.user_financials?.user_financial_items?.data || [];
         combinedList = [...userThirdParties, ...userFinancials];
 
-        console.log('🔄 Combinaison users + financials:', {
-          userThirdPartiesCount: userThirdParties.length,
-          userFinancialsCount: userFinancials.length,
-          combinedCount: combinedList.length
-        });
       }
       // Approche 2: Structure directe
       else if (res.listThirdParty) {
         combinedList = res.listThirdParty;
-        console.log('🎯 Utilisation listThirdParty directe:', combinedList.length);
       }
       // Approche 3: Autre structure
       else {
-        console.warn('⚠️ Structure inconnue, utilisation des données brutes');
+        console.warn(' Structure inconnue, utilisation des données brutes');
         combinedList = res.thirdParties || res.data || [];
       }
-
-      console.log('📊 DÉTAIL des tiers combinés:', combinedList.map(t => ({
-        id: t.id,
-        name: t.name,
-        firstname: t.firstname,
-        user_type_id: t.user_type_id,
-        type: t.user_type_id === 4 ? 'Client' :
-          t.user_type_id === 5 ? 'Emprunteur' :
-            t.user_type_id === 6 ? 'Fournisseur' :
-              t.user_type_id === 7 ? 'Prêteur' : 'Inconnu'
-      })));
 
       setData({
         ...res,
@@ -381,7 +329,6 @@ const createThirdParty = async (thirdPartyData) => {
       });
 
     } catch (error) {
-      console.error('❌ Erreur chargement options:', error);
     } finally {
       setIsLoadingData(false);
     }

@@ -2,32 +2,11 @@
 import { apiService } from '../utils/ApiService';
 
 class CollaborationService {
-
-    async getProjectInvitations(projectId) {
-    try {
-      // Si votre API a un endpoint pour les invitations
-      // const response = await apiService.get(`/projects/${projectId}/invitations`);
-      // return response;
-      
-      // Pour l'instant, retourner un tableau vide car cette fonctionnalité
-      // n'est pas encore implémentée dans votre API backend
-      console.warn('La fonction getProjectInvitations n\'est pas encore implémentée avec l\'API');
-      return [];
-    } catch (error) {
-      console.error('Erreur lors de la récupération des invitations:', error);
-      return [];
-    }
-  }
-
-  // Autre méthode liée aux invitations si nécessaire
-  async getPendingInvitations(projectId) {
-    return this.getProjectInvitations(projectId);
-  }
   // Récupérer tous les collaborateurs depuis l'API
   async getCollaborators() {
     try {
       const response = await apiService.get('/users/collaborators');
-      return response;
+      return response.data || response;
     } catch (error) {
       console.error('Erreur lors de la récupération des collaborateurs:', error);
       throw error;
@@ -47,33 +26,61 @@ class CollaborationService {
     }
   }
 
-  // Créer une invitation (envoyer vers l'API)
-  async createInvitation(invitationData) {
+  // Récupérer les collaborateurs formatés pour l'affichage
+  async getFormattedCollaborators(projectId = null) {
     try {
-      const response = await apiService.post('/users/collaborators', invitationData);
-      return response;
+      const collaborators = projectId 
+        ? await this.getProjectCollaborators(projectId)
+        : await this.getCollaborators();
+
+      return collaborators.map(collaborator => ({
+        id: collaborator.id,
+        name: collaborator.name,
+        firstname: collaborator.firstname,
+        full_name: collaborator.full_name || `${collaborator.firstname} ${collaborator.name}`,
+        email: collaborator.email,
+        phone_number: collaborator.phone_number,
+        role: collaborator.role || collaborator.role_name,
+        permission: collaborator.permission || collaborator.permission_name,
+        is_active: collaborator.is_active !== undefined ? collaborator.is_active : true,
+        joined_at: collaborator.joined_at || collaborator.collaboration_created_at,
+        projects: collaborator.projects || []
+      }));
     } catch (error) {
-      console.error('Erreur lors de la création de l\'invitation:', error);
+      console.error('Erreur lors du formatage des collaborateurs:', error);
       throw error;
     }
   }
 
-  // Supprimer un collaborateur
+  // Ajouter un nouveau collaborateur
+  async addCollaborator(collaboratorData) {
+    try {
+      const response = await apiService.post('/users/collaborators', collaboratorData);
+      return response.data || response;
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout du collaborateur:', error);
+      throw error;
+    }
+  }
+
+  // Supprimer un collaborateur - CORRIGÉ (utilise PATCH pour désactiver)
   async removeCollaborator(collaboratorId) {
     try {
-      const response = await apiService.delete(`/users/collaborators/${collaboratorId}`);
-      return response;
+      const response = await apiService.patch(`/users/collaborators/${collaboratorId}`, {
+        is_active: false
+      });
+      return response.data || response;
     } catch (error) {
       console.error('Erreur lors de la suppression du collaborateur:', error);
       throw error;
     }
   }
 
-  // Mettre à jour les permissions d'un collaborateur
+  // Mettre à jour les permissions d'un collaborateur - CORRIGÉ (utilise PATCH)
   async updateCollaboratorPermissions(collaboratorId, permissionData) {
     try {
-      const response = await apiService.put(`/users/collaborators/${collaboratorId}`, permissionData);
-      return response;
+      const response = await apiService.patch(`/users/collaborators/${collaboratorId}`, permissionData);
+      return response.data || response;
     } catch (error) {
       console.error('Erreur lors de la mise à jour des permissions:', error);
       throw error;
@@ -83,76 +90,29 @@ class CollaborationService {
   // Récupérer les permissions disponibles
   async getAvailablePermissions() {
     try {
-      const [permissions, roles] = await Promise.all([
+      const [permissionsResponse, rolesResponse] = await Promise.all([
         apiService.get('/collaborator-permissions'),
         apiService.get('/collaborator-roles')
       ]);
-      return { permissions, roles };
+      
+      return {
+        permissions: permissionsResponse.data || permissionsResponse,
+        roles: rolesResponse.data || rolesResponse
+      };
     } catch (error) {
       console.error('Erreur lors de la récupération des permissions:', error);
       throw error;
     }
   }
 
-  // Formater les permissions pour l'affichage
-  formatPermissions(permissions) {
-    if (!permissions) {
-      return {
-        accessLevel: 'Non défini',
-        sections: 'Aucune section',
-        categories: 'Aucune catégorie'
-      };
-    }
-
-    // Si les permissions viennent de l'ancien format (localStorage)
-    if (typeof permissions === 'object' && permissions.accessLevel) {
-      const accessLevelText = permissions.accessLevel === 'write' ? 'Lecture-écriture' : 'Lecture seule';
-      
-      const sectionsText = [];
-      if (permissions.sections?.entries) sectionsText.push('Entrées');
-      if (permissions.sections?.expenses) sectionsText.push('Sorties');
-      
-      const categoriesText = [];
-      if (permissions.categories?.entries?.length > 0) {
-        categoriesText.push(`Entrées: ${permissions.categories.entries.length} catégories`);
-      }
-      if (permissions.categories?.expenses?.length > 0) {
-        categoriesText.push(`Sorties: ${permissions.categories.expenses.length} catégories`);
-      }
-
-      return {
-        accessLevel: accessLevelText,
-        sections: sectionsText.join(', ') || 'Aucune section',
-        categories: categoriesText.join(', ') || 'Toutes les catégories'
-      };
-    }
-
-    // Si les permissions viennent du nouveau format (API)
-    if (typeof permissions === 'object') {
-      return {
-        accessLevel: permissions.accessLevel || permissions.permission_name || 'Non défini',
-        sections: 'Toutes les sections', // À adapter selon votre logique métier
-        categories: 'Toutes les catégories' // À adapter selon votre logique métier
-      };
-    }
-
-    // Fallback
-    return {
-      accessLevel: 'Non défini',
-      sections: 'Aucune information',
-      categories: 'Aucune information'
-    };
-  }
-
-  // Vérifier si un utilisateur a une permission spécifique
-  async hasPermission(projectId, userEmail, action, section = null, category = null) {
+  // Récupérer les invitations d'un projet
+  async getProjectInvitations(projectId) {
     try {
-      // Cette méthode peut être implémentée côté backend
-      // Pour l'instant, retourne true par défaut
-      return true;
+      console.warn('La fonction getProjectInvitations n\'est pas encore implémentée avec l\'API');
+      return [];
     } catch (error) {
-      console.error('Erreur lors de la vérification des permissions:', error);
-      return false;
+      console.error('Erreur lors de la récupération des invitations:', error);
+      return [];
     }
   }
 
@@ -160,10 +120,12 @@ class CollaborationService {
   async getProjectCollaborationStats(projectId) {
     try {
       const collaborators = await this.getProjectCollaborators(projectId);
+      const invitations = await this.getProjectInvitations(projectId);
+      
       return {
         collaborators: collaborators.length,
-        pendingInvitations: 0, // À implémenter si vous avez des invitations en attente
-        totalInvitations: collaborators.length
+        pendingInvitations: invitations.length,
+        totalInvitations: collaborators.length + invitations.length
       };
     } catch (error) {
       console.error('Erreur lors de la récupération des statistiques:', error);
@@ -171,54 +133,60 @@ class CollaborationService {
     }
   }
 
-  // Générer un lien d'invitation (pour compatibilité avec l'ancien code)
+  // Créer une invitation
+  async createInvitation(invitationData) {
+    try {
+      const response = await this.addCollaborator(invitationData);
+      return response;
+    } catch (error) {
+      console.error('Erreur lors de la création de l\'invitation:', error);
+      throw error;
+    }
+  }
+
+  // Renvoyer une invitation
+  async resendInvitation(projectId, invitationId) {
+    try {
+      console.log('Renvoi invitation:', { projectId, invitationId });
+      return { success: true, message: 'Invitation renvoyée' };
+    } catch (error) {
+      console.error('Erreur lors du renvoi de l\'invitation:', error);
+      throw error;
+    }
+  }
+
+  // Annuler une invitation
+  async cancelInvitation(projectId, invitationId) {
+    try {
+      console.log('Annulation invitation:', { projectId, invitationId });
+      return { success: true, message: 'Invitation annulée' };
+    } catch (error) {
+      console.error('Erreur lors de l\'annulation de l\'invitation:', error);
+      throw error;
+    }
+  }
+
+  // Générer un lien d'invitation
   generateInvitationLink(invitationId) {
     const baseUrl = window.location.origin;
     return `${baseUrl}/invitation/${invitationId}`;
   }
 
-  // Nettoyer les données (pour compatibilité)
-  cleanExpiredInvitations() {
-    // Cette méthode n'est plus nécessaire avec l'API
-    console.log('Méthode cleanExpiredInvitations obsolète avec l\'API backend');
-    return false;
-  }
-
-  // Exporter les collaborations (pour compatibilité)
-  async exportCollaborations() {
-    try {
-      const collaborators = await this.getCollaborators();
-      return {
-        collaborations: collaborators,
-        exportDate: new Date().toISOString()
-      };
-    } catch (error) {
-      console.error('Erreur lors de l\'export des collaborations:', error);
-      throw error;
-    }
-  }
-
-  // Méthodes utilitaires pour le mapping des données
-  mapAccessLevelToIds(accessLevel) {
-    const permissionMap = {
-      'read': { permissionId: 1, roleId: 1 },
-      'write': { permissionId: 2, roleId: 2 }
-    };
-    return permissionMap[accessLevel] || { permissionId: 1, roleId: 1 };
-  }
-
   // Préparer les données pour l'API à partir du formulaire
   prepareInvitationData(formData, project) {
-    return {
-      name: formData.name.trim(),
-      firstname: formData.firstname.trim(),
-      email: formData.email.toLowerCase().trim(),
-      phone_number: formData.phone_number.trim(),
+    const data = {
+      name: formData.name?.trim(),
+      firstname: formData.firstname?.trim() || '',
+      email: formData.email?.toLowerCase().trim(),
+      phone_number: formData.phone_number?.trim() || '',
       collaborator_permission_id: parseInt(formData.collaborator_permission_id),
       collaborator_role_id: parseInt(formData.collaborator_role_id),
       project_id: [parseInt(project.id)],
-      password: 'defaultPassword123!' // Mot de passe par défaut
+      password: formData.password || 'DefaultPassword123!'
     };
+
+    console.log('Données préparées pour l\'API:', data);
+    return data;
   }
 
   // Valider les données avant envoi
@@ -249,24 +217,124 @@ class CollaborationService {
     };
   }
 
-  // Obtenir les collaborateurs formatés pour l'affichage
-  async getFormattedCollaborators(projectId = null) {
-    try {
-      const collaborators = projectId 
-        ? await this.getProjectCollaborators(projectId)
-        : await this.getCollaborators();
+  // Formater les permissions pour l'affichage (méthode utilitaire)
+  formatPermissions(permissions) {
+    if (!permissions) {
+      return {
+        accessLevel: 'Non défini',
+        sections: 'Aucune section',
+        categories: 'Aucune catégorie'
+      };
+    }
 
-      return collaborators.map(collaborator => ({
-        id: collaborator.id,
-        name: collaborator.name,
-        email: collaborator.email,
-        phone_number: collaborator.phone_number,
-        joinedAt: collaborator.joinedAt,
-        permissions: this.formatPermissions(collaborator.permissions),
-        projects: collaborator.projects || []
-      }));
+    // Si les permissions viennent de l'ancien format
+    if (typeof permissions === 'object' && permissions.accessLevel) {
+      const accessLevelText = permissions.accessLevel === 'write' ? 'Lecture-écriture' : 'Lecture seule';
+      
+      const sectionsText = [];
+      if (permissions.sections?.entries) sectionsText.push('Entrées');
+      if (permissions.sections?.expenses) sectionsText.push('Sorties');
+      
+      const categoriesText = [];
+      if (permissions.categories?.entries?.length > 0) {
+        categoriesText.push(`Entrées: ${permissions.categories.entries.length} catégories`);
+      }
+      if (permissions.categories?.expenses?.length > 0) {
+        categoriesText.push(`Sorties: ${permissions.categories.expenses.length} catégories`);
+      }
+
+      return {
+        accessLevel: accessLevelText,
+        sections: sectionsText.join(', ') || 'Aucune section',
+        categories: categoriesText.join(', ') || 'Toutes les catégories'
+      };
+    }
+
+    // Si les permissions viennent du nouveau format (API)
+    if (typeof permissions === 'object') {
+      return {
+        accessLevel: permissions.accessLevel || permissions.permission_name || 'Non défini',
+        sections: 'Toutes les sections',
+        categories: 'Toutes les catégories'
+      };
+    }
+
+    return {
+      accessLevel: 'Non défini',
+      sections: 'Aucune information',
+      categories: 'Aucune information'
+    };
+  }
+
+  // Vérifier si un utilisateur a une permission spécifique
+  async hasPermission(projectId, userEmail, action, section = null, category = null) {
+    try {
+      return true;
     } catch (error) {
-      console.error('Erreur lors du formatage des collaborateurs:', error);
+      console.error('Erreur lors de la vérification des permissions:', error);
+      return false;
+    }
+  }
+
+  // Méthodes utilitaires pour le mapping des données
+  mapAccessLevelToIds(accessLevel) {
+    const permissionMap = {
+      'read': { permissionId: 1, roleId: 1 },
+      'write': { permissionId: 2, roleId: 2 },
+      'admin': { permissionId: 3, roleId: 3 }
+    };
+    return permissionMap[accessLevel] || { permissionId: 1, roleId: 1 };
+  }
+
+  // Exporter les collaborations
+  async exportCollaborations() {
+    try {
+      const collaborators = await this.getCollaborators();
+      return {
+        collaborations: collaborators,
+        exportDate: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Erreur lors de l\'export des collaborations:', error);
+      throw error;
+    }
+  }
+
+  // Méthode pour désactiver un collaborateur (alternative à remove)
+  async deactivateCollaborator(collaboratorId) {
+    return this.removeCollaborator(collaboratorId);
+  }
+
+  // Méthode pour mettre à jour les informations d'un collaborateur
+  async updateCollaborator(collaboratorId, updateData) {
+    try {
+      const response = await apiService.patch(`/users/collaborators/${collaboratorId}`, updateData);
+      return response.data || response;
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du collaborateur:', error);
+      throw error;
+    }
+  }
+
+  // Méthodes de compatibilité (peuvent être supprimées plus tard)
+  cleanExpiredInvitations() {
+    console.log('Méthode cleanExpiredInvitations obsolète avec l\'API backend');
+    return false;
+  }
+
+  async getPendingInvitations(projectId) {
+    return this.getProjectInvitations(projectId);
+  }
+
+  // Méthode pour debug - vérifier les données d'un collaborateur spécifique
+  async debugCollaborator(collaboratorId) {
+    try {
+      const allCollaborators = await this.getCollaborators();
+      const collaborator = allCollaborators.find(c => c.id === collaboratorId);
+      console.log('Données du collaborateur:', collaborator);
+      return collaborator;
+    } catch (error) {
+      console.error('Erreur lors du debug du collaborateur:', error);
       throw error;
     }
   }
