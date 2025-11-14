@@ -1,14 +1,20 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { ChevronsUpDown, Check, Plus, Layers } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { useUI } from "../context/UIContext";
-import { useProjects } from "../../hooks/useProjects";
-import { useAuth } from "../context/AuthContext";
-import ConsolidatedViewModal from "../modal/ConsolidatedViewModal";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+} from 'react';
+import { ChevronsUpDown, Check, Plus, Layers } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useUI } from '../context/UIContext';
+import { useProjects } from '../../hooks/useProjects';
+import { useAuth } from '../context/AuthContext';
+import ConsolidatedViewModal from '../modal/ConsolidatedViewModal';
 
 const CONSISTENT_VIEWS = [
-  { id: "1", name: "Vue globale finances" },
-  { id: "2", name: "Vue marketing + ventes" },
+  { id: '1', name: 'Vue globale finances' },
+  { id: '2', name: 'Vue marketing + ventes' },
 ];
 
 const AVATAR_COLORS = [
@@ -17,7 +23,7 @@ const AVATAR_COLORS = [
   'bg-purple-200 text-purple-700',
   'bg-orange-200 text-orange-700',
   'bg-pink-200 text-pink-700',
-  'bg-indigo-200 text-indigo-700'
+  'bg-indigo-200 text-indigo-700',
 ];
 
 const ProjectSwitcher = () => {
@@ -25,68 +31,45 @@ const ProjectSwitcher = () => {
   const { uiState, uiDispatch } = useUI();
   const navigate = useNavigate();
 
-  const { projects: rawProjects, loading: projectsLoading, refetch: refetchProjects } = useProjects();
+  const {
+    projects: rawProjects,
+    loading: projectsLoading,
+    refetch: refetchProjects,
+  } = useProjects();
 
-  const [isConsolidatedViewModalOpen, setIsConsolidatedViewModalOpen] = useState(false);
+  const [isConsolidatedViewModalOpen, setIsConsolidatedViewModalOpen] =
+    useState(false);
   const [isListOpen, setIsListOpen] = useState(false);
-  
+
   const listRef = useRef(null);
   const projectsLoaded = useRef(false);
 
   // CORRECTION: Filtrage très permissif pour debug
   const myProjects = useMemo(() => {
-    if (!user?.id || !rawProjects || rawProjects.length === 0) {
-      console.log("❌ myProjects: Conditions non remplies", {
-        hasUser: !!user?.id,
-        hasRawProjects: !!rawProjects,
-        rawProjectsLength: rawProjects?.length
-      });
-      return [];
-    }
-
-    console.log("🔄 myProjects - rawProjects reçus:", rawProjects.map(p => ({
-      id: p.id,
-      name: p.name,
-      user_id: p.user_id,
-      user_subscriber_id: p.user_subscriber_id,
-      is_archived: p.is_archived
-    })));
+    // if (!user?.id || !rawProjects || rawProjects.length === 0) {
+    //   console.log("❌ myProjects: Conditions non remplies", {
+    //     hasUser: !!user?.id,
+    //     hasRawProjects: !!rawProjects,
+    //     rawProjectsLength: rawProjects?.length
+    //   });
+    //   return [];
+    // }
 
     // CORRECTION: Filtre temporairement désactivé pour voir tous les projets
-    const filteredProjects = rawProjects.filter(project => {
+    const filteredProjects = rawProjects.filter((project) => {
       if (!project) return false;
 
       // CORRECTION: Temporairement, on inclut tous les projets non archivés
       const isArchived = project.is_archived || project.isArchived;
       if (isArchived) {
-        console.log(`📁 Projet archivé exclu: ${project.name}`);
         return false;
       }
-
-      console.log(`✅ Projet inclus: ${project.name}`, {
-        user_id: project.user_id,
-        user_subscriber_id: project.user_subscriber_id,
-        userId: user.id
-      });
 
       return true; // CORRECTION: Inclure tous les projets non archivés pour le debug
     });
 
-    console.log("✅ myProjects - Projets après filtrage:", filteredProjects.map(p => p.name));
     return filteredProjects;
   }, [rawProjects, user?.id]);
-
-  // Debug effect
-  useEffect(() => {
-    console.log("🔍 ProjectSwitcher - État complet:", {
-      rawProjectsCount: rawProjects?.length,
-      myProjectsCount: myProjects?.length,
-      activeProject: uiState.activeProject,
-      loading: projectsLoading,
-      user: user?.id
-    });
-  }, [rawProjects, myProjects, uiState.activeProject, projectsLoading, user]);
-
   const activeProjectId = uiState.activeProject?.id || null;
 
   const areIdsEqual = useCallback((id1, id2) => {
@@ -94,44 +77,49 @@ const ProjectSwitcher = () => {
     return String(id1) === String(id2);
   }, []);
 
-  const findProjectById = useCallback((id) => {
-    if (!id || !myProjects.length) return null;
-    return myProjects.find(project => areIdsEqual(project.id, id));
-  }, [myProjects, areIdsEqual]);
+  const findProjectById = useCallback(
+    (id) => {
+      if (!id || !myProjects.length) return null;
+      return myProjects.find((project) => areIdsEqual(project.id, id));
+    },
+    [myProjects, areIdsEqual]
+  );
 
   const displayName = useMemo(() => {
-    if (activeProjectId === "consolidated") {
-      return "Mes projets consolidés";
-    } 
-    
-    if (typeof activeProjectId === 'string' && activeProjectId.startsWith("consolidated_view_")) {
-      const viewId = activeProjectId.replace("consolidated_view_", "");
-      const view = CONSISTENT_VIEWS.find((v) => v.id === viewId);
-      return view ? view.name : "Vue inconnue";
+    if (activeProjectId === 'consolidated') {
+      return 'Mes projets consolidés';
     }
-    
+
+    if (
+      typeof activeProjectId === 'string' &&
+      activeProjectId.startsWith('consolidated_view_')
+    ) {
+      const viewId = activeProjectId.replace('consolidated_view_', '');
+      const view = CONSISTENT_VIEWS.find((v) => v.id === viewId);
+      return view ? view.name : 'Vue inconnue';
+    }
+
     if (uiState.activeProject?.name) {
       return uiState.activeProject.name;
     }
-    
+
     if (activeProjectId) {
       const project = findProjectById(activeProjectId);
       if (project?.name) {
         return project.name;
       }
     }
-    
-    return "Sélectionner un projet";
+
+    return 'Sélectionner un projet';
   }, [activeProjectId, uiState.activeProject, findProjectById]);
 
   const refreshProjects = useCallback(async () => {
     if (!user?.id) return;
-    console.log("🔄 Rafraîchissement des projets");
     try {
       await refetchProjects();
       projectsLoaded.current = true;
     } catch (error) {
-      console.error("Erreur lors du rafraîchissement des projets:", error);
+      console.error('Erreur lors du rafraîchissement des projets:', error);
     }
   }, [user?.id, refetchProjects]);
 
@@ -140,10 +128,9 @@ const ProjectSwitcher = () => {
     if (myProjects.length > 0 && !activeProjectId && !projectsLoading) {
       const defaultProject = myProjects[0];
       if (defaultProject?.id) {
-        console.log("✅ Définition du projet actif par défaut:", defaultProject.name);
         uiDispatch({
           type: 'SET_ACTIVE_PROJECT',
-          payload: defaultProject
+          payload: defaultProject,
         });
         projectsLoaded.current = true;
       }
@@ -153,51 +140,44 @@ const ProjectSwitcher = () => {
   // Charger les projets au montage
   useEffect(() => {
     if (!projectsLoaded.current && !projectsLoading && user?.id) {
-      console.log("🔄 Chargement initial des projets");
       refreshProjects();
     }
   }, [projectsLoading, user?.id, refreshProjects]);
 
   // Écouter les événements de création de projet
-useEffect(() => {
-  const handleProjectCreated = async (event) => {
-    console.log("🎯 ProjectSwitcher - Événement projectCreated reçu:", event.detail);
-    
-    // Rafraîchir immédiatement la liste des projets
-    await refreshProjects();
-    
-    // Sélectionner automatiquement le nouveau projet
-    if (event.detail?.project) {
-      console.log("🎯 ProjectSwitcher - Sélection automatique du projet créé:", event.detail.project.name);
-      uiDispatch({
-        type: 'SET_ACTIVE_PROJECT',
-        payload: event.detail.project
-      });
-    }
-  };
+  useEffect(() => {
+    const handleProjectCreated = async (event) => {
+      await refreshProjects();
 
-  const handleProjectsUpdated = async (event) => {
-    console.log("🎯 ProjectSwitcher - Événement projectsUpdated reçu:", event.detail);
-    await refreshProjects();
-    
-    // Si un nouveau projet a été créé, le sélectionner
-    if (event.detail?.newProject && event.detail?.action === 'created') {
-      console.log("🎯 ProjectSwitcher - Sélection auto du nouveau projet:", event.detail.newProject.name);
-      uiDispatch({
-        type: 'SET_ACTIVE_PROJECT',
-        payload: event.detail.newProject
-      });
-    }
-  };
+      // Sélectionner automatiquement le nouveau projet
+      if (event.detail?.project) {
+        uiDispatch({
+          type: 'SET_ACTIVE_PROJECT',
+          payload: event.detail.project,
+        });
+      }
+    };
 
-  window.addEventListener('projectCreated', handleProjectCreated);
-  window.addEventListener('projectsUpdated', handleProjectsUpdated);
-  
-  return () => {
-    window.removeEventListener('projectCreated', handleProjectCreated);
-    window.removeEventListener('projectsUpdated', handleProjectsUpdated);
-  };
-}, [refreshProjects, uiDispatch]);
+    const handleProjectsUpdated = async (event) => {
+      await refreshProjects();
+
+      // Si un nouveau projet a été créé, le sélectionner
+      if (event.detail?.newProject && event.detail?.action === 'created') {
+        uiDispatch({
+          type: 'SET_ACTIVE_PROJECT',
+          payload: event.detail.newProject,
+        });
+      }
+    };
+
+    window.addEventListener('projectCreated', handleProjectCreated);
+    window.addEventListener('projectsUpdated', handleProjectsUpdated);
+
+    return () => {
+      window.removeEventListener('projectCreated', handleProjectCreated);
+      window.removeEventListener('projectsUpdated', handleProjectsUpdated);
+    };
+  }, [refreshProjects, uiDispatch]);
 
   // Gestion du clic en dehors
   useEffect(() => {
@@ -206,46 +186,52 @@ useEffect(() => {
         setIsListOpen(false);
       }
     };
-    
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSelect = useCallback(async (id) => {
-    console.log("🔍 handleSelect:", id);
+  const handleSelect = useCallback(
+    async (id) => {
+      const idString = String(id);
 
-    const idString = String(id);
+      if (
+        idString === 'consolidated' ||
+        idString.startsWith('consolidated_view_')
+      ) {
+        const viewName =
+          idString === 'consolidated'
+            ? 'Mes projets consolidés'
+            : CONSISTENT_VIEWS.find(
+                (v) => `consolidated_view_${v.id}` === idString
+              )?.name || 'Vue consolidée';
 
-    if (idString === "consolidated" || idString.startsWith("consolidated_view_")) {
-      const viewName = idString === "consolidated" 
-        ? "Mes projets consolidés" 
-        : CONSISTENT_VIEWS.find(v => `consolidated_view_${v.id}` === idString)?.name || "Vue consolidée";
-      
-      uiDispatch({
-        type: 'SET_ACTIVE_PROJECT',
-        payload: { id: idString, name: viewName, type: 'consolidated' }
-      });
-      navigate('/client/dashboard');
-    } else {
-      const selectedProject = findProjectById(id);
-      if (selectedProject) {
-        console.log("✅ Définition du projet actif:", selectedProject.name);
         uiDispatch({
           type: 'SET_ACTIVE_PROJECT',
-          payload: selectedProject
+          payload: { id: idString, name: viewName, type: 'consolidated' },
         });
-        navigate(`/client/dashboard`);
+        navigate('/client/dashboard');
       } else {
-        console.log("❌ Projet non trouvé");
-        await refreshProjects();
+        const selectedProject = findProjectById(id);
+        if (selectedProject) {
+          uiDispatch({
+            type: 'SET_ACTIVE_PROJECT',
+            payload: selectedProject,
+          });
+          navigate(`/client/dashboard`);
+        } else {
+          console.log('❌ Projet non trouvé');
+          await refreshProjects();
+        }
       }
-    }
 
-    setIsListOpen(false);
-  }, [findProjectById, uiDispatch, navigate, refreshProjects]);
+      setIsListOpen(false);
+    },
+    [findProjectById, uiDispatch, navigate, refreshProjects]
+  );
 
   const handleAddProject = useCallback(() => {
-    navigate("/client/onboarding");
+    navigate('/client/onboarding');
     setIsListOpen(false);
   }, [navigate]);
 
@@ -265,12 +251,14 @@ useEffect(() => {
 
   const getAvatarColor = useCallback((projectId) => {
     const idToHash = projectId ? projectId.toString() : 'default';
-    const index = Math.abs(idToHash.split('').reduce((a, b) => a + b.charCodeAt(0), 0)) % AVATAR_COLORS.length;
+    const index =
+      Math.abs(idToHash.split('').reduce((a, b) => a + b.charCodeAt(0), 0)) %
+      AVATAR_COLORS.length;
     return AVATAR_COLORS[index];
   }, []);
 
   const getProjectType = useCallback((project) => {
-    return project.project_type_name || "Projet";
+    return project.project_type_name || 'Projet';
   }, []);
 
   const isLoading = projectsLoading;
@@ -285,25 +273,27 @@ useEffect(() => {
       >
         <Layers className="w-5 h-5 text-gray-500 shrink-0" />
         <span className="truncate flex-1">
-          {isLoading ? "Chargement..." : displayName}
+          {isLoading ? 'Chargement...' : displayName}
         </span>
         <ChevronsUpDown className="w-4 h-4 text-gray-500 shrink-0" />
       </button>
-      
+
       {isListOpen && (
         <div className="absolute z-30 mt-2 w-72 bg-white border rounded-lg shadow-lg">
           <div className="p-1 max-h-80 overflow-y-auto">
             <ul>
               <li>
                 <button
-                  onClick={() => handleSelect("consolidated")}
+                  onClick={() => handleSelect('consolidated')}
                   className="flex items-center justify-between w-full px-3 py-2 text-sm text-left text-gray-700 rounded-md hover:bg-gray-100"
                 >
                   <span className="font-semibold flex items-center gap-2">
                     <Layers className="w-4 h-4 text-gray-500 shrink-0" />
                     Mes projets consolidés
                   </span>
-                  {activeProjectId === "consolidated" && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
+                  {activeProjectId === 'consolidated' && (
+                    <Check className="w-4 h-4 text-blue-600 shrink-0" />
+                  )}
                 </button>
               </li>
 
@@ -317,7 +307,9 @@ useEffect(() => {
                       <Layers className="w-4 h-4 text-gray-500 shrink-0" />
                       <span className="truncate">{view.name}</span>
                     </span>
-                    {activeProjectId === `consolidated_view_${view.id}` && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
+                    {activeProjectId === `consolidated_view_${view.id}` && (
+                      <Check className="w-4 h-4 text-blue-600 shrink-0" />
+                    )}
                   </button>
                 </li>
               ))}
@@ -327,7 +319,7 @@ useEffect(() => {
                   Mes Projets ({myProjects.length})
                 </div>
               )}
-              
+
               {myProjects.map((project) => {
                 const isActive = areIdsEqual(project.id, activeProjectId);
                 return (
@@ -337,7 +329,11 @@ useEffect(() => {
                       className="flex items-center justify-between w-full px-3 py-2 text-sm text-left text-gray-700 rounded-md hover:bg-gray-100"
                     >
                       <span className="flex items-center gap-2 truncate min-w-0">
-                        <div className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold shrink-0 ${getAvatarColor(project.id)}`}>
+                        <div
+                          className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold shrink-0 ${getAvatarColor(
+                            project.id
+                          )}`}
+                        >
                           {getProjectInitial(project.name)}
                         </div>
                         <span className="truncate flex-1">{project.name}</span>
@@ -345,7 +341,9 @@ useEffect(() => {
                           {getProjectType(project)}
                         </span>
                       </span>
-                      {isActive && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
+                      {isActive && (
+                        <Check className="w-4 h-4 text-blue-600 shrink-0" />
+                      )}
                     </button>
                   </li>
                 );
@@ -355,7 +353,10 @@ useEffect(() => {
                 <div className="px-3 py-4 text-center text-sm text-gray-500">
                   Aucun projet trouvé
                   <br />
-                  <button onClick={handleAddProject} className="text-blue-600 hover:text-blue-800 font-medium mt-1">
+                  <button
+                    onClick={handleAddProject}
+                    className="text-blue-600 hover:text-blue-800 font-medium mt-1"
+                  >
                     Créer votre premier projet
                   </button>
                 </div>
