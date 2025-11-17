@@ -37,7 +37,7 @@ const ReferralDashboard = () => {
     }, []);
 
     const copyToClipboard = () => {
-        const link = `https://trezocash.com/signup?ref=${data?.ambassador?.referral_code}`;
+        const link = `${window.location.origin}/login?ref=${data?.ambassador?.referral_code}`;
         navigator.clipboard.writeText(link).then(() => {
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
@@ -219,7 +219,7 @@ const ReferralDashboard = () => {
                         <input
                             type="text"
                             readOnly
-                            value={`/signup?ref=${ambassador.referral_code}`}
+                            value={`${window.location.origin}/login?ref=${ambassador.referral_code}`}
                             className="flex-1 px-4 py-3 text-sm border border-gray-200 bg-gray-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                         <button

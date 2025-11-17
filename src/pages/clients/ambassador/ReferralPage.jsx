@@ -16,7 +16,7 @@ const ReferralsPage = () => {
                 setLoading(true);
                 setError(null);
 
-                const response = await axios.get('/api/ambassadeur/getFilleul', {
+                const response = await axios.get('/ambassadeur/getFilleul', {
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json',

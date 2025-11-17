@@ -33,8 +33,10 @@ import ReferralsPage from "../pages/clients/ambassador/ReferralPage";
 import AmbassadorPage from "../pages/clients/ambassador/AmbassadorPage";
 import AmbassadorLayout from "../layouts/clients/ambassador/AmbassadorLayout";
 import ReferralDashboard from "../pages/clients/ambassador/ReferralDashboard";
+import AmbassadorGate from "../pages/clients/ambassador/AmbassadorGate";
 import PaymentHistoryPage from "../pages/clients/ambassador/PaymentHistoryPage";
 import ProgramInfoPage from "../pages/clients/ambassador/ProgramInfoPage";
+import BecomeAmbassadorPage from "../pages/clients/ambassador/BecomeAmbassadorPage";
 const ClientRoute = {
   path: "/client",
   element: (
@@ -72,12 +74,20 @@ const ClientRoute = {
     // { path: "parrainage/refferals", element: <ReferralsPage /> },
     {
       path: "parrainage",
-      element: <AmbassadorLayout />,
+      element: <AmbassadorGate />, // 🔹 Vérifie le statut
       children: [
-        { index: true, element: <ReferralDashboard /> },
-        { path: "refferals", element: <ReferralsPage /> },
-        { path: "history", element: <PaymentHistoryPage /> },
-        { path: "program-info", element: <ProgramInfoPage /> },
+        {
+          path: "",
+          element: <AmbassadorLayout />,
+          children: [
+            { index: true, element: <ReferralDashboard /> },
+            { path: "refferals", element: <ReferralsPage /> },
+            { path: "history", element: <PaymentHistoryPage /> },
+            { path: "program-info", element: <ProgramInfoPage /> },
+          ],
+        },
+        // 🔹 Page affichée si l’utilisateur n’est PAS ambassadeur
+        { path: "devenir", element: <BecomeAmbassadorPage /> },
       ],
     },
     { path: "projets", element: <ProjectsPage /> },
