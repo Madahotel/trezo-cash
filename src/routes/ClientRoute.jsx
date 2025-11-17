@@ -25,11 +25,19 @@ import OnboardingView from '../pages/clients/onboarding/OnboardingView';
 import BudgetPage from '../pages/clients/budget/Budget';
 import ReferralPage from '../pages/clients/ambassador/ReferralPage';
 
-import ProtectedRoute from '../routes/ProtectedRoute'; // Ataovy araka ny làlana marina
-import ProjectsPage from '../pages/clients/projets/ProjectsPage';
-import { SettingsProvider } from '../contexts/SettingsContext';
-import DashboardProject from '../pages/clients/dashboard/DashboardProject';
+import ProtectedRoute from "../routes/ProtectedRoute"; // Ataovy araka ny làlana marina
+import ProjectsPage from "../pages/clients/projets/ProjectsPage";
+import { SettingsProvider } from "../contexts/SettingsContext";
+import DashboardProject from "../pages/clients/dashboard/DashboardProject";
 import CollaboratorsPage from '../pages/clients/collaborator/CollaboratorsPage';
+import ReferralsPage from "../pages/clients/ambassador/ReferralPage";
+import AmbassadorPage from "../pages/clients/ambassador/AmbassadorPage";
+import AmbassadorLayout from "../layouts/clients/ambassador/AmbassadorLayout";
+import ReferralDashboard from "../pages/clients/ambassador/ReferralDashboard";
+import AmbassadorGate from "../pages/clients/ambassador/AmbassadorGate";
+import PaymentHistoryPage from "../pages/clients/ambassador/PaymentHistoryPage";
+import ProgramInfoPage from "../pages/clients/ambassador/ProgramInfoPage";
+import BecomeAmbassadorPage from "../pages/clients/ambassador/BecomeAmbassadorPage";
 const ClientRoute = {
   path: '/client',
   element: (
@@ -41,32 +49,52 @@ const ClientRoute = {
   ),
   children: [
     { index: true, element: <div>HomePage client</div> },
-    { path: 'projet', element: <ProjetClient /> },
-    { path: 'dashboard', element: <DashboardView /> },
-    { path: 'trezo', element: <TrezoPage /> },
-    { path: 'budget', element: <BudgetPage /> },
-    { path: 'scenarios', element: <ScenarioView /> },
-    { path: 'flux', element: <CashflowView /> },
-    { path: 'echeancier', element: <ScheduleView /> },
-    { path: 'analyse', element: <ExpenseAnalysisView /> },
-    { path: 'templates', element: <MyTemplatesPage /> },
-    { path: 'parametres-projet', element: <ProjectSettingsPage /> },
-    { path: 'provisions', element: <ProvisionsPage /> },
-    { path: 'categories', element: <CategoryManagementPage /> },
-    { path: 'tiers', element: <TiersManagementPage /> },
-    { path: 'comptes', element: <CashAccountsPage /> },
-    { path: 'timezoneSettings', element: <TimezoneSettingsPage /> },
-    { path: 'archives', element: <ArchivesPage /> },
-    { path: 'profil', element: <ProfilePage /> },
-    { path: 'securite', element: <SecurityPage /> },
-    { path: 'factures', element: <UnderConstructionView /> },
-    { path: 'aide', element: <Aide title="Centre d'aide" /> },
-    { path: 'abonnement', element: <SubscriptionPage /> },
-    { path: 'onboarding', element: <OnboardingView /> },
-    { path: 'parrainage', element: <ReferralPage /> },
-    { path: 'projets', element: <ProjectsPage /> },
-    { path: 'project/:projectId/dashboard', element: <DashboardProject /> },
+    { path: "projet", element: <ProjetClient /> },
+    { path: "dashboard", element: <DashboardView /> },
+    { path: "trezo", element: <TrezoPage /> },
+    { path: "budget", element: <BudgetPage /> },
+    { path: "scenarios", element: <ScenarioView /> },
+    { path: "flux", element: <CashflowView /> },
+    { path: "echeancier", element: <ScheduleView /> },
+    { path: "analyse", element: <ExpenseAnalysisView /> },
+    { path: "templates", element: <MyTemplatesPage /> },
+    { path: "parametres-projet", element: <ProjectSettingsPage /> },
+    { path: "provisions", element: <ProvisionsPage /> },
+    { path: "categories", element: <CategoryManagementPage /> },
+    { path: "tiers", element: <TiersManagementPage /> },
+    { path: "comptes", element: <CashAccountsPage /> },
+    { path: "timezoneSettings", element: <TimezoneSettingsPage /> },
+    { path: "archives", element: <ArchivesPage /> },
+    { path: "profil", element: <ProfilePage /> },
+    { path: "securite", element: <SecurityPage /> },
+    { path: "factures", element: <UnderConstructionView /> },
+    { path: "aide", element: <Aide title="Centre d'aide" /> },
+    { path: "abonnement", element: <SubscriptionPage /> },
+    { path: "onboarding", element: <OnboardingView /> },
+    // { path: "parrainage", element: <AmbassadorPage /> },
+    // { path: "parrainage/refferals", element: <ReferralsPage /> },
+    {
+      path: "parrainage",
+      element: <AmbassadorGate />, // 🔹 Vérifie le statut
+      children: [
+        {
+          path: "",
+          element: <AmbassadorLayout />,
+          children: [
+            { index: true, element: <ReferralDashboard /> },
+            { path: "refferals", element: <ReferralsPage /> },
+            { path: "history", element: <PaymentHistoryPage /> },
+            { path: "program-info", element: <ProgramInfoPage /> },
+          ],
+        },
+        // 🔹 Page affichée si l’utilisateur n’est PAS ambassadeur
+        { path: "devenir", element: <BecomeAmbassadorPage /> },
+      ],
+    },
+    { path: "projets", element: <ProjectsPage /> },
+    { path: "project/:projectId/dashboard", element: <DashboardProject /> },
     { path: 'collaborators', element: <CollaboratorsPage /> },
+
   ],
 };
 

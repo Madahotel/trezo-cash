@@ -16,7 +16,12 @@ export const AuthProvider = ({ children }) => {
 
       if (savedToken) {
         try {
+          console.log("🔄 Vérification du token...");
+
+          // Configure le token pour les requêtes suivantes
           axios.defaults.headers.Authorization = `Bearer ${savedToken}`;
+
+          // Si on a des infos utilisateur sauvegardées, on les utilise
           if (savedUser) {
             try {
               const userData = JSON.parse(savedUser);
@@ -24,6 +29,11 @@ export const AuthProvider = ({ children }) => {
             } catch (e) {
             }
           }
+
+          // Optionnel: Appeler un endpoint pour vérifier le token et récupérer les infos utilisateur
+          // const userResponse = await axios.get("/user");
+          // setUser(userResponse.data);
+
           setToken(savedToken);
           setError(null);
         } catch (error) {
@@ -52,7 +62,7 @@ export const AuthProvider = ({ children }) => {
 
       localStorage.setItem("auth_token", receivedToken);
       localStorage.setItem("user", JSON.stringify(userData));
-      
+
       setToken(receivedToken);
       setUser(userData);
       setError(null);
@@ -67,22 +77,26 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (name, email, password, password_confirm) => {
+  const register = async (name, email, password, password_confirm, referralCode = null) => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.post("/register", {
+
+      console.log("📝 Tentative d'inscription avec code:", referralCode);
+
+      const response = await axios.post('/register', {
         name,
         email,
         password,
         password_confirm: password_confirm || password,
+        referral_code: referralCode // Ajout dans le body
       });
 
       if (response.data.status === 200) {
         setError(null);
-        return { 
-          success: true, 
-          message: response.data.message || "Inscription réussie" 
+        return {
+          success: true,
+          message: response.data.message || "Inscription réussie"
         };
       } else {
         throw new Error(response.data.message || "Erreur d'inscription");
