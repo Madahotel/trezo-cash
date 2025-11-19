@@ -1,37 +1,50 @@
-import { useMemo } from "react";
-export const useGroupedData = (processedEntries, categories, isRowVisibleInPeriods) => {
-    const isFilterFunction = typeof isRowVisibleInPeriods === 'function';
+import { useMemo } from 'react';
 
+export const useGroupedData = (entries, categories, isRowVisibleInPeriods) => {
     return useMemo(() => {
-        if (!categories || !processedEntries) return { entree: [], sortie: [] };
+        console.log('=== useGroupedData SIMPLIFIED ===');
+        console.log('Entries:', entries?.length);
+        console.log('Categories keys:', categories ? Object.keys(categories) : 'none');
 
-        const safeIsRowVisibleInPeriods = isFilterFunction ? isRowVisibleInPeriods : () => true;
+        if (!entries || entries.length === 0) {
+            return { entree: [], sortie: [] };
+        }
 
-        const groupByType = (type) => {
-            const catType = type === 'entree' ? 'revenue' : 'expense';
-            if (!categories[catType] || !Array.isArray(categories[catType])) return [];
+        // Séparer par type
+        const entreeEntries = entries.filter(entry => entry.type === 'revenu');
+        const sortieEntries = entries.filter(entry => entry.type === 'depense');
 
-            const entriesForType = processedEntries.filter(e => e.type === (type === 'entree' ? 'revenu' : 'depense'));
+        // CORRECTION: Créer des groupes basés sur mainCategory ou category
+        const createGroups = (entriesArray, type) => {
+            const groupsMap = {};
+            
+            entriesArray.forEach(entry => {
+                // Utiliser mainCategory si disponible, sinon category
+                const groupName = entry.mainCategory || entry.category || `${type}-non-categorise`;
+                
+                if (!groupsMap[groupName]) {
+                    groupsMap[groupName] = {
+                        id: groupName,
+                        name: groupName,
+                        entries: []
+                    };
+                }
+                groupsMap[groupName].entries.push(entry);
+            });
 
-            return categories[catType].map(mainCat => {
-                if (!mainCat || !Array.isArray(mainCat.subCategories)) return null;
-
-                const entriesForMainCat = entriesForType.filter(entry => {
-                    const isInCategory = mainCat.subCategories.some(sc => sc && sc.name === entry.category);
-                    const isVatEntry = (entry.is_vat_child || entry.is_vat_payment) && mainCat.name === 'IMPÔTS & CONTRIBUTIONS';
-                    const isTaxEntry = entry.is_tax_payment && mainCat.name === 'IMPÔTS & CONTRIBUTIONS';
-                    return isInCategory || isVatEntry || isTaxEntry;
-                });
-
-                if (entriesForMainCat.length === 0) return null;
-
-                const visibleEntries = entriesForMainCat.filter(safeIsRowVisibleInPeriods);
-                if (visibleEntries.length === 0) return null;
-
-                return { ...mainCat, entries: visibleEntries };
-
-            }).filter(Boolean);
+            return Object.values(groupsMap);
         };
-        return { entree: groupByType('entree'), sortie: groupByType('sortie') };
-    }, [processedEntries, categories, isRowVisibleInPeriods, isFilterFunction]);
+
+        const entree = createGroups(entreeEntries, 'entree');
+        const sortie = createGroups(sortieEntries, 'sortie');
+
+        console.log('Groupes créés:', {
+            entree: entree.length,
+            sortie: sortie.length,
+            totalEntries: entree.reduce((sum, cat) => sum + cat.entries.length, 0) + 
+                         sortie.reduce((sum, cat) => sum + cat.entries.length, 0)
+        });
+
+        return { entree, sortie };
+    }, [entries, categories, isRowVisibleInPeriods]);
 };

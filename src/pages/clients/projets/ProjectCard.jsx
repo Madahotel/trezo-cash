@@ -168,15 +168,34 @@ const ProjectCard = ({
         }));
     };
 
-    // Calcul du statut de santé financière simplifié
     const getFinancialHealth = () => {
-        if (netBudget <= 0) return 'déficitaire';
-        if (netRealized >= netBudget * 0.9) return 'excellent';
-        if (netRealized >= netBudget * 0.7) return 'bon';
-        if (netRealized >= netBudget * 0.5) return 'moyen';
-        return 'à améliorer';
-    };
+        // 1. Budget non défini
+        if (netBudget === null || netBudget === undefined) {
+            return "budget non défini";
+        }
+        // 2. Budget négatif → alerte fa manohy manao évaluation ihany
+        if (netBudget < 0) {
+            return "⚠️ budget négatif (à vérifier)";
+        }
+        // 3. Budget = 0 → tsy azo kajiana ny pourcentage
+        if (netBudget === 0) {
+            return "aucun budget alloué";
+        }
+        // 4. Raha netRealized négatif → déficit
+        if (netRealized < 0) {
+            return "déficitaire";
+        }
+        // 5. Raha ara-dalàna → kajy pourcentage
+        const pourcentage = (netRealized / netBudget) * 100;
 
+        if (pourcentage >= 100) return "excellent";
+        if (pourcentage >= 80) return "très bon";
+        if (pourcentage >= 60) return "bon";
+        if (pourcentage >= 40) return "moyen";
+        if (pourcentage >= 20) return "faible";
+
+        return "à améliorer";
+    };
     const financialHealth = getFinancialHealth();
 
     // Fonction pour fermer le menu d'actions en cliquant à l'extérieur

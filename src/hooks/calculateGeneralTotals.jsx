@@ -1,19 +1,17 @@
-export const calculateGeneralTotals = (mainCategories, period, type, allEntriesForCalc, actualTransactions, hasOffBudgetRevenues, hasOffBudgetExpenses) => {
-    const totals = (mainCategories || []).reduce((acc, mainCategory) => {
-        const categoryTotals = calculateMainCategoryTotals(mainCategory.entries, period, actualTransactions);
-        acc.budget += categoryTotals.budget;
-        acc.actual += categoryTotals.actual;
-        return acc;
-    }, { budget: 0, actual: 0 });
+import { calculateMainCategoryTotals } from './calculateMainCategoryTotals';
 
-    if (type === 'entree' && hasOffBudgetRevenues) {
-        const offBudgetTotals = calculateOffBudgetTotalsForPeriod('revenu', period, allEntriesForCalc, actualTransactions);
-        totals.budget += offBudgetTotals.budget;
-        totals.actual += offBudgetTotals.actual;
-    } else if (type === 'sortie' && hasOffBudgetExpenses) {
-        const offBudgetTotals = calculateOffBudgetTotalsForPeriod('depense', period, allEntriesForCalc, actualTransactions);
-        totals.budget += offBudgetTotals.budget;
-        totals.actual += offBudgetTotals.actual;
-    }
-    return totals;
+export const calculateGeneralTotals = (categories, period, type, allEntries, actualTransactions, hasOffBudgetRevenues, hasOffBudgetExpenses) => {
+    if (!categories || !period) return { budget: 0, actual: 0 };
+
+    return Object.values(categories).reduce(
+        (acc, category) => {
+            if (category && category.entries) {
+                const categoryTotals = calculateMainCategoryTotals(category.entries, period, actualTransactions);
+                acc.budget += categoryTotals.budget;
+                acc.actual += categoryTotals.actual;
+            }
+            return acc;
+        },
+        { budget: 0, actual: 0 }
+    );
 };

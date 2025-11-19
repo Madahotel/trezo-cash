@@ -17,7 +17,7 @@ const BasicInfoSection = ({
   currencies,
   frequencies,
   thirdPartyOptions,
-  onAddThirdParty // Nouvelle prop pour ouvrir le modal de création
+  onAddThirdParty,
 }) => {
   // États pour les menus déroulants
   const [typeOpen, setTypeOpen] = useState(false);
@@ -37,90 +37,25 @@ const BasicInfoSection = ({
   const isPonctualFrequency = formData.frequency === '1'; // Ponctuelle
   const isIrregularFrequency = formData.frequency === '9'; // Irrégulière
 
-  // Fréquences qui ne permettent pas de choisir la date de fin (calcul automatique)
-  const autoCalculateFrequencies = ['1', '2', '3', '4', '5', '6', '7', '8'];
-  const shouldAutoCalculate = autoCalculateFrequencies.includes(
-    formData.frequency
-  );
+  // Fréquences qui ne permettent pas de choisir la date de fin
   const shouldHideEndDate = isPonctualFrequency || isIrregularFrequency;
 
-  // Fonction pour calculer la date de fin en fonction de la fréquence et de la date de début
-  const calculateEndDate = useCallback((startDate, frequency) => {
-    if (!startDate) return '';
+  // Fonction pour valider que la date de fin est postérieure à la date de début
+  const validateEndDate = useCallback((startDate, endDate) => {
+    if (!startDate || !endDate) return { isValid: true };
 
     const start = new Date(startDate);
+    const end = new Date(endDate);
 
-    switch (frequency) {
-      case '1': // Ponctuelle
-        return startDate; // Même date que le début
-
-      case '2': // Quotidienne
-        return startDate; // Même date que le début
-
-      case '3': // Mensuelle
-        const monthlyEnd = new Date(start);
-        monthlyEnd.setMonth(start.getMonth() + 1); // Même jour du mois suivant
-        return monthlyEnd.toISOString().split('T')[0];
-
-      case '4': // Hebdomadaire
-        const weeklyEnd = new Date(start);
-        weeklyEnd.setDate(start.getDate() + 6); // 7 jours - 1 jour = 6 jours à ajouter
-        return weeklyEnd.toISOString().split('T')[0];
-
-      case '5': // Bimensuelle
-        const biWeeklyEnd = new Date(start);
-        biWeeklyEnd.setDate(start.getDate() + 13); // 14 jours - 1 jour = 13 jours à ajouter
-        return biWeeklyEnd.toISOString().split('T')[0];
-
-      case '6': // Trimestrielle
-        const quarterlyEnd = new Date(start);
-        quarterlyEnd.setMonth(start.getMonth() + 3); // Même jour dans 3 mois
-        return quarterlyEnd.toISOString().split('T')[0];
-
-      case '7': // Semestrielle
-        const semiAnnualEnd = new Date(start);
-        semiAnnualEnd.setMonth(start.getMonth() + 6); // Même jour dans 6 mois
-        return semiAnnualEnd.toISOString().split('T')[0];
-
-      case '8': // Annuelle
-        const yearlyEnd = new Date(start);
-        yearlyEnd.setFullYear(start.getFullYear() + 1); // Même jour l'année suivante
-        return yearlyEnd.toISOString().split('T')[0];
-
-      case '9': // Irrégulière
-        return ''; // Pas de calcul automatique, l'utilisateur choisit
-
-      default:
-        return '';
+    if (end < start) {
+      return {
+        isValid: false,
+        message: 'La date de fin doit être postérieure à la date de début',
+      };
     }
+
+    return { isValid: true };
   }, []);
-
-  // Effet pour calculer automatiquement la date de fin quand la date de début ou la fréquence change
-  useEffect(() => {
-    if (formData.startDate && shouldAutoCalculate && !formData.isIndefinite) {
-      const calculatedEndDate = calculateEndDate(
-        formData.startDate,
-        formData.frequency
-      );
-      if (calculatedEndDate && calculatedEndDate !== formData.endDate) {
-        onFormChange('endDate', calculatedEndDate);
-      }
-    }
-
-    // Si fréquence irrégulière, réinitialiser la date de fin
-    if (isIrregularFrequency && formData.endDate) {
-      onFormChange('endDate', '');
-    }
-  }, [
-    formData.startDate,
-    formData.frequency,
-    formData.isIndefinite,
-    formData.endDate,
-    shouldAutoCalculate,
-    isIrregularFrequency,
-    calculateEndDate,
-    onFormChange,
-  ]);
 
   // Fonction utilitaire pour générer une couleur aléatoire
   const getRandomColor = useCallback(() => {
@@ -224,17 +159,9 @@ const BasicInfoSection = ({
       onFormChange('isIndefinite', false);
     }
 
-    // Pour les fréquences avec calcul automatique, recalculer la date de fin
-    if (
-      frequencyValue !== '9' &&
-      formData.startDate &&
-      !formData.isIndefinite
-    ) {
-      const calculatedEndDate = calculateEndDate(
-        formData.startDate,
-        frequencyValue
-      );
-      onFormChange('endDate', calculatedEndDate);
+    // Pour la fréquence ponctuelle, définir la date de fin sur la date de début
+    if (frequencyValue === '1' && formData.startDate) {
+      onFormChange('endDate', formData.startDate);
     }
 
     // Pour la fréquence irrégulière, vider la date de fin
@@ -247,35 +174,45 @@ const BasicInfoSection = ({
   const handleStartDateChange = (date) => {
     onFormChange('startDate', date);
 
-    // Recalculer la date de fin si une fréquence avec calcul auto est sélectionnée
-    if (date && shouldAutoCalculate && !formData.isIndéfinite) {
-      const calculatedEndDate = calculateEndDate(date, formData.frequency);
-      onFormChange('endDate', calculatedEndDate);
+    // Pour la fréquence ponctuelle, mettre à jour la date de fin
+    if (formData.frequency === '1') {
+      onFormChange('endDate', date);
     }
+  };
+
+  // Gestion du changement de date de fin
+  const handleEndDateChange = (date) => {
+    // Si on modifie la date de fin, désactiver automatiquement la durée indéterminée
+    if (date && formData.isIndefinite) {
+      onFormChange('isIndefinite', false);
+    }
+    onFormChange('endDate', date);
   };
 
   // Gestion du changement de durée indéterminée
   const handleIndefiniteChange = (checked) => {
     onFormChange('isIndefinite', checked);
     if (checked) {
+      // Si on active la durée indéterminée, vider la date de fin
       onFormChange('endDate', '');
-    } else if (formData.startDate && shouldAutoCalculate) {
-      // Si on décoche "indéterminé", recalculer la date de fin
-      const calculatedEndDate = calculateEndDate(
-        formData.startDate,
-        formData.frequency
-      );
-      onFormChange('endDate', calculatedEndDate);
     }
   };
 
-  // Obtenir la description de la période calculée
+  // Obtenir la description de la période
   const getPeriodDescription = () => {
+    if (formData.isIndefinite) {
+      return 'Durée indéterminée';
+    }
+
     if (!formData.startDate || !formData.endDate || shouldHideEndDate)
       return null;
 
     const start = new Date(formData.startDate);
     const end = new Date(formData.endDate);
+
+    // Vérifier que la date de fin est valide
+    if (end < start) return 'Date de fin invalide';
+
     const diffTime = Math.abs(end - start);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 pour inclure le jour de début
 
@@ -297,28 +234,31 @@ const BasicInfoSection = ({
 
   // Obtenir le message d'information selon la fréquence
   const getFrequencyInfoMessage = () => {
+    if (formData.isIndefinite) {
+      return 'Aucune date de fin définie - durée indéterminée.';
+    }
+
     if (isPonctualFrequency) {
-      return 'La date de fin est automatiquement définie sur la date de début.';
+      return 'Pour une opération ponctuelle, la date de fin est identique à la date de début.';
     }
 
     if (isIrregularFrequency) {
-      return 'Pour une fréquence irrégulière, la date de fin doit être définie manuellement.';
+      return 'Pour une fréquence irrégulière, vous devez définir manuellement la date de fin.';
     }
 
-    if (shouldAutoCalculate && formData.startDate && !formData.isIndefinite) {
-      const frequencyLabel = frequencies.find(
-        (f) => f.value === formData.frequency
-      )?.label;
-      return `La date de fin est calculée automatiquement (${frequencyLabel.toLowerCase()}).`;
-    }
-
-    return null;
+    return 'Définissez manuellement la date de fin selon vos besoins.';
   };
+
+  // Vérifier si la date de fin est valide (seulement si pas durée indéterminée)
+  const isEndDateValid =
+    formData.startDate && formData.endDate && !formData.isIndefinite
+      ? validateEndDate(formData.startDate, formData.endDate).isValid
+      : true;
 
   const frequencyInfoMessage = getFrequencyInfoMessage();
   const periodDescription = getPeriodDescription();
 
-  // Styles pour le Select React - CORRIGÉS POUR LE SCROLL
+  // Styles pour le Select React
   const customStyles = {
     control: (base, state) => ({
       ...base,
@@ -341,8 +281,8 @@ const BasicInfoSection = ({
     }),
     menuList: (base) => ({
       ...base,
-      maxHeight: '200px', // Hauteur maximale pour activer le scroll
-      overflowY: 'auto', // Activation du défilement vertical
+      maxHeight: '200px',
+      overflowY: 'auto',
       padding: 0,
       '&::-webkit-scrollbar': {
         width: '8px',
@@ -365,8 +305,8 @@ const BasicInfoSection = ({
       backgroundColor: state.isSelected
         ? '#3b82f6'
         : state.isFocused
-          ? '#f3f4f6'
-          : 'white',
+        ? '#f3f4f6'
+        : 'white',
       color: state.isSelected ? 'white' : '#374151',
       '&:active': { backgroundColor: state.isSelected ? '#3b82f6' : '#e5e7eb' },
     }),
@@ -400,15 +340,17 @@ const BasicInfoSection = ({
     <div
       ref={innerRef}
       {...innerProps}
-      className={`flex items-center px-3 py-2 cursor-pointer text-sm ${isSelected ? 'bg-blue-500 text-white' : isFocused ? 'bg-gray-100' : ''
-        }`}
+      className={`flex items-center px-3 py-2 cursor-pointer text-sm ${
+        isSelected ? 'bg-blue-500 text-white' : isFocused ? 'bg-gray-100' : ''
+      }`}
     >
       <User className="h-4 w-4 mr-2 text-gray-500" />
       <div className="flex-1">
         <div className="font-medium">{data.label}</div>
         <div
-          className={`text-xs ${isSelected ? 'text-blue-100' : 'text-gray-500'
-            }`}
+          className={`text-xs ${
+            isSelected ? 'text-blue-100' : 'text-gray-500'
+          }`}
         >
           {data.email}
         </div>
@@ -444,10 +386,11 @@ const BasicInfoSection = ({
                     onFormChange('type', type.id.toString());
                     setTypeOpen(false);
                   }}
-                  className={`relative flex cursor-pointer items-center py-2 px-3 text-sm ${formData.type === type.id.toString()
+                  className={`relative flex cursor-pointer items-center py-2 px-3 text-sm ${
+                    formData.type === type.id.toString()
                       ? 'bg-blue-500 text-white'
                       : 'hover:bg-gray-100'
-                    }`}
+                  }`}
                 >
                   <span className="flex-1">{type.name}</span>
                   {formData.type === type.id.toString() && (
@@ -487,10 +430,11 @@ const BasicInfoSection = ({
                       onFormChange('mainCategory', category.id.toString());
                       setCategoryOpen(false);
                     }}
-                    className={`relative flex cursor-pointer items-center py-2 px-3 text-sm ${formData.mainCategory === category.id.toString()
+                    className={`relative flex cursor-pointer items-center py-2 px-3 text-sm ${
+                      formData.mainCategory === category.id.toString()
                         ? 'bg-blue-500 text-white'
                         : 'hover:bg-gray-100'
-                      }`}
+                    }`}
                   >
                     <Tag className={`w-4 h-4 mr-2 ${colorClass.text}`} />
                     <span className="flex-1">{category.name}</span>
@@ -535,10 +479,11 @@ const BasicInfoSection = ({
                     onFormChange('subcategory', subcategory.id.toString());
                     setSubcategoryOpen(false);
                   }}
-                  className={`relative flex cursor-pointer items-center py-2 px-3 text-sm ${formData.subcategory === subcategory.id.toString()
+                  className={`relative flex cursor-pointer items-center py-2 px-3 text-sm ${
+                    formData.subcategory === subcategory.id.toString()
                       ? 'bg-blue-500 text-white'
                       : 'hover:bg-gray-100'
-                    }`}
+                  }`}
                 >
                   <span className="flex-1">{subcategory.name}</span>
                   {formData.subcategory === subcategory.id.toString() && (
@@ -591,10 +536,11 @@ const BasicInfoSection = ({
                         onFormChange('currency', currency.value);
                         setCurrencyOpen(false);
                       }}
-                      className={`relative flex cursor-pointer items-center py-2 px-3 text-sm ${formData.currency === currency.value
+                      className={`relative flex cursor-pointer items-center py-2 px-3 text-sm ${
+                        formData.currency === currency.value
                           ? 'bg-blue-500 text-white'
                           : 'hover:bg-gray-100'
-                        }`}
+                      }`}
                     >
                       <span className="flex-1">{currency.label}</span>
                       {formData.currency === currency.value && (
@@ -635,10 +581,11 @@ const BasicInfoSection = ({
                       handleFrequencyChange(frequency.value);
                       setFrequencyOpen(false);
                     }}
-                    className={`relative flex cursor-pointer items-center py-2 px-3 text-sm ${formData.frequency === frequency.value
+                    className={`relative flex cursor-pointer items-center py-2 px-3 text-sm ${
+                      formData.frequency === frequency.value
                         ? 'bg-blue-500 text-white'
                         : 'hover:bg-gray-100'
-                      }`}
+                    }`}
                   >
                     <span className="flex-1">{frequency.label}</span>
                     {formData.frequency === frequency.value && (
@@ -701,8 +648,9 @@ const BasicInfoSection = ({
 
       {/* Dates */}
       <div
-        className={`grid gap-4 ${shouldHideEndDate ? 'grid-cols-1' : 'grid-cols-2'
-          }`}
+        className={`grid gap-4 ${
+          shouldHideEndDate ? 'grid-cols-1' : 'grid-cols-2'
+        }`}
       >
         <div className="space-y-2">
           <Label htmlFor="startDate">Date de début *</Label>
@@ -722,7 +670,7 @@ const BasicInfoSection = ({
               Date de fin
               {periodDescription && (
                 <span className="text-xs text-gray-500 ml-1 font-normal">
-                  {/* {periodDescription} */}
+                  {periodDescription}
                 </span>
               )}
             </Label>
@@ -730,10 +678,24 @@ const BasicInfoSection = ({
               id="endDate"
               type="date"
               value={formData.endDate}
-              onChange={(e) => onFormChange('endDate', e.target.value)}
-              disabled={formData.isIndefinite || shouldAutoCalculate}
-              className="w-full"
+              onChange={(e) => handleEndDateChange(e.target.value)}
+              disabled={formData.isIndefinite}
+              min={formData.startDate} // Empêche seulement les dates antérieures au début
+              className={`w-full ${
+                !isEndDateValid ? 'border-red-500 focus:ring-red-500' : ''
+              }`}
+              placeholder={formData.isIndefinite ? 'Durée indéterminée' : ''}
             />
+            {!isEndDateValid && (
+              <p className="text-xs text-red-500 mt-1">
+                La date de fin doit être postérieure à la date de début
+              </p>
+            )}
+            {formData.isIndefinite && (
+              <p className="text-xs text-green-500 mt-1">
+                ✅ Durée indéterminée - aucune date de fin définie
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -745,19 +707,9 @@ const BasicInfoSection = ({
             id="isIndefinite"
             checked={formData.isIndefinite}
             onCheckedChange={handleIndefiniteChange}
-            disabled={shouldAutoCalculate}
           />
-          <Label
-            htmlFor="isIndefinite"
-            className={`cursor-pointer ${shouldAutoCalculate ? 'text-gray-400' : ''
-              }`}
-          >
+          <Label htmlFor="isIndefinite" className="cursor-pointer">
             Durée indéterminée
-            {shouldAutoCalculate && (
-              <span className="text-xs text-gray-500 ml-1">
-                (non disponible pour cette fréquence)
-              </span>
-            )}
           </Label>
         </div>
       )}
@@ -765,21 +717,31 @@ const BasicInfoSection = ({
       {/* Message d'information selon la fréquence */}
       {frequencyInfoMessage && (
         <div
-          className={`p-3 rounded-md ${isIrregularFrequency
+          className={`p-3 rounded-md ${
+            formData.isIndefinite
+              ? 'bg-green-50 border border-green-200'
+              : isIrregularFrequency
               ? 'bg-yellow-50 border border-yellow-200'
               : 'bg-blue-50 border border-blue-200'
-            }`}
+          }`}
         >
           <p
-            className={`text-sm ${isIrregularFrequency ? 'text-yellow-700' : 'text-blue-700'
-              }`}
+            className={`text-sm ${
+              formData.isIndefinite
+                ? 'text-green-700'
+                : isIrregularFrequency
+                ? 'text-yellow-700'
+                : 'text-blue-700'
+            }`}
           >
             <strong>
-              {isPonctualFrequency
+              {formData.isIndefinite
+                ? 'Durée indéterminée'
+                : isPonctualFrequency
                 ? 'Ponctuelle'
                 : isIrregularFrequency
-                  ? 'Irregulière'
-                  : 'Calcul automatique'}{' '}
+                ? 'Irregulière'
+                : 'Périodique'}{' '}
               :
             </strong>{' '}
             {frequencyInfoMessage}

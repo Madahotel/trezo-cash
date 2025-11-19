@@ -3,7 +3,7 @@ import { Wallet, Edit, Plus, Trash2, AlertTriangle, Archive, ArchiveRestore, Arr
 import { formatCurrency } from '../../../utils/formatting';
 import { useData, mainCashAccountCategories } from '../../../components/context/DataContext';
 import { useUI } from '../../../components/context/UIContext';
-import AddAccountForm from './AddAccountForm';
+// import AddAccountForm from './AddAccountForm';
 import EmptyState from '../../../components/emptystate/EmptyState.jsx';
 import TransferModal from '../../../components/modal/TransferModal.jsx';
 import { updateUserCashAccount, addUserCashAccount } from '../../../components/context/actions';
@@ -51,7 +51,9 @@ const CashAccountsView = () => {
   const activeProject = useMemo(() => projects.find(p => p.id === activeProjectId), [projects, activeProjectId]);
   
   const isConsolidated = activeProjectId === 'consolidated';
-  const isCustomConsolidated = activeProjectId?.startsWith('consolidated_view_');
+const prefix = 'consolidated_view_';
+const projectIdStr = String(activeProjectId);
+const isCustomConsolidated = projectIdStr.substring(0, prefix.length) === prefix;
 
   // Utilisation des données statiques pour les tests (remplacez par useAccountBalances pour les données réelles)
   const accountBalances = mockAccounts;
@@ -152,7 +154,7 @@ const CashAccountsView = () => {
   
   if (isConsolidated || isCustomConsolidated) {
     return (
-      <div className="bg-yellow-50 border border-yellow-200 border-opacity-50 text-yellow-800 p-4 rounded-lg flex items-start gap-3">
+      <div className="flex items-start gap-3 p-4 text-yellow-800 border border-yellow-200 border-opacity-50 rounded-lg bg-yellow-50">
         <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
         <div>
           <h4 className="font-bold">Vue Consolidée</h4>
@@ -165,9 +167,9 @@ const CashAccountsView = () => {
   return (
     <>
       <div className="space-y-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 border-opacity-50">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4">
-            <h3 className="font-bold text-lg text-gray-800 mb-2 sm:mb-0">Vos Comptes</h3>
+        <div className="p-6 bg-white border border-gray-200 border-opacity-50 rounded-lg shadow-sm">
+          <div className="flex flex-col mb-4 sm:flex-row sm:justify-between sm:items-center">
+            <h3 className="mb-2 text-lg font-bold text-gray-800 sm:mb-0">Vos Comptes</h3>
             <button 
               onClick={() => setIsTransferModalOpen(true)}
               className="bg-purple-100 text-purple-700 hover:bg-purple-200 px-3 py-1.5 rounded-md font-medium flex items-center justify-center gap-2 text-sm w-full sm:w-auto"
@@ -182,29 +184,29 @@ const CashAccountsView = () => {
                 <li key={account.id} className={`py-4 ${account.isClosed ? 'opacity-60' : ''}`}>
                   {editingAccount?.id === account.id ? (
                     <div className="space-y-3">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <div>
                           <label className="text-xs font-medium text-gray-500">Nom du compte</label>
-                          <input type="text" value={editingAccount.name || ''} onChange={(e) => setEditingAccount(d => ({ ...d, name: e.target.value }))} className="w-full px-3 py-1 border border-gray-200 border-opacity-50 rounded-md font-medium text-gray-900 text-base" autoFocus />
+                          <input type="text" value={editingAccount.name || ''} onChange={(e) => setEditingAccount(d => ({ ...d, name: e.target.value }))} className="w-full px-3 py-1 text-base font-medium text-gray-900 border border-gray-200 border-opacity-50 rounded-md" autoFocus />
                         </div>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <div>
                           <label className="text-xs font-medium text-gray-500">Solde initial</label>
-                          <input type="number" value={editingAccount.initialBalance || ''} onChange={(e) => setEditingAccount(d => ({ ...d, initialBalance: e.target.value }))} className="w-full px-3 py-1 border border-gray-200 border-opacity-50 rounded-md text-gray-900 text-base" />
+                          <input type="number" value={editingAccount.initialBalance || ''} onChange={(e) => setEditingAccount(d => ({ ...d, initialBalance: e.target.value }))} className="w-full px-3 py-1 text-base text-gray-900 border border-gray-200 border-opacity-50 rounded-md" />
                         </div>
                         <div>
                           <label className="text-xs font-medium text-gray-500">Date du solde</label>
-                          <input type="date" value={editingAccount.initialBalanceDate || ''} onChange={(e) => setEditingAccount(d => ({ ...d, initialBalanceDate: e.target.value }))} className="w-full px-3 py-1 border border-gray-200 border-opacity-50 rounded-md text-gray-900 text-base" min={activeProject?.startDate} />
+                          <input type="date" value={editingAccount.initialBalanceDate || ''} onChange={(e) => setEditingAccount(d => ({ ...d, initialBalanceDate: e.target.value }))} className="w-full px-3 py-1 text-base text-gray-900 border border-gray-200 border-opacity-50 rounded-md" min={activeProject?.startDate} />
                         </div>
                       </div>
                       <div className="flex justify-end gap-2 mt-2">
-                        <button onClick={handleCancelEdit} className="text-sm bg-gray-200 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-300">Annuler</button>
-                        <button onClick={handleSaveEdit} className="text-sm bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700">Enregistrer</button>
+                        <button onClick={handleCancelEdit} className="px-3 py-1 text-sm text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">Annuler</button>
+                        <button onClick={handleSaveEdit} className="px-3 py-1 text-sm text-white bg-green-600 rounded-md hover:bg-green-700">Enregistrer</button>
                       </div>
                     </div>
                   ) : (
-                    <div className="group flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-col group sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex-grow mb-2 sm:mb-0">
                         <div className="flex items-center gap-3">
                           <Wallet className="w-5 h-5 text-teal-600" />
@@ -214,16 +216,16 @@ const CashAccountsView = () => {
                             {account.isClosed && <span className="ml-2 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Clôturé le {new Date(account.closureDate).toLocaleDateString('fr-FR')}</span>}
                           </div>
                         </div>
-                        <div className="text-sm text-gray-500 ml-8 mt-1">
+                        <div className="mt-1 ml-8 text-sm text-gray-500">
                           Solde initial: <span className="font-semibold">{formatCurrency(account.initialBalance || 0, settings)}</span> le {new Date(account.initialBalanceDate).toLocaleDateString('fr-FR')}
                         </div>
                       </div>
-                      <div className="flex items-center justify-between sm:justify-end gap-4 mt-2 sm:mt-0 w-full sm:w-auto">
+                      <div className="flex items-center justify-between w-full gap-4 mt-2 sm:justify-end sm:mt-0 sm:w-auto">
                         <div className="text-left sm:text-right">
-                          <p className="font-bold text-lg text-gray-800">{formatCurrency(account.balance, settings)}</p>
+                          <p className="text-lg font-bold text-gray-800">{formatCurrency(account.balance, settings)}</p>
                           <p className="text-xs text-gray-500">Solde au {new Date().toLocaleDateString('fr-FR')}</p>
                         </div>
-                        <div className="flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-2 transition-opacity opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
                           {account.isClosed ? (
                             <button onClick={() => handleReopen(account.id)} className="p-1 text-green-600 hover:text-green-800" title="Ré-ouvrir le compte"><ArchiveRestore className="w-4 h-4" /></button>
                           ) : (
@@ -251,7 +253,7 @@ const CashAccountsView = () => {
           <AddAccountForm onSave={handleAddAccount} onCancel={() => setIsAddingAccount(false)} />
         ) : accountBalances.length > 0 ? (
           <div className="text-center">
-            <button onClick={() => setIsAddingAccount(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 w-full sm:w-auto">
+            <button onClick={() => setIsAddingAccount(true)} className="inline-flex items-center w-full gap-2 px-4 py-2 font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 sm:w-auto">
               <Plus className="w-5 h-5" /> Ajouter un autre compte
             </button>
           </div>
