@@ -12,12 +12,21 @@ export const useBudgetData = (activeProjectId) => {
             // ✅ Vérifications au début de la fonction async
             if (!activeProjectId) {
                 console.log('useBudgetData - Aucun projectId fourni');
+                setBudgetData(null);
                 return;
             }
 
             const projectIdString = String(activeProjectId);
             if (projectIdString === 'consolidated' || projectIdString.startsWith('consolidated_view_')) {
                 console.log('useBudgetData - Projet consolidé, pas d\'appel API');
+                setBudgetData(null);
+                return;
+            }
+
+            // ✅ CORRECTION: Vérifier que c'est un ID de projet valide (nombre ou UUID)
+            if (projectIdString === 'null' || projectIdString === 'undefined' || projectIdString === '') {
+                console.log('useBudgetData - ID de projet invalide:', activeProjectId);
+                setBudgetData(null);
                 return;
             }
 
@@ -35,6 +44,7 @@ export const useBudgetData = (activeProjectId) => {
             } catch (err) {
                 console.error('Erreur lors du chargement du budget:', err);
                 setError(err.message);
+                setBudgetData(null);
             } finally {
                 setLoading(false);
             }

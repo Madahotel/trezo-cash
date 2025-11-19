@@ -18,23 +18,6 @@ const calculateEntryAmountForPeriod = (entry, startDate, endDate) => {
     return entry.amount || 0;
 };
 
-const calculateActualAmountForPeriod = (entry, actualTransactions, startDate, endDate) => {
-    if (!actualTransactions || !entry) return 0;
-    
-    const entryActuals = actualTransactions.filter(actual => 
-        actual.budgetId === entry.id || 
-        actual.budgetId === entry.id.replace('_vat', '')
-    );
-    
-    return entryActuals.reduce((sum, actual) => {
-        const paymentsInPeriod = (actual.payments || []).filter(p => {
-            const paymentDate = new Date(p.paymentDate);
-            return paymentDate >= startDate && paymentDate <= endDate;
-        });
-        return sum + paymentsInPeriod.reduce((paymentSum, p) => paymentSum + p.paidAmount, 0);
-    }, 0);
-};
-
 const BudgetMobileView = ({
     finalBudgetEntries,
     finalActualTransactions,
