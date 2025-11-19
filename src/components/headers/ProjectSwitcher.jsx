@@ -6,7 +6,7 @@ import React, {
   useMemo,
 } from 'react';
 import { ChevronsUpDown, Check, Plus, Layers } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useUI } from '../context/UIContext';
 import { useProjects } from '../../hooks/useProjects';
 import { useAuth } from '../context/AuthContext';
@@ -26,10 +26,32 @@ const AVATAR_COLORS = [
   'bg-indigo-200 text-indigo-700',
 ];
 
+// ✅ OPTIMISATION: Fonctions utilitaires déplacées en dehors du composant
+const getProjectInitial = (projectName) => {
+  return projectName ? projectName[0].toUpperCase() : '?';
+};
+
+const getAvatarColor = (projectId) => {
+  const idToHash = projectId ? projectId.toString() : 'default';
+  const index =
+    Math.abs(idToHash.split('').reduce((a, b) => a + b.charCodeAt(0), 0)) %
+    AVATAR_COLORS.length;
+  return AVATAR_COLORS[index];
+};
+
+const getProjectType = (project) => {
+  return project.project_type_name || 'Projet';
+};
+
+const areIdsEqual = (id1, id2) => {
+  if (id1 == null || id2 == null) return false;
+  return String(id1) === String(id2);
+};
+
 const ProjectSwitcher = () => {
   const { user } = useAuth();
   const { uiState, uiDispatch } = useUI();
-  const navigate = useNavigate();
+  const location = useLocation();
 
   const {
     projects: rawProjects,
@@ -43,35 +65,23 @@ const ProjectSwitcher = () => {
 
   const listRef = useRef(null);
   const projectsLoaded = useRef(false);
-  const initialLoadDone = useRef(false); // ✅ NOUVEAU: Pour éviter les sélections automatiques multiples
+  const initialLoadDone = useRef(false);
   
+  // ✅ OPTIMISATION: useMemo simplifié avec cache
   const myProjects = useMemo(() => {
-    // if (!user?.id || !rawProjects || rawProjects.length === 0) {
-    //   console.log("❌ myProjects: Conditions non remplies", {
-    //     hasUser: !!user?.id,
-    //     hasRawProjects: !!rawProjects,
-    //     rawProjectsLength: rawProjects?.length
-    //   });
-    //   return [];
-    // }
-
-    // CORRECTION: Filtre temporairement désactivé pour voir tous les projets
-    const filteredProjects = rawProjects.filter((project) => {
+    if (!rawProjects || rawProjects.length === 0) return [];
+    
+    return rawProjects.filter((project) => {
       if (!project) return false;
       const isArchived = project.is_archived || project.isArchived;
-      if (isArchived) {
-        return false;
-      }
-
-      return true; // CORRECTION: Inclure tous les projets non archivés pour le debug
+      return !isArchived;
     });
-
-    return filteredProjects;
-  }, [rawProjects, user?.id]);
+  }, [rawProjects]);
+  
   const activeProjectId = uiState.activeProject?.id || null;
   const activeProject = uiState.activeProject;
 
-  // ✅ CORRECTION: Récupérer le projet sauvegardé depuis localStorage au chargement
+  // ✅ OPTIMISATION: useCallback avec dépendances minimales
   const getSavedProject = useCallback(() => {
     try {
       const saved = localStorage.getItem('activeProject');
@@ -84,7 +94,6 @@ const ProjectSwitcher = () => {
     return null;
   }, []);
 
-  // ✅ CORRECTION: Sauvegarder le projet dans localStorage
   const saveProject = useCallback((project) => {
     try {
       localStorage.setItem('activeProject', JSON.stringify(project));
@@ -93,34 +102,13 @@ const ProjectSwitcher = () => {
     }
   }, []);
 
-  const isConsolidatedView = useCallback((projectId) => {
-    if (!projectId) return false;
-    const projectIdString = String(projectId);
-    return projectIdString.startsWith("consolidated_view_");
-  }, []);
-
-  const areIdsEqual = useCallback((id1, id2) => {
-    if (id1 == null || id2 == null) return false;
-    return String(id1) === String(id2);
-  }, []);
-
-  const findProjectById = useCallback(
-    (id) => {
-      if (!id || !myProjects.length) return null;
-      return myProjects.find((project) => areIdsEqual(project.id, id));
-    },
-    [myProjects, areIdsEqual]
-  );
-
+  // ✅ OPTIMISATION: useMemo pour displayName avec cache
   const displayName = useMemo(() => {
     if (activeProjectId === 'consolidated') {
       return 'Mes projets consolidés';
     }
 
-    if (
-      typeof activeProjectId === 'string' &&
-      activeProjectId.startsWith('consolidated_view_')
-    ) {
+    if (typeof activeProjectId === 'string' && activeProjectId.startsWith('consolidated_view_')) {
       const viewId = activeProjectId.replace('consolidated_view_', '');
       const view = CONSISTENT_VIEWS.find((v) => v.id === viewId);
       return view ? view.name : 'Vue inconnue';
@@ -130,16 +118,15 @@ const ProjectSwitcher = () => {
       return uiState.activeProject.name;
     }
 
-    if (activeProjectId) {
-      const project = findProjectById(activeProjectId);
-      if (project?.name) {
-        return project.name;
-      }
+    if (activeProjectId && myProjects.length > 0) {
+      const project = myProjects.find((project) => areIdsEqual(project.id, activeProjectId));
+      return project?.name || 'Sélectionner un projet';
     }
 
     return 'Sélectionner un projet';
-  }, [activeProjectId, uiState.activeProject, findProjectById]);
+  }, [activeProjectId, uiState.activeProject?.name, myProjects]);
 
+  // ✅ OPTIMISATION: refreshProjects simplifié
   const refreshProjects = useCallback(async () => {
     if (!user?.id) return;
     try {
@@ -150,66 +137,75 @@ const ProjectSwitcher = () => {
     }
   }, [user?.id, refetchProjects]);
 
-  // ✅ CORRECTION AMÉLIORÉE: Définir le projet au chargement initial
+  // ✅ OPTIMISATION: useEffect principal consolidé
   useEffect(() => {
-    if (myProjects.length > 0 && !activeProjectId && !projectsLoading) {
-      const defaultProject = myProjects[0];
-      if (defaultProject?.id) {
+    // Éviter les exécutions multiples
+    if (initialLoadDone.current || projectsLoading) return;
+
+    const initializeProject = async () => {
+      const savedProject = getSavedProject();
+      
+      if (savedProject && !activeProjectId) {
+        console.log('🔄 Restauration du projet sauvegardé:', savedProject.name);
         uiDispatch({
           type: 'SET_ACTIVE_PROJECT',
-          payload: defaultProject,
+          payload: savedProject,
         });
-        projectsLoaded.current = true;
+        initialLoadDone.current = true;
+        return;
       }
-      
-      initialLoadDone.current = true;
-      projectsLoaded.current = true;
-    }
-  }, [myProjects, activeProjectId, projectsLoading, uiDispatch, getSavedProject, saveProject, areIdsEqual]);
 
-  // Charger les projets au montage
+      if (myProjects.length > 0 && !activeProjectId && !savedProject) {
+        const defaultProject = myProjects[0];
+        if (defaultProject?.id) {
+          console.log('🚀 Définition du projet par défaut:', defaultProject.name);
+          uiDispatch({
+            type: 'SET_ACTIVE_PROJECT',
+            payload: defaultProject,
+          });
+          saveProject(defaultProject);
+        }
+        initialLoadDone.current = true;
+      }
+
+      projectsLoaded.current = true;
+    };
+
+    initializeProject();
+  }, [myProjects, activeProjectId, projectsLoading, uiDispatch, getSavedProject, saveProject]);
+
+  // ✅ OPTIMISATION: Chargement initial simplifié
   useEffect(() => {
     if (!projectsLoaded.current && !projectsLoading && user?.id) {
       refreshProjects();
     }
   }, [projectsLoading, user?.id, refreshProjects]);
 
-  // Écouter les événements de création de projet
+  // ✅ OPTIMISATION: Gestion des événements avec cleanup propre
   useEffect(() => {
-    const handleProjectCreated = async (event) => {
+    const handleProjectEvent = async (event) => {
       await refreshProjects();
-
-      // Sélectionner automatiquement le nouveau projet
-      if (event.detail?.project) {
+      
+      const project = event.detail?.project || event.detail?.newProject;
+      if (project && (!event.detail?.action || event.detail.action === 'created')) {
         uiDispatch({
           type: 'SET_ACTIVE_PROJECT',
-          payload: event.detail.project,
+          payload: project,
         });
+        saveProject(project);
       }
     };
 
-    const handleProjectsUpdated = async (event) => {
-      await refreshProjects();
-
-      // Si un nouveau projet a été créé, le sélectionner
-      if (event.detail?.newProject && event.detail?.action === 'created') {
-        uiDispatch({
-          type: 'SET_ACTIVE_PROJECT',
-          payload: event.detail.newProject,
-        });
-      }
-    };
-
-    window.addEventListener('projectCreated', handleProjectCreated);
-    window.addEventListener('projectsUpdated', handleProjectsUpdated);
+    window.addEventListener('projectCreated', handleProjectEvent);
+    window.addEventListener('projectsUpdated', handleProjectEvent);
 
     return () => {
-      window.removeEventListener('projectCreated', handleProjectCreated);
-      window.removeEventListener('projectsUpdated', handleProjectsUpdated);
+      window.removeEventListener('projectCreated', handleProjectEvent);
+      window.removeEventListener('projectsUpdated', handleProjectEvent);
     };
-  }, [refreshProjects, uiDispatch]);
+  }, [refreshProjects, uiDispatch, saveProject]);
 
-  // Gestion du clic en dehors
+  // ✅ OPTIMISATION: Gestion du clic en dehors avec useRef stable
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (listRef.current && !listRef.current.contains(event.target)) {
@@ -221,49 +217,46 @@ const ProjectSwitcher = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSelect = useCallback(
-    async (id) => {
-      const idString = String(id);
+  // ✅ OPTIMISATION: handleSelect optimisé
+  const handleSelect = useCallback((id) => {
+    const idString = String(id);
 
-      if (
-        idString === 'consolidated' ||
-        idString.startsWith('consolidated_view_')
-      ) {
-        const viewName =
-          idString === 'consolidated'
-            ? 'Mes projets consolidés'
-            : CONSISTENT_VIEWS.find(
-                (v) => `consolidated_view_${v.id}` === idString
-              )?.name || 'Vue consolidée';
+    if (idString === 'consolidated' || idString.startsWith('consolidated_view_')) {
+      const viewName = idString === 'consolidated'
+        ? 'Mes projets consolidés'
+        : CONSISTENT_VIEWS.find((v) => `consolidated_view_${v.id}` === idString)?.name || 'Vue consolidée';
 
-        uiDispatch({
-          type: 'SET_ACTIVE_PROJECT',
-          payload: { id: idString, name: viewName, type: 'consolidated' },
-        });
-        navigate('/client/dashboard');
+      const consolidatedProject = { 
+        id: idString, 
+        name: viewName, 
+        type: 'consolidated' 
+      };
+      
+      uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: consolidatedProject });
+      saveProject(consolidatedProject);
+    } else {
+      const selectedProject = myProjects.find((project) => areIdsEqual(project.id, id));
+      if (selectedProject) {
+        uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: selectedProject });
+        saveProject(selectedProject);
       } else {
-        const selectedProject = findProjectById(id);
-        if (selectedProject) {
-          uiDispatch({
-            type: 'SET_ACTIVE_PROJECT',
-            payload: selectedProject,
-          });
-          navigate(`/client/dashboard`);
-        } else {
-          console.log('❌ Projet non trouvé');
-          await refreshProjects();
-        }
+        console.log('❌ Projet non trouvé');
+        refreshProjects();
       }
+    }
 
-      setIsListOpen(false);
-    },
-    [findProjectById, uiDispatch, navigate, refreshProjects]
-  );
-
-  const handleAddProject = useCallback(() => {
-    navigate('/client/onboarding');
     setIsListOpen(false);
-  }, [navigate]);
+  }, [myProjects, uiDispatch, saveProject, refreshProjects]);
+
+  // ✅ OPTIMISATION: Handlers simplifiés
+  const handleAddProject = useCallback(() => {
+    if (location.pathname === '/client/onboarding') {
+      setIsListOpen(false);
+      return;
+    }
+    window.location.href = '/client/onboarding';
+    setIsListOpen(false);
+  }, [location.pathname]);
 
   const handleCreateConsolidatedView = useCallback(() => {
     setIsConsolidatedViewModalOpen(true);
@@ -274,26 +267,10 @@ const ProjectSwitcher = () => {
     setIsConsolidatedViewModalOpen(false);
   }, []);
 
-  // Fonctions utilitaires
-  const getProjectInitial = useCallback((projectName) => {
-    return projectName ? projectName[0].toUpperCase() : '?';
-  }, []);
-
-  const getAvatarColor = useCallback((projectId) => {
-    const idToHash = projectId ? projectId.toString() : 'default';
-    const index =
-      Math.abs(idToHash.split('').reduce((a, b) => a + b.charCodeAt(0), 0)) %
-      AVATAR_COLORS.length;
-    return AVATAR_COLORS[index];
-  }, []);
-
-  const getProjectType = useCallback((project) => {
-    return project.project_type_name || 'Projet';
-  }, []);
-
   const isLoading = projectsLoading;
   const hasProjects = myProjects.length > 0;
 
+  // ✅ OPTIMISATION: Rendu conditionnel optimisé
   return (
     <div className="relative w-full" ref={listRef}>
       <button
@@ -311,93 +288,14 @@ const ProjectSwitcher = () => {
       {isListOpen && (
         <div className="absolute z-30 mt-2 bg-white border rounded-lg shadow-lg w-72">
           <div className="p-1 overflow-y-auto max-h-80">
-            <ul>
-              <li>
-                <button
-                  onClick={() => handleSelect('consolidated')}
-                  className="flex items-center justify-between w-full px-3 py-2 text-sm text-left text-gray-700 rounded-md hover:bg-gray-100"
-                >
-                  <span className="flex items-center gap-2 font-semibold">
-                    <Layers className="w-4 h-4 text-gray-500 shrink-0" />
-                    Mes projets consolidés
-                  </span>
-                  {activeProjectId === 'consolidated' && (
-                    <Check className="w-4 h-4 text-blue-600 shrink-0" />
-                  )}
-                </button>
-              </li>
-
-              {CONSISTENT_VIEWS.map((view) => (
-                <li key={view.id}>
-                  <button
-                    onClick={() => handleSelect(`consolidated_view_${view.id}`)}
-                    className="flex items-center justify-between w-full px-3 py-2 text-sm text-left text-gray-700 rounded-md hover:bg-gray-100"
-                  >
-                    <span className="flex items-center gap-2 truncate">
-                      <Layers className="w-4 h-4 text-gray-500 shrink-0" />
-                      <span className="truncate">{view.name}</span>
-                    </span>
-                    {activeProjectId === `consolidated_view_${view.id}` && (
-                      <Check className="w-4 h-4 text-blue-600 shrink-0" />
-                    )}
-                  </button>
-                </li>
-              ))}
-
-              {hasProjects && (
-                <div className="px-3 pt-2 pb-1 text-xs font-semibold text-gray-400 uppercase">
-                  Mes Projets ({myProjects.length})
-                </div>
-              )}
-
-              {myProjects.map((project) => {
-                const isActive = areIdsEqual(project.id, activeProjectId);
-                return (
-                  <li key={project.id}>
-                    <button
-                      onClick={() => handleSelect(project.id)}
-                      className="flex items-center justify-between w-full px-3 py-2 text-sm text-left text-gray-700 rounded-md hover:bg-gray-100"
-                    >
-                      <span className="flex items-center min-w-0 gap-2 truncate">
-                        <div
-                          className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold shrink-0 ${getAvatarColor(
-                            project.id
-                          )}`}
-                        >
-                          {getProjectInitial(project.name)}
-                        </div>
-                        <span className="flex-1 truncate">{project.name}</span>
-                        <span className="px-1.5 py-0.5 text-xs font-semibold text-blue-700 bg-blue-100 rounded-full shrink-0">
-                          {getProjectType(project)}
-                        </span>
-                      </span>
-                      {isActive && (
-                        <Check className="w-4 h-4 text-blue-600 shrink-0" />
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-
-              {!hasProjects && !isLoading && (
-                <div className="px-3 py-4 text-sm text-center text-gray-500">
-                  Aucun projet trouvé
-                  <br />
-                  <button
-                    onClick={handleAddProject}
-                    className="mt-1 font-medium text-blue-600 hover:text-blue-800"
-                  >
-                    Créer votre premier projet
-                  </button>
-                </div>
-              )}
-
-              {isLoading && (
-                <div className="px-3 py-4 text-sm text-center text-gray-500">
-                  Chargement des projets...
-                </div>
-              )}
-            </ul>
+            <ProjectList 
+              activeProjectId={activeProjectId}
+              myProjects={myProjects}
+              hasProjects={hasProjects}
+              isLoading={isLoading}
+              onSelect={handleSelect}
+              onAddProject={handleAddProject}
+            />
           </div>
 
           <div className="p-1 border-t">
@@ -428,5 +326,107 @@ const ProjectSwitcher = () => {
     </div>
   );
 };
+
+// ✅ OPTIMISATION: Sous-composant pour la liste des projets
+const ProjectList = React.memo(({ 
+  activeProjectId, 
+  myProjects, 
+  hasProjects, 
+  isLoading, 
+  onSelect, 
+  onAddProject 
+}) => {
+  return (
+    <ul>
+      <li>
+        <button
+          onClick={() => onSelect('consolidated')}
+          className="flex items-center justify-between w-full px-3 py-2 text-sm text-left text-gray-700 rounded-md hover:bg-gray-100"
+        >
+          <span className="flex items-center gap-2 font-semibold">
+            <Layers className="w-4 h-4 text-gray-500 shrink-0" />
+            Mes projets consolidés
+          </span>
+          {activeProjectId === 'consolidated' && (
+            <Check className="w-4 h-4 text-blue-600 shrink-0" />
+          )}
+        </button>
+      </li>
+
+      {CONSISTENT_VIEWS.map((view) => (
+        <li key={view.id}>
+          <button
+            onClick={() => onSelect(`consolidated_view_${view.id}`)}
+            className="flex items-center justify-between w-full px-3 py-2 text-sm text-left text-gray-700 rounded-md hover:bg-gray-100"
+          >
+            <span className="flex items-center gap-2 truncate">
+              <Layers className="w-4 h-4 text-gray-500 shrink-0" />
+              <span className="truncate">{view.name}</span>
+            </span>
+            {activeProjectId === `consolidated_view_${view.id}` && (
+              <Check className="w-4 h-4 text-blue-600 shrink-0" />
+            )}
+          </button>
+        </li>
+      ))}
+
+      {hasProjects && (
+        <div className="px-3 pt-2 pb-1 text-xs font-semibold text-gray-400 uppercase">
+          Mes Projets ({myProjects.length})
+        </div>
+      )}
+
+      {myProjects.map((project) => {
+        const isActive = areIdsEqual(project.id, activeProjectId);
+        return (
+          <li key={project.id}>
+            <button
+              onClick={() => onSelect(project.id)}
+              className="flex items-center justify-between w-full px-3 py-2 text-sm text-left text-gray-700 rounded-md hover:bg-gray-100"
+            >
+              <span className="flex items-center min-w-0 gap-2 truncate">
+                <div
+                  className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold shrink-0 ${getAvatarColor(
+                    project.id
+                  )}`}
+                >
+                  {getProjectInitial(project.name)}
+                </div>
+                <span className="flex-1 truncate">{project.name}</span>
+                <span className="px-1.5 py-0.5 text-xs font-semibold text-blue-700 bg-blue-100 rounded-full shrink-0">
+                  {getProjectType(project)}
+                </span>
+              </span>
+              {isActive && (
+                <Check className="w-4 h-4 text-blue-600 shrink-0" />
+              )}
+            </button>
+          </li>
+        );
+      })}
+
+      {!hasProjects && !isLoading && (
+        <div className="px-3 py-4 text-sm text-center text-gray-500">
+          Aucun projet trouvé
+          <br />
+          <button
+            onClick={onAddProject}
+            className="mt-1 font-medium text-blue-600 hover:text-blue-800"
+          >
+            Créer votre premier projet
+          </button>
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="px-3 py-4 text-sm text-center text-gray-500">
+          Chargement des projets...
+        </div>
+      )}
+    </ul>
+  );
+});
+
+ProjectList.displayName = 'ProjectList';
 
 export default React.memo(ProjectSwitcher);

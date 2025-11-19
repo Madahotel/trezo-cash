@@ -3,7 +3,7 @@ import { useMemo } from "react";
 
 export const useActiveProjectData = (dataState, uiState, externalBudgetData = null) => {
     const { allEntries = {}, allActuals = {}, allCashAccounts = {}, projects = [], consolidatedViews = [], settings } = dataState;
-    const { activeProjectId } = uiState;
+    const { activeProjectId, activeProject: uiActiveProject } = uiState;
 
     return useMemo(() => {
         if (!settings) {
@@ -18,85 +18,28 @@ export const useActiveProjectData = (dataState, uiState, externalBudgetData = nu
         let budgetEntries = [];
         let actualTransactions = [];
         let cashAccounts = [];
-        let activeProject = null;
+        let activeProject = uiActiveProject; // ✅ CORRECTION: Toujours utiliser le projet du contexte UI
 
         console.log('=== useActiveProjectData DEBUG ===');
         console.log('activeProjectId (original):', activeProjectId, typeof activeProjectId);
         console.log('activeProjectIdString:', activeProjectIdString, typeof activeProjectIdString);
+        console.log('uiActiveProject:', uiActiveProject);
         console.log('externalBudgetData disponible:', !!externalBudgetData);
         console.log('isConsolidated:', isConsolidated);
         console.log('isCustomConsolidated:', isCustomConsolidated);
 
-        // ✅ CORRECTION AMÉLIORÉE: Logique de priorité des données
-        if (externalBudgetData && externalBudgetData.entries && !isConsolidated && !isCustomConsolidated) {
-            console.log('✅ Utilisation des données API externes');
-            budgetEntries = externalBudgetData.entries || [];
-            actualTransactions = externalBudgetData.actualTransactions || [];
-            cashAccounts = externalBudgetData.cashAccounts || [];
-
-            // ✅ CORRECTION: Recherche robuste du projet
-            activeProject = projects.find(p => 
-                String(p.id) === activeProjectIdString || 
-                p.id === activeProjectId
-            );
-
-            console.log('Projet trouvé pour API:', activeProject);
-        } else {
-            console.log('ℹ️ Utilisation des données locales');
-
-            // Logique pour les vues consolidées
-            if (isConsolidated) {
-                budgetEntries = Object.values(allEntries).flat();
-                actualTransactions = Object.values(allActuals).flat();
-                cashAccounts = Object.values(allCashAccounts).flat();
-                console.log('Mode consolidé - entrées:', budgetEntries.length);
-            } else if (isCustomConsolidated) {
-                const viewId = activeProjectIdString.replace('consolidated_view_', '');
-                const view = consolidatedViews.find(v => v.id === viewId);
-                if (view && view.project_ids) {
-                    budgetEntries = view.project_ids.flatMap(id => allEntries[id] || []);
-                    actualTransactions = view.project_ids.flatMap(id => allActuals[id] || []);
-                    cashAccounts = view.project_ids.flatMap(id => allCashAccounts[id] || []);
-                    console.log('Mode consolidé custom - entrées:', budgetEntries.length);
-                }
-            } else {
-                // ✅ CORRECTION AMÉLIORÉE: Recherche robuste pour les projets normaux
-                activeProject = projects.find(p => 
-                    String(p.id) === activeProjectIdString || 
-                    p.id === activeProjectId
-                );
-                console.log('Projet trouvé pour données locales:', activeProject);
-
-                if (activeProject) {
-                    // ✅ CORRECTION: Utiliser activeProjectId (original) pour l'accès aux données
-                    const projectKey = activeProjectId; // Utiliser l'ID original comme clé
-                    budgetEntries = allEntries[projectKey] || [];
-                    actualTransactions = allActuals[projectKey] || [];
-                    cashAccounts = allCashAccounts[projectKey] || [];
-                    console.log('Données locales chargées:', {
-                        entries: budgetEntries.length,
-                        actuals: actualTransactions.length,
-                        cashAccounts: cashAccounts.length,
-                        projectKey
-                    });
-                } else {
-                    console.log('❌ Projet non trouvé dans projects:', activeProjectIdString);
-                    console.log('Projets disponibles:', projects.map(p => ({ id: p.id, name: p.name })));
-                }
-            }
-        }
-
-        // Déterminer le projet actif pour les modes consolidés
+        // ✅ CORRECTION: Logique de priorité - toujours respecter le projet UI
         if (!activeProject) {
+            console.log('⚠️ Aucun projet actif dans le contexte UI, recherche dans les données...');
+            
             if (isConsolidated) {
                 activeProject = {
                     id: 'consolidated',
-                    name: 'Projet consolidé',
+                    name: 'Mes projets consolidés',
                     currency: settings.currency,
                     display_unit: settings.displayUnit,
                     decimal_places: settings.decimalPlaces
                 };
-                console.log('✅ Projet consolidé créé');
             } else if (isCustomConsolidated) {
                 const viewId = activeProjectIdString.replace('consolidated_view_', '');
                 const view = consolidatedViews.find(v => v.id === viewId);
@@ -107,9 +50,40 @@ export const useActiveProjectData = (dataState, uiState, externalBudgetData = nu
                     display_unit: settings.displayUnit,
                     decimal_places: settings.decimalPlaces
                 };
-                console.log('✅ Vue consolidée custom créée:', activeProject.name);
             } else {
-                console.log('❌ Aucun projet actif trouvé');
+                // Rechercher le projet dans la liste
+                activeProject = projects.find(p => 
+                    String(p.id) === activeProjectIdString || 
+                    p.id === activeProjectId
+                );
+            }
+        }
+
+        // Charger les données selon le type de projet
+        if (isConsolidated) {
+            budgetEntries = Object.values(allEntries).flat();
+            actualTransactions = Object.values(allActuals).flat();
+            cashAccounts = Object.values(allCashAccounts).flat();
+        } else if (isCustomConsolidated) {
+            const viewId = activeProjectIdString.replace('consolidated_view_', '');
+            const view = consolidatedViews.find(v => v.id === viewId);
+            if (view && view.project_ids) {
+                budgetEntries = view.project_ids.flatMap(id => allEntries[id] || []);
+                actualTransactions = view.project_ids.flatMap(id => allActuals[id] || []);
+                cashAccounts = view.project_ids.flatMap(id => allCashAccounts[id] || []);
+            }
+        } else {
+            // ✅ CORRECTION: Utiliser externalBudgetData si disponible
+            if (externalBudgetData && externalBudgetData.entries) {
+                budgetEntries = externalBudgetData.entries || [];
+                actualTransactions = externalBudgetData.actualTransactions || [];
+                cashAccounts = externalBudgetData.cashAccounts || [];
+            } else {
+                // Données locales
+                const projectKey = activeProjectId;
+                budgetEntries = allEntries[projectKey] || [];
+                actualTransactions = allActuals[projectKey] || [];
+                cashAccounts = allCashAccounts[projectKey] || [];
             }
         }
 
@@ -131,5 +105,15 @@ export const useActiveProjectData = (dataState, uiState, externalBudgetData = nu
             isConsolidated,
             isCustomConsolidated
         };
-    }, [activeProjectId, allEntries, allActuals, allCashAccounts, projects, consolidatedViews, settings, externalBudgetData]);
+    }, [
+        activeProjectId, 
+        uiActiveProject,
+        allEntries, 
+        allActuals, 
+        allCashAccounts, 
+        projects, 
+        consolidatedViews, 
+        settings, 
+        externalBudgetData
+    ]);
 };
