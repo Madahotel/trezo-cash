@@ -63,6 +63,7 @@ const uiReducer = (state, action) => {
             return {
                 ...state,
                 activeProject: action.payload,
+                activeProjectId: action.payload?.id || null,
                 showDashboard: true
             };
         case 'SHOW_DASHBOARD':

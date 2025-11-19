@@ -1,4 +1,3 @@
-
 const calculationCache = new Map();
 const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
 
@@ -111,15 +110,38 @@ const addMonths = (date, months) => {
 };
 
 export const getEntryAmountForPeriod = (entry, periodStart, periodEnd) => {
-    if (!entry || !entry.amount || isNaN(entry.amount)) return 0;
+    if (!entry || !entry.amount || isNaN(entry.amount)) {
+        console.log('❌ Entry invalide ou montant manquant:', { 
+            entry: entry?.supplier, 
+            amount: entry?.amount,
+            hasEntry: !!entry 
+        });
+        return 0;
+    }
+
+    // ✅ CORRECTION: S'assurer que les dates sont valides
+    if (!periodStart || !periodEnd || isNaN(periodStart.getTime()) || isNaN(periodEnd.getTime())) {
+        console.log('❌ Période invalide:', { periodStart, periodEnd });
+        return 0;
+    }
 
     const cacheKey = `period-${entry.id}-${periodStart.getTime()}-${periodEnd.getTime()}`;
     
     return getCachedResult(cacheKey, () => {
         const entryAmount = parseFloat(entry.amount);
+        
+        console.log(`🔍 Calcul pour "${entry.supplier}" (${entry.frequency})`, {
+            period: `${periodStart.toISOString().split('T')[0]} - ${periodEnd.toISOString().split('T')[0]}`,
+            amount: entryAmount,
+            frequency: entry.frequency
+        });
 
+        // ✅ CORRECTION AMÉLIORÉE: Gestion des provisions et irréguliers
         if (entry.isProvision || entry.frequency === 'irregulier') {
-            if (!entry.payments?.length) return 0;
+            if (!entry.payments?.length) {
+                console.log('⚠️ Aucun paiement pour entrée irrégulière:', entry.supplier);
+                return 0;
+            }
             
             let total = 0;
             for (let i = 0; i < entry.payments.length; i++) {
@@ -128,33 +150,72 @@ export const getEntryAmountForPeriod = (entry, periodStart, periodEnd) => {
                 
                 const paymentDate = new Date(payment.date);
                 paymentDate.setHours(0, 0, 0, 0);
+                
+                // ✅ CORRECTION: Comparaison stricte des dates
                 if (paymentDate >= periodStart && paymentDate < periodEnd) {
-                    total += parseFloat(payment.amount);
+                    const paymentAmount = parseFloat(payment.amount);
+                    total += paymentAmount;
+                    
+                    console.log(`✅ Paiement irrégulier trouvé:`, {
+                        date: paymentDate.toISOString().split('T')[0],
+                        amount: paymentAmount,
+                        total
+                    });
                 }
             }
             return total;
         }
 
+        // ✅ CORRECTION AMÉLIORÉE: Gestion des entrées ponctuelles
         if (entry.frequency === 'ponctuel') {
-            if (!entry.date) return 0;
+            if (!entry.date) {
+                console.log('❌ Date manquante pour entrée ponctuelle:', entry.supplier);
+                return 0;
+            }
+            
             const entryDate = new Date(entry.date);
             entryDate.setHours(0, 0, 0, 0);
-            return (entryDate >= periodStart && entryDate < periodEnd) ? entryAmount : 0;
+            
+            // ✅ CORRECTION: Vérification détaillée de la date
+            const isInPeriod = entryDate >= periodStart && entryDate < periodEnd;
+            
+            console.log(`📅 Vérification ponctuelle "${entry.supplier}":`, {
+                entryDate: entryDate.toISOString().split('T')[0],
+                periodStart: periodStart.toISOString().split('T')[0],
+                periodEnd: periodEnd.toISOString().split('T')[0],
+                isInPeriod,
+                amount: isInPeriod ? entryAmount : 0
+            });
+            
+            return isInPeriod ? entryAmount : 0;
         }
 
-        if (!entry.startDate) return 0;
+        // ✅ CORRECTION: Vérification des dates de début pour les entrées récurrentes
+        if (!entry.startDate) {
+            console.log('❌ startDate manquant pour entrée récurrente:', entry.supplier);
+            return 0;
+        }
+
         const startDate = new Date(entry.startDate);
         startDate.setHours(0, 0, 0, 0);
 
         const entryEndDate = entry.endDate ? new Date(entry.endDate) : null;
         if (entryEndDate) entryEndDate.setHours(23, 59, 59, 999);
 
+        // ✅ CORRECTION: Vérifier si l'entrée est active pendant la période
         if (periodEnd <= startDate || (entryEndDate && periodStart > entryEndDate)) {
+            console.log(`⏰ Entrée "${entry.supplier}" hors période:`, {
+                startDate: startDate.toISOString().split('T')[0],
+                entryEndDate: entryEndDate?.toISOString().split('T')[0],
+                periodStart: periodStart.toISOString().split('T')[0],
+                periodEnd: periodEnd.toISOString().split('T')[0]
+            });
             return 0;
         }
 
         const frequency = entry.frequency;
         
+        // ✅ CORRECTION AMÉLIORÉE: Logique pour mensuel
         if (frequency === 'mensuel') {
             const monthDiff = (periodEnd.getFullYear() - startDate.getFullYear()) * 12 + 
                             (periodEnd.getMonth() - startDate.getMonth());
@@ -163,22 +224,41 @@ export const getEntryAmountForPeriod = (entry, periodStart, periodEnd) => {
                 let count = 0;
                 for (let i = 0; i <= monthDiff; i++) {
                     const currentDate = addMonths(new Date(startDate), i);
+                    currentDate.setHours(0, 0, 0, 0);
+                    
                     if (currentDate >= periodStart && currentDate < periodEnd && 
                         (!entryEndDate || currentDate <= entryEndDate)) {
                         count++;
+                        
+                        console.log(`✅ Occurrence mensuelle "${entry.supplier}":`, {
+                            occurrence: currentDate.toISOString().split('T')[0],
+                            count
+                        });
                     }
                 }
-                return count * entryAmount;
+                const total = count * entryAmount;
+                console.log(`💰 Total mensuel "${entry.supplier}": ${total} (${count} × ${entryAmount})`);
+                return total;
             }
             return 0;
         }
 
+        // ✅ CORRECTION: Logique pour autres fréquences
         let totalAmount = 0;
         let currentDate = new Date(startDate);
-        
+        currentDate.setHours(0, 0, 0, 0);
+
         const incrementFns = {
-            journalier: (d) => new Date(d.setDate(d.getDate() + 1)),
-            hebdomadaire: (d) => new Date(d.setDate(d.getDate() + 7)),
+            journalier: (d) => { 
+                const newDate = new Date(d);
+                newDate.setDate(newDate.getDate() + 1);
+                return newDate;
+            },
+            hebdomadaire: (d) => { 
+                const newDate = new Date(d);
+                newDate.setDate(newDate.getDate() + 7);
+                return newDate;
+            },
             mensuel: (d) => addMonths(d, 1),
             bimestriel: (d) => addMonths(d, 2),
             trimestriel: (d) => addMonths(d, 3),
@@ -186,8 +266,12 @@ export const getEntryAmountForPeriod = (entry, periodStart, periodEnd) => {
         };
 
         const incrementFn = incrementFns[frequency];
-        if (!incrementFn || isNaN(currentDate.getTime())) return 0;
+        if (!incrementFn) {
+            console.log(`❌ Fréquence non supportée: ${frequency} pour "${entry.supplier}"`);
+            return 0;
+        }
 
+        // ✅ CORRECTION: Avancer jusqu'au début de la période
         while (currentDate < periodStart && (!entryEndDate || currentDate <= entryEndDate)) {
             const nextDate = incrementFn(new Date(currentDate));
             if (isNaN(nextDate.getTime()) || nextDate <= currentDate) break;
@@ -195,42 +279,91 @@ export const getEntryAmountForPeriod = (entry, periodStart, periodEnd) => {
             currentDate = nextDate;
         }
 
-        while (!entryEndDate || currentDate <= entryEndDate) {
-            if (currentDate >= periodEnd) break;
+        // ✅ CORRECTION: Compter les occurrences dans la période
+        let occurrenceCount = 0;
+        while ((!entryEndDate || currentDate <= entryEndDate) && currentDate < periodEnd) {
             if (currentDate >= periodStart) {
                 totalAmount += entryAmount;
+                occurrenceCount++;
+                
+                console.log(`✅ Occurrence "${entry.supplier}" (${frequency}):`, {
+                    date: currentDate.toISOString().split('T')[0],
+                    occurrenceCount,
+                    totalAmount
+                });
             }
+            
             const nextDate = incrementFn(new Date(currentDate));
             if (isNaN(nextDate.getTime()) || nextDate <= currentDate) break;
             currentDate = nextDate;
         }
 
+        console.log(`💰 Total final "${entry.supplier}": ${totalAmount} (${occurrenceCount} occurrences)`);
         return totalAmount;
     }, [entry, periodStart, periodEnd]);
 };
 
+// ✅ CORRECTION: Fonction getActualAmountForPeriod bien exportée
 export const getActualAmountForPeriod = (entry, actualTransactions, periodStart, periodEnd) => {
-    if (!entry) return 0;
+    if (!entry || !actualTransactions || !periodStart || !periodEnd) {
+        console.log('❌ Paramètres manquants pour getActualAmountForPeriod:', { 
+            entry: !!entry, 
+            actualTransactions: !!actualTransactions,
+            periodStart: !!periodStart,
+            periodEnd: !!periodEnd
+        });
+        return 0;
+    }
 
     const cacheKey = `actual-${entry.id}-${periodStart.getTime()}-${periodEnd.getTime()}`;
     
     return getCachedResult(cacheKey, () => {
         let total = 0;
         
+        // ✅ CORRECTION: Vérification que actualTransactions est un tableau
+        if (!Array.isArray(actualTransactions)) {
+            console.log('❌ actualTransactions n\'est pas un tableau:', actualTransactions);
+            return 0;
+        }
+        
         for (let i = 0; i < actualTransactions.length; i++) {
             const actual = actualTransactions[i];
-            if (actual.budgetId !== entry.id) continue;
+            
+            // ✅ CORRECTION: Vérifier que l'ID de budget correspond
+            if (!actual || actual.budgetId !== entry.id) continue;
             
             const payments = actual.payments || [];
             for (let j = 0; j < payments.length; j++) {
                 const payment = payments[j];
-                const paymentDate = new Date(payment.paymentDate);
-                if (paymentDate >= periodStart && paymentDate < periodEnd) {
-                    total += payment.paidAmount;
+                
+                // ✅ CORRECTION: Vérifications de sécurité
+                if (!payment || !payment.paymentDate || payment.paidAmount == null) {
+                    continue;
+                }
+                
+                try {
+                    const paymentDate = new Date(payment.paymentDate);
+                    if (isNaN(paymentDate.getTime())) continue;
+                    
+                    // ✅ CORRECTION: Vérifier si le paiement est dans la période
+                    if (paymentDate >= periodStart && paymentDate < periodEnd) {
+                        const paidAmount = parseFloat(payment.paidAmount) || 0;
+                        total += paidAmount;
+                        
+                        console.log(`💰 Paiement trouvé pour "${entry.supplier}":`, {
+                            date: paymentDate.toISOString().split('T')[0],
+                            amount: paidAmount,
+                            total
+                        });
+                    }
+                } catch (error) {
+                    console.error('❌ Erreur lors du traitement du paiement:', error);
+                    continue;
                 }
             }
         }
         
+        console.log(`📊 Total actual pour "${entry.supplier}": ${total}`);
         return total;
     }, [entry, actualTransactions, periodStart, periodEnd]);
 };
@@ -480,7 +613,8 @@ export const generateTaxPaymentEntries = (actuals, period, taxConfig) => {
     }, [actuals, period, taxConfig]);
 };
 
-//  Fonction pour vider le cache si nécessaire
+// Fonction pour vider le cache si nécessaire
 export const clearBudgetCalculationsCache = () => {
     calculationCache.clear();
 };
+
