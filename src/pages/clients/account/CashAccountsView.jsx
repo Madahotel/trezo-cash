@@ -3,7 +3,7 @@ import { Wallet, Edit, Plus, Trash2, AlertTriangle, Archive, ArchiveRestore, Arr
 import { formatCurrency } from '../../../utils/formatting';
 import { useData, mainCashAccountCategories } from '../../../components/context/DataContext';
 import { useUI } from '../../../components/context/UIContext';
-import AddAccountForm from './AddAccountForm';
+// import AddAccountForm from './AddAccountForm';
 import EmptyState from '../../../components/emptystate/EmptyState.jsx';
 import TransferModal from '../../../components/modal/TransferModal.jsx';
 import { updateUserCashAccount, addUserCashAccount } from '../../../components/context/actions';
@@ -51,10 +51,7 @@ const CashAccountsView = () => {
   const activeProject = useMemo(() => projects.find(p => p.id === activeProjectId), [projects, activeProjectId]);
   
   const isConsolidated = activeProjectId === 'consolidated';
- const prefix = 'consolidated_view_';
-const projectIdStr = String(activeProjectId);
-const isCustomConsolidated = projectIdStr.substring(0, prefix.length) === prefix;
-
+  const isCustomConsolidated = activeProjectId?.startsWith('consolidated_view_');
 
   // Utilisation des données statiques pour les tests (remplacez par useAccountBalances pour les données réelles)
   const accountBalances = mockAccounts;

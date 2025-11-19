@@ -5,18 +5,15 @@ import {
   ChevronDown,
   ChevronRight,
   Calendar,
-  Square,
   Edit,
   Trash2,
   Eye,
 } from 'lucide-react';
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatCurrency } from '../../../utils/formatters';
 import BudgetDetailModal from './BudgetDetailModal';
 
-// 🔥 OPTIMISATION : Cache pour les données groupées
-const groupedDataCache = new Map();
 const formatShortDate = (dateString) => {
   if (!dateString) return '';
   return new Date(dateString).toLocaleDateString('fr-FR', {
@@ -25,17 +22,16 @@ const formatShortDate = (dateString) => {
   });
 };
 
-// 🔥 OPTIMISATION : Composant mémorisé pour les sous-catégories
-const SubCategoryRow = React.memo(({ 
-  item, 
-  index, 
-  activeTab, 
-  onEdit, 
-  onDelete, 
+const SubCategoryRow = ({
+  item,
+  index,
+  activeTab,
+  onEdit,
+  onDelete,
   onViewDetails,
   isSubMenuOpen,
   onSubCategoryMenuToggle,
-  menuRefs, 
+  menuRefs,
 }) => {
   const menuPosition = isSubMenuOpen
     ? getMenuPosition(menuRefs.current[item.id])
@@ -43,33 +39,37 @@ const SubCategoryRow = React.memo(({
 
   return (
     <motion.div
-      className="flex justify-between items-center py-2 px-4 bg-white rounded-lg border relative"
-      initial={{ opacity: 0, y: 10 }}
+      className="flex justify-between items-center p-4 bg-white rounded-lg border border-gray-100 hover:bg-gray-25 transition-all duration-200 group"
+      initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
+      transition={{ delay: index * 0.02 }}
     >
-      {/* Contenu de la sous-catégorie */}
-      <div className="flex items-center gap-3">
-        <Square className="w-3 h-3 text-gray-400 fill-current" />
+      <div className="flex items-center gap-3 flex-1">
+        <div className="w-1.5 h-1.5 bg-gray-300 rounded-full group-hover:bg-blue-500 transition-colors" />
         <div className="flex flex-col">
-          <span className="text-sm font-medium">
+          <span className="text-sm font-medium text-gray-900">
             {item.sub_category_name}
           </span>
           {item.description && (
-            <span className="text-xs text-gray-500 mt-1">
+            <span className="text-xs text-gray-500 mt-0.5">
               {item.description}
             </span>
           )}
         </div>
       </div>
+
       <div className="flex items-center gap-6">
         <div className="text-right">
-          <div className="text-sm text-gray-600">Budget</div>
-          <div className="font-medium">{formatCurrency(item.amount)}</div>
+          <div className="text-xs text-gray-500 mb-1">Budget</div>
+          <div className="font-medium text-gray-900">
+            {formatCurrency(item.amount)}
+          </div>
         </div>
+
         <div className="text-right">
-          <div className="text-sm text-gray-600">Période</div>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-gray-500 mb-1">Période</div>
+          <div className="text-sm text-gray-600 flex items-center gap-1">
+            <Calendar className="w-3 h-3" />
             {formatShortDate(item.start_date)}
             {item.is_duration_indefinite ? (
               <span> → ∞</span>
@@ -78,23 +78,24 @@ const SubCategoryRow = React.memo(({
             ) : null}
           </div>
         </div>
+
         <div className="text-right">
-          <div className="text-sm text-gray-600">Fréquence</div>
-          <div className="text-xs text-gray-500">{item.frequency_name}</div>
+          <div className="text-xs text-gray-500 mb-1">Fréquence</div>
+          <div className="text-sm text-gray-600">{item.frequency_name}</div>
         </div>
-        {/* Actions pour sous-catégorie */}
+
         <div className="relative">
           <button
             ref={(el) => (menuRefs.current[item.id] = el)}
             onClick={(e) => onSubCategoryMenuToggle(item.id, e)}
-            className="p-1 hover:bg-gray-200 rounded transition-colors"
+            className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
           >
-            <MoreVertical className="w-4 h-4" />
+            <MoreVertical className="w-4 h-4 text-gray-500" />
           </button>
 
           <AnimatePresence>
             {isSubMenuOpen && (
-              <SubCategoryMenu 
+              <SubCategoryMenu
                 item={item}
                 activeTab={activeTab}
                 menuPosition={menuPosition}
@@ -109,55 +110,63 @@ const SubCategoryRow = React.memo(({
       </div>
     </motion.div>
   );
-});
+};
 
-// 🔥 OPTIMISATION : Composant séparé pour le menu
-const SubCategoryMenu = React.memo(({ 
-  item, 
-  activeTab, 
-  menuPosition, 
-  menuRefs, 
-  onEdit, 
-  onDelete, 
-  onViewDetails 
+const SubCategoryMenu = ({
+  item,
+  activeTab,
+  menuPosition,
+  menuRefs,
+  onEdit,
+  onDelete,
+  onViewDetails,
 }) => {
   return (
     <motion.div
-      className={`fixed w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-50 ${
-        menuPosition === 'top' ? 'bottom-auto' : 'top-auto'
-      }`}
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
+      className="fixed w-48 bg-white rounded-lg border border-gray-200 z-50 overflow-hidden"
+      initial={{ opacity: 0, scale: 0.95, y: -4 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95, y: -4 }}
       transition={{ duration: 0.15 }}
       style={{
         position: 'fixed',
         [menuPosition === 'top' ? 'bottom' : 'top']:
           menuPosition === 'top'
-            ? `${window.innerHeight - menuRefs.current[item.id]?.getBoundingClientRect().top + 8}px`
-            : `${menuRefs.current[item.id]?.getBoundingClientRect().bottom + 8}px`,
-        right: `${window.innerWidth - menuRefs.current[item.id]?.getBoundingClientRect().right}px`,
+            ? `${
+                window.innerHeight -
+                menuRefs.current[item.id]?.getBoundingClientRect().top +
+                8
+              }px`
+            : `${
+                menuRefs.current[item.id]?.getBoundingClientRect().bottom + 8
+              }px`,
+        right: `${
+          window.innerWidth -
+          menuRefs.current[item.id]?.getBoundingClientRect().right
+        }px`,
       }}
     >
-      <div className="py-1">
+      <div className="p-1">
         <button
           onClick={(e) => onViewDetails(item, e)}
-          className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+          className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
         >
-          <Eye className="w-4 h-4 mr-2" />
+          <Eye className="w-4 h-4 mr-2 text-gray-500" />
           Voir les détails
         </button>
         <button
           onClick={(e) => onEdit(item, activeTab, e)}
-          className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+          className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
         >
-          <Edit className="w-4 h-4 mr-2" />
+          <Edit className="w-4 h-4 mr-2 text-gray-500" />
           Modifier
         </button>
+
         <div className="border-t border-gray-100 my-1"></div>
+
         <button
           onClick={(e) => onDelete(item, activeTab, e)}
-          className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+          className="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors"
         >
           <Trash2 className="w-4 h-4 mr-2" />
           Supprimer
@@ -165,10 +174,15 @@ const SubCategoryMenu = React.memo(({
       </div>
     </motion.div>
   );
-});
+};
 
-
-const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete, loading = false }) => {
+const BudgetTable = ({
+  budgetData,
+  isMobile,
+  onEdit,
+  onDelete,
+  loading = false,
+}) => {
   const [activeTab, setActiveTab] = useState('revenus');
   const [expandedRow, setExpandedRow] = useState(null);
   const [subCategoryMenuOpen, setSubCategoryMenuOpen] = useState(null);
@@ -176,22 +190,8 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete, loading = false }
   const [selectedSubCategory, setSelectedSubCategory] = useState(null);
   const menuRefs = useRef({});
 
-  // 🔥 OPTIMISATION : useMemo pour les données groupées avec cache
-  const groupedData = useMemo(() => {
+  const getGroupedData = () => {
     if (!budgetData || loading) return [];
-
-    // Créer une clé de cache unique
-    const cacheKey = JSON.stringify({
-      activeTab,
-      entriesCount: budgetData?.entries?.entry_count,
-      exitsCount: budgetData?.exits?.exit_count,
-      dataVersion: budgetData.version || '1.0'
-    });
-
-    // Vérifier le cache
-    if (groupedDataCache.has(cacheKey)) {
-      return groupedDataCache.get(cacheKey);
-    }
 
     let data;
     if (activeTab === 'revenus') {
@@ -211,7 +211,9 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete, loading = false }
         return {
           id: category.category_id,
           categoryName: category.category_name,
-          subcategoryName: `${categoryItems.length} sous-catégories`,
+          subcategoryName: `${categoryItems.length} sous-catégorie${
+            categoryItems.length > 1 ? 's' : ''
+          }`,
           amount: totalAmount,
           items: categoryItems,
         };
@@ -233,134 +235,126 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete, loading = false }
         return {
           id: category.category_id,
           categoryName: category.category_name,
-          subcategoryName: `${categoryItems.length} sous-catégories`,
+          subcategoryName: `${categoryItems.length} sous-catégorie${
+            categoryItems.length > 1 ? 's' : ''
+          }`,
           amount: totalAmount,
           items: categoryItems,
         };
       });
     }
 
-    // Mettre en cache (limiter la taille du cache)
-    if (groupedDataCache.size > 5) {
-      const firstKey = groupedDataCache.keys().next().value;
-      groupedDataCache.delete(firstKey);
-    }
-    groupedDataCache.set(cacheKey, data);
-
     return data;
-  }, [budgetData, activeTab, loading]);
+  };
 
-  // 🔥 OPTIMISATION : Handlers mémorisés
-  const handleRowClick = useCallback((itemId) => {
-    setExpandedRow(prev => prev === itemId ? null : itemId);
-  }, []);
+  const groupedData = getGroupedData();
 
-  const handleSubCategoryMenuToggle = useCallback((itemId, event) => {
+  const handleRowClick = (itemId) => {
+    setExpandedRow((prev) => (prev === itemId ? null : itemId));
+  };
+
+  const handleSubCategoryMenuToggle = (itemId, event) => {
     event.stopPropagation();
-    setSubCategoryMenuOpen(prev => prev === itemId ? null : itemId);
-  }, []);
+    setSubCategoryMenuOpen((prev) => (prev === itemId ? null : itemId));
+  };
 
-  const closeAllMenus = useCallback(() => {
+  const closeAllMenus = () => {
     setSubCategoryMenuOpen(null);
-  }, []);
+  };
 
-  const handleEdit = useCallback((item, type, event) => {
+  const handleEdit = (item, type, event) => {
     event.stopPropagation();
     closeAllMenus();
     onEdit(item, type);
-  }, [onEdit, closeAllMenus]);
+  };
 
-  const handleDelete = useCallback((item, type, event) => {
+  const handleDelete = (item, type, event) => {
     event.stopPropagation();
     closeAllMenus();
     onDelete(item, type);
-  }, [onDelete, closeAllMenus]);
+  };
 
-  const handleViewDetails = useCallback((item, event) => {
+  const handleViewDetails = (item, event) => {
     event.stopPropagation();
     closeAllMenus();
     setSelectedSubCategory(item);
     setDetailModalOpen(true);
-  }, [closeAllMenus]);
+  };
 
-  const handleCloseModal = useCallback(() => {
+  const handleCloseModal = () => {
     setDetailModalOpen(false);
     setSelectedSubCategory(null);
-  }, []);
+  };
 
-  const handleTabChange = useCallback((tab) => {
+  const handleTabChange = (tab) => {
     setActiveTab(tab);
-    setExpandedRow(null); // Fermer les lignes développées lors du changement d'onglet
-  }, []);
+    setExpandedRow(null);
+  };
 
-  // 🔥 OPTIMISATION : Nettoyage des références
   useEffect(() => {
     return () => {
-      // Nettoyer les références lors du démontage
       menuRefs.current = {};
     };
   }, []);
 
-
-
-  // Composant de ligne de chargement
-  const LoadingRow = useCallback(() => (
-    <tr className="border-b animate-pulse">
-      <td className="py-3 px-4">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-gray-200 rounded-lg"></div>
+  const LoadingRow = () => (
+    <tr className="border-b border-gray-100 animate-pulse">
+      <td className="py-4 px-6">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 bg-gray-200 rounded-lg"></div>
           <div className="space-y-2">
             <div className="h-4 bg-gray-200 rounded w-32"></div>
             <div className="h-3 bg-gray-200 rounded w-24"></div>
           </div>
         </div>
       </td>
-      <td className="py-3 px-4 text-center">
-        <div className="h-6 bg-gray-200 rounded w-16 mx-auto"></div>
+      <td className="py-4 px-6 text-center">
+        <div className="h-6 bg-gray-200 rounded w-20 mx-auto"></div>
       </td>
-      <td className="py-3 px-4 text-center">
-        <div className="h-4 bg-gray-200 rounded w-20 mx-auto"></div>
-      </td>
-      <td className="py-3 px-4 text-right">
+      <td className="py-4 px-6 text-right">
         <div className="h-6 bg-gray-200 rounded w-24 ml-auto"></div>
       </td>
-      <td className="py-3 px-4 text-center">
-        <div className="h-6 bg-gray-200 rounded w-6 mx-auto"></div>
+      <td className="py-4 px-6 text-center">
+        <div className="h-8 bg-gray-200 rounded w-8 mx-auto rounded-full"></div>
       </td>
     </tr>
-  ), []);
+  );
 
   if (isMobile) return null;
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-        {/* En-tête de chargement */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
         <div className="flex justify-between items-center mb-6">
           <div className="h-6 bg-gray-200 rounded w-48 animate-pulse"></div>
-          <div className="h-8 bg-gray-200 rounded w-24 animate-pulse"></div>
+          <div className="h-9 bg-gray-200 rounded-lg w-24 animate-pulse"></div>
         </div>
 
-        {/* Tabs de chargement */}
         <div className="flex space-x-1 rounded-lg bg-gray-100 p-1 mb-6">
-          <div className="flex-1 rounded-md px-3 py-2 bg-gray-200 animate-pulse"></div>
-          <div className="flex-1 rounded-md px-3 py-2 bg-gray-200 animate-pulse"></div>
+          <div className="flex-1 rounded-md px-4 py-2.5 bg-gray-200 animate-pulse"></div>
+          <div className="flex-1 rounded-md px-4 py-2.5 bg-gray-200 animate-pulse"></div>
         </div>
 
-        {/* Tableau de chargement */}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b">
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Catégorie</th>
-                <th className="text-center py-3 px-4 font-medium text-gray-700">Fréquence</th>
-                <th className="text-center py-3 px-4 font-medium text-gray-700">Période</th>
-                <th className="text-right py-3 px-4 font-medium text-gray-700">Budget</th>
-                <th className="text-center py-3 px-4 font-medium text-gray-700">Actions</th>
+              <tr className="border-b border-gray-100">
+                <th className="text-left py-3 px-6 font-medium text-gray-700 text-sm">
+                  Catégorie
+                </th>
+                <th className="text-center py-3 px-6 font-medium text-gray-700 text-sm">
+                  Période
+                </th>
+                <th className="text-right py-3 px-6 font-medium text-gray-700 text-sm">
+                  Budget
+                </th>
+                <th className="text-center py-3 px-6 font-medium text-gray-700 text-sm">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
-              {[...Array(5)].map((_, index) => (
+              {[...Array(4)].map((_, index) => (
                 <LoadingRow key={index} />
               ))}
             </tbody>
@@ -371,11 +365,18 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete, loading = false }
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+    <div className="bg-white rounded-xl border border-gray-200 p-6">
       {/* En-tête */}
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold">Détail du budget</h2>
-        <button className="flex items-center px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900">
+            Détail du budget
+          </h2>
+          <p className="text-gray-500 text-sm mt-1">
+            Gestion de vos revenus et dépenses
+          </p>
+        </div>
+        <button className="flex items-center px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:border-gray-400 hover:bg-gray-50 transition-all duration-200">
           <Filter className="w-4 h-4 mr-2" />
           <span>Filtrer</span>
         </button>
@@ -384,20 +385,20 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete, loading = false }
       {/* Tabs */}
       <div className="flex space-x-1 rounded-lg bg-gray-100 p-1 mb-6">
         <button
-          className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+          className={`flex-1 rounded-md px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
             activeTab === 'revenus'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-600 hover:bg-white/50'
+              ? 'bg-white text-gray-900 border border-gray-200'
+              : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
           }`}
           onClick={() => handleTabChange('revenus')}
         >
           Revenus ({budgetData?.entries?.entry_count || 0})
         </button>
         <button
-          className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+          className={`flex-1 rounded-md px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
             activeTab === 'depenses'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-600 hover:bg-white/50'
+              ? 'bg-white text-gray-900 border border-gray-200'
+              : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
           }`}
           onClick={() => handleTabChange('depenses')}
         >
@@ -409,12 +410,19 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete, loading = false }
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b">
-              <th className="text-left py-3 px-4 font-medium text-gray-700">Catégorie</th>
-              <th className="text-center py-3 px-4 font-medium text-gray-700">Fréquence</th>
-              <th className="text-center py-3 px-4 font-medium text-gray-700">Période</th>
-              <th className="text-right py-3 px-4 font-medium text-gray-700">Budget</th>
-              <th className="text-center py-3 px-4 font-medium text-gray-700">Actions</th>
+            <tr className="border-b border-gray-200">
+              <th className="text-left py-3 px-6 font-medium text-gray-700 text-sm">
+                Catégorie
+              </th>
+              <th className="text-center py-3 px-6 font-medium text-gray-700 text-sm">
+                Période
+              </th>
+              <th className="text-right py-3 px-6 font-medium text-gray-700 text-sm">
+                Budget
+              </th>
+              <th className="text-center py-3 px-6 font-medium text-gray-700 text-sm">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -427,13 +435,12 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete, loading = false }
                   <React.Fragment key={category.id}>
                     {/* Ligne principale */}
                     <tr
-                      className="border-b hover:bg-gray-50 cursor-pointer"
+                      className="border-b border-gray-100 hover:bg-gray-25 cursor-pointer transition-colors duration-200"
                       onClick={() => handleRowClick(category.id)}
                     >
-                      {/* Catégorie */}
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-lg ${colorClass} flex-shrink-0`}>
+                      <td className="py-4 px-6">
+                        <div className="flex items-center gap-4">
+                          <div className={`p-2.5 rounded-lg ${colorClass}`}>
                             <Tag className="w-4 h-4" />
                           </div>
                           <div className="flex flex-col">
@@ -447,33 +454,31 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete, loading = false }
                         </div>
                       </td>
 
-                      {/* Fréquence */}
-                      <td className="py-3 px-4 text-center">
-                        {getFrequencyBadge('Mensuelle')}
-                      </td>
-
-                      {/* Période */}
-                      <td className="py-3 px-4 text-center text-sm text-gray-600">
-                        <div className="flex items-center justify-center gap-1">
-                          <Calendar className="w-4 h-4" />
-                          {category.items.length > 0 ? <span>Multiple</span> : <span>-</span>}
+                      <td className="py-4 px-6 text-center">
+                        <div className="flex items-center justify-center gap-1 text-sm text-gray-600">
+                          <Calendar className="w-3 h-3" />
+                          {category.items.length > 0 ? (
+                            <span>Multiple</span>
+                          ) : (
+                            <span>-</span>
+                          )}
                         </div>
                       </td>
 
-                      {/* Budget */}
-                      <td className="text-right py-3 px-4 font-medium">
-                        {formatCurrency(category.amount)}
+                      <td className="text-right py-4 px-6">
+                        <div className="font-semibold text-gray-900">
+                          {formatCurrency(category.amount)}
+                        </div>
                       </td>
 
-                      {/* Actions */}
-                      <td className="py-3 px-4 text-center">
+                      <td className="py-4 px-6 text-center">
                         <div className="flex justify-center">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleRowClick(category.id);
                             }}
-                            className="p-1 hover:bg-gray-200 rounded transition-colors"
+                            className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
                           >
                             {isExpanded ? (
                               <ChevronDown className="w-4 h-4 text-gray-500" />
@@ -489,24 +494,30 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete, loading = false }
                     <AnimatePresence>
                       {isExpanded && (
                         <motion.tr
-                          className="bg-gray-50"
+                          className="bg-gray-25"
                           variants={rowVariants}
                           initial="hidden"
                           animate="visible"
                           exit="hidden"
                         >
-                          <td colSpan="5" className="py-4 px-4">
+                          <td colSpan="5" className="py-4 px-6">
                             <motion.div
-                              className="pl-12"
+                              className="pl-14"
                               variants={contentVariants}
                               initial="hidden"
                               animate="visible"
                               exit="hidden"
                             >
-                              <h4 className="font-medium text-gray-900 mb-3">
-                                Détails des sous-catégories - {category.categoryName}
-                              </h4>
-                              <div className="grid gap-3">
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="font-medium text-gray-900">
+                                  Sous-catégories - {category.categoryName}
+                                </h4>
+                                <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded border border-gray-200">
+                                  {category.items.length} élément
+                                  {category.items.length > 1 ? 's' : ''}
+                                </span>
+                              </div>
+                              <div className="grid gap-2">
                                 {category.items.map((item, index) => (
                                   <SubCategoryRow
                                     key={item.id}
@@ -516,8 +527,12 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete, loading = false }
                                     onEdit={handleEdit}
                                     onDelete={handleDelete}
                                     onViewDetails={handleViewDetails}
-                                    isSubMenuOpen={subCategoryMenuOpen === item.id}
-                                    onSubCategoryMenuToggle={handleSubCategoryMenuToggle}
+                                    isSubMenuOpen={
+                                      subCategoryMenuOpen === item.id
+                                    }
+                                    onSubCategoryMenuToggle={
+                                      handleSubCategoryMenuToggle
+                                    }
                                     menuRefs={menuRefs}
                                   />
                                 ))}
@@ -532,11 +547,18 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete, loading = false }
               })
             ) : (
               <tr>
-                <td colSpan="5" className="py-8 text-center text-gray-500">
-                  <div className="flex flex-col items-center justify-center">
-                    <div>Aucune donnée disponible</div>
-                    <div className="text-sm text-gray-400 mt-1">
-                      {activeTab === 'revenus' ? 'Aucun revenu trouvé' : 'Aucune dépense trouvée'}
+                <td colSpan="5" className="py-12 text-center">
+                  <div className="flex flex-col items-center justify-center text-gray-400">
+                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                      <Tag className="w-5 h-5" />
+                    </div>
+                    <div className="font-medium text-gray-500">
+                      Aucune donnée disponible
+                    </div>
+                    <div className="text-sm mt-1">
+                      {activeTab === 'revenus'
+                        ? 'Aucun revenu trouvé'
+                        : 'Aucune dépense trouvée'}
                     </div>
                   </div>
                 </td>
@@ -563,13 +585,12 @@ const BudgetTable = ({ budgetData, isMobile, onEdit, onDelete, loading = false }
   );
 };
 
-// 🔥 OPTIMISATION : Animations mémorisées
 const rowVariants = {
   hidden: {
     opacity: 0,
     height: 0,
     transition: {
-      duration: 0.3,
+      duration: 0.2,
       ease: 'easeInOut',
     },
   },
@@ -577,7 +598,7 @@ const rowVariants = {
     opacity: 1,
     height: 'auto',
     transition: {
-      duration: 0.3,
+      duration: 0.2,
       ease: 'easeInOut',
     },
   },
@@ -586,49 +607,33 @@ const rowVariants = {
 const contentVariants = {
   hidden: {
     opacity: 0,
-    y: -10,
+    y: -4,
     transition: {
-      duration: 0.2,
+      duration: 0.15,
     },
   },
   visible: {
     opacity: 1,
     y: 0,
     transition: {
-      duration: 0.3,
+      duration: 0.2,
       ease: 'easeOut',
     },
   },
 };
 
-// 🔥 OPTIMISATION : Fonctions utilitaires mémorisées
 const getColorClasses = (categoryId) => {
   const colors = {
-    1: 'bg-red-100 text-red-600',
-    2: 'bg-green-100 text-green-600',
-    3: 'bg-blue-100 text-blue-600',
-    4: 'bg-purple-100 text-purple-600',
-    5: 'bg-yellow-100 text-yellow-600',
-    6: 'bg-pink-100 text-pink-600',
-    7: 'bg-indigo-100 text-indigo-600',
-    9: 'bg-teal-100 text-teal-600',
+    1: 'bg-red-50 text-red-600',
+    2: 'bg-green-50 text-green-600',
+    3: 'bg-blue-50 text-blue-600',
+    4: 'bg-purple-50 text-purple-600',
+    5: 'bg-amber-50 text-amber-600',
+    6: 'bg-pink-50 text-pink-600',
+    7: 'bg-indigo-50 text-indigo-600',
+    9: 'bg-teal-50 text-teal-600',
   };
-  return colors[categoryId] || 'bg-gray-100 text-gray-600';
-};
-
-const getFrequencyBadge = (frequency) => {
-  const frequencies = {
-    Mensuelle: 'Mensuel',
-    Trimestrielle: 'Trim',
-    Annuelle: 'Annuel',
-    Ponctuelle: 'Ponctuel',
-    Hebdomadaire: 'Hebdo',
-  };
-  return (
-    <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-      {frequencies[frequency] || frequency || 'Mensuel'}
-    </span>
-  );
+  return colors[categoryId] || 'bg-gray-50 text-gray-600';
 };
 
 const getMenuPosition = (element) => {
@@ -636,7 +641,7 @@ const getMenuPosition = (element) => {
   const rect = element.getBoundingClientRect();
   const spaceBelow = window.innerHeight - rect.bottom;
   const spaceAbove = rect.top;
-  const menuHeight = 100;
+  const menuHeight = 120;
 
   if (spaceBelow < menuHeight && spaceAbove > spaceBelow) {
     return 'top';
@@ -644,4 +649,4 @@ const getMenuPosition = (element) => {
   return 'bottom';
 };
 
-export default React.memo(BudgetTable);
+export default BudgetTable;
