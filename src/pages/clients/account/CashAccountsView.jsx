@@ -51,7 +51,9 @@ const CashAccountsView = () => {
   const activeProject = useMemo(() => projects.find(p => p.id === activeProjectId), [projects, activeProjectId]);
   
   const isConsolidated = activeProjectId === 'consolidated';
-  const isCustomConsolidated = activeProjectId?.startsWith('consolidated_view_');
+const prefix = 'consolidated_view_';
+const projectIdStr = String(activeProjectId);
+const isCustomConsolidated = projectIdStr.substring(0, prefix.length) === prefix;
 
   // Utilisation des données statiques pour les tests (remplacez par useAccountBalances pour les données réelles)
   const accountBalances = mockAccounts;
