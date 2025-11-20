@@ -25,11 +25,8 @@ const BudgetTracker = ({
   const [tableauMode, setTableauMode] = useState('edition');
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false);
   const periodMenuRef = useRef(null);
-
-  // ✅ CORRECTION: Utiliser l'ID original pour useBudgetData
   const { budgetData, loading, error } = useBudgetData(activeProjectId);
 
-  // ✅ CORRECTION: Passer budgetData comme externalBudgetData
   const { 
     budgetEntries, 
     actualTransactions, 
@@ -39,20 +36,6 @@ const BudgetTracker = ({
     isCustomConsolidated 
   } = useActiveProjectData(dataState, uiState, budgetData);
 
-  // ✅ CORRECTION: Debug amélioré avec useEffect
-  useEffect(() => {
-    console.log('=== BUDGET TRACKER DEBUG ===');
-    console.log('activeProjectId:', activeProjectId, typeof activeProjectId);
-    console.log('budgetData from API:', budgetData);
-    console.log('budgetEntries from hook:', budgetEntries?.length);
-    console.log('actualTransactions from hook:', actualTransactions?.length);
-    console.log('cashAccounts from hook:', cashAccounts?.length);
-    console.log('isConsolidated:', isConsolidated);
-    console.log('isCustomConsolidated:', isCustomConsolidated);
-    console.log('activeProject:', activeProject);
-  }, [activeProjectId, budgetData, budgetEntries, actualTransactions, cashAccounts, isConsolidated, isCustomConsolidated, activeProject]);
-
-  // ✅ CORRECTION: Toujours utiliser les données du hook useActiveProjectData
   const finalBudgetEntries = budgetEntries;
   const finalActualTransactions = actualTransactions;
   
@@ -64,23 +47,18 @@ const BudgetTracker = ({
 
     // Priorité 1: Données du hook useActiveProjectData
     if (cashAccounts?.length > 0) {
-      console.log('✅ Utilisation des cashAccounts du hook:', cashAccounts);
       return cashAccounts;
     }
     
     // Priorité 2: Données de l'API
     if (budgetData?.cashAccounts?.length > 0) {
-      console.log('✅ Utilisation des cashAccounts de l\'API:', budgetData.cashAccounts);
       return budgetData.cashAccounts;
     }
     
     // Priorité 3: Données du contexte global
     if (dataState.allCashAccounts && dataState.allCashAccounts[activeProjectId]?.length > 0) {
-      console.log('✅ Utilisation des cashAccounts du contexte:', dataState.allCashAccounts[activeProjectId]);
       return dataState.allCashAccounts[activeProjectId];
     }
-    
-    console.log('⚠️ Aucun cash account trouvé, retour tableau vide');
     return [];
   }, [dataState.allCashAccounts, activeProjectId, budgetData?.cashAccounts, cashAccounts]);
   

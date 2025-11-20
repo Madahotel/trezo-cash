@@ -2,9 +2,6 @@ import { useMemo } from 'react';
 
 export const useGroupedData = (entries, categories, isRowVisibleInPeriods) => {
     return useMemo(() => {
-        console.log('=== useGroupedData SIMPLIFIED ===');
-        console.log('Entries:', entries?.length);
-        console.log('Categories keys:', categories ? Object.keys(categories) : 'none');
 
         if (!entries || entries.length === 0) {
             return { entree: [], sortie: [] };
@@ -37,13 +34,6 @@ export const useGroupedData = (entries, categories, isRowVisibleInPeriods) => {
 
         const entree = createGroups(entreeEntries, 'entree');
         const sortie = createGroups(sortieEntries, 'sortie');
-
-        console.log('Groupes créés:', {
-            entree: entree.length,
-            sortie: sortie.length,
-            totalEntries: entree.reduce((sum, cat) => sum + cat.entries.length, 0) + 
-                         sortie.reduce((sum, cat) => sum + cat.entries.length, 0)
-        });
 
         return { entree, sortie };
     }, [entries, categories, isRowVisibleInPeriods]);

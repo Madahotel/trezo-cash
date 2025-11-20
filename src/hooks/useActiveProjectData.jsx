@@ -1,4 +1,3 @@
-// useActiveProjectData.js
 import { useMemo } from "react";
 
 export const useActiveProjectData = (dataState, uiState, externalBudgetData = null) => {
@@ -9,8 +8,6 @@ export const useActiveProjectData = (dataState, uiState, externalBudgetData = nu
         if (!settings) {
             return { budgetEntries: [], actualTransactions: [], cashAccounts: [], activeProject: null, isConsolidated: false, isCustomConsolidated: false };
         }
-
-        // ✅ CORRECTION: Toujours convertir en string pour la cohérence
         const activeProjectIdString = String(activeProjectId || '');
         const isConsolidated = activeProjectIdString === 'consolidated';
         const isCustomConsolidated = activeProjectIdString.startsWith('consolidated_view_');
@@ -18,20 +15,10 @@ export const useActiveProjectData = (dataState, uiState, externalBudgetData = nu
         let budgetEntries = [];
         let actualTransactions = [];
         let cashAccounts = [];
-        let activeProject = uiActiveProject; // ✅ CORRECTION: Toujours utiliser le projet du contexte UI
+        let activeProject = uiActiveProject;
 
-        console.log('=== useActiveProjectData DEBUG ===');
-        console.log('activeProjectId (original):', activeProjectId, typeof activeProjectId);
-        console.log('activeProjectIdString:', activeProjectIdString, typeof activeProjectIdString);
-        console.log('uiActiveProject:', uiActiveProject);
-        console.log('externalBudgetData disponible:', !!externalBudgetData);
-        console.log('isConsolidated:', isConsolidated);
-        console.log('isCustomConsolidated:', isCustomConsolidated);
-
-        // ✅ CORRECTION: Logique de priorité - toujours respecter le projet UI
         if (!activeProject) {
-            console.log('⚠️ Aucun projet actif dans le contexte UI, recherche dans les données...');
-            
+
             if (isConsolidated) {
                 activeProject = {
                     id: 'consolidated',
@@ -52,14 +39,13 @@ export const useActiveProjectData = (dataState, uiState, externalBudgetData = nu
                 };
             } else {
                 // Rechercher le projet dans la liste
-                activeProject = projects.find(p => 
-                    String(p.id) === activeProjectIdString || 
+                activeProject = projects.find(p =>
+                    String(p.id) === activeProjectIdString ||
                     p.id === activeProjectId
                 );
             }
         }
 
-        // Charger les données selon le type de projet
         if (isConsolidated) {
             budgetEntries = Object.values(allEntries).flat();
             actualTransactions = Object.values(allActuals).flat();
@@ -73,7 +59,6 @@ export const useActiveProjectData = (dataState, uiState, externalBudgetData = nu
                 cashAccounts = view.project_ids.flatMap(id => allCashAccounts[id] || []);
             }
         } else {
-            // ✅ CORRECTION: Utiliser externalBudgetData si disponible
             if (externalBudgetData && externalBudgetData.entries) {
                 budgetEntries = externalBudgetData.entries || [];
                 actualTransactions = externalBudgetData.actualTransactions || [];
@@ -87,16 +72,6 @@ export const useActiveProjectData = (dataState, uiState, externalBudgetData = nu
             }
         }
 
-        console.log('📊 Résultat useActiveProjectData:', {
-            entries: budgetEntries.length,
-            actuals: actualTransactions.length,
-            cashAccounts: cashAccounts.length,
-            project: activeProject?.name,
-            source: externalBudgetData ? 'API' : 'local',
-            isConsolidated,
-            isCustomConsolidated
-        });
-
         return {
             budgetEntries,
             actualTransactions,
@@ -106,14 +81,14 @@ export const useActiveProjectData = (dataState, uiState, externalBudgetData = nu
             isCustomConsolidated
         };
     }, [
-        activeProjectId, 
+        activeProjectId,
         uiActiveProject,
-        allEntries, 
-        allActuals, 
-        allCashAccounts, 
-        projects, 
-        consolidatedViews, 
-        settings, 
+        allEntries,
+        allActuals,
+        allCashAccounts,
+        projects,
+        consolidatedViews,
+        settings,
         externalBudgetData
     ]);
 };

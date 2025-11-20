@@ -463,18 +463,7 @@ const BudgetTableView = ({
     // AJOUT: Debug pour voir les données
     useEffect(() => {
         if (finalBudgetEntries && finalBudgetEntries.length > 0) {
-            console.log('=== DONNÉES BUDGET ENTRIES ===');
             finalBudgetEntries.forEach(entry => {
-                console.log('Entry:', {
-                    id: entry.id,
-                    supplier: entry.supplier,
-                    amount: entry.amount,
-                    frequency: entry.frequency,
-                    frequency_name: entry.frequency_name,
-                    date: entry.date,
-                    start_date: entry.start_date,
-                    isPonctuel: (entry.frequency_name || entry.frequency) === 'ponctuel'
-                });
             });
         }
     }, [finalBudgetEntries]);
@@ -700,17 +689,6 @@ const BudgetTableView = ({
     // CORRECTION: Filtrage des entrées avec fréquence - VERSION AMÉLIORÉE
     const filteredBudgetEntries = useMemo(() => {
         let entries = finalBudgetEntries || [];
-        
-        console.log('=== FILTRAGE FRÉQUENCE ===', {
-            totalEntries: entries.length,
-            frequencyFilter,
-            entriesFrequencies: entries.map(e => ({
-                supplier: e.supplier,
-                frequency: e.frequency,
-                frequency_name: e.frequency_name,
-                isPonctuel: (e.frequency_name || e.frequency) === 'ponctuel'
-            }))
-        });
 
         // Filtre par recherche de tiers
         if (searchTerm) {
@@ -732,12 +710,6 @@ const BudgetTableView = ({
                 const entryFrequency = (entry.frequency_name || entry.frequency)?.toLowerCase();
                 const filterFrequency = frequencyFilter.toLowerCase();
                 
-                console.log('Filtrage:', {
-                    supplier: entry.supplier,
-                    entryFrequency,
-                    filterFrequency,
-                    matches: entryFrequency === filterFrequency
-                });
 
                 // Gestion des cas spéciaux
                 if (filterFrequency === 'irregulier') {
@@ -779,7 +751,6 @@ const BudgetTableView = ({
             }
         }
 
-        console.log('Entries après filtrage:', entries.length);
         
         return entries;
     }, [finalBudgetEntries, searchTerm, isConsolidated, isCustomConsolidated, projectSearchTerm, projects, quickFilter, finalCategories, frequencyFilter]);
