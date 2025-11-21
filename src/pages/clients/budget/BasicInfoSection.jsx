@@ -40,6 +40,29 @@ const BasicInfoSection = ({
   // Fréquences qui ne permettent pas de choisir la date de fin
   const shouldHideEndDate = isPonctualFrequency || isIrregularFrequency;
 
+  // Fonction pour formater la date au format YYYY-MM-DD pour les inputs
+  const formatDateForInput = useCallback((dateString) => {
+    if (!dateString) return '';
+
+    // Si c'est déjà au bon format, retourner tel quel
+    if (
+      typeof dateString === 'string' &&
+      dateString.match(/^\d{4}-\d{2}-\d{2}$/)
+    ) {
+      return dateString;
+    }
+
+    // Si c'est un timestamp ou autre format, convertir
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return ''; // Date invalide
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+  }, []);
+
   // Fonction pour valider que la date de fin est postérieure à la date de début
   const validateEndDate = useCallback((startDate, endDate) => {
     if (!startDate || !endDate) return { isValid: true };
@@ -221,7 +244,7 @@ const BasicInfoSection = ({
     )} au ${formatDate(formData.endDate)})`;
   };
 
-  // Formater une date en français
+  // Formater une date en français pour l'affichage
   const formatDate = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -657,7 +680,7 @@ const BasicInfoSection = ({
           <Input
             id="startDate"
             type="date"
-            value={formData.startDate}
+            value={formatDateForInput(formData.startDate)}
             onChange={(e) => handleStartDateChange(e.target.value)}
             className="w-full"
           />
@@ -677,10 +700,10 @@ const BasicInfoSection = ({
             <Input
               id="endDate"
               type="date"
-              value={formData.endDate}
+              value={formatDateForInput(formData.endDate)}
               onChange={(e) => handleEndDateChange(e.target.value)}
               disabled={formData.isIndefinite}
-              min={formData.startDate} // Empêche seulement les dates antérieures au début
+              min={formatDateForInput(formData.startDate)}
               className={`w-full ${
                 !isEndDateValid ? 'border-red-500 focus:ring-red-500' : ''
               }`}

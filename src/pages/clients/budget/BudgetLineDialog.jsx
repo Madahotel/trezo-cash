@@ -1,17 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Button } from './ui/button';
-import {
-  getOptions,
-  showEditBudget,
-  storeBudget,
-  updateBudget,
-} from '../../../components/context/budgetAction';
 import AdvancedOptions from './AdvancedOptions';
 import BasicInfoSection from './BasicInfoSection';
 import QuickAddThirdPartyModal from './QuickAddThirdPartyModal';
 import { apiService } from '../../../utils/ApiService';
 import toast from 'react-hot-toast';
+import {
+  apiGet,
+  apiPost,
+  apiUpdate,
+} from '../../../components/context/actionsMethode';
 
 const BudgetLineDialog = ({
   open,
@@ -151,18 +150,21 @@ const BudgetLineDialog = ({
   const createThirdParty = async (thirdPartyData) => {
     try {
       setIsCreatingThirdParty(true);
-      const response = await apiService.post(
-        '/users/third-parties',
-        thirdPartyData
-      );
+
+      // Convertir user_type_id en number
+      const payload = {
+        ...thirdPartyData,
+        user_type_id: parseInt(thirdPartyData.user_type_id),
+      };
+
+      const response = await apiService.post('/users/third-parties', payload);
 
       if (response.status === 200) {
         await new Promise((resolve) => setTimeout(resolve, 500));
         await fetchOptions();
         return response.data || { success: true, message: response.message };
       } else {
-        // Gestion d'erreur...
-        throw new Error(errorMessage);
+        throw new Error(response.message || 'Erreur serveur');
       }
     } catch (error) {
       console.error('❌ Erreur création tiers:', error);
@@ -249,8 +251,7 @@ const BudgetLineDialog = ({
   const fetchOptions = async () => {
     try {
       setIsLoadingData(true);
-      const res = await getOptions();
-
+      const res = await apiGet(`/budget-projects/options`);
       let combinedList = [];
       if (res.users) {
         const userThirdParties =
@@ -279,7 +280,7 @@ const BudgetLineDialog = ({
   const fetchEditData = async (budgetId) => {
     try {
       setIsLoadingEditData(true);
-      const res = await showEditBudget(budgetId);
+      const res = await apiGet(`/budget-projects/budgets/${budgetId}`);
       setEditData(res);
 
       if (res && res.budget) {
@@ -444,12 +445,15 @@ const BudgetLineDialog = ({
     setIsLoading(true);
     try {
       if (editLine) {
-        await updateBudget(apiData, editLine.id);
-        toast.success('Ligne budgétaire modifiée avec succès');
+        const res = await apiUpdate(
+          `budget-projects/budgets/${editLine.id}/details/${editLine.budget_detail_id}`,
+          apiData
+        );
+        toast.success(res.message);
         if (onBudgetUpdated) await onBudgetUpdated();
       } else {
-        await storeBudget(apiData, projectId);
-        toast.success('Ligne budgétaire créée avec succès');
+        const res = await apiPost(`/budget-projects/${projectId}`, apiData);
+        toast.success(res.message);
         if (onBudgetAdded) await onBudgetAdded();
       }
       onOpenChange(false);

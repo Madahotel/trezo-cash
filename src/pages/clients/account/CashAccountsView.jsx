@@ -236,16 +236,15 @@ const CashAccountsView = () => {
             showMessageModal={showMessageModal}
             accountCategories={accountCategories}
           />
-        ) : accounts.length > 0 ? (
-          <div className="text-center">
-            <button
-              onClick={() => setIsAddingAccount(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 w-full sm:w-auto transition-colors"
-            >
-              <Plus className="w-5 h-5" /> Ajouter un autre compte
-            </button>
-          </div>
         ) : null}
+        <div className="text-center">
+          <button
+            onClick={() => setIsAddingAccount(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 w-full sm:w-auto transition-colors"
+          >
+            <Plus className="w-5 h-5" /> Ajouter un autre compte
+          </button>
+        </div>
       </div>
 
       <TransfertModal
