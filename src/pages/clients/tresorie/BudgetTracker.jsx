@@ -1,4 +1,3 @@
-// BudgetTracker.js
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Plus, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { useData } from '../../../components/context/DataContext.jsx';

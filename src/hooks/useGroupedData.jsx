@@ -7,18 +7,18 @@ export const useGroupedData = (entries, categories, isRowVisibleInPeriods) => {
             return { entree: [], sortie: [] };
         }
 
-        // Séparer par type
-        const entreeEntries = entries.filter(entry => entry.type === 'revenu');
-        const sortieEntries = entries.filter(entry => entry.type === 'depense');
+        // CORRECTION: Utiliser les bons types (entree/sortie au lieu de revenu/depense)
+        const entreeEntries = entries.filter(entry => entry.type === 'entree');
+        const sortieEntries = entries.filter(entry => entry.type === 'sortie');
 
         // CORRECTION: Créer des groupes basés sur mainCategory ou category
         const createGroups = (entriesArray, type) => {
             const groupsMap = {};
-            
+
             entriesArray.forEach(entry => {
-                // Utiliser mainCategory si disponible, sinon category
-                const groupName = entry.mainCategory || entry.category || `${type}-non-categorise`;
-                
+                // CORRECTION: Utiliser category_name ou category
+                const groupName = entry.category_name || entry.category || `${type}-non-categorise`;
+
                 if (!groupsMap[groupName]) {
                     groupsMap[groupName] = {
                         id: groupName,
@@ -29,12 +29,16 @@ export const useGroupedData = (entries, categories, isRowVisibleInPeriods) => {
                 groupsMap[groupName].entries.push(entry);
             });
 
-            return Object.values(groupsMap);
+            const groups = Object.values(groupsMap);
+
+            return groups;
         };
 
         const entree = createGroups(entreeEntries, 'entree');
         const sortie = createGroups(sortieEntries, 'sortie');
 
-        return { entree, sortie };
+        const result = { entree, sortie };
+
+        return result;
     }, [entries, categories, isRowVisibleInPeriods]);
 };
