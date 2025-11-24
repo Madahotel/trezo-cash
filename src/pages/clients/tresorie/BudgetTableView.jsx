@@ -9,7 +9,7 @@ import {
     calculateActualAmountForPeriod,
     calculatePeriodPositions,
     getEntryDescription,
-    getTotalsForPeriod 
+    getTotalsForPeriod
 } from '../../../utils/budgetCalculations.js';
 import { getTodayInTimezone } from '../../../utils/getTodayInTimezone.js';
 import { calculateGeneralTotals } from '../../../hooks/calculateGeneralTotals.jsx';
@@ -278,7 +278,7 @@ const BudgetTableView = (props) => {
     };
 
 
-    
+
 
     // Utiliser les données récupérées
     const processedBudgetEntries = useMemo(() => {
@@ -498,9 +498,9 @@ const BudgetTableView = (props) => {
 
     const calculatePeriodPositions = (periods, cashAccounts, groupedData, expandedAndVatEntries, finalActualTransactions, hasOffBudgetRevenues, hasOffBudgetExpenses) => {
         if (!periods || periods.length === 0 || !cashAccounts || cashAccounts.length === 0) {
-            return periods?.map(() => ({ 
-                initial: 0, 
-                final: 0, 
+            return periods?.map(() => ({
+                initial: 0,
+                final: 0,
                 netCashFlow: 0,
                 totalEntrees: 0,
                 totalSorties: 0
@@ -1214,11 +1214,18 @@ const BudgetTableView = (props) => {
         );
     };
 
-    // Afficher un état de chargement
+    useEffect(() => {
+        if (loading) {
+            // Les données sont en cours de chargement, on laisse le squelette s'afficher
+            return;
+        }
+    }, [loading]);
+
+    // Et modifiez la condition de rendu au début du return :
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="text-lg">Chargement des données budgétaires...</div>
+                <div className="text-lg">Chargement des données...</div>
             </div>
         );
     }
