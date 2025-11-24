@@ -40,7 +40,7 @@ export const AuthProvider = ({ children }) => {
           setToken(savedToken);
           setError(null);
         } catch (error) {
-          console.error('❌ Erreur lors de la vérification du token:', error);
+          console.error('Erreur lors de la vérification du token:', error);
           logout();
         }
       }
@@ -61,8 +61,6 @@ export const AuthProvider = ({ children }) => {
         password,
       });
 
-      console.log('✅ Réponse login:', response.data);
-
       const { token: receivedToken, user: userData } = response.data;
 
       if (!receivedToken) {
@@ -78,7 +76,7 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true, message: 'Connexion réussie' };
     } catch (error) {
-      console.error('❌ Erreur login:', error);
+      console.error(' Erreur login:', error);
       const message = error.response?.data?.message || 'Erreur de connexion';
       setError(message);
       return { success: false, message };
@@ -100,8 +98,6 @@ export const AuthProvider = ({ children }) => {
         password_confirm: password_confirm || password,
       });
 
-      console.log('✅ Réponse register:', response.data);
-
       if (response.data.status === 200) {
         setError(null);
         return {
@@ -112,7 +108,7 @@ export const AuthProvider = ({ children }) => {
         throw new Error(response.data.message || "Erreur d'inscription");
       }
     } catch (error) {
-      console.error('❌ Erreur register:', error);
+      console.error('Erreur register:', error);
       const message = error.response?.data?.message || "Erreur d'inscription";
       setError(message);
       return { success: false, message };
