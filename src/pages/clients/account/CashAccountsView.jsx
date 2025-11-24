@@ -11,6 +11,7 @@ import ConfirmationModal from './ConfirmationModal';
 import TransfertModal from './TransfertModal';
 import AccountsTable from './AccountTable';
 import AccountDetailModal from './AccountDetailModal';
+
 const accountCategories = [
   { id: 'bank', name: 'Banque' },
   { id: 'cash', name: 'Espèces' },
@@ -183,12 +184,11 @@ const CashAccountsView = () => {
       'Le transfert a été effectué avec succès.'
     );
   };
-  // Fonction pour ouvrir le modal
+
   const handleViewDetails = (account) => {
     setSelectedAccount(account);
   };
 
-  // Fonction pour fermer le modal
   const handleCloseDetails = () => {
     setSelectedAccount(null);
   };
@@ -199,16 +199,17 @@ const CashAccountsView = () => {
 
   return (
     <>
-      <div className="space-y-6">
-        <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
+      <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
+        {/* Section Comptes */}
+        <div className="p-4 sm:p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
           <div className="flex flex-col mb-4 sm:flex-row sm:justify-between sm:items-center">
-            <h3 className="mb-2 text-lg font-bold text-gray-800 sm:mb-0">
+            <h3 className="mb-3 sm:mb-0 text-lg font-bold text-gray-800">
               Vos Comptes
             </h3>
             {accounts.length > 0 && (
               <button
                 onClick={() => setIsTransferModalOpen(true)}
-                className="bg-purple-100 text-purple-700 hover:bg-purple-200 px-3 py-1.5 rounded-md font-medium flex items-center justify-center gap-2 text-sm w-full sm:w-auto transition-colors"
+                className="bg-purple-100 text-purple-700 hover:bg-purple-200 px-3 py-2 sm:py-1.5 rounded-md font-medium flex items-center justify-center gap-2 text-sm w-full sm:w-auto transition-colors order-first sm:order-last mb-3 sm:mb-0"
               >
                 <ArrowRightLeft className="w-4 h-4" />
                 Transfert entre comptes
@@ -229,24 +230,33 @@ const CashAccountsView = () => {
           />
         </div>
 
-        {isAddingAccount ? (
-          <AddAccountForm
-            onSave={handleAddAccount}
-            onCancel={() => setIsAddingAccount(false)}
-            showMessageModal={showMessageModal}
-            accountCategories={accountCategories}
-          />
-        ) : null}
-                  <div className="text-center">
+        {/* Formulaire d'ajout */}
+        {isAddingAccount && (
+          <div className="p-4 sm:p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
+            <AddAccountForm
+              onSave={handleAddAccount}
+              onCancel={() => setIsAddingAccount(false)}
+              showMessageModal={showMessageModal}
+              accountCategories={accountCategories}
+            />
+          </div>
+        )}
+
+        {/* Bouton d'ajout */}
+        {!isAddingAccount && (
+          <div className="text-center px-2 sm:px-0">
             <button
               onClick={() => setIsAddingAccount(true)}
-              className="inline-flex items-center w-full gap-2 px-4 py-2 font-bold text-white transition-colors bg-blue-600 rounded-lg hover:bg-blue-700 sm:w-auto"
+              className="inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2 font-bold text-white transition-colors bg-blue-600 rounded-lg hover:bg-blue-700 w-full sm:w-auto text-sm sm:text-base"
             >
-              <Plus className="w-5 h-5" /> Ajouter un autre compte
+              <Plus className="w-5 h-5" />
+              Ajouter un autre compte
             </button>
           </div>
+        )}
       </div>
 
+      {/* Modals */}
       <TransfertModal
         isOpen={isTransferModalOpen}
         onClose={() => setIsTransferModalOpen(false)}
@@ -264,6 +274,7 @@ const CashAccountsView = () => {
         confirmAction={confirmationModal.confirmAction}
         onClose={closeConfirmationModal}
       />
+
       <AccountDetailModal
         open={!!selectedAccount}
         onClose={handleCloseDetails}
@@ -277,26 +288,26 @@ const CashAccountsView = () => {
 };
 
 const LoadingSkeleton = () => (
-  <div className="space-y-6">
-    <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
+  <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
+    <div className="p-4 sm:p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
       <div className="animate-pulse">
-        <div className="w-1/4 h-6 mb-4 bg-gray-200 rounded"></div>
+        <div className="w-1/2 sm:w-1/4 h-6 mb-4 bg-gray-200 rounded"></div>
         <div className="space-y-4">
           {[1, 2, 3].map((item) => (
             <div
               key={item}
-              className="flex items-center justify-between py-4 border-b border-gray-200"
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-4 border-b border-gray-200"
             >
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
-                <div>
+              <div className="flex items-center space-x-3 mb-2 sm:mb-0">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-200 rounded-full"></div>
+                <div className="flex-1">
                   <div className="w-32 h-4 mb-2 bg-gray-200 rounded"></div>
                   <div className="w-24 h-3 bg-gray-200 rounded"></div>
                 </div>
               </div>
               <div className="text-right">
-                <div className="w-20 h-5 mb-1 bg-gray-200 rounded"></div>
-                <div className="w-16 h-3 bg-gray-200 rounded"></div>
+                <div className="w-20 h-5 mb-1 bg-gray-200 rounded sm:mx-auto"></div>
+                <div className="w-16 h-3 bg-gray-200 rounded sm:mx-auto"></div>
               </div>
             </div>
           ))}

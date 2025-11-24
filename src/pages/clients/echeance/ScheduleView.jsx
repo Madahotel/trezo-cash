@@ -24,155 +24,27 @@ const getTodayKey = () => {
   return formatDateToKey(new Date());
 };
 
-// Fonction pour générer les dates d'échéance (utilise le format local)
-const generateDatesByFrequency = (frequencyId, startDate, endDate = null) => {
-  const dates = [];
-
-  // Convertir les dates d'entrée en objets Date avec heure locale
-  const start = new Date(startDate);
-  start.setHours(0, 0, 0, 0);
-
-  if (frequencyId === 1 || frequencyId === 9) {
-    dates.push(new Date(start));
-    return dates;
-  }
-
-  if (endDate) {
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
-
-    let currentDate = new Date(start);
-
-    while (currentDate <= end) {
-      dates.push(new Date(currentDate));
-
-      const nextDate = new Date(currentDate);
-      switch (frequencyId) {
-        case 2: // Quotidienne
-          nextDate.setDate(nextDate.getDate() + 1);
-          break;
-        case 3: // Mensuelle
-          nextDate.setMonth(nextDate.getMonth() + 1);
-          break;
-        case 4: // Hebdomadaire
-          nextDate.setDate(nextDate.getDate() + 7);
-          break;
-        case 5: // Bimensuelle
-          nextDate.setDate(nextDate.getDate() + 15);
-          break;
-        case 6: // Trimestrielle
-          nextDate.setMonth(nextDate.getMonth() + 3);
-          break;
-        case 7: // Semestrielle
-          nextDate.setMonth(nextDate.getMonth() + 6);
-          break;
-        case 8: // Annuelle
-          nextDate.setFullYear(nextDate.getFullYear() + 1);
-          break;
-        default:
-          return dates;
-      }
-
-      currentDate = nextDate;
-    }
-  } else {
-    const futureEndDate = new Date(start);
-    futureEndDate.setFullYear(futureEndDate.getFullYear() + 2);
-    futureEndDate.setHours(23, 59, 59, 999);
-
-    let currentDate = new Date(start);
-
-    while (currentDate <= futureEndDate) {
-      dates.push(new Date(currentDate));
-
-      const nextDate = new Date(currentDate);
-      switch (frequencyId) {
-        case 2: // Quotidienne
-          nextDate.setDate(nextDate.getDate() + 1);
-          break;
-        case 3: // Mensuelle
-          nextDate.setMonth(nextDate.getMonth() + 1);
-          break;
-        case 4: // Hebdomadaire
-          nextDate.setDate(nextDate.getDate() + 7);
-          break;
-        case 5: // Bimensuelle
-          nextDate.setDate(nextDate.getDate() + 15);
-          break;
-        case 6: // Trimestrielle
-          nextDate.setMonth(nextDate.getMonth() + 3);
-          break;
-        case 7: // Semestrielle
-          nextDate.setMonth(nextDate.getMonth() + 6);
-          break;
-        case 8: // Annuelle
-          nextDate.setFullYear(nextDate.getFullYear() + 1);
-          break;
-        default:
-          return dates;
-      }
-
-      currentDate = nextDate;
-    }
-  }
-
-  return dates;
-};
-
+// Fonction simplifiée pour organiser les transactions par date
 const transformBudgetData = (budgetData) => {
   const transactions = {};
 
-  budgetData.forEach((budget) => {
-    const frequencyId = budget.frequency_id;
-    const type = budget.category_type_id === 2 ? 'receivable' : 'payable';
+  budgetData.forEach((transaction) => {
+    const dateKey = transaction.date; // La date est déjà générée par le backend
 
-    const dates = generateDatesByFrequency(
-      frequencyId,
-      budget.start_date,
-      budget.end_date
-    );
+    if (!transactions[dateKey]) {
+      transactions[dateKey] = [];
+    }
 
-    dates.forEach((date, occurrenceIndex) => {
-      // Utiliser formatDateToKey au lieu de manipulation manuelle
-      const dateKey = formatDateToKey(date);
-
-      if (!transactions[dateKey]) {
-        transactions[dateKey] = [];
-      }
-
-      const uniqueId = `budget-${budget.budget_id}-${dateKey}-${occurrenceIndex}`;
-
-      transactions[dateKey].push({
-        id: uniqueId,
-        thirdParty:
-          budget.third_party_name && budget.third_party_firstname
-            ? `${budget.third_party_name} ${budget.third_party_firstname}`
-            : budget.third_party_name || budget.category_name,
-        amount: parseFloat(budget.budget_amount || 0),
-        type: type,
-        category: budget.category_name,
-        subCategory: budget.sub_category_name,
-        date: dateKey,
-        budget_id: budget.budget_id,
-        start_date: budget.start_date,
-        end_date: budget.end_date,
-        frequency_id: frequencyId,
-        frequency_name: budget.frequency_name,
-        budget_type_id: budget.budget_type_id,
-        budget_type_name: budget.budget_type_name,
-        category_type_name: budget.category_type_name,
-        entity_status_id: budget.entity_status_id,
-        is_duration_indefinite: budget.is_duration_indefinite,
-        due_date: dateKey,
-        occurrence_index: occurrenceIndex,
-      });
+    transactions[dateKey].push({
+      ...transaction,
+      amount: parseFloat(transaction.amount || 0),
     });
   });
 
   return transactions;
 };
 
-// Composant DayCell (inchangé sauf pour le formatage des dates)
+// Composant DayCell
 const DayCell = ({
   day,
   transactions = [],
@@ -350,7 +222,7 @@ const DayCell = ({
   );
 };
 
-// Composant principal ScheduleView avec corrections des dates
+// Composant principal ScheduleView
 const ScheduleView = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState('month');
@@ -362,7 +234,6 @@ const ScheduleView = () => {
   const { uiState } = useUI();
   const projectId = uiState.activeProject?.id;
 
-  // CORRECTION : Utiliser getTodayKey() au lieu de toISOString()
   const todayKey = getTodayKey();
 
   // Gestion du clic en dehors du menu
@@ -381,7 +252,7 @@ const ScheduleView = () => {
     };
   }, []);
 
-  // Transformation des données
+  // Transformation des données (simplifiée car les dates sont générées par le backend)
   const { transactionsByDate } = useMemo(() => {
     if (!budgetData || budgetData.length === 0) {
       return { transactionsByDate: {} };
@@ -486,7 +357,10 @@ const ScheduleView = () => {
         }
 
         const res = await apiGet(`/schedules/budgets/project/${projectId}`);
+        console.log(res);
+
         if (res.status === 200) {
+          // Les données reçues contiennent déjà toutes les transactions avec leurs dates générées
           setBudgetData(res.budget);
         }
       } catch (error) {
@@ -514,10 +388,11 @@ const ScheduleView = () => {
       </div>
     );
   }
+  console.log(budgetData);
 
   return (
     <div className="min-h-screen bg-white p-6">
-      <div className=" mx-auto">
+      <div className="mx-auto">
         {/* En-tête épuré */}
         <div className="mb-6">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -652,7 +527,6 @@ const ScheduleView = () => {
 
           <div className="grid grid-cols-7 border-t border-l border-gray-100">
             {calendarGrid.map((day, index) => {
-              // CORRECTION : Utiliser formatDateToKey au lieu de manipulation manuelle
               const dateKey = formatDateToKey(day);
               const isTodayCell = dateKey === todayKey;
               const isCurrentMonth = day.getMonth() === currentDate.getMonth();
