@@ -1,15 +1,22 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Plus, Edit, Search, ChevronDown, Folder, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, XCircle, Trash2, ArrowRightLeft, Lock, MessageSquare, ChevronUp, TableProperties, Filter } from 'lucide-react';
+import { Edit, Search, ChevronDown, Folder, TrendingUp, TrendingDown, XCircle, Trash2, ArrowRightLeft, Lock, ChevronUp, } from 'lucide-react';
 import TransactionDetailDrawer from './TransactionDetailDrawer.jsx';
 import ResizableTh from './ResizableTh.jsx';
-import { getStartOfWeek } from '../../../utils/budgetCalculations.js';
+import {
+    getStartOfWeek,
+    getActualAmountForPeriod,
+    calculateEntryAmountForPeriod,
+    calculateActualAmountForPeriod,
+    calculatePeriodPositions,
+    getEntryDescription,
+    getTotalsForPeriod 
+} from '../../../utils/budgetCalculations.js';
 import { getTodayInTimezone } from '../../../utils/getTodayInTimezone.js';
 import { calculateGeneralTotals } from '../../../hooks/calculateGeneralTotals.jsx';
 import { useProcessedEntries } from '../../../hooks/useProcessedEntries.jsx';
 import { useGroupedData } from '../../../hooks/useGroupedData.jsx';
 import { calculateMainCategoryTotals } from '../../../hooks/calculateMainCategoryTotals.jsx';
 import { formatCurrency } from '../../../utils/formatting.js';
-import { motion, AnimatePresence } from 'framer-motion';
 import { deleteEntry, saveEntry } from '../../../components/context/actions.js';
 import LectureView from './LectureView.jsx';
 import CommentButton from './CommentButton.jsx';
@@ -21,201 +28,11 @@ import axios from '../../../components/config/Axios.jsx';
 import BudgetTableHeader from './BudgetTableHeader.jsx';
 import useRealBudgetData from '../../../hooks/useRealBudgetData.jsx';
 
-
-// Composant Header séparé
-<BudgetTableHeader />
 // Configuration et fonctions utilitaires
 const criticalityConfig = {
     critical: { label: 'Critique', color: 'bg-red-500' },
     essential: { label: 'Essentiel', color: 'bg-yellow-500' },
     discretionary: { label: 'Discrétionnaire', color: 'bg-blue-500' },
-};
-
-//calculateEntryAmountForPeriod
-const calculateEntryAmountForPeriod = (entry, startDate, endDate) => {
-    if (!entry || !entry.amount) {
-        return 0;
-    }
-
-    const frequency = entry.frequency_name || entry.frequency;
-    const amount = parseFloat(entry.amount) || 0;
-
-    // Si pas de fréquence, retourner le montant complet
-    if (!frequency) {
-        return amount;
-    }
-
-    const freqLower = frequency.toLowerCase();
-
-    // CORRECTION: Pour "Monsuel" (mensuel), toujours retourner le montant
-    if (freqLower === 'monsuel' || freqLower === 'mensuel') {
-        return amount;
-    }
-
-    // CORRECTION: Pour les autres fréquences récurrentes, retourner le montant
-    if (freqLower === 'hebdomadaire' || freqLower === 'bimestriel' ||
-        freqLower === 'trimestriel' || freqLower === 'semestriel' ||
-        freqLower === 'annuel') {
-        return amount;
-    }
-
-    // Pour ponctuel, vérifier si la date est dans la période
-    if (freqLower === 'ponctuel' || freqLower === 'ponctuelle') {
-        const entryDate = entry.date ? new Date(entry.date) : (entry.start_date ? new Date(entry.start_date) : null);
-        if (!entryDate) {
-            return amount;
-        }
-
-        const isInPeriod = entryDate >= startDate && entryDate <= endDate;
-
-        return isInPeriod ? amount : 0;
-    }
-
-    // Par défaut, retourner le montant
-    return amount;
-};
-
-const calculateActualAmountForPeriod = (entry, actualTransactions, startDate, endDate, realBudgetData = null) => {
-    if (!entry) return 0;
-
-    console.log('🔍 Calcul pour:', entry.supplier, 'budget_id:', entry.budget_id);
-
-    // PRIORITÉ 1: Données real_budget API - CORRECTION ICI
-    if (realBudgetData?.real_budget_items?.data) {
-        const realBudgetsForEntry = realBudgetData.real_budget_items.data.filter(rb => {
-            // CORRECTION: Vérifier la correspondance EXACTE par budget_id
-            const matchesBudget = rb.budget_id === entry.budget_id;
-
-            console.log(`🔍 Vérification correspondance:`, {
-                entry_supplier: entry.supplier,
-                entry_budget_id: entry.budget_id,
-                real_budget_id: rb.budget_id,
-                matchesBudget,
-                collection_amount: rb.collection_amount
-            });
-
-            return matchesBudget;
-        });
-
-        console.log(`📊 ${entry.supplier}: ${realBudgetsForEntry.length} collections correspondantes`);
-
-        if (realBudgetsForEntry.length > 0) {
-            // CORRECTION: Calculer la somme de TOUTES les collections correspondantes
-            const totalAmount = realBudgetsForEntry.reduce((sum, rb) => {
-                const amount = parseFloat(rb.collection_amount) || 0;
-                console.log(`💰 ${entry.supplier}: ${amount} depuis real_budget`);
-                return sum + amount;
-            }, 0);
-
-            console.log(`✅ FINAL ${entry.supplier}: ${totalAmount}`);
-            return totalAmount;
-        }
-    }
-
-    console.log(`❌ Aucune donnée real_budget correspondante pour ${entry.supplier}`);
-
-    // PRIORITÉ 2: Données de collection existantes
-    if (entry.collectionData?.collection) {
-        const collectionInPeriod = entry.collectionData.collection.filter(coll => {
-            if (!coll.collection_date) return false;
-            try {
-                const collectionDate = new Date(coll.collection_date);
-                return collectionDate >= startDate && collectionDate <= endDate;
-            } catch (error) {
-                return false;
-            }
-        });
-
-        const collectionAmount = collectionInPeriod.reduce((sum, coll) => {
-            return sum + (parseFloat(coll.collection_amount) || 0);
-        }, 0);
-
-        if (collectionAmount > 0) {
-            console.log(`📋 COLLECTION: ${entry.supplier} = ${collectionAmount}`);
-            return collectionAmount;
-        }
-    }
-
-    // PRIORITÉ 3: Paiements traditionnels
-    const entryActuals = actualTransactions.filter(actual =>
-        actual.budgetId === entry.id || actual.budgetId === entry.id.replace('_vat', '')
-    );
-
-    const paymentsAmount = entryActuals.reduce((sum, actual) => {
-        const paymentsInPeriod = (actual.payments || []).filter(p => {
-            try {
-                const paymentDate = new Date(p.paymentDate);
-                return paymentDate >= startDate && paymentDate <= endDate;
-            } catch (error) {
-                return false;
-            }
-        });
-        return sum + paymentsInPeriod.reduce((paymentSum, p) => paymentSum + (p.paidAmount || 0), 0);
-    }, 0);
-
-    console.log(`💳 PAIEMENTS: ${entry.supplier} = ${paymentsAmount}`);
-
-    return paymentsAmount;
-};
-
-const calculatePeriodPositions = (periods, cashAccounts, groupedData, expandedAndVatEntries, finalActualTransactions, hasOffBudgetRevenues, hasOffBudgetExpenses) => {
-    if (!periods || periods.length === 0 || !cashAccounts || cashAccounts.length === 0) {
-        return periods?.map(() => ({ initial: 0, final: 0, netCashFlow: 0 })) || [];
-    }
-
-    const totalInitialBalance = cashAccounts.reduce((sum, account) => {
-        return sum + (account.initialBalance || 0);
-    }, 0);
-
-    const positions = [];
-    let runningBalance = totalInitialBalance;
-
-    for (let i = 0; i < periods.length; i++) {
-        const period = periods[i];
-
-        const revenueTotals = calculateGeneralTotals(
-            groupedData.entree || [],
-            period,
-            'entree',
-            expandedAndVatEntries,
-            finalActualTransactions,
-            hasOffBudgetRevenues,
-            hasOffBudgetExpenses
-        );
-
-        const expenseTotals = calculateGeneralTotals(
-            groupedData.sortie || [],
-            period,
-            'sortie',
-            expandedAndVatEntries,
-            finalActualTransactions,
-            hasOffBudgetRevenues,
-            hasOffBudgetExpenses
-        );
-
-        const netCashFlow = (revenueTotals.actual || 0) - (expenseTotals.actual || 0);
-
-        const initialBalance = runningBalance;
-        const finalBalance = initialBalance + netCashFlow;
-
-        runningBalance = finalBalance;
-
-        positions.push({
-            initial: initialBalance,
-            final: finalBalance,
-            netCashFlow: netCashFlow
-        });
-    }
-
-    return positions;
-};
-
-// Fonction helper pour la description
-const getEntryDescription = (entry) => {
-    return entry.description ||
-        entry.budget_description ||
-        entry.amount_type_description ||
-        'Aucune description disponible';
 };
 
 // Composant principal
@@ -331,7 +148,6 @@ const BudgetTableView = (props) => {
             const response = await axios.get(`/trezo-tables/projects/${projectId}`, { params });
             const data = response.data;
 
-            // CORRECTION : Gestion simplifiée et robuste de la réponse
             if (data && data.budgets) {
                 const hasBudgetItems = data.budgets.budget_items && data.budgets.budget_items.length > 0;
 
@@ -339,12 +155,10 @@ const BudgetTableView = (props) => {
                     setProjectData(data);
                     setHasNoData(false);
                 } else {
-                    // Aucune donnée trouvée pour ce filtre - ce n'est pas une erreur
                     setProjectData({ budgets: { budget_items: [] } });
                     setHasNoData(true);
                 }
             } else {
-                // Format de réponse inattendu mais on gère gracieusement
                 console.warn('Format de réponse inattendu, mais traitement continué:', data);
                 setProjectData({ budgets: { budget_items: [] } });
                 setHasNoData(true);
@@ -360,11 +174,9 @@ const BudgetTableView = (props) => {
             let errorMessage = 'Erreur de chargement des données';
 
             if (err.response) {
-                // Erreur avec réponse du serveur
                 if (err.response.status === 404) {
                     errorMessage = 'Projet non trouvé';
                 } else if (err.response.status === 204) {
-                    // Aucune donnée - ce n'est pas une erreur
                     setProjectData({ budgets: { budget_items: [] } });
                     setHasNoData(true);
                     setError(null);
@@ -374,10 +186,8 @@ const BudgetTableView = (props) => {
                     errorMessage = err.response.data?.message || `Erreur ${err.response.status}`;
                 }
             } else if (err.request) {
-                // Erreur de réseau
                 errorMessage = 'Erreur de connexion au serveur';
             } else {
-                // Autre erreur
                 errorMessage = err.message;
             }
 
@@ -398,18 +208,15 @@ const BudgetTableView = (props) => {
         if (!budgetItems || !Array.isArray(budgetItems)) return [];
 
         return budgetItems.map(item => {
-            // CORRECTION: Gestion du type (entree/sortie)
             let type;
             if (item.category_type_name === 'Revenue') {
                 type = 'entree';
             } else if (item.category_type_name === 'Dépense') {
                 type = 'sortie';
             } else {
-                // Fallback basé sur budget_type_name
                 type = item.budget_type_name === 'Entrée' ? 'entree' : 'sortie';
             }
 
-            // CORRECTION: Gestion des IDs
             const id = item.budget_detail_id?.toString() || `budget_${item.budget_id}`;
 
             return {
@@ -458,19 +265,20 @@ const BudgetTableView = (props) => {
                 category_type_name: item.category_type_name,
                 entity_status_id: item.entity_status_id,
                 entity_status_name: item.entity_status_name,
-                // Champs calculés ou par défaut
                 type: type,
                 isProvision: false,
                 is_vat_child: false,
                 is_vat_payment: false,
                 is_tax_payment: false,
-                // AJOUT: Champs requis pour les calculs
                 date: item.start_date,
                 startDate: item.start_date ? new Date(item.start_date) : null,
                 endDate: item.end_date ? new Date(item.end_date) : null
             };
         });
     };
+
+
+    
 
     // Utiliser les données récupérées
     const processedBudgetEntries = useMemo(() => {
@@ -563,14 +371,12 @@ const BudgetTableView = (props) => {
         });
     }, [timeUnit, horizonLength, periodOffset, activeQuickSelect, settings.timezoneOffset]);
 
-    // Dans BudgetTableView.jsx - Ajoutez cette fonction
     const fetchCollectionAccount = async (budgetId, date) => {
         if (loadingCollections) return;
 
         try {
             setLoadingCollections(true);
 
-            // ESSAYEZ D'ABORD L'APPEL NORMAL
             const res = await getCollection(budgetId, date);
 
             if (res && res.status === 200) {
@@ -600,7 +406,6 @@ const BudgetTableView = (props) => {
         } catch (error) {
             console.warn(`⚠️ Erreur fetch collection ${budgetId}, utilisation des données par défaut:`, error);
 
-            // EN CAS D'ERREUR, UTILISEZ DES DONNÉES PAR DÉFAUT
             setCollectionData(prev => ({
                 ...prev,
                 [budgetId]: {
@@ -688,6 +493,71 @@ const BudgetTableView = (props) => {
         };
     }, []);
 
+
+    // Dans BudgetTableView.jsx - AJOUTEZ cette fonction :
+
+    const calculatePeriodPositions = (periods, cashAccounts, groupedData, expandedAndVatEntries, finalActualTransactions, hasOffBudgetRevenues, hasOffBudgetExpenses) => {
+        if (!periods || periods.length === 0 || !cashAccounts || cashAccounts.length === 0) {
+            return periods?.map(() => ({ 
+                initial: 0, 
+                final: 0, 
+                netCashFlow: 0,
+                totalEntrees: 0,
+                totalSorties: 0
+            })) || [];
+        }
+
+        const totalInitialBalance = cashAccounts.reduce((sum, account) => {
+            return sum + (account.initialBalance || 0);
+        }, 0);
+
+        const positions = [];
+        let runningBalance = totalInitialBalance;
+
+        for (let i = 0; i < periods.length; i++) {
+            const period = periods[i];
+
+            const revenueTotals = calculateGeneralTotals(
+                groupedData.entree || [],
+                period,
+                'entree',
+                expandedAndVatEntries,
+                finalActualTransactions,
+                hasOffBudgetRevenues,
+                hasOffBudgetExpenses
+            );
+
+            const expenseTotals = calculateGeneralTotals(
+                groupedData.sortie || [],
+                period,
+                'sortie',
+                expandedAndVatEntries,
+                finalActualTransactions,
+                hasOffBudgetRevenues,
+                hasOffBudgetExpenses
+            );
+
+            // CALCUL CORRECT: Flux de trésorerie = Entrées réelles - Sorties réelles
+            const totalEntrees = revenueTotals.actual || 0;
+            const totalSorties = expenseTotals.actual || 0;
+            const netCashFlow = totalEntrees - totalSorties;
+
+            const initialBalance = runningBalance;
+            const finalBalance = initialBalance + netCashFlow;
+
+            runningBalance = finalBalance;
+
+            positions.push({
+                initial: initialBalance,
+                final: finalBalance,
+                netCashFlow: netCashFlow,
+                totalEntrees: totalEntrees,
+                totalSorties: totalSorties
+            });
+        }
+
+        return positions;
+    };
     // Handlers
     const handlePeriodChange = (direction) => {
         uiDispatch({ type: 'SET_PERIOD_OFFSET', payload: periodOffset + direction });
@@ -845,7 +715,7 @@ const BudgetTableView = (props) => {
             });
         }
 
-        // Filtre par fréquence (maintenant géré par l'API, mais gardé pour la cohérence)
+        // Filtre par fréquence
         if (frequencyFilter !== 'all') {
             entries = entries.filter(entry => {
                 const entryFrequencyId = entry.frequency_id?.toString();
@@ -971,6 +841,7 @@ const BudgetTableView = (props) => {
         }));
     };
 
+
     useEffect(() => {
         localStorage.setItem('budgetAppColumnWidths', JSON.stringify(columnWidths));
     }, [columnWidths]);
@@ -1075,7 +946,7 @@ const BudgetTableView = (props) => {
         setCollapsedItems(newCollapsedState);
     };
 
-    const numVisibleCols = Object.values(visibleColumns).filter(v => v).length;
+    const numVisibleCols = (visibleColumns.budget ? 1 : 0) + (visibleColumns.actual ? 1 : 0) + 1;
     const periodColumnWidth = numVisibleCols > 0 ? numVisibleCols * 90 : 50;
     const separatorWidth = 4;
 
@@ -1091,6 +962,12 @@ const BudgetTableView = (props) => {
         const toggleMainCollapse = type === 'entree' ? () => setIsEntreesCollapsed(p => !p) : () => setIsSortiesCollapsed(p => !p);
         const Icon = type === 'entree' ? TrendingUp : TrendingDown;
         const colorClass = type === 'entree' ? 'text-success-600' : 'text-danger-600';
+
+        // Style pour les cellules de période
+        const periodCellStyle = {
+            minWidth: `${periodColumnWidth}px`,
+            width: `${periodColumnWidth}px`
+        };
 
         return (
             <>
@@ -1116,30 +993,34 @@ const BudgetTableView = (props) => {
 
                         return (
                             <React.Fragment key={periodIndex}>
-                                <td className="px-2 py-1">
+                                <td className="px-1 py-1" style={periodCellStyle}>
                                     {numVisibleCols > 0 && (
-                                        <div className="flex justify-around gap-2 text-sm">
-                                            {visibleColumns.budget && <div className="relative flex-1 font-normal text-center group/subcell text-text-primary">
-                                                {formatCurrency(totals.budget, currencySettings)}
-                                                <CommentButton rowId={rowId} columnId={`${columnIdBase}_budget`} rowName={`Total ${isEntree ? 'Entrées' : 'Sorties'}`} columnName={`${period.label} (Prév.)`} />
-                                            </div>}
-                                            {visibleColumns.actual && <div className="relative flex-1 text-center group/subcell">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        if (totals.actual !== 0) handleActualClick({ type, period });
-                                                    }}
-                                                    disabled={totals.actual === 0}
-                                                    className="font-normal text-text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-60"
-                                                >
-                                                    {formatCurrency(totals.actual, currencySettings)}
-                                                </button>
-                                                <CommentButton rowId={rowId} columnId={`${columnIdBase}_actual`} rowName={`Total ${isEntree ? 'Entrées' : 'Sorties'}`} columnName={`${period.label} (Réel)`} />
-                                            </div>}
-                                            {visibleColumns.reste && <div className={`relative group/subcell flex-1 text-center font-normal ${getResteColor(reste, isEntree)}`}>
+                                        <div className="grid grid-cols-3 gap-1 text-xs">
+                                            {visibleColumns.budget && (
+                                                <div className="relative text-center text-gray-500 group/subcell">
+                                                    {formatCurrency(totals.budget, currencySettings)}
+                                                    <CommentButton rowId={rowId} columnId={`${columnIdBase}_budget`} rowName={`Total ${isEntree ? 'Entrées' : 'Sorties'}`} columnName={`${period.label} (Prév.)`} />
+                                                </div>
+                                            )}
+                                            {visibleColumns.actual && (
+                                                <div className="relative text-center group/subcell">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (totals.actual !== 0) handleActualClick({ type, period });
+                                                        }}
+                                                        disabled={totals.actual === 0}
+                                                        className="font-normal text-text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                                                    >
+                                                        {formatCurrency(totals.actual, currencySettings)}
+                                                    </button>
+                                                    <CommentButton rowId={rowId} columnId={`${columnIdBase}_actual`} rowName={`Total ${isEntree ? 'Entrées' : 'Sorties'}`} columnName={`${period.label} (Réel)`} />
+                                                </div>
+                                            )}
+                                            <div className={`relative text-center font-normal ${getResteColor(reste, isEntree)}`}>
                                                 {formatCurrency(reste, currencySettings)}
                                                 <CommentButton rowId={rowId} columnId={`${columnIdBase}_reste`} rowName={`Total ${isEntree ? 'Entrées' : 'Sorties'}`} columnName={`${period.label} (Reste)`} />
-                                            </div>}
+                                            </div>
                                         </div>
                                     )}
                                 </td>
@@ -1174,30 +1055,34 @@ const BudgetTableView = (props) => {
                                     const rowId = `main_cat_${mainCategory.id}`;
                                     return (
                                         <React.Fragment key={periodIndex}>
-                                            <td className="px-2 py-1">
+                                            <td className="px-1 py-1" style={periodCellStyle}>
                                                 {numVisibleCols > 0 && (
-                                                    <div className="flex justify-around gap-2 text-xs">
-                                                        {visibleColumns.budget && <div className="relative flex-1 font-normal text-center group/subcell">
-                                                            {formatCurrency(totals.budget, currencySettings)}
-                                                            <CommentButton rowId={rowId} columnId={`${columnIdBase}_budget`} rowName={mainCategory.name} columnName={`${period.label} (Prév.)`} />
-                                                        </div>}
-                                                        {visibleColumns.actual && <div className="relative flex-1 font-normal text-center group/subcell">
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    if (totals.actual !== 0) handleActualClick({ mainCategory, period });
-                                                                }}
-                                                                disabled={totals.actual === 0}
-                                                                className="hover:underline disabled:cursor-not-allowed disabled:opacity-60"
-                                                            >
-                                                                {formatCurrency(totals.actual, currencySettings)}
-                                                            </button>
-                                                            <CommentButton rowId={rowId} columnId={`${columnIdBase}_actual`} rowName={mainCategory.name} columnName={`${period.label} (Réel)`} />
-                                                        </div>}
-                                                        {visibleColumns.reste && <div className={`relative group/subcell flex-1 text-center font-normal ${getResteColor(reste, isEntree)}`}>
+                                                    <div className="grid grid-cols-3 gap-1 text-xs">
+                                                        {visibleColumns.budget && (
+                                                            <div className="relative text-center text-gray-500 group/subcell">
+                                                                {formatCurrency(totals.budget, currencySettings)}
+                                                                <CommentButton rowId={rowId} columnId={`${columnIdBase}_budget`} rowName={mainCategory.name} columnName={`${period.label} (Prév.)`} />
+                                                            </div>
+                                                        )}
+                                                        {visibleColumns.actual && (
+                                                            <div className="relative text-center group/subcell">
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        if (totals.actual !== 0) handleActualClick({ mainCategory, period });
+                                                                    }}
+                                                                    disabled={totals.actual === 0}
+                                                                    className="hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                                                                >
+                                                                    {formatCurrency(totals.actual, currencySettings)}
+                                                                </button>
+                                                                <CommentButton rowId={rowId} columnId={`${columnIdBase}_actual`} rowName={mainCategory.name} columnName={`${period.label} (Réel)`} />
+                                                            </div>
+                                                        )}
+                                                        <div className={`relative text-center font-normal ${getResteColor(reste, isEntree)}`}>
                                                             {formatCurrency(reste, currencySettings)}
                                                             <CommentButton rowId={rowId} columnId={`${columnIdBase}_reste`} rowName={mainCategory.name} columnName={`${period.label} (Reste)`} />
-                                                        </div>}
+                                                        </div>
                                                     </div>
                                                 )}
                                             </td>
@@ -1263,36 +1148,34 @@ const BudgetTableView = (props) => {
                                                 const columnIdBase = period.startDate.toISOString();
                                                 return (
                                                     <React.Fragment key={periodIndex}>
-                                                        <td className="px-2 py-1">
+                                                        <td className="px-1 py-1" style={periodCellStyle}>
                                                             {numVisibleCols > 0 && (
-                                                                <div className="flex justify-around gap-2 text-xs">
+                                                                <div className="grid grid-cols-3 gap-1 text-xs">
                                                                     {visibleColumns.budget && (
-                                                                        <div className="relative flex-1 text-center text-gray-500 group/subcell">
+                                                                        <div className="relative text-center text-gray-500 group/subcell">
                                                                             {formatCurrency(budget, currencySettings)}
                                                                             <CommentButton rowId={entry.id} columnId={`${columnIdBase}_budget`} rowName={entry.supplier} columnName={`${period.label} (Prév.)`} />
                                                                         </div>
                                                                     )}
                                                                     {visibleColumns.actual && (
-                                                                        <div className="relative flex-1 text-center group/subcell">
+                                                                        <div className="relative text-center group/subcell">
                                                                             <button
                                                                                 onClick={() => handleOpenPaymentDrawer(entry, period)}
                                                                                 disabled={actual === 0 && budget === 0}
-                                                                                className={`hover:underline disabled:cursor-not-allowed disabled:text-gray-400 ${
-                                                                                    // Couleur différente selon la source des données
-                                                                                    realBudgetData && realBudgetData.real_budget_items && realBudgetData.real_budget_items.data &&
-                                                                                        realBudgetData.real_budget_items.data.some(rb =>
-                                                                                            (rb.budget_id === entry.budget_id || rb.project_id === entry.project_id) &&
-                                                                                            rb.collection_date &&
-                                                                                            new Date(rb.collection_date) >= period.startDate &&
-                                                                                            new Date(rb.collection_date) <= period.endDate
-                                                                                        )
-                                                                                        ? 'font-semibold text-green-600'  // Données API
-                                                                                        : entry.collectionData?.collection?.length > 0
-                                                                                            ? 'font-semibold text-blue-600'   // Données collection existantes
-                                                                                            : 'text-blue-600'                 // Paiements traditionnels
+                                                                                className={`hover:underline disabled:cursor-not-allowed disabled:text-gray-400 ${realBudgetData?.real_budget_items?.data &&
+                                                                                    realBudgetData.real_budget_items.data.some(rb =>
+                                                                                        (rb.budget_id === entry.budget_id || rb.project_id === entry.project_id) &&
+                                                                                        rb.collection_date &&
+                                                                                        new Date(rb.collection_date) >= period.startDate &&
+                                                                                        new Date(rb.collection_date) <= period.endDate
+                                                                                    )
+                                                                                    ? 'font-semibold text-green-600'
+                                                                                    : entry.collectionData?.collection?.length > 0
+                                                                                        ? 'font-semibold text-blue-600'
+                                                                                        : 'text-blue-600'
                                                                                     }`}
                                                                                 title={
-                                                                                    realBudgetData && realBudgetData.real_budget_items && realBudgetData.real_budget_items.data &&
+                                                                                    realBudgetData?.real_budget_items?.data &&
                                                                                         realBudgetData.real_budget_items.data.some(rb =>
                                                                                             (rb.budget_id === entry.budget_id || rb.project_id === entry.project_id) &&
                                                                                             rb.collection_date &&
@@ -1306,24 +1189,14 @@ const BudgetTableView = (props) => {
                                                                                 }
                                                                             >
                                                                                 {formatCurrency(actual, currencySettings)}
-                                                                                {/* Indicateur visuel */}
-                                                                                {realBudgetData && realBudgetData.real_budget_items && realBudgetData.real_budget_items.data &&
-                                                                                    realBudgetData.real_budget_items.data.some(rb =>
-                                                                                        (rb.budget_id === entry.budget_id || rb.project_id === entry.project_id) &&
-                                                                                        rb.collection_date &&
-                                                                                        new Date(rb.collection_date) >= period.startDate &&
-                                                                                        new Date(rb.collection_date) <= period.endDate
-                                                                                    ) }
                                                                             </button>
                                                                             <CommentButton rowId={entry.id} columnId={`${columnIdBase}_actual`} rowName={entry.supplier} columnName={`${period.label} (Réel)`} />
                                                                         </div>
                                                                     )}
-                                                                    {visibleColumns.reste && (
-                                                                        <div className={`relative group/subcell flex-1 text-center font-normal ${getResteColor(reste, isEntree)}`}>
-                                                                            {formatCurrency(reste, currencySettings)}
-                                                                            <CommentButton rowId={entry.id} columnId={`${columnIdBase}_reste`} rowName={entry.supplier} columnName={`${period.label} (Reste)`} />
-                                                                        </div>
-                                                                    )}
+                                                                    <div className={`relative text-center font-normal ${getResteColor(reste, isEntree)}`}>
+                                                                        {formatCurrency(reste, currencySettings)}
+                                                                        <CommentButton rowId={entry.id} columnId={`${columnIdBase}_reste`} rowName={entry.supplier} columnName={`${period.label} (Reste)`} />
+                                                                    </div>
                                                                 </div>
                                                             )}
                                                         </td>
@@ -1489,7 +1362,7 @@ const BudgetTableView = (props) => {
                                                     <div className="flex justify-around gap-2 text-xs font-medium text-gray-600">
                                                         {visibleColumns.budget && <div className="flex-1">Prév.</div>}
                                                         {visibleColumns.actual && <div className="flex-1">Réel</div>}
-                                                        {visibleColumns.reste && <div className="flex-1">Reste</div>}
+                                                        <div className="flex-1">Reste</div>
                                                     </div>
                                                 )}
                                             </th>
@@ -1518,7 +1391,7 @@ const BudgetTableView = (props) => {
 
                                     return (
                                         <React.Fragment key={periodIndex}>
-                                            <td className="px-2 py-2 font-normal text-center" colSpan={1}>
+                                            <td className="px-2 py-2 font-normal text-center" colSpan={numVisibleCols}>
                                                 {formatCurrency(initialAmount, currencySettings)}
                                             </td>
                                             <td className="bg-surface"></td>
@@ -1568,10 +1441,10 @@ const BudgetTableView = (props) => {
                                                             </button>
                                                             <CommentButton rowId={rowId} columnId={`${columnIdBase}_actual`} rowName="Flux de trésorerie" columnName={`${period.label} (Réel)`} />
                                                         </div>}
-                                                        {visibleColumns.reste && <div className={`relative group/subcell flex-1 text-center font-normal ${getResteColor(netReste, true)}`}>
+                                                        <div className={`relative group/subcell flex-1 text-center font-normal ${getResteColor(netReste, true)}`}>
                                                             {formatCurrency(netReste, currencySettings)}
                                                             <CommentButton rowId={rowId} columnId={`${columnIdBase}_reste`} rowName="Flux de trésorerie" columnName={`${period.label} (Reste)`} />
-                                                        </div>}
+                                                        </div>
                                                     </div>
                                                 )}
                                             </td>
@@ -1599,7 +1472,7 @@ const BudgetTableView = (props) => {
 
                                     return (
                                         <React.Fragment key={periodIndex}>
-                                            <td className="px-2 py-2 font-normal text-center" colSpan={1}>
+                                            <td className="px-2 py-2 font-normal text-center" colSpan={numVisibleCols}>
                                                 {formatCurrency(finalAmount, currencySettings)}
                                             </td>
                                             <td className="bg-surface"></td>
