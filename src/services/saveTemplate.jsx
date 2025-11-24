@@ -1,5 +1,6 @@
 import { apiService } from '../utils/ApiService';
 import { fetchTemplates } from './fetchTemplates';
+
 export const saveTemplate = async (
   { dataDispatch, uiDispatch },
   { templateData, editingTemplate, projectStructure, user }
@@ -31,15 +32,16 @@ export const saveTemplate = async (
       payload
     });
 
-    // Utilisation de apiService
-    const result = await apiService.request(
-      editingTemplate ? 'PUT' : 'POST',
-      editingTemplate ? `/templates/${editingTemplate.id}` : '/templates',
-      payload
-    );
+    // Utiliser les méthodes spécifiques au lieu de .request()
+    let result;
+    if (editingTemplate) {
+      result = await apiService.put(`/templates/${editingTemplate.id}`, payload);
+    } else {
+      result = await apiService.post('/templates', payload);
+    }
 
-    if (result.success) {
-      console.log('✅ Template sauvegardé avec succès');
+    // Vérifier le résultat selon la structure de votre API
+    if (result.success || result.status === 200 || result.data) {
       
       // Rafraîchir la liste des templates
       await fetchTemplates({ dataDispatch, uiDispatch });
@@ -56,17 +58,17 @@ export const saveTemplate = async (
 
       return { 
         success: true, 
-        data: result.data,
-        templateId: result.data.id || result.data.template_id 
+        data: result.data || result,
+        templateId: (result.data?.id || result.data?.template_id || result.id || result.template_id) 
       };
     } else {
-      throw new Error(result.error || "Erreur lors de la sauvegarde");
+      throw new Error(result.error || result.message || "Erreur lors de la sauvegarde");
     }
 
   } catch (error) {
-    console.error('❌ Erreur sauvegarde template:', error);
+    console.error('Erreur sauvegarde template:', error);
     
-    const errorMessage = error.message || 'Erreur lors de la sauvegarde du modèle';
+    const errorMessage = error.response?.data?.message || error.message || 'Erreur lors de la sauvegarde du modèle';
 
     uiDispatch({
       type: 'ADD_TOAST',

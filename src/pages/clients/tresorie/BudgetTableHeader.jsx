@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ChevronLeft, ChevronRight, ChevronDown, Plus, TableProperties, Filter } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Plus, TableProperties, Filter, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const BudgetTableHeader = ({
@@ -18,12 +18,11 @@ const BudgetTableHeader = ({
     periodMenuRef,
     isPeriodMenuOpen,
     setIsPeriodMenuOpen,
-    // Props pour le filtre de fréquence
     frequencyFilter,
     setFrequencyFilter,
     isFrequencyFilterOpen,
     setIsFrequencyFilterOpen,
-    frequencyFilterRef
+    frequencyFilterRef,
 }) => {
     const timeUnitLabels = {
         day: 'Jour',
@@ -36,26 +35,18 @@ const BudgetTableHeader = ({
         annually: 'Année',
     };
 
-    // Options de fréquence
     const frequencyOptions = [
         { id: 'all', label: 'Toutes les fréquences' },
-        { id: 'ponctuel', label: 'Ponctuel' },
-        { id: 'journalier', label: 'Journalier' },
-        { id: 'hebdomadaire', label: 'Hebdomadaire' },
-        { id: 'mensuel', label: 'Mensuel' },
-        { id: 'bimestriel', label: 'Bimestriel' },
-        { id: 'trimestriel', label: 'Trimestriel' },
-        { id: 'semestriel', label: 'Semestriel' },
-        { id: 'annuel', label: 'Annuel' },
-        { id: 'irregulier', label: 'Paiement irrégulier' },
+        { id: '1', label: 'Ponctuel' },
+        { id: '2', label: 'Journalier' },
+        { id: '3', label: 'Mensuel' },
+        { id: '4', label: 'Trimestriel' },
+        { id: '5', label: 'Annuel' },
+        { id: '6', label: 'Hebdomadaire' },
+        { id: '7', label: 'Bimestriel' },
+        { id: '8', label: 'Semestriel' },
+        { id: '9', label: 'Paiement irrégulier' },
     ];
-
-    const periodLabel = useMemo(() => {
-        if (periodOffset === 0) return 'Actuel';
-        const label = timeUnitLabels[timeUnit] || 'Période';
-        const plural = Math.abs(periodOffset) > 1 ? 's' : '';
-        return `${periodOffset > 0 ? '+' : ''}${periodOffset} ${label}${plural}`;
-    }, [periodOffset, timeUnit, timeUnitLabels]);
 
     const quickPeriodOptions = [
         { id: 'today', label: 'Jour' },
@@ -68,40 +59,71 @@ const BudgetTableHeader = ({
         { id: 'long_term', label: 'LT (10a)' },
     ];
 
+    const periodLabel = useMemo(() => {
+        if (periodOffset === 0) return 'Actuel';
+        const label = timeUnitLabels[timeUnit] || 'Période';
+        const plural = Math.abs(periodOffset) > 1 ? 's' : '';
+        return `${periodOffset > 0 ? '+' : ''}${periodOffset} ${label}${plural}`;
+    }, [periodOffset, timeUnit, timeUnitLabels]);
+
     const selectedPeriodLabel = quickPeriodOptions.find(opt => opt.id === activeQuickSelect)?.label || 'Période';
     const selectedFrequencyLabel = frequencyOptions.find(opt => opt.id === frequencyFilter)?.label || 'Fréquence';
 
+    const handleFrequencyClick = () => {
+        setIsFrequencyFilterOpen(prev => !prev);
+        if (!isFrequencyFilterOpen) {
+            setIsPeriodMenuOpen(false);
+        }
+    };
+
+    const handlePeriodClick = () => {
+        setIsPeriodMenuOpen(prev => !prev);
+        if (!isPeriodMenuOpen) {
+            setIsFrequencyFilterOpen(false);
+        }
+    };
+
+    const handleFrequencySelect = (optionId) => {
+        setFrequencyFilter(optionId);
+        setIsFrequencyFilterOpen(false);
+    };
+
+    const handlePeriodSelect = (optionId) => {
+        handleQuickPeriodSelect(optionId);
+        setIsPeriodMenuOpen(false);
+    };
+
     return (
-        <div className="relative z-50 mb-6"> {/* Z-INDEX TRÈS ÉLEVÉ */}
+        <div className="relative z-50 mb-6">
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
                     <div className="flex items-center gap-2">
-                        <button 
-                            onClick={() => handlePeriodChange(-1)} 
-                            className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors" 
+                        <button
+                            onClick={() => handlePeriodChange(-1)}
+                            className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors"
                             title="Période précédente"
                         >
                             <ChevronLeft size={18} />
                         </button>
-                        <span 
-                            className="w-24 text-sm font-semibold text-center text-gray-700" 
+                        <span
+                            className="w-24 text-sm font-semibold text-center text-gray-700"
                             title="Décalage par rapport à la période actuelle"
                         >
                             {periodLabel}
                         </span>
-                        <button 
-                            onClick={() => handlePeriodChange(1)} 
-                            className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors" 
+                        <button
+                            onClick={() => handlePeriodChange(1)}
+                            className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors"
                             title="Période suivante"
                         >
                             <ChevronRight size={18} />
                         </button>
                     </div>
-                    
-                    {/* Filtre de fréquence - Z-INDEX CORRIGÉ */}
+
+                    {/* Filtre de fréquence */}
                     <div className="relative" ref={frequencyFilterRef}>
                         <button
-                            onClick={() => setIsFrequencyFilterOpen(p => !p)}
+                            onClick={handleFrequencyClick}
                             className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-gray-700 transition-colors bg-white border border-gray-300 rounded-lg shadow-sm hover:border-blue-500 hover:text-blue-600"
                         >
                             <Filter size={16} className="text-gray-600" />
@@ -114,6 +136,7 @@ const BudgetTableHeader = ({
                                     initial={{ opacity: 0, scale: 0.95, y: -10 }}
                                     animate={{ opacity: 1, scale: 1, y: 0 }}
                                     exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                    transition={{ duration: 0.15 }}
                                     className="absolute left-0 z-50 w-56 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl top-full"
                                 >
                                     <div className="p-2 border-b border-gray-100">
@@ -123,15 +146,11 @@ const BudgetTableHeader = ({
                                         {frequencyOptions.map(option => (
                                             <li key={option.id}>
                                                 <button
-                                                    onClick={() => {
-                                                        setFrequencyFilter(option.id);
-                                                        setIsFrequencyFilterOpen(false);
-                                                    }}
-                                                    className={`w-full text-left px-3 py-2 text-sm rounded-md flex items-center justify-between ${
-                                                        frequencyFilter === option.id 
-                                                            ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200' 
-                                                            : 'text-gray-700 hover:bg-gray-50 border border-transparent'
-                                                    }`}
+                                                    onClick={() => handleFrequencySelect(option.id)}
+                                                    className={`w-full text-left px-3 py-2 text-sm rounded-md flex items-center justify-between ${frequencyFilter === option.id
+                                                        ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200'
+                                                        : 'text-gray-700 hover:bg-gray-50 border border-transparent'
+                                                        }`}
                                                 >
                                                     <span>{option.label}</span>
                                                     {frequencyFilter === option.id && (
@@ -146,10 +165,10 @@ const BudgetTableHeader = ({
                         </AnimatePresence>
                     </div>
 
-                    {/* Menu période - Z-INDEX CORRIGÉ */}
+                    {/* Menu période */}
                     <div className="relative" ref={periodMenuRef}>
                         <button
-                            onClick={() => setIsPeriodMenuOpen(p => !p)}
+                            onClick={handlePeriodClick}
                             className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-gray-700 transition-colors bg-white border border-gray-300 rounded-lg shadow-sm hover:border-blue-500 hover:text-blue-600"
                         >
                             <span>{selectedPeriodLabel}</span>
@@ -161,21 +180,18 @@ const BudgetTableHeader = ({
                                     initial={{ opacity: 0, scale: 0.95, y: -10 }}
                                     animate={{ opacity: 1, scale: 1, y: 0 }}
                                     exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                    transition={{ duration: 0.15 }}
                                     className="absolute left-0 z-50 w-48 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl top-full"
                                 >
                                     <ul className="p-1">
                                         {quickPeriodOptions.map(option => (
                                             <li key={option.id}>
                                                 <button
-                                                    onClick={() => {
-                                                        handleQuickPeriodSelect(option.id);
-                                                        setIsPeriodMenuOpen(false);
-                                                    }}
-                                                    className={`w-full text-left px-3 py-1.5 text-sm rounded-md ${
-                                                        activeQuickSelect === option.id 
-                                                            ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200' 
-                                                            : 'text-gray-700 hover:bg-gray-50 border border-transparent'
-                                                    }`}
+                                                    onClick={() => handlePeriodSelect(option.id)}
+                                                    className={`w-full text-left px-3 py-1.5 text-sm rounded-md ${activeQuickSelect === option.id
+                                                        ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200'
+                                                        : 'text-gray-700 hover:bg-gray-50 border border-transparent'
+                                                        }`}
                                                 >
                                                     {option.label}
                                                 </button>

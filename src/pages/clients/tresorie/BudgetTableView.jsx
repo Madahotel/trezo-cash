@@ -17,239 +17,13 @@ import { useData } from '../../../components/context/DataContext.jsx';
 import {
     getCollection,
 } from '../../../components/context/collectionActions';
-import { trezoTableService } from '../../../services/trezoTableService';
 import axios from '../../../components/config/Axios.jsx';
+import BudgetTableHeader from './BudgetTableHeader.jsx';
+import useRealBudgetData from '../../../hooks/useRealBudgetData.jsx';
+
 
 // Composant Header séparé
-const BudgetTableHeader = ({
-    timeUnit,
-    periodOffset,
-    activeQuickSelect,
-    tableauMode,
-    setTableauMode,
-    showViewModeSwitcher,
-    showNewEntryButton,
-    isConsolidated,
-    isCustomConsolidated,
-    handlePeriodChange,
-    handleQuickPeriodSelect,
-    handleNewBudget,
-    periodMenuRef,
-    isPeriodMenuOpen,
-    setIsPeriodMenuOpen,
-    frequencyFilter,
-    setFrequencyFilter,
-    isFrequencyFilterOpen,
-    setIsFrequencyFilterOpen,
-    frequencyFilterRef,
-}) => {
-    const timeUnitLabels = {
-        day: 'Jour',
-        week: 'Semaine',
-        fortnightly: 'Quinzaine',
-        month: 'Mois',
-        bimonthly: 'Bimestre',
-        quarterly: 'Trimestre',
-        semiannually: 'Semestre',
-        annually: 'Année',
-    };
-
-    const frequencyOptions = [
-        { id: 'all', label: 'Toutes les fréquences' },
-        { id: '1', label: 'Ponctuel' },
-        { id: '2', label: 'Journalier' },
-        { id: '3', label: 'Mensuel' },
-        { id: '4', label: 'Trimestriel' },
-        { id: '5', label: 'Annuel' },
-        { id: '6', label: 'Hebdomadaire' },
-        { id: '7', label: 'Bimestriel' },
-        { id: '8', label: 'Semestriel' },
-        { id: '9', label: 'Paiement irrégulier' },
-    ];
-
-    const periodLabel = useMemo(() => {
-        if (periodOffset === 0) return 'Actuel';
-        const label = timeUnitLabels[timeUnit] || 'Période';
-        const plural = Math.abs(periodOffset) > 1 ? 's' : '';
-        return `${periodOffset > 0 ? '+' : ''}${periodOffset} ${label}${plural}`;
-    }, [periodOffset, timeUnit, timeUnitLabels]);
-
-    const quickPeriodOptions = [
-        { id: 'today', label: 'Jour' },
-        { id: 'week', label: 'Semaine' },
-        { id: 'month', label: 'Mois' },
-        { id: 'quarter', label: 'Trimestre' },
-        { id: 'year', label: 'Année' },
-        { id: 'short_term', label: 'CT (3a)' },
-        { id: 'medium_term', label: 'MT (5a)' },
-        { id: 'long_term', label: 'LT (10a)' },
-    ];
-
-    const selectedPeriodLabel = quickPeriodOptions.find(opt => opt.id === activeQuickSelect)?.label || 'Période';
-    const selectedFrequencyLabel = frequencyOptions.find(opt => opt.id === frequencyFilter)?.label || 'Fréquence';
-
-    const handleFrequencyClick = () => {
-        setIsFrequencyFilterOpen(prev => !prev);
-        if (!isFrequencyFilterOpen) {
-            setIsPeriodMenuOpen(false);
-        }
-    };
-
-    const handlePeriodClick = () => {
-        setIsPeriodMenuOpen(prev => !prev);
-        if (!isPeriodMenuOpen) {
-            setIsFrequencyFilterOpen(false);
-        }
-    };
-
-    const handleFrequencySelect = (optionId) => {
-        setFrequencyFilter(optionId);
-        setIsFrequencyFilterOpen(false);
-    };
-
-    const handlePeriodSelect = (optionId) => {
-        handleQuickPeriodSelect(optionId);
-        setIsPeriodMenuOpen(false);
-    };
-
-    return (
-        <div className="relative z-50 mb-6">
-            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => handlePeriodChange(-1)}
-                            className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors"
-                            title="Période précédente"
-                        >
-                            <ChevronLeft size={18} />
-                        </button>
-                        <span
-                            className="w-24 text-sm font-semibold text-center text-gray-700"
-                            title="Décalage par rapport à la période actuelle"
-                        >
-                            {periodLabel}
-                        </span>
-                        <button
-                            onClick={() => handlePeriodChange(1)}
-                            className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors"
-                            title="Période suivante"
-                        >
-                            <ChevronRight size={18} />
-                        </button>
-                    </div>
-
-                    {/* Filtre de fréquence */}
-                    <div className="relative" ref={frequencyFilterRef}>
-                        <button
-                            onClick={handleFrequencyClick}
-                            className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-gray-700 transition-colors bg-white border border-gray-300 rounded-lg shadow-sm hover:border-blue-500 hover:text-blue-600"
-                        >
-                            <Filter size={16} className="text-gray-600" />
-                            <span>{selectedFrequencyLabel}</span>
-                            <ChevronDown className={`w-4 h-4 transition-transform ${isFrequencyFilterOpen ? 'rotate-180' : ''}`} />
-                        </button>
-                        <AnimatePresence>
-                            {isFrequencyFilterOpen && (
-                                <motion.div
-                                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                                    exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                                    transition={{ duration: 0.15 }}
-                                    className="absolute left-0 z-50 w-56 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl top-full"
-                                >
-                                    <div className="p-2 border-b border-gray-100">
-                                        <div className="text-xs font-semibold text-gray-500 uppercase">Filtrer par fréquence</div>
-                                    </div>
-                                    <ul className="p-1 overflow-y-auto max-h-60">
-                                        {frequencyOptions.map(option => (
-                                            <li key={option.id}>
-                                                <button
-                                                    onClick={() => handleFrequencySelect(option.id)}
-                                                    className={`w-full text-left px-3 py-2 text-sm rounded-md flex items-center justify-between ${frequencyFilter === option.id
-                                                        ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200'
-                                                        : 'text-gray-700 hover:bg-gray-50 border border-transparent'
-                                                        }`}
-                                                >
-                                                    <span>{option.label}</span>
-                                                    {frequencyFilter === option.id && (
-                                                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                                                    )}
-                                                </button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </div>
-
-                    {/* Menu période */}
-                    <div className="relative" ref={periodMenuRef}>
-                        <button
-                            onClick={handlePeriodClick}
-                            className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-gray-700 transition-colors bg-white border border-gray-300 rounded-lg shadow-sm hover:border-blue-500 hover:text-blue-600"
-                        >
-                            <span>{selectedPeriodLabel}</span>
-                            <ChevronDown className={`w-4 h-4 transition-transform ${isPeriodMenuOpen ? 'rotate-180' : ''}`} />
-                        </button>
-                        <AnimatePresence>
-                            {isPeriodMenuOpen && (
-                                <motion.div
-                                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                                    exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                                    transition={{ duration: 0.15 }}
-                                    className="absolute left-0 z-50 w-48 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl top-full"
-                                >
-                                    <ul className="p-1">
-                                        {quickPeriodOptions.map(option => (
-                                            <li key={option.id}>
-                                                <button
-                                                    onClick={() => handlePeriodSelect(option.id)}
-                                                    className={`w-full text-left px-3 py-1.5 text-sm rounded-md ${activeQuickSelect === option.id
-                                                        ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200'
-                                                        : 'text-gray-700 hover:bg-gray-50 border border-transparent'
-                                                        }`}
-                                                >
-                                                    {option.label}
-                                                </button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </div>
-                </div>
-                <div className="flex items-center gap-6">
-                    {showViewModeSwitcher && (
-                        <div className="flex items-center gap-4">
-                            <button
-                                onClick={() => setTableauMode('edition')}
-                                className={`flex items-center gap-2 text-sm font-semibold transition-colors ${tableauMode === 'edition' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-800'}`}
-                            >
-                                <TableProperties size={16} />
-                                TCD
-                            </button>
-                        </div>
-                    )}
-                    {showNewEntryButton && (
-                        <button
-                            onClick={handleNewBudget}
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white transition-colors bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={isConsolidated || isCustomConsolidated}
-                        >
-                            <Plus className="w-5 h-5" />
-                            Nouvelle Entrée
-                        </button>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-};
-
+<BudgetTableHeader />
 // Configuration et fonctions utilitaires
 const criticalityConfig = {
     critical: { label: 'Critique', color: 'bg-red-500' },
@@ -257,7 +31,7 @@ const criticalityConfig = {
     discretionary: { label: 'Discrétionnaire', color: 'bg-blue-500' },
 };
 
-// CORRECTION COMPLÈTE de calculateEntryAmountForPeriod
+//calculateEntryAmountForPeriod
 const calculateEntryAmountForPeriod = (entry, startDate, endDate) => {
     if (!entry || !entry.amount) {
         return 0;
@@ -301,50 +75,85 @@ const calculateEntryAmountForPeriod = (entry, startDate, endDate) => {
     return amount;
 };
 
-const calculateActualAmountForPeriod = (entry, actualTransactions, startDate, endDate) => {
+const calculateActualAmountForPeriod = (entry, actualTransactions, startDate, endDate, realBudgetData = null) => {
     if (!entry) return 0;
 
-    // PRIORITÉ 1: Utiliser les données de collection si disponibles
-    if (entry.collectionData && entry.collectionData.collection) {
-        let collectionAmount = 0;
+    console.log('🔍 Calcul pour:', entry.supplier, 'budget_id:', entry.budget_id);
 
-        if (Array.isArray(entry.collectionData.collection)) {
-            const collectionInPeriod = entry.collectionData.collection.filter(collection => {
-                if (!collection.collection_date) return false;
-                try {
-                    const collectionDate = new Date(collection.collection_date);
-                    return collectionDate >= startDate && collectionDate <= endDate;
-                } catch (error) {
-                    console.error('Erreur parsing date collection:', error);
-                    return false;
-                }
+    // PRIORITÉ 1: Données real_budget API - CORRECTION ICI
+    if (realBudgetData?.real_budget_items?.data) {
+        const realBudgetsForEntry = realBudgetData.real_budget_items.data.filter(rb => {
+            // CORRECTION: Vérifier la correspondance EXACTE par budget_id
+            const matchesBudget = rb.budget_id === entry.budget_id;
+
+            console.log(`🔍 Vérification correspondance:`, {
+                entry_supplier: entry.supplier,
+                entry_budget_id: entry.budget_id,
+                real_budget_id: rb.budget_id,
+                matchesBudget,
+                collection_amount: rb.collection_amount
             });
 
-            collectionAmount = collectionInPeriod.reduce((sum, coll) => {
-                const amount = parseFloat(coll.collection_amount) || 0;
+            return matchesBudget;
+        });
+
+        console.log(`📊 ${entry.supplier}: ${realBudgetsForEntry.length} collections correspondantes`);
+
+        if (realBudgetsForEntry.length > 0) {
+            // CORRECTION: Calculer la somme de TOUTES les collections correspondantes
+            const totalAmount = realBudgetsForEntry.reduce((sum, rb) => {
+                const amount = parseFloat(rb.collection_amount) || 0;
+                console.log(`💰 ${entry.supplier}: ${amount} depuis real_budget`);
                 return sum + amount;
             }, 0);
-        }
 
-        // Si on a un montant de collection, on le retourne directement
+            console.log(`✅ FINAL ${entry.supplier}: ${totalAmount}`);
+            return totalAmount;
+        }
+    }
+
+    console.log(`❌ Aucune donnée real_budget correspondante pour ${entry.supplier}`);
+
+    // PRIORITÉ 2: Données de collection existantes
+    if (entry.collectionData?.collection) {
+        const collectionInPeriod = entry.collectionData.collection.filter(coll => {
+            if (!coll.collection_date) return false;
+            try {
+                const collectionDate = new Date(coll.collection_date);
+                return collectionDate >= startDate && collectionDate <= endDate;
+            } catch (error) {
+                return false;
+            }
+        });
+
+        const collectionAmount = collectionInPeriod.reduce((sum, coll) => {
+            return sum + (parseFloat(coll.collection_amount) || 0);
+        }, 0);
+
         if (collectionAmount > 0) {
+            console.log(`📋 COLLECTION: ${entry.supplier} = ${collectionAmount}`);
             return collectionAmount;
         }
     }
 
-    // PRIORITÉ 2: Fallback sur les paiements traditionnels
+    // PRIORITÉ 3: Paiements traditionnels
     const entryActuals = actualTransactions.filter(actual =>
-        actual.budgetId === entry.id ||
-        actual.budgetId === entry.id.replace('_vat', '')
+        actual.budgetId === entry.id || actual.budgetId === entry.id.replace('_vat', '')
     );
 
     const paymentsAmount = entryActuals.reduce((sum, actual) => {
         const paymentsInPeriod = (actual.payments || []).filter(p => {
-            const paymentDate = new Date(p.paymentDate);
-            return paymentDate >= startDate && paymentDate <= endDate;
+            try {
+                const paymentDate = new Date(p.paymentDate);
+                return paymentDate >= startDate && paymentDate <= endDate;
+            } catch (error) {
+                return false;
+            }
         });
         return sum + paymentsInPeriod.reduce((paymentSum, p) => paymentSum + (p.paidAmount || 0), 0);
     }, 0);
+
+    console.log(`💳 PAIEMENTS: ${entry.supplier} = ${paymentsAmount}`);
 
     return paymentsAmount;
 };
@@ -452,6 +261,8 @@ const BudgetTableView = (props) => {
     const [hasNoData, setHasNoData] = useState(false);
 
     // États locaux
+    // Récupération des données real_budget
+    const { realBudgetData, loading: realBudgetLoading } = useRealBudgetData(activeProjectId);
     const [collectionData, setCollectionData] = useState({});
     const [loadingCollections, setLoadingCollections] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -490,7 +301,7 @@ const BudgetTableView = (props) => {
         decimalPlaces: activeProject?.decimal_places,
     }), [activeProject]);
 
-        const frequencyOptions = [
+    const frequencyOptions = [
         { id: 'all', label: 'Toutes les fréquences' },
         { id: '1', label: 'Ponctuel' },
         { id: '2', label: 'Journalier' },
@@ -503,79 +314,79 @@ const BudgetTableView = (props) => {
         { id: '9', label: 'Paiement irrégulier' },
     ];
 
-const fetchProjectData = async (projectId, frequencyId = null) => {
-    if (!projectId) return;
+    const fetchProjectData = async (projectId, frequencyId = null) => {
+        if (!projectId) return;
 
-    setLoading(true);
-    setError(null);
-    setHasNoData(false);
-
-    try {
-        const params = {};
-
-        if (frequencyId && frequencyId !== 'all') {
-            params.frequency_id = frequencyId;
-        }
-
-        const response = await axios.get(`/trezo-tables/projects/${projectId}`, { params });
-        const data = response.data;
-
-        // CORRECTION : Gestion simplifiée et robuste de la réponse
-        if (data && data.budgets) {
-            const hasBudgetItems = data.budgets.budget_items && data.budgets.budget_items.length > 0;
-            
-            if (hasBudgetItems) {
-                setProjectData(data);
-                setHasNoData(false);
-            } else {
-                // Aucune donnée trouvée pour ce filtre - ce n'est pas une erreur
-                setProjectData({ budgets: { budget_items: [] } });
-                setHasNoData(true);
-            }
-        } else {
-            // Format de réponse inattendu mais on gère gracieusement
-            console.warn('Format de réponse inattendu, mais traitement continué:', data);
-            setProjectData({ budgets: { budget_items: [] } });
-            setHasNoData(true);
-        }
-
-    } catch (err) {
-        console.error('❌ Erreur détaillée:', {
-            message: err.message,
-            response: err.response?.data,
-            status: err.response?.status
-        });
-
-        let errorMessage = 'Erreur de chargement des données';
-
-        if (err.response) {
-            // Erreur avec réponse du serveur
-            if (err.response.status === 404) {
-                errorMessage = 'Projet non trouvé';
-            } else if (err.response.status === 204) {
-                // Aucune donnée - ce n'est pas une erreur
-                setProjectData({ budgets: { budget_items: [] } });
-                setHasNoData(true);
-                setError(null);
-                setLoading(false);
-                return;
-            } else {
-                errorMessage = err.response.data?.message || `Erreur ${err.response.status}`;
-            }
-        } else if (err.request) {
-            // Erreur de réseau
-            errorMessage = 'Erreur de connexion au serveur';
-        } else {
-            // Autre erreur
-            errorMessage = err.message;
-        }
-
-        setError(errorMessage);
+        setLoading(true);
+        setError(null);
         setHasNoData(false);
-    } finally {
-        setLoading(false);
-    }
-};
+
+        try {
+            const params = {};
+
+            if (frequencyId && frequencyId !== 'all') {
+                params.frequency_id = frequencyId;
+            }
+
+            const response = await axios.get(`/trezo-tables/projects/${projectId}`, { params });
+            const data = response.data;
+
+            // CORRECTION : Gestion simplifiée et robuste de la réponse
+            if (data && data.budgets) {
+                const hasBudgetItems = data.budgets.budget_items && data.budgets.budget_items.length > 0;
+
+                if (hasBudgetItems) {
+                    setProjectData(data);
+                    setHasNoData(false);
+                } else {
+                    // Aucune donnée trouvée pour ce filtre - ce n'est pas une erreur
+                    setProjectData({ budgets: { budget_items: [] } });
+                    setHasNoData(true);
+                }
+            } else {
+                // Format de réponse inattendu mais on gère gracieusement
+                console.warn('Format de réponse inattendu, mais traitement continué:', data);
+                setProjectData({ budgets: { budget_items: [] } });
+                setHasNoData(true);
+            }
+
+        } catch (err) {
+            console.error('❌ Erreur détaillée:', {
+                message: err.message,
+                response: err.response?.data,
+                status: err.response?.status
+            });
+
+            let errorMessage = 'Erreur de chargement des données';
+
+            if (err.response) {
+                // Erreur avec réponse du serveur
+                if (err.response.status === 404) {
+                    errorMessage = 'Projet non trouvé';
+                } else if (err.response.status === 204) {
+                    // Aucune donnée - ce n'est pas une erreur
+                    setProjectData({ budgets: { budget_items: [] } });
+                    setHasNoData(true);
+                    setError(null);
+                    setLoading(false);
+                    return;
+                } else {
+                    errorMessage = err.response.data?.message || `Erreur ${err.response.status}`;
+                }
+            } else if (err.request) {
+                // Erreur de réseau
+                errorMessage = 'Erreur de connexion au serveur';
+            } else {
+                // Autre erreur
+                errorMessage = err.message;
+            }
+
+            setError(errorMessage);
+            setHasNoData(false);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Récupération des données de l'API quand projectId ou frequencyFilter change
     useEffect(() => {
@@ -752,56 +563,56 @@ const fetchProjectData = async (projectId, frequencyId = null) => {
         });
     }, [timeUnit, horizonLength, periodOffset, activeQuickSelect, settings.timezoneOffset]);
 
-// Dans BudgetTableView.jsx - Ajoutez cette fonction
-const fetchCollectionAccount = async (budgetId, date) => {
-    if (loadingCollections) return;
+    // Dans BudgetTableView.jsx - Ajoutez cette fonction
+    const fetchCollectionAccount = async (budgetId, date) => {
+        if (loadingCollections) return;
 
-    try {
-        setLoadingCollections(true);
-        
-        // ESSAYEZ D'ABORD L'APPEL NORMAL
-        const res = await getCollection(budgetId, date);
+        try {
+            setLoadingCollections(true);
 
-        if (res && res.status === 200) {
-            const hasValidCollections = Array.isArray(res.collection) && res.collection.length > 0;
+            // ESSAYEZ D'ABORD L'APPEL NORMAL
+            const res = await getCollection(budgetId, date);
 
-            setCollectionData(prev => {
-                const newData = {
-                    ...prev,
-                    [budgetId]: res
-                };
+            if (res && res.status === 200) {
+                const hasValidCollections = Array.isArray(res.collection) && res.collection.length > 0;
 
-                if (res.budget && res.budget.budget_detail_id && res.budget.budget_detail_id !== budgetId) {
-                    newData[res.budget.budget_detail_id] = res;
-                }
+                setCollectionData(prev => {
+                    const newData = {
+                        ...prev,
+                        [budgetId]: res
+                    };
 
-                return newData;
-            });
+                    if (res.budget && res.budget.budget_detail_id && res.budget.budget_detail_id !== budgetId) {
+                        newData[res.budget.budget_detail_id] = res;
+                    }
 
-            if (hasValidCollections) {
-                console.log(`✅ Collection trouvée pour ${budgetId}:`, {
-                    montant: res.collection[0].collection_amount,
-                    date: res.collection[0].collection_date,
-                    count: res.collection.length
+                    return newData;
                 });
+
+                if (hasValidCollections) {
+                    console.log(`✅ Collection trouvée pour ${budgetId}:`, {
+                        montant: res.collection[0].collection_amount,
+                        date: res.collection[0].collection_date,
+                        count: res.collection.length
+                    });
+                }
             }
+        } catch (error) {
+            console.warn(`⚠️ Erreur fetch collection ${budgetId}, utilisation des données par défaut:`, error);
+
+            // EN CAS D'ERREUR, UTILISEZ DES DONNÉES PAR DÉFAUT
+            setCollectionData(prev => ({
+                ...prev,
+                [budgetId]: {
+                    collection: [],
+                    status: 'no_endpoint',
+                    message: 'Endpoint collections non disponible'
+                }
+            }));
+        } finally {
+            setLoadingCollections(false);
         }
-    } catch (error) {
-        console.warn(`⚠️ Erreur fetch collection ${budgetId}, utilisation des données par défaut:`, error);
-        
-        // EN CAS D'ERREUR, UTILISEZ DES DONNÉES PAR DÉFAUT
-        setCollectionData(prev => ({
-            ...prev,
-            [budgetId]: { 
-                collection: [], 
-                status: 'no_endpoint',
-                message: 'Endpoint collections non disponible'
-            }
-        }));
-    } finally {
-        setLoadingCollections(false);
-    }
-};
+    };
 
     useEffect(() => {
         const fetchCollectionsWithDelay = async () => {
@@ -1447,7 +1258,7 @@ const fetchCollectionAccount = async (budgetId, date) => {
                                             <td className="bg-surface"></td>
                                             {periods.map((period, periodIndex) => {
                                                 const budget = calculateEntryAmountForPeriod(entry, period.startDate, period.endDate);
-                                                const actual = calculateActualAmountForPeriod(entry, finalActualTransactions, period.startDate, period.endDate);
+                                                const actual = calculateActualAmountForPeriod(entry, finalActualTransactions, period.startDate, period.endDate, realBudgetData);
                                                 const reste = budget - actual;
                                                 const columnIdBase = period.startDate.toISOString();
                                                 return (
@@ -1466,16 +1277,43 @@ const fetchCollectionAccount = async (budgetId, date) => {
                                                                             <button
                                                                                 onClick={() => handleOpenPaymentDrawer(entry, period)}
                                                                                 disabled={actual === 0 && budget === 0}
-                                                                                className={`text-blue-600 hover:underline disabled:cursor-not-allowed disabled:text-gray-400 ${entry.collectionData && entry.collectionData.collection && entry.collectionData.collection.length > 0
-                                                                                    ? 'font-semibold text-green-600'
-                                                                                    : ''
+                                                                                className={`hover:underline disabled:cursor-not-allowed disabled:text-gray-400 ${
+                                                                                    // Couleur différente selon la source des données
+                                                                                    realBudgetData && realBudgetData.real_budget_items && realBudgetData.real_budget_items.data &&
+                                                                                        realBudgetData.real_budget_items.data.some(rb =>
+                                                                                            (rb.budget_id === entry.budget_id || rb.project_id === entry.project_id) &&
+                                                                                            rb.collection_date &&
+                                                                                            new Date(rb.collection_date) >= period.startDate &&
+                                                                                            new Date(rb.collection_date) <= period.endDate
+                                                                                        )
+                                                                                        ? 'font-semibold text-green-600'  // Données API
+                                                                                        : entry.collectionData?.collection?.length > 0
+                                                                                            ? 'font-semibold text-blue-600'   // Données collection existantes
+                                                                                            : 'text-blue-600'                 // Paiements traditionnels
                                                                                     }`}
-                                                                                title={entry.collectionData ? "Montant provenant des collections" : "Montant provenant des paiements"}
+                                                                                title={
+                                                                                    realBudgetData && realBudgetData.real_budget_items && realBudgetData.real_budget_items.data &&
+                                                                                        realBudgetData.real_budget_items.data.some(rb =>
+                                                                                            (rb.budget_id === entry.budget_id || rb.project_id === entry.project_id) &&
+                                                                                            rb.collection_date &&
+                                                                                            new Date(rb.collection_date) >= period.startDate &&
+                                                                                            new Date(rb.collection_date) <= period.endDate
+                                                                                        )
+                                                                                        ? "Montant provenant des données real_budget API"
+                                                                                        : entry.collectionData?.collection?.length > 0
+                                                                                            ? "Montant provenant des collections"
+                                                                                            : "Montant provenant des paiements"
+                                                                                }
                                                                             >
                                                                                 {formatCurrency(actual, currencySettings)}
-                                                                                {entry.collectionData && entry.collectionData.collection && entry.collectionData.collection.length > 0 && (
-                                                                                    <span className="ml-1 text-xs text-green-600" title="Données de collection">●</span>
-                                                                                )}
+                                                                                {/* Indicateur visuel */}
+                                                                                {realBudgetData && realBudgetData.real_budget_items && realBudgetData.real_budget_items.data &&
+                                                                                    realBudgetData.real_budget_items.data.some(rb =>
+                                                                                        (rb.budget_id === entry.budget_id || rb.project_id === entry.project_id) &&
+                                                                                        rb.collection_date &&
+                                                                                        new Date(rb.collection_date) >= period.startDate &&
+                                                                                        new Date(rb.collection_date) <= period.endDate
+                                                                                    ) }
                                                                             </button>
                                                                             <CommentButton rowId={entry.id} columnId={`${columnIdBase}_actual`} rowName={entry.supplier} columnName={`${period.label} (Réel)`} />
                                                                         </div>
