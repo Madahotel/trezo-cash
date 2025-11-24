@@ -383,11 +383,11 @@ const BudgetTable = ({
       </div>
 
       {/* Tabs */}
-      <div className="flex space-x-1 rounded-lg bg-gray-100 p-1 mb-6">
+      <div className="flex space-x-1 rounded-lg bg-gray-100 p-1 mb-4">
         <button
-          className={`flex-1 rounded-md px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
+          className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 ${
             activeTab === 'revenus'
-              ? 'bg-white text-gray-900 border border-gray-200'
+              ? 'bg-white text-gray-900 border border-gray-200 shadow-sm'
               : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
           }`}
           onClick={() => handleTabChange('revenus')}
@@ -395,9 +395,9 @@ const BudgetTable = ({
           Revenus ({budgetData?.entries?.entry_count || 0})
         </button>
         <button
-          className={`flex-1 rounded-md px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
+          className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 ${
             activeTab === 'depenses'
-              ? 'bg-white text-gray-900 border border-gray-200'
+              ? 'bg-white text-gray-900 border border-gray-200 shadow-sm'
               : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
           }`}
           onClick={() => handleTabChange('depenses')}
@@ -405,7 +405,6 @@ const BudgetTable = ({
           Dépenses ({budgetData?.exits?.exit_count || 0})
         </button>
       </div>
-
       {/* Tableau */}
       <div className="overflow-x-auto">
         <table className="w-full">

@@ -250,7 +250,7 @@ const BudgetLineDialog = ({
   const fetchOptions = async () => {
     try {
       setIsLoadingData(true);
-      const res = await getOptions();
+      const res = await apiGet('/budget-projects/options');
       let combinedList = [];
       if (res.users) {
         const userThirdParties =
@@ -543,6 +543,9 @@ const BudgetLineDialog = ({
               ) : (
                 <div className="space-y-6">
                   <BasicInfoSection
+                    onDescriptionChange={(value) =>
+                      handleChange('description', value)
+                    }
                     formData={formData}
                     onFormChange={handleChange}
                     listCategoryTypes={listCategoryTypes}
@@ -555,10 +558,6 @@ const BudgetLineDialog = ({
                   />
 
                   <AdvancedOptions
-                    description={formData.description}
-                    onDescriptionChange={(value) =>
-                      handleChange('description', value)
-                    }
                     amountType={amountType}
                     onAmountTypeChange={setAmountType}
                     vatRateId={vatRateId}
