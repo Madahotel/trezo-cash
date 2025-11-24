@@ -16,36 +16,41 @@ import {
     MoreVertical,
 } from '../../../utils/Icons';
 import { Button } from '../../../components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '../../../components/ui/card';
 import { Textarea } from '../../../components/ui/textarea';
 import Badge from '../../../components/ui/badge';
-import { getBudget } from '../../../components/context/budgetAction';
 import { formatCurrency } from '../../../utils/formatters';
+import { apiGet } from '../../../components/context/actionsMethode';
 
 const ProjectCard = ({
-    project,
-    isSelectMode,
-    isSelected,
-    onToggleSelection,
-    projectTypeIcons,
-    projectTypeColors,
-    getProjectIcon,
-    getProjectColor,
-    editingProjectId,
-    editForm,
-    setEditForm,
-    setEditingProjectId,
-    updateProject,
-    navigate,
-    handleArchiveProject,
-    handleRestoreProject,
-    handleDeleteProject,
-    localLoading,
-    activeProjectId,
+  project,
+  isSelectMode,
+  isSelected,
+  onToggleSelection,
+  projectTypeIcons,
+  projectTypeColors,
+  getProjectIcon,
+  getProjectColor,
+  editingProjectId,
+  editForm,
+  setEditForm,
+  setEditingProjectId,
+  updateProject,
+  navigate,
+  handleArchiveProject,
+  handleRestoreProject,
+  handleDeleteProject,
+  localLoading,
+  activeProjectId,
 }) => {
-    const IconComponent = getProjectIcon(project.typeName);
-    const projectColor = getProjectColor(project.typeName);
-    const isActiveProject = activeProjectId === project.id;
+  const IconComponent = getProjectIcon(project.typeName);
+  const projectColor = getProjectColor(project.typeName);
+  const isActiveProject = activeProjectId === project.id;
 
     const isDurationUndetermined = project.isDurationUndetermined || 
                                   project.isEndDateIndefinite || 
@@ -74,7 +79,9 @@ const ProjectCard = ({
             setBudgetLoading(true);
             await new Promise(resolve => setTimeout(resolve, 100));
             
-            const data = await getBudget(project.id);
+            // const data = await apiGet();
+            const data = await apiGet(`/budget-projects/${project.id}`);
+
             setProjectBudget({
                 sumEntries: data.sumEntries || 0,
                 sumExpenses: data.sumExpenses || 0,
@@ -102,25 +109,35 @@ const ProjectCard = ({
         };
     }, [project.id]);
 
-    const getProgressPercentage = (realized, budget) => {
-        if (budget === 0) return 0;
-        return Math.min((realized / budget) * 100, 100);
-    };
+  const getProgressPercentage = (realized, budget) => {
+    if (budget === 0) return 0;
+    return Math.min((realized / budget) * 100, 100);
+  };
 
     const netBudget = projectBudget.sumEntries - projectBudget.sumExpenses;
     const netRealized = project.incomeRealized - project.expenseRealized;
 
-    const incomeProgress = getProgressPercentage(project.incomeRealized, projectBudget.sumEntries || 1);
-    const expenseProgress = getProgressPercentage(project.expenseRealized, projectBudget.sumExpenses || 1);
+  const incomeProgress = getProgressPercentage(
+    project.incomeRealized,
+    projectBudget.sumEntries || 1
+  );
+  const expenseProgress = getProgressPercentage(
+    project.expenseRealized,
+    projectBudget.sumExpenses || 1
+  );
 
-    const formatDate = (dateString) => {
-        if (!dateString) return 'Non définie';
-        return new Date(dateString).toLocaleDateString('fr-FR');
-    };
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Non définie';
+    return new Date(dateString).toLocaleDateString('fr-FR');
+  };
 
-    const getInitials = (name) => {
-        return name.split(' ').map(n => n[0]).join('').toUpperCase();
-    };
+  const getInitials = (name) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase();
+  };
 
     // Palette de couleurs épurée et professionnelle
     const colorClasses = {
@@ -158,7 +175,7 @@ const ProjectCard = ({
         }
     };
 
-    const currentColor = colorClasses[projectColor] || colorClasses.gray;
+  const currentColor = colorClasses[projectColor] || colorClasses.gray;
 
     const handleDurationChange = (isIndetermined) => {
         setEditForm(prev => ({

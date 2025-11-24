@@ -13,6 +13,7 @@ import {
   Home,
   Heart,
   User,
+  Coins,
 } from 'lucide-react';
 import AmbassadorIcon from '../../components/sidebar/AmbassadorIcon';
 import { useSettings } from '../context/SettingsContext';
@@ -36,7 +37,14 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
 
   const { user, token } = useAuth();
   const { profile, projects, consolidatedViews } = dataState;
-  const { theme, setTheme, getAllThemes } = useSettings();
+  const {
+    theme,
+    setTheme,
+    currencies,
+    selectedCurrency,
+    setSelectedCurrency,
+    getAllThemes,
+  } = useSettings();
   const navigate = useNavigate();
   const location = useLocation();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -284,6 +292,51 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
                 })}
               </DropdownMenuContent>
             </DropdownMenu>
+            {/*Devise */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Devise"
+                  className="text-purple-600"
+                >
+                  <Coins className="w-5 h-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuLabel className="flex items-center">
+                  <Coins className="w-4 h-4 mr-2" />
+                  Choisir votre devise
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {currencies.map((currency) => (
+                  <DropdownMenuItem
+                    key={currency.id}
+                    onClick={() => setSelectedCurrency(currency.code)}
+                    className="flex items-center justify-between p-3 cursor-pointer"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-6 flex items-center justify-center bg-gray-100 rounded border">
+                        <span className="text-xs font-medium">
+                          {currency.symbol}
+                        </span>
+                      </div>
+                      <div>
+                        <div className="font-medium">{currency.name}</div>
+                        <div className="text-xs text-gray-500">
+                          {currency.code}
+                        </div>
+                      </div>
+                    </div>
+                    {selectedCurrency === currency.code && (
+                      <Check className="w-4 h-4 text-purple-600" />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <button
               onClick={() => navigate('/client/parrainage')}
               className="p-2 text-purple-600 transition-colors rounded-full hover:bg-purple-100"

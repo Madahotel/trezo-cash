@@ -15,10 +15,11 @@ import {
 import { formatCurrency, formatPaymentTerms } from '../../../utils/formatting';
 import EmptyState from '../../../components/emptystate/EmptyState';
 import {
-  getUserThirdParty,
-  storeTiers,
-  updateTiers,
-} from '../../../components/context/tiersActions';
+  apiGet,
+  apiPost,
+  apiUpdate,
+} from '../../../components/context/actionsMethode';
+import toast from 'react-hot-toast';
 
 // Composant pour l'ajout de tiers commerciaux
 const CommercialTierForm = ({ onAddTier, onRefreshData }) => {
@@ -48,10 +49,10 @@ const CommercialTierForm = ({ onAddTier, onRefreshData }) => {
         phone_number: newTierPhone.trim(),
         user_type_id: newTierType,
       };
-
+      console.log(formData);
       try {
-        await storeTiers(formData);
-
+        const res = await apiPost(`/users/third-parties`, formData);
+        toast.success(res.message);
         if (onAddTier) {
           onAddTier({
             name: newTierName.trim(),
@@ -591,7 +592,7 @@ const CommercialTiersManagement = ({
     try {
       setTableLoading(true);
       setError(null);
-      const res = await getUserThirdParty(page);
+      const res = await apiGet(`/users/thirdParty`);
       setApiData(res);
     } catch (err) {
       setError('Erreur lors du chargement des données');
@@ -648,8 +649,11 @@ const CommercialTiersManagement = ({
           user_type_id: editingTier.user_type_id,
         };
 
-        await updateTiers(formData, parseInt(editingTier.id));
-
+        const res = await apiUpdate(
+          `/users/collaborators/${parseInt(editingTier.id)}`,
+          formData
+        );
+        toast.success(res.message);
         if (onEditTier) {
           onEditTier(editingTier.id, {
             user_name: editingTier.user_name.trim(),

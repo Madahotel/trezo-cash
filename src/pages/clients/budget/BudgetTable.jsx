@@ -315,7 +315,7 @@ const BudgetTable = ({
         <div className="h-6 bg-gray-200 rounded w-24 ml-auto"></div>
       </td>
       <td className="py-4 px-6 text-center">
-        <div className="h-8 bg-gray-200 rounded w-8 mx-auto rounded-full"></div>
+        <div className="h-8 bg-gray-200  w-8 mx-auto rounded-full"></div>
       </td>
     </tr>
   );
