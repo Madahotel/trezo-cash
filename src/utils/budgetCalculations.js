@@ -637,3 +637,193 @@ export const generateTaxPaymentEntries = (actuals, period, taxConfig) => {
 export const clearBudgetCalculationsCache = () => {
   calculationCache.clear();
 };
+
+// NOUVELLE FONCTION: calculateEntryAmountForPeriod simplifiée
+export const calculateEntryAmountForPeriod = (entry, startDate, endDate) => {
+  if (!entry || !entry.amount) {
+    return 0;
+  }
+
+  const frequency = entry.frequency_name || entry.frequency;
+  const amount = parseFloat(entry.amount) || 0;
+
+  // Si pas de fréquence, retourner le montant complet
+  if (!frequency) {
+    return amount;
+  }
+
+  const freqLower = frequency.toLowerCase();
+
+  // CORRECTION: Pour "Monsuel" (mensuel), toujours retourner le montant
+  if (freqLower === 'monsuel' || freqLower === 'mensuel') {
+    return amount;
+  }
+
+  // CORRECTION: Pour les autres fréquences récurrentes, retourner le montant
+  if (freqLower === 'hebdomadaire' || freqLower === 'bimestriel' ||
+      freqLower === 'trimestriel' || freqLower === 'semestriel' ||
+      freqLower === 'annuel') {
+    return amount;
+  }
+
+  // Pour ponctuel, vérifier si la date est dans la période
+  if (freqLower === 'ponctuel' || freqLower === 'ponctuelle') {
+    const entryDate = entry.date ? new Date(entry.date) : (entry.start_date ? new Date(entry.start_date) : null);
+    if (!entryDate) {
+      return amount;
+    }
+
+    const isInPeriod = entryDate >= startDate && entryDate <= endDate;
+
+    return isInPeriod ? amount : 0;
+  }
+
+  // Par défaut, retourner le montant
+  return amount;
+};
+
+// NOUVELLE FONCTION: calculateActualAmountForPeriod avec priorité real_budget
+export const calculateActualAmountForPeriod = (entry, actualTransactions, startDate, endDate, realBudgetData = null) => {
+  if (!entry) return 0;
+
+  // PRIORITÉ 1: Données real_budget API
+  if (realBudgetData?.real_budget_items?.data) {
+    const realBudgetsForEntry = realBudgetData.real_budget_items.data.filter(rb => {
+      const matchesBudget = rb.budget_id === entry.budget_id;
+
+      let matchesDate = false;
+      if (rb.collection_date) {
+        try {
+          const collectionDate = new Date(rb.collection_date);
+          collectionDate.setHours(0, 0, 0, 0);
+
+          const periodStart = new Date(startDate);
+          periodStart.setHours(0, 0, 0, 0);
+
+          const periodEnd = new Date(endDate);
+          periodEnd.setHours(23, 59, 59, 999);
+
+          matchesDate = collectionDate >= periodStart && collectionDate <= periodEnd;
+        } catch (error) {
+          console.error('Erreur de parsing date:', error);
+        }
+      }
+
+      const isMatch = matchesBudget && matchesDate;
+      return isMatch;
+    });
+
+    if (realBudgetsForEntry.length > 0) {
+      const totalAmount = realBudgetsForEntry.reduce((sum, rb) => {
+        const amount = parseFloat(rb.collection_amount) || 0;
+        return sum + amount;
+      }, 0);
+
+      return totalAmount;
+    }
+  }
+
+  // PRIORITÉ 2: Utiliser getActualAmountForPeriod du budgetCalculations
+  return getActualAmountForPeriod(entry, actualTransactions, startDate, endDate);
+};
+
+// NOUVELLE FONCTION: Calcul des positions de trésorerie
+export const calculatePeriodPositions = (periods, cashAccounts, groupedData, expandedAndVatEntries, finalActualTransactions, hasOffBudgetRevenues, hasOffBudgetExpenses) => {
+  if (!periods || periods.length === 0 || !cashAccounts || cashAccounts.length === 0) {
+    return periods?.map(() => ({ initial: 0, final: 0, netCashFlow: 0 })) || [];
+  }
+
+  const totalInitialBalance = cashAccounts.reduce((sum, account) => {
+    return sum + (account.initialBalance || 0);
+  }, 0);
+
+  const positions = [];
+  let runningBalance = totalInitialBalance;
+
+  for (let i = 0; i < periods.length; i++) {
+    const period = periods[i];
+
+    // Importez ces fonctions depuis vos hooks ou créez-les dans ce fichier
+    const revenueTotals = calculateGeneralTotals(
+      groupedData.entree || [],
+      period,
+      'entree',
+      expandedAndVatEntries,
+      finalActualTransactions,
+      hasOffBudgetRevenues,
+      hasOffBudgetExpenses
+    );
+
+    const expenseTotals = calculateGeneralTotals(
+      groupedData.sortie || [],
+      period,
+      'sortie',
+      expandedAndVatEntries,
+      finalActualTransactions,
+      hasOffBudgetRevenues,
+      hasOffBudgetExpenses
+    );
+
+    // CORRECTION: Flux de trésorerie = Entrées réelles - Sorties réelles
+    const netCashFlow = (revenueTotals.actual || 0) - (expenseTotals.actual || 0);
+
+    const initialBalance = runningBalance;
+    const finalBalance = initialBalance + netCashFlow;
+
+    runningBalance = finalBalance;
+
+    positions.push({
+      initial: initialBalance,
+      final: finalBalance,
+      netCashFlow: netCashFlow
+    });
+  }
+
+  return positions;
+};
+
+// Fonction helper pour la description
+export const getEntryDescription = (entry) => {
+  return entry.description ||
+      entry.budget_description ||
+      entry.amount_type_description ||
+      'Aucune description disponible';
+};
+
+export const getTotalsForPeriod = (entries, periodStart, periodEnd, actualTransactions = []) => {
+  if (!entries || !Array.isArray(entries)) {
+    return { totalEntree: 0, totalSortie: 0 };
+  }
+
+  let totalEntree = 0;
+  let totalSortie = 0;
+
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+
+    // Total prévisionnel (budget)
+    const budgetAmount = getEntryAmountForPeriod(entry, periodStart, periodEnd);
+
+    // Total réel (paiements)
+    const actualAmount = getActualAmountForPeriod(
+      entry,
+      actualTransactions,
+      periodStart,
+      periodEnd
+    );
+
+    // Somme des deux (prévisionnel + réel)
+    const totalAmount = budgetAmount + actualAmount;
+
+    if (entry.type === "revenu") {
+      totalEntree += totalAmount;
+    } else if (entry.type === "depense") {
+      totalSortie += totalAmount;
+    }
+  }
+
+  return {
+    totalEntree,
+    totalSortie,
+  };
+};
