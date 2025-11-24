@@ -69,8 +69,8 @@ export const AuthProvider = ({ children }) => {
         throw new Error('Token non reçu');
       }
 
-      localStorage.setItem('auth_token', receivedToken);
-      localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem("auth_token", receivedToken);
+      localStorage.setItem("user", JSON.stringify(userData));
 
       setToken(receivedToken);
       setUser(userData);
@@ -87,7 +87,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (name, email, password, password_confirm) => {
+  const register = async (name, email, password, password_confirm, referralCode = null) => {
     try {
       setLoading(true);
       setError(null);
@@ -98,6 +98,7 @@ export const AuthProvider = ({ children }) => {
         email,
         password,
         password_confirm: password_confirm || password,
+        referral_code: referralCode // Ajout dans le body
       });
 
       console.log('✅ Réponse register:', response.data);
