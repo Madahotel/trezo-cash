@@ -543,6 +543,9 @@ const BudgetLineDialog = ({
               ) : (
                 <div className="space-y-6">
                   <BasicInfoSection
+                    onDescriptionChange={(value) =>
+                      handleChange('description', value)
+                    }
                     formData={formData}
                     onFormChange={handleChange}
                     listCategoryTypes={listCategoryTypes}
@@ -555,10 +558,6 @@ const BudgetLineDialog = ({
                   />
 
                   <AdvancedOptions
-                    description={formData.description}
-                    onDescriptionChange={(value) =>
-                      handleChange('description', value)
-                    }
                     amountType={amountType}
                     onAmountTypeChange={setAmountType}
                     vatRateId={vatRateId}

@@ -6,8 +6,6 @@ import { Checkbox } from './ui/checkbox';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const AdvancedOptions = ({
-  description,
-  onDescriptionChange,
   amountType = 'ttc',
   onAmountTypeChange,
   vatRateId,
@@ -61,16 +59,6 @@ const AdvancedOptions = ({
           >
             <div className="p-4 border-t space-y-4">
               {/* Description */}
-              <div className="space-y-2">
-                <Label htmlFor="description">Description (optionnel)</Label>
-                <Input
-                  id="description"
-                  value={description}
-                  onChange={(e) => onDescriptionChange(e.target.value)}
-                  placeholder="Description de la ligne budgétaire..."
-                  className="w-full"
-                />
-              </div>
 
               {/* Type de montant et TVA */}
               <div className="grid grid-cols-2 gap-4">

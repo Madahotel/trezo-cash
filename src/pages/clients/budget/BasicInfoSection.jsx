@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import CustomDropdown from './CustomDropdown';
 
 const BasicInfoSection = ({
+  onDescriptionChange,
   formData,
   onFormChange,
   listCategoryTypes,
@@ -738,7 +739,7 @@ const BasicInfoSection = ({
       )}
 
       {/* Message d'information selon la fréquence */}
-      {frequencyInfoMessage && (
+      {/* {frequencyInfoMessage && (
         <div
           className={`p-3 rounded-md ${
             formData.isIndefinite
@@ -770,7 +771,17 @@ const BasicInfoSection = ({
             {frequencyInfoMessage}
           </p>
         </div>
-      )}
+      )} */}
+      <div className="space-y-2">
+        <Label htmlFor="description">Description (optionnel)</Label>
+        <Input
+          id="description"
+          value={formData.description}
+          onChange={(e) => onDescriptionChange(e.target.value)}
+          placeholder="Description de la ligne budgétaire..."
+          className="w-full"
+        />
+      </div>
     </div>
   );
 };
