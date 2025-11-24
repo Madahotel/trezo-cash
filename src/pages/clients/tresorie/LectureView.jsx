@@ -3,7 +3,6 @@ import { Lock, MessageSquare } from 'lucide-react';
 import { formatCurrency } from '../../../utils/formatting.js';
 import CommentButton from './CommentButton.jsx';
 
-// ✅ CORRECTION: Fonctions de calcul locales
 const calculateEntryAmountForPeriod = (entry, startDate, endDate) => {
     if (!entry || !entry.amount) return 0;
     
