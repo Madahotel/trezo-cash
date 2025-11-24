@@ -14,6 +14,11 @@ import { deleteEntry, saveEntry } from '../../../components/context/actions.js';
 import LectureView from './LectureView.jsx';
 import CommentButton from './CommentButton.jsx';
 import { useData } from '../../../components/context/DataContext.jsx';
+import {
+    getCollection,
+} from '../../../components/context/collectionActions';
+import { trezoTableService } from '../../../services/trezoTableService';
+import axios from '../../../components/config/Axios.jsx';
 
 // Composant Header séparé
 const BudgetTableHeader = ({
@@ -32,12 +37,11 @@ const BudgetTableHeader = ({
     periodMenuRef,
     isPeriodMenuOpen,
     setIsPeriodMenuOpen,
-    // AJOUT: Props pour le filtre de fréquence
     frequencyFilter,
     setFrequencyFilter,
     isFrequencyFilterOpen,
     setIsFrequencyFilterOpen,
-    frequencyFilterRef
+    frequencyFilterRef,
 }) => {
     const timeUnitLabels = {
         day: 'Jour',
@@ -50,18 +54,17 @@ const BudgetTableHeader = ({
         annually: 'Année',
     };
 
-    // AJOUT: Options de fréquence
     const frequencyOptions = [
         { id: 'all', label: 'Toutes les fréquences' },
-        { id: 'ponctuel', label: 'Ponctuel' },
-        { id: 'journalier', label: 'Journalier' },
-        { id: 'hebdomadaire', label: 'Hebdomadaire' },
-        { id: 'mensuel', label: 'Mensuel' },
-        { id: 'bimestriel', label: 'Bimestriel' },
-        { id: 'trimestriel', label: 'Trimestriel' },
-        { id: 'semestriel', label: 'Semestriel' },
-        { id: 'annuel', label: 'Annuel' },
-        { id: 'irregulier', label: 'Paiement irrégulier' },
+        { id: '1', label: 'Ponctuel' },
+        { id: '2', label: 'Journalier' },
+        { id: '3', label: 'Mensuel' },
+        { id: '4', label: 'Trimestriel' },
+        { id: '5', label: 'Annuel' },
+        { id: '6', label: 'Hebdomadaire' },
+        { id: '7', label: 'Bimestriel' },
+        { id: '8', label: 'Semestriel' },
+        { id: '9', label: 'Paiement irrégulier' },
     ];
 
     const periodLabel = useMemo(() => {
@@ -85,37 +88,61 @@ const BudgetTableHeader = ({
     const selectedPeriodLabel = quickPeriodOptions.find(opt => opt.id === activeQuickSelect)?.label || 'Période';
     const selectedFrequencyLabel = frequencyOptions.find(opt => opt.id === frequencyFilter)?.label || 'Fréquence';
 
+    const handleFrequencyClick = () => {
+        setIsFrequencyFilterOpen(prev => !prev);
+        if (!isFrequencyFilterOpen) {
+            setIsPeriodMenuOpen(false);
+        }
+    };
+
+    const handlePeriodClick = () => {
+        setIsPeriodMenuOpen(prev => !prev);
+        if (!isPeriodMenuOpen) {
+            setIsFrequencyFilterOpen(false);
+        }
+    };
+
+    const handleFrequencySelect = (optionId) => {
+        setFrequencyFilter(optionId);
+        setIsFrequencyFilterOpen(false);
+    };
+
+    const handlePeriodSelect = (optionId) => {
+        handleQuickPeriodSelect(optionId);
+        setIsPeriodMenuOpen(false);
+    };
+
     return (
-        <div className="relative z-40 mb-6"> {/* Z-INDEX AUGMENTÉ */}
+        <div className="relative z-50 mb-6">
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
                     <div className="flex items-center gap-2">
-                        <button 
-                            onClick={() => handlePeriodChange(-1)} 
-                            className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors" 
+                        <button
+                            onClick={() => handlePeriodChange(-1)}
+                            className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors"
                             title="Période précédente"
                         >
                             <ChevronLeft size={18} />
                         </button>
-                        <span 
-                            className="w-24 text-sm font-semibold text-center text-gray-700" 
+                        <span
+                            className="w-24 text-sm font-semibold text-center text-gray-700"
                             title="Décalage par rapport à la période actuelle"
                         >
                             {periodLabel}
                         </span>
-                        <button 
-                            onClick={() => handlePeriodChange(1)} 
-                            className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors" 
+                        <button
+                            onClick={() => handlePeriodChange(1)}
+                            className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors"
                             title="Période suivante"
                         >
                             <ChevronRight size={18} />
                         </button>
                     </div>
-                    
-                    {/* AJOUT: Filtre de fréquence - Z-INDEX CORRIGÉ */}
+
+                    {/* Filtre de fréquence */}
                     <div className="relative" ref={frequencyFilterRef}>
                         <button
-                            onClick={() => setIsFrequencyFilterOpen(p => !p)}
+                            onClick={handleFrequencyClick}
                             className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-gray-700 transition-colors bg-white border border-gray-300 rounded-lg shadow-sm hover:border-blue-500 hover:text-blue-600"
                         >
                             <Filter size={16} className="text-gray-600" />
@@ -128,7 +155,8 @@ const BudgetTableHeader = ({
                                     initial={{ opacity: 0, scale: 0.95, y: -10 }}
                                     animate={{ opacity: 1, scale: 1, y: 0 }}
                                     exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                                    className="absolute left-0 z-50 w-56 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl top-full" // Z-50 AU LIEU DE Z-20
+                                    transition={{ duration: 0.15 }}
+                                    className="absolute left-0 z-50 w-56 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl top-full"
                                 >
                                     <div className="p-2 border-b border-gray-100">
                                         <div className="text-xs font-semibold text-gray-500 uppercase">Filtrer par fréquence</div>
@@ -137,15 +165,11 @@ const BudgetTableHeader = ({
                                         {frequencyOptions.map(option => (
                                             <li key={option.id}>
                                                 <button
-                                                    onClick={() => {
-                                                        setFrequencyFilter(option.id);
-                                                        setIsFrequencyFilterOpen(false);
-                                                    }}
-                                                    className={`w-full text-left px-3 py-2 text-sm rounded-md flex items-center justify-between ${
-                                                        frequencyFilter === option.id 
-                                                            ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200' 
-                                                            : 'text-gray-700 hover:bg-gray-50 border border-transparent'
-                                                    }`}
+                                                    onClick={() => handleFrequencySelect(option.id)}
+                                                    className={`w-full text-left px-3 py-2 text-sm rounded-md flex items-center justify-between ${frequencyFilter === option.id
+                                                        ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200'
+                                                        : 'text-gray-700 hover:bg-gray-50 border border-transparent'
+                                                        }`}
                                                 >
                                                     <span>{option.label}</span>
                                                     {frequencyFilter === option.id && (
@@ -160,10 +184,10 @@ const BudgetTableHeader = ({
                         </AnimatePresence>
                     </div>
 
-                    {/* Menu période - Z-INDEX CORRIGÉ */}
+                    {/* Menu période */}
                     <div className="relative" ref={periodMenuRef}>
                         <button
-                            onClick={() => setIsPeriodMenuOpen(p => !p)}
+                            onClick={handlePeriodClick}
                             className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-gray-700 transition-colors bg-white border border-gray-300 rounded-lg shadow-sm hover:border-blue-500 hover:text-blue-600"
                         >
                             <span>{selectedPeriodLabel}</span>
@@ -175,21 +199,18 @@ const BudgetTableHeader = ({
                                     initial={{ opacity: 0, scale: 0.95, y: -10 }}
                                     animate={{ opacity: 1, scale: 1, y: 0 }}
                                     exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                                    className="absolute left-0 z-50 w-48 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl top-full" // Z-50 AU LIEU DE Z-20
+                                    transition={{ duration: 0.15 }}
+                                    className="absolute left-0 z-50 w-48 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl top-full"
                                 >
                                     <ul className="p-1">
                                         {quickPeriodOptions.map(option => (
                                             <li key={option.id}>
                                                 <button
-                                                    onClick={() => {
-                                                        handleQuickPeriodSelect(option.id);
-                                                        setIsPeriodMenuOpen(false);
-                                                    }}
-                                                    className={`w-full text-left px-3 py-1.5 text-sm rounded-md ${
-                                                        activeQuickSelect === option.id 
-                                                            ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200' 
-                                                            : 'text-gray-700 hover:bg-gray-50 border border-transparent'
-                                                    }`}
+                                                    onClick={() => handlePeriodSelect(option.id)}
+                                                    className={`w-full text-left px-3 py-1.5 text-sm rounded-md ${activeQuickSelect === option.id
+                                                        ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200'
+                                                        : 'text-gray-700 hover:bg-gray-50 border border-transparent'
+                                                        }`}
                                                 >
                                                     {option.label}
                                                 </button>
@@ -236,52 +257,103 @@ const criticalityConfig = {
     discretionary: { label: 'Discrétionnaire', color: 'bg-blue-500' },
 };
 
-// CORRECTION: Fonction améliorée pour calculer le montant par période
+// CORRECTION COMPLÈTE de calculateEntryAmountForPeriod
 const calculateEntryAmountForPeriod = (entry, startDate, endDate) => {
-    if (!entry || !entry.amount) return 0;
+    if (!entry || !entry.amount) {
+        return 0;
+    }
 
-    // CORRECTION: Utiliser frequency_name ou frequency
     const frequency = entry.frequency_name || entry.frequency;
     const amount = parseFloat(entry.amount) || 0;
 
-    if (!frequency) return amount;
-
-    // CORRECTION: Gestion des cas spéciaux de fréquence
-    if (frequency.toLowerCase() === 'ponctuel' || frequency.toLowerCase() === 'ponctuelle') {
-        const entryDate = entry.date ? new Date(entry.date) : (entry.start_date ? new Date(entry.start_date) : null);
-        if (!entryDate) return amount;
-        
-        return (entryDate >= startDate && entryDate <= endDate) ? amount : 0;
+    // Si pas de fréquence, retourner le montant complet
+    if (!frequency) {
+        return amount;
     }
 
-    // Pour les fréquences récurrentes, retourner le montant complet
+    const freqLower = frequency.toLowerCase();
+
+    // CORRECTION: Pour "Monsuel" (mensuel), toujours retourner le montant
+    if (freqLower === 'monsuel' || freqLower === 'mensuel') {
+        return amount;
+    }
+
+    // CORRECTION: Pour les autres fréquences récurrentes, retourner le montant
+    if (freqLower === 'hebdomadaire' || freqLower === 'bimestriel' ||
+        freqLower === 'trimestriel' || freqLower === 'semestriel' ||
+        freqLower === 'annuel') {
+        return amount;
+    }
+
+    // Pour ponctuel, vérifier si la date est dans la période
+    if (freqLower === 'ponctuel' || freqLower === 'ponctuelle') {
+        const entryDate = entry.date ? new Date(entry.date) : (entry.start_date ? new Date(entry.start_date) : null);
+        if (!entryDate) {
+            return amount;
+        }
+
+        const isInPeriod = entryDate >= startDate && entryDate <= endDate;
+
+        return isInPeriod ? amount : 0;
+    }
+
+    // Par défaut, retourner le montant
     return amount;
 };
 
 const calculateActualAmountForPeriod = (entry, actualTransactions, startDate, endDate) => {
-    if (!actualTransactions || !entry) return 0;
+    if (!entry) return 0;
 
+    // PRIORITÉ 1: Utiliser les données de collection si disponibles
+    if (entry.collectionData && entry.collectionData.collection) {
+        let collectionAmount = 0;
+
+        if (Array.isArray(entry.collectionData.collection)) {
+            const collectionInPeriod = entry.collectionData.collection.filter(collection => {
+                if (!collection.collection_date) return false;
+                try {
+                    const collectionDate = new Date(collection.collection_date);
+                    return collectionDate >= startDate && collectionDate <= endDate;
+                } catch (error) {
+                    console.error('Erreur parsing date collection:', error);
+                    return false;
+                }
+            });
+
+            collectionAmount = collectionInPeriod.reduce((sum, coll) => {
+                const amount = parseFloat(coll.collection_amount) || 0;
+                return sum + amount;
+            }, 0);
+        }
+
+        // Si on a un montant de collection, on le retourne directement
+        if (collectionAmount > 0) {
+            return collectionAmount;
+        }
+    }
+
+    // PRIORITÉ 2: Fallback sur les paiements traditionnels
     const entryActuals = actualTransactions.filter(actual =>
         actual.budgetId === entry.id ||
         actual.budgetId === entry.id.replace('_vat', '')
     );
 
-    return entryActuals.reduce((sum, actual) => {
+    const paymentsAmount = entryActuals.reduce((sum, actual) => {
         const paymentsInPeriod = (actual.payments || []).filter(p => {
             const paymentDate = new Date(p.paymentDate);
             return paymentDate >= startDate && paymentDate <= endDate;
         });
         return sum + paymentsInPeriod.reduce((paymentSum, p) => paymentSum + (p.paidAmount || 0), 0);
     }, 0);
+
+    return paymentsAmount;
 };
 
-// ✅ CORRECTION: Fonction pour calculer les positions de trésorerie
 const calculatePeriodPositions = (periods, cashAccounts, groupedData, expandedAndVatEntries, finalActualTransactions, hasOffBudgetRevenues, hasOffBudgetExpenses) => {
     if (!periods || periods.length === 0 || !cashAccounts || cashAccounts.length === 0) {
         return periods?.map(() => ({ initial: 0, final: 0, netCashFlow: 0 })) || [];
     }
 
-    // Calcul du solde initial total
     const totalInitialBalance = cashAccounts.reduce((sum, account) => {
         return sum + (account.initialBalance || 0);
     }, 0);
@@ -292,34 +364,31 @@ const calculatePeriodPositions = (periods, cashAccounts, groupedData, expandedAn
     for (let i = 0; i < periods.length; i++) {
         const period = periods[i];
 
-        // Calcul des flux pour la période
         const revenueTotals = calculateGeneralTotals(
-            groupedData.entree || [], 
-            period, 
-            'entree', 
-            expandedAndVatEntries, 
-            finalActualTransactions, 
-            hasOffBudgetRevenues, 
+            groupedData.entree || [],
+            period,
+            'entree',
+            expandedAndVatEntries,
+            finalActualTransactions,
+            hasOffBudgetRevenues,
             hasOffBudgetExpenses
         );
-        
+
         const expenseTotals = calculateGeneralTotals(
-            groupedData.sortie || [], 
-            period, 
-            'sortie', 
-            expandedAndVatEntries, 
-            finalActualTransactions, 
-            hasOffBudgetRevenues, 
+            groupedData.sortie || [],
+            period,
+            'sortie',
+            expandedAndVatEntries,
+            finalActualTransactions,
+            hasOffBudgetRevenues,
             hasOffBudgetExpenses
         );
 
         const netCashFlow = (revenueTotals.actual || 0) - (expenseTotals.actual || 0);
-        
-        // ✅ CORRECTION: Utiliser le solde courant comme initial
+
         const initialBalance = runningBalance;
         const finalBalance = initialBalance + netCashFlow;
-        
-        // Mettre à jour le solde courant pour la période suivante
+
         runningBalance = finalBalance;
 
         positions.push({
@@ -332,41 +401,59 @@ const calculatePeriodPositions = (periods, cashAccounts, groupedData, expandedAn
     return positions;
 };
 
+// Fonction helper pour la description
+const getEntryDescription = (entry) => {
+    return entry.description ||
+        entry.budget_description ||
+        entry.amount_type_description ||
+        'Aucune description disponible';
+};
+
 // Composant principal
-const BudgetTableView = ({
-    finalCashAccounts,
-    finalBudgetEntries,
-    finalActualTransactions,
-    finalCategories,
-    vatRegimes,
-    taxConfigs,
-    activeProjectId,
-    isConsolidated,
-    isCustomConsolidated,
-    projects,
-    settings,
-    activeProject,
-    timeUnit,
-    horizonLength,
-    periodOffset,
-    activeQuickSelect,
-    visibleColumns,
-    tableauMode,
-    setTableauMode,
-    showTemporalToolbar,
-    showViewModeSwitcher,
-    showNewEntryButton,
-    quickFilter,
-    dataState,
-    dataDispatch,
-    uiDispatch,
-    periodMenuRef,
-    isPeriodMenuOpen,
-    setIsPeriodMenuOpen
-}) => {
+const BudgetTableView = (props) => {
+    const {
+        finalCashAccounts,
+        finalBudgetEntries,
+        finalActualTransactions,
+        finalCategories,
+        vatRegimes,
+        taxConfigs,
+        activeProjectId,
+        isConsolidated,
+        isCustomConsolidated,
+        projects,
+        settings,
+        activeProject,
+        timeUnit,
+        horizonLength,
+        periodOffset,
+        activeQuickSelect,
+        visibleColumns,
+        tableauMode,
+        setTableauMode,
+        showTemporalToolbar,
+        showViewModeSwitcher,
+        showNewEntryButton,
+        quickFilter,
+        dataState,
+        dataDispatch,
+        uiDispatch,
+        periodMenuRef,
+        isPeriodMenuOpen,
+        setIsPeriodMenuOpen
+    } = props;
+
     const { dataState: contextDataState } = useData();
 
+    // États pour l'API
+    const [projectData, setProjectData] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [hasNoData, setHasNoData] = useState(false);
+
     // États locaux
+    const [collectionData, setCollectionData] = useState({});
+    const [loadingCollections, setLoadingCollections] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [projectSearchTerm, setProjectSearchTerm] = useState('');
     const [drawerData, setDrawerData] = useState({ isOpen: false, transactions: [], title: '' });
@@ -385,7 +472,7 @@ const BudgetTableView = ({
     const [isTierSearchOpen, setIsTierSearchOpen] = useState(false);
     const [isProjectSearchOpen, setIsProjectSearchOpen] = useState(false);
 
-    // AJOUT: États pour le filtre de fréquence
+    // États pour le filtre de fréquence
     const [frequencyFilter, setFrequencyFilter] = useState('all');
     const [isFrequencyFilterOpen, setIsFrequencyFilterOpen] = useState(false);
     const frequencyFilterRef = useRef(null);
@@ -403,19 +490,350 @@ const BudgetTableView = ({
         decimalPlaces: activeProject?.decimal_places,
     }), [activeProject]);
 
-    // CORRECTION: Récupération robuste des comptes de trésorerie
+        const frequencyOptions = [
+        { id: 'all', label: 'Toutes les fréquences' },
+        { id: '1', label: 'Ponctuel' },
+        { id: '2', label: 'Journalier' },
+        { id: '3', label: 'Mensuel' },
+        { id: '4', label: 'Trimestriel' },
+        { id: '5', label: 'Annuel' },
+        { id: '6', label: 'Hebdomadaire' },
+        { id: '7', label: 'Bimestriel' },
+        { id: '8', label: 'Semestriel' },
+        { id: '9', label: 'Paiement irrégulier' },
+    ];
+
+const fetchProjectData = async (projectId, frequencyId = null) => {
+    if (!projectId) return;
+
+    setLoading(true);
+    setError(null);
+    setHasNoData(false);
+
+    try {
+        const params = {};
+
+        if (frequencyId && frequencyId !== 'all') {
+            params.frequency_id = frequencyId;
+        }
+
+        const response = await axios.get(`/trezo-tables/projects/${projectId}`, { params });
+        const data = response.data;
+
+        // CORRECTION : Gestion simplifiée et robuste de la réponse
+        if (data && data.budgets) {
+            const hasBudgetItems = data.budgets.budget_items && data.budgets.budget_items.length > 0;
+            
+            if (hasBudgetItems) {
+                setProjectData(data);
+                setHasNoData(false);
+            } else {
+                // Aucune donnée trouvée pour ce filtre - ce n'est pas une erreur
+                setProjectData({ budgets: { budget_items: [] } });
+                setHasNoData(true);
+            }
+        } else {
+            // Format de réponse inattendu mais on gère gracieusement
+            console.warn('Format de réponse inattendu, mais traitement continué:', data);
+            setProjectData({ budgets: { budget_items: [] } });
+            setHasNoData(true);
+        }
+
+    } catch (err) {
+        console.error('❌ Erreur détaillée:', {
+            message: err.message,
+            response: err.response?.data,
+            status: err.response?.status
+        });
+
+        let errorMessage = 'Erreur de chargement des données';
+
+        if (err.response) {
+            // Erreur avec réponse du serveur
+            if (err.response.status === 404) {
+                errorMessage = 'Projet non trouvé';
+            } else if (err.response.status === 204) {
+                // Aucune donnée - ce n'est pas une erreur
+                setProjectData({ budgets: { budget_items: [] } });
+                setHasNoData(true);
+                setError(null);
+                setLoading(false);
+                return;
+            } else {
+                errorMessage = err.response.data?.message || `Erreur ${err.response.status}`;
+            }
+        } else if (err.request) {
+            // Erreur de réseau
+            errorMessage = 'Erreur de connexion au serveur';
+        } else {
+            // Autre erreur
+            errorMessage = err.message;
+        }
+
+        setError(errorMessage);
+        setHasNoData(false);
+    } finally {
+        setLoading(false);
+    }
+};
+
+    // Récupération des données de l'API quand projectId ou frequencyFilter change
+    useEffect(() => {
+        fetchProjectData(activeProjectId, frequencyFilter);
+    }, [activeProjectId, frequencyFilter]);
+
+    // Fonction pour traiter les données de l'API
+    const processBudgetItems = (budgetItems) => {
+        if (!budgetItems || !Array.isArray(budgetItems)) return [];
+
+        return budgetItems.map(item => {
+            // CORRECTION: Gestion du type (entree/sortie)
+            let type;
+            if (item.category_type_name === 'Revenue') {
+                type = 'entree';
+            } else if (item.category_type_name === 'Dépense') {
+                type = 'sortie';
+            } else {
+                // Fallback basé sur budget_type_name
+                type = item.budget_type_name === 'Entrée' ? 'entree' : 'sortie';
+            }
+
+            // CORRECTION: Gestion des IDs
+            const id = item.budget_detail_id?.toString() || `budget_${item.budget_id}`;
+
+            return {
+                id: id,
+                budget_id: item.budget_id,
+                budget_detail_id: item.budget_detail_id,
+                frequency_id: item.frequency_id,
+                frequency_name: item.frequency_name,
+                frequency: item.frequency_name,
+                budget_amount: parseFloat(item.budget_amount) || 0,
+                amount: parseFloat(item.budget_amount) || 0,
+                start_date: item.start_date,
+                end_date: item.end_date,
+                is_duration_indefinite: item.is_duration_indefinite,
+                budget_description: item.project_description,
+                description: item.budget_description,
+                project_id: item.project_id,
+                project_name: item.project_name,
+                project_description: item.project_description,
+                budget_type_id: item.budget_type_id,
+                budget_type_name: item.budget_type_name,
+                user_third_party_id: item.user_third_party_id,
+                third_party_name: item.third_party_name,
+                third_party_firstname: item.third_party_firstname,
+                supplier: `${item.third_party_firstname || ''} ${item.third_party_name || ''}`.trim() || 'Non spécifié',
+                third_party_email: item.third_party_email,
+                amount_type_id: item.amount_type_id,
+                amount_type_name: item.amount_type_name,
+                amount_type_description: item.amount_type_description,
+                currency_id: item.currency_id,
+                currency_name: item.currency_name,
+                currency_code: item.currency_code,
+                currency_symbol: item.currency_symbol,
+                user_subscriber_id: item.user_subscriber_id,
+                subscriber_name: item.subscriber_name,
+                subscriber_firstname: item.subscriber_firstname,
+                subscriber_email: item.subscriber_email,
+                sub_category_id: item.sub_category_id,
+                sub_category_name: item.sub_category_name,
+                category: item.sub_category_name,
+                criticity_id: item.criticity_id,
+                criticity_name: item.criticity_name,
+                category_id: item.category_id,
+                category_name: item.category_name,
+                category_type_id: item.category_type_id,
+                category_type_name: item.category_type_name,
+                entity_status_id: item.entity_status_id,
+                entity_status_name: item.entity_status_name,
+                // Champs calculés ou par défaut
+                type: type,
+                isProvision: false,
+                is_vat_child: false,
+                is_vat_payment: false,
+                is_tax_payment: false,
+                // AJOUT: Champs requis pour les calculs
+                date: item.start_date,
+                startDate: item.start_date ? new Date(item.start_date) : null,
+                endDate: item.end_date ? new Date(item.end_date) : null
+            };
+        });
+    };
+
+    // Utiliser les données récupérées
+    const processedBudgetEntries = useMemo(() => {
+        if (projectData && projectData.budgets && projectData.budgets.budget_items) {
+            const processed = processBudgetItems(projectData.budgets.budget_items);
+            return processed;
+        }
+        return finalBudgetEntries || [];
+    }, [projectData, finalBudgetEntries]);
+
+    // Logique des périodes
+    const periods = useMemo(() => {
+        const today = getTodayInTimezone(settings.timezoneOffset);
+        let baseDate;
+        switch (timeUnit) {
+            case 'day': baseDate = new Date(today); baseDate.setHours(0, 0, 0, 0); break;
+            case 'week': baseDate = getStartOfWeek(today); break;
+            case 'fortnightly': const day = today.getDate(); baseDate = new Date(today.getFullYear(), today.getMonth(), day <= 15 ? 1 : 16); break;
+            case 'month': baseDate = new Date(today.getFullYear(), today.getMonth(), 1); break;
+            case 'bimonthly': const bimonthStartMonth = Math.floor(today.getMonth() / 2) * 2; baseDate = new Date(today.getFullYear(), bimonthStartMonth, 1); break;
+            case 'quarterly': const quarterStartMonth = Math.floor(today.getMonth() / 3) * 3; baseDate = new Date(today.getFullYear(), quarterStartMonth, 1); break;
+            case 'semiannually': const semiAnnualStartMonth = Math.floor(today.getMonth() / 6) * 6; baseDate = new Date(today.getFullYear(), semiAnnualStartMonth, 1); break;
+            case 'annually': baseDate = new Date(today.getFullYear(), 0, 1); break;
+            default: baseDate = getStartOfWeek(today);
+        }
+
+        const periodList = [];
+        for (let i = 0; i < horizonLength; i++) {
+            const periodIndex = i + periodOffset;
+            const periodStart = new Date(baseDate);
+            switch (timeUnit) {
+                case 'day': periodStart.setDate(periodStart.getDate() + periodIndex); break;
+                case 'week': periodStart.setDate(periodStart.getDate() + periodIndex * 7); break;
+                case 'fortnightly': {
+                    const d = new Date(baseDate);
+                    let numFortnights = periodIndex;
+                    let currentMonth = d.getMonth();
+                    let isFirstHalf = d.getDate() === 1;
+                    const monthsToAdd = Math.floor(((isFirstHalf ? 0 : 1) + numFortnights) / 2);
+                    d.setMonth(currentMonth + monthsToAdd);
+                    const newIsFirstHalf = (((isFirstHalf ? 0 : 1) + numFortnights) % 2 + 2) % 2 === 0;
+                    d.setDate(newIsFirstHalf ? 1 : 16);
+                    periodStart.setTime(d.getTime());
+                    break;
+                }
+                case 'month': periodStart.setMonth(periodStart.getMonth() + periodIndex); break;
+                case 'bimonthly': periodStart.setMonth(periodStart.getMonth() + periodIndex * 2); break;
+                case 'quarterly': periodStart.setMonth(periodStart.getMonth() + periodIndex * 3); break;
+                case 'semiannually': periodStart.setMonth(periodStart.getMonth() + periodIndex * 6); break;
+                case 'annually': periodStart.setFullYear(periodStart.getFullYear() + periodIndex); break;
+            }
+            periodList.push(periodStart);
+        }
+
+        return periodList.map((periodStart) => {
+            const periodEnd = new Date(periodStart);
+            switch (timeUnit) {
+                case 'day': periodEnd.setDate(periodEnd.getDate() + 1); break;
+                case 'week': periodEnd.setDate(periodEnd.getDate() + 7); break;
+                case 'fortnightly': if (periodStart.getDate() === 1) { periodEnd.setDate(16); } else { periodEnd.setMonth(periodEnd.getMonth() + 1); periodEnd.setDate(1); } break;
+                case 'month': periodEnd.setMonth(periodEnd.getMonth() + 1); break;
+                case 'bimonthly': periodEnd.setMonth(periodEnd.getMonth() + 2); break;
+                case 'quarterly': periodEnd.setMonth(periodEnd.getMonth() + 3); break;
+                case 'semiannually': periodEnd.setMonth(periodEnd.getMonth() + 6); break;
+                case 'annually': periodEnd.setFullYear(periodEnd.getFullYear() + 1); break;
+            }
+            periodEnd.setMilliseconds(periodEnd.getMilliseconds() - 1);
+
+            const year = periodStart.toLocaleDateString('fr-FR', { year: '2-digit' });
+            const monthsShort = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+            let label = '';
+            switch (timeUnit) {
+                case 'day':
+                    if (activeQuickSelect === 'week') {
+                        const dayLabel = periodStart.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short' });
+                        label = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
+                    } else {
+                        label = periodStart.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+                    }
+                    break;
+                case 'week': label = `S ${periodStart.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}`; break;
+                case 'fortnightly': const fortnightNum = periodStart.getDate() === 1 ? '1' : '2'; label = `${fortnightNum}Q-${monthsShort[periodStart.getMonth()]}'${year}`; break;
+                case 'month': label = `${periodStart.toLocaleString('fr-FR', { month: 'short' })} '${year}`; break;
+                case 'bimonthly': const startMonthB = monthsShort[periodStart.getMonth()]; const endMonthB = monthsShort[(periodStart.getMonth() + 1) % 12]; label = `${startMonthB}-${endMonthB}`; break;
+                case 'quarterly': const quarter = Math.floor(periodStart.getMonth() / 3) + 1; label = `T${quarter} '${year}`; break;
+                case 'semiannually': const semester = Math.floor(periodStart.getMonth() / 6) + 1; label = `S${semester} '${year}`; break;
+                case 'annually': label = String(periodStart.getFullYear()); break;
+            }
+            return { label, startDate: periodStart, endDate: periodEnd };
+        });
+    }, [timeUnit, horizonLength, periodOffset, activeQuickSelect, settings.timezoneOffset]);
+
+// Dans BudgetTableView.jsx - Ajoutez cette fonction
+const fetchCollectionAccount = async (budgetId, date) => {
+    if (loadingCollections) return;
+
+    try {
+        setLoadingCollections(true);
+        
+        // ESSAYEZ D'ABORD L'APPEL NORMAL
+        const res = await getCollection(budgetId, date);
+
+        if (res && res.status === 200) {
+            const hasValidCollections = Array.isArray(res.collection) && res.collection.length > 0;
+
+            setCollectionData(prev => {
+                const newData = {
+                    ...prev,
+                    [budgetId]: res
+                };
+
+                if (res.budget && res.budget.budget_detail_id && res.budget.budget_detail_id !== budgetId) {
+                    newData[res.budget.budget_detail_id] = res;
+                }
+
+                return newData;
+            });
+
+            if (hasValidCollections) {
+                console.log(`✅ Collection trouvée pour ${budgetId}:`, {
+                    montant: res.collection[0].collection_amount,
+                    date: res.collection[0].collection_date,
+                    count: res.collection.length
+                });
+            }
+        }
+    } catch (error) {
+        console.warn(`⚠️ Erreur fetch collection ${budgetId}, utilisation des données par défaut:`, error);
+        
+        // EN CAS D'ERREUR, UTILISEZ DES DONNÉES PAR DÉFAUT
+        setCollectionData(prev => ({
+            ...prev,
+            [budgetId]: { 
+                collection: [], 
+                status: 'no_endpoint',
+                message: 'Endpoint collections non disponible'
+            }
+        }));
+    } finally {
+        setLoadingCollections(false);
+    }
+};
+
+    useEffect(() => {
+        const fetchCollectionsWithDelay = async () => {
+            if (processedBudgetEntries && processedBudgetEntries.length > 0 && periods && periods.length > 0) {
+                const currentPeriod = periods[0];
+                const dateToUse = currentPeriod.startDate.toISOString().split('T')[0];
+
+                for (let i = 0; i < processedBudgetEntries.length; i++) {
+                    const entry = processedBudgetEntries[i];
+
+                    if (i > 0) {
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    }
+
+                    await fetchCollectionAccount(entry.id, dateToUse);
+                }
+            }
+        };
+
+        fetchCollectionsWithDelay();
+    }, [processedBudgetEntries, periods]);
+
+    // Récupération des comptes de trésorerie
     const effectiveCashAccounts = useMemo(() => {
-        // Priorité 1: Props passés
         if (finalCashAccounts && finalCashAccounts.length > 0) {
             return finalCashAccounts;
         }
 
-        // Priorité 2: Contexte global
         if (contextDataState.allCashAccounts && activeProjectId && contextDataState.allCashAccounts[activeProjectId]?.length > 0) {
             return contextDataState.allCashAccounts[activeProjectId];
         }
 
-        // Comptes par défaut
         if (activeProjectId && activeProjectId !== 'null') {
             return [
                 {
@@ -429,7 +847,6 @@ const BudgetTableView = ({
             ];
         }
 
-        // Fallback silencieux
         return [
             {
                 id: 'default-account-demo',
@@ -441,7 +858,7 @@ const BudgetTableView = ({
         ];
     }, [finalCashAccounts, contextDataState.allCashAccounts, activeProjectId]);
 
-    // AJOUT: Gestion du clic en dehors du filtre de fréquence
+    // Gestion du clic en dehors des menus
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (frequencyFilterRef.current && !frequencyFilterRef.current.contains(event.target)) {
@@ -459,25 +876,6 @@ const BudgetTableView = ({
             document.removeEventListener("mousedown", handleClickOutside);
         };
     }, []);
-
-    // AJOUT: Debug pour voir les données
-    useEffect(() => {
-        if (finalBudgetEntries && finalBudgetEntries.length > 0) {
-            console.log('=== DONNÉES BUDGET ENTRIES ===');
-            finalBudgetEntries.forEach(entry => {
-                console.log('Entry:', {
-                    id: entry.id,
-                    supplier: entry.supplier,
-                    amount: entry.amount,
-                    frequency: entry.frequency,
-                    frequency_name: entry.frequency_name,
-                    date: entry.date,
-                    start_date: entry.start_date,
-                    isPonctuel: (entry.frequency_name || entry.frequency) === 'ponctuel'
-                });
-            });
-        }
-    }, [finalBudgetEntries]);
 
     // Handlers
     const handlePeriodChange = (direction) => {
@@ -577,7 +975,9 @@ const BudgetTableView = ({
     const handleEditEntry = (entry) => {
         if (entry.is_vat_payment || entry.is_tax_payment) return;
         const originalEntryId = entry.is_vat_child ? entry.id.replace('_vat', '') : entry.id;
-        const originalEntry = finalBudgetEntries.find(e => e.id === originalEntryId);
+
+        const originalEntry = processedBudgetEntries.find(e => e.id === originalEntryId);
+
         if (originalEntry) {
             const onSave = (entryData) => {
                 const user = dataState.session?.user;
@@ -602,7 +1002,9 @@ const BudgetTableView = ({
     const handleDeleteEntry = (entry) => {
         if (entry.is_vat_payment || entry.is_tax_payment) return;
         const originalEntryId = entry.is_vat_child ? entry.id.replace('_vat', '') : entry.id;
-        const originalEntry = finalBudgetEntries.find(e => e.id === originalEntryId);
+
+        const originalEntry = processedBudgetEntries.find(e => e.id === originalEntryId);
+
         if (!originalEntry) return;
 
         uiDispatch({
@@ -615,108 +1017,15 @@ const BudgetTableView = ({
         });
     };
 
-    // Logique des périodes
-    const periods = useMemo(() => {
-        const today = getTodayInTimezone(settings.timezoneOffset);
-        let baseDate;
-        switch (timeUnit) {
-            case 'day': baseDate = new Date(today); baseDate.setHours(0, 0, 0, 0); break;
-            case 'week': baseDate = getStartOfWeek(today); break;
-            case 'fortnightly': const day = today.getDate(); baseDate = new Date(today.getFullYear(), today.getMonth(), day <= 15 ? 1 : 16); break;
-            case 'month': baseDate = new Date(today.getFullYear(), today.getMonth(), 1); break;
-            case 'bimonthly': const bimonthStartMonth = Math.floor(today.getMonth() / 2) * 2; baseDate = new Date(today.getFullYear(), bimonthStartMonth, 1); break;
-            case 'quarterly': const quarterStartMonth = Math.floor(today.getMonth() / 3) * 3; baseDate = new Date(today.getFullYear(), quarterStartMonth, 1); break;
-            case 'semiannually': const semiAnnualStartMonth = Math.floor(today.getMonth() / 6) * 6; baseDate = new Date(today.getFullYear(), semiAnnualStartMonth, 1); break;
-            case 'annually': baseDate = new Date(today.getFullYear(), 0, 1); break;
-            default: baseDate = getStartOfWeek(today);
-        }
-
-        const periodList = [];
-        for (let i = 0; i < horizonLength; i++) {
-            const periodIndex = i + periodOffset;
-            const periodStart = new Date(baseDate);
-            switch (timeUnit) {
-                case 'day': periodStart.setDate(periodStart.getDate() + periodIndex); break;
-                case 'week': periodStart.setDate(periodStart.getDate() + periodIndex * 7); break;
-                case 'fortnightly': {
-                    const d = new Date(baseDate);
-                    let numFortnights = periodIndex;
-                    let currentMonth = d.getMonth();
-                    let isFirstHalf = d.getDate() === 1;
-                    const monthsToAdd = Math.floor(((isFirstHalf ? 0 : 1) + numFortnights) / 2);
-                    d.setMonth(currentMonth + monthsToAdd);
-                    const newIsFirstHalf = (((isFirstHalf ? 0 : 1) + numFortnights) % 2 + 2) % 2 === 0;
-                    d.setDate(newIsFirstHalf ? 1 : 16);
-                    periodStart.setTime(d.getTime());
-                    break;
-                }
-                case 'month': periodStart.setMonth(periodStart.getMonth() + periodIndex); break;
-                case 'bimonthly': periodStart.setMonth(periodStart.getMonth() + periodIndex * 2); break;
-                case 'quarterly': periodStart.setMonth(periodStart.getMonth() + periodIndex * 3); break;
-                case 'semiannually': periodStart.setMonth(periodStart.getMonth() + periodIndex * 6); break;
-                case 'annually': periodStart.setFullYear(periodStart.getFullYear() + periodIndex); break;
-            }
-            periodList.push(periodStart);
-        }
-
-        return periodList.map((periodStart) => {
-            const periodEnd = new Date(periodStart);
-            switch (timeUnit) {
-                case 'day': periodEnd.setDate(periodEnd.getDate() + 1); break;
-                case 'week': periodEnd.setDate(periodEnd.getDate() + 7); break;
-                case 'fortnightly': if (periodStart.getDate() === 1) { periodEnd.setDate(16); } else { periodEnd.setMonth(periodEnd.getMonth() + 1); periodEnd.setDate(1); } break;
-                case 'month': periodEnd.setMonth(periodEnd.getMonth() + 1); break;
-                case 'bimonthly': periodEnd.setMonth(periodEnd.getMonth() + 2); break;
-                case 'quarterly': periodEnd.setMonth(periodEnd.getMonth() + 3); break;
-                case 'semiannually': periodEnd.setMonth(periodEnd.getMonth() + 6); break;
-                case 'annually': periodEnd.setFullYear(periodEnd.getFullYear() + 1); break;
-            }
-            periodEnd.setMilliseconds(periodEnd.getMilliseconds() - 1);
-
-            const year = periodStart.toLocaleDateString('fr-FR', { year: '2-digit' });
-            const monthsShort = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
-            let label = '';
-            switch (timeUnit) {
-                case 'day':
-                    if (activeQuickSelect === 'week') {
-                        const dayLabel = periodStart.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short' });
-                        label = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
-                    } else {
-                        label = periodStart.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
-                    }
-                    break;
-                case 'week': label = `S ${periodStart.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}`; break;
-                case 'fortnightly': const fortnightNum = periodStart.getDate() === 1 ? '1' : '2'; label = `${fortnightNum}Q-${monthsShort[periodStart.getMonth()]}'${year}`; break;
-                case 'month': label = `${periodStart.toLocaleString('fr-FR', { month: 'short' })} '${year}`; break;
-                case 'bimonthly': const startMonthB = monthsShort[periodStart.getMonth()]; const endMonthB = monthsShort[(periodStart.getMonth() + 1) % 12]; label = `${startMonthB}-${endMonthB}`; break;
-                case 'quarterly': const quarter = Math.floor(periodStart.getMonth() / 3) + 1; label = `T${quarter} '${year}`; break;
-                case 'semiannually': const semester = Math.floor(periodStart.getMonth() / 6) + 1; label = `S${semester} '${year}`; break;
-                case 'annually': label = String(periodStart.getFullYear()); break;
-            }
-            return { label, startDate: periodStart, endDate: periodEnd };
-        });
-    }, [timeUnit, horizonLength, periodOffset, activeQuickSelect, settings.timezoneOffset]);
-
-    // CORRECTION: Filtrage des entrées avec fréquence - VERSION AMÉLIORÉE
+    // Filtrage des entrées
     const filteredBudgetEntries = useMemo(() => {
-        let entries = finalBudgetEntries || [];
-        
-        console.log('=== FILTRAGE FRÉQUENCE ===', {
-            totalEntries: entries.length,
-            frequencyFilter,
-            entriesFrequencies: entries.map(e => ({
-                supplier: e.supplier,
-                frequency: e.frequency,
-                frequency_name: e.frequency_name,
-                isPonctuel: (e.frequency_name || e.frequency) === 'ponctuel'
-            }))
-        });
+        let entries = processedBudgetEntries || [];
 
         // Filtre par recherche de tiers
         if (searchTerm) {
             entries = entries.filter(entry => entry.supplier?.toLowerCase().includes(searchTerm.toLowerCase()));
         }
-        
+
         // Filtre par recherche de projet
         if ((isConsolidated || isCustomConsolidated) && projectSearchTerm) {
             entries = entries.filter(entry => {
@@ -724,44 +1033,15 @@ const BudgetTableView = ({
                 return project && project.name.toLowerCase().includes(projectSearchTerm.toLowerCase());
             });
         }
-        
-        // AJOUT: Filtre par fréquence - CORRECTION COMPLÈTE
+
+        // Filtre par fréquence (maintenant géré par l'API, mais gardé pour la cohérence)
         if (frequencyFilter !== 'all') {
             entries = entries.filter(entry => {
-                // CORRECTION: Utiliser frequency_name ou frequency
-                const entryFrequency = (entry.frequency_name || entry.frequency)?.toLowerCase();
-                const filterFrequency = frequencyFilter.toLowerCase();
-                
-                console.log('Filtrage:', {
-                    supplier: entry.supplier,
-                    entryFrequency,
-                    filterFrequency,
-                    matches: entryFrequency === filterFrequency
-                });
-
-                // Gestion des cas spéciaux
-                if (filterFrequency === 'irregulier') {
-                    return entryFrequency === 'irregulier' || entryFrequency === 'paiement irrégulier';
-                }
-
-                // CORRECTION: Gestion des différences de nommage
-                if (filterFrequency === 'ponctuel') {
-                    return entryFrequency === 'ponctuel' || entryFrequency === 'ponctuelle';
-                }
-                if (filterFrequency === 'mensuel') {
-                    return entryFrequency === 'mensuel' || entryFrequency === 'monsuel';
-                }
-                if (filterFrequency === 'journalier') {
-                    return entryFrequency === 'journalier' || entryFrequency === 'journalière';
-                }
-                if (filterFrequency === 'hebdomadaire') {
-                    return entryFrequency === 'hebdomadaire';
-                }
-                
-                return entryFrequency === filterFrequency;
+                const entryFrequencyId = entry.frequency_id?.toString();
+                return entryFrequencyId === frequencyFilter;
             });
         }
-        
+
         // Filtres rapides existants
         if (quickFilter !== 'all') {
             if (quickFilter === 'provisions') {
@@ -779,50 +1059,32 @@ const BudgetTableView = ({
             }
         }
 
-        console.log('Entries après filtrage:', entries.length);
-        
         return entries;
-    }, [finalBudgetEntries, searchTerm, isConsolidated, isCustomConsolidated, projectSearchTerm, projects, quickFilter, finalCategories, frequencyFilter]);
+    }, [processedBudgetEntries, searchTerm, isConsolidated, isCustomConsolidated, projectSearchTerm, projects, quickFilter, finalCategories, frequencyFilter]);
 
-    // AJOUT: Fonction pour propager le filtre de fréquence aux entrées étendues
+    // Fonction pour propager le filtre de fréquence aux entrées étendues
     const shouldIncludeExtendedEntry = useCallback((entry, filteredEntries) => {
         if (!entry.is_vat_child && !entry.is_vat_payment && !entry.is_tax_payment) {
-            // Pour les entrées normales, vérifier si elles sont dans les entrées filtrées
             return filteredEntries.some(filteredEntry => filteredEntry.id === entry.id);
         }
-        
+
         if (entry.is_vat_child) {
-            // Pour les enfants TVA, vérifier si l'entrée parent est dans les entrées filtrées
             const parentEntryId = entry.id.replace('_vat', '');
             return filteredEntries.some(filteredEntry => filteredEntry.id === parentEntryId);
         }
-        
+
         if (entry.is_vat_payment || entry.is_tax_payment) {
-            // Pour les paiements TVA/taxes, vérifier si l'entrée associée est dans les entrées filtrées
             const associatedEntryId = entry.associatedEntryId || entry.id.replace('_vat_payment', '').replace('_tax_payment', '');
             return filteredEntries.some(filteredEntry => filteredEntry.id === associatedEntryId);
         }
-        
+
         return true;
     }, []);
 
-    // ✅ CORRECTION: Fonction simplifiée pour la visibilité
+    // Fonction de visibilité
     const isRowVisibleInPeriods = useCallback((entry) => {
-        if (!periods || periods.length === 0) return true;
-
-        let hasBudgetInAnyPeriod = false;
-        let hasActualInAnyPeriod = false;
-
-        periods.forEach(period => {
-            const budgetAmount = calculateEntryAmountForPeriod(entry, period.startDate, period.endDate);
-            if (budgetAmount !== 0) hasBudgetInAnyPeriod = true;
-
-            const actualAmount = calculateActualAmountForPeriod(entry, finalActualTransactions, period.startDate, period.endDate);
-            if (actualAmount !== 0) hasActualInAnyPeriod = true;
-        });
-
-        return hasBudgetInAnyPeriod || hasActualInAnyPeriod;
-    }, [periods, finalActualTransactions]);
+        return true;
+    }, []);
 
     // Données traitées
     const safeBudgetEntries = useMemo(() => filteredBudgetEntries || [], [filteredBudgetEntries]);
@@ -832,6 +1094,7 @@ const BudgetTableView = ({
     const safeTaxConfigs = useMemo(() => taxConfigs || [], [taxConfigs]);
     const safePeriods = useMemo(() => periods || [], [periods]);
 
+    // Entrées étendues avec TVA
     const expandedAndVatEntries = useProcessedEntries(
         safeBudgetEntries,
         safeActualTransactions,
@@ -841,26 +1104,42 @@ const BudgetTableView = ({
         activeProjectId,
         safePeriods,
         isConsolidated,
-        isCustomConsolidated
+        isCustomConsolidated,
+        collectionData
     );
 
-    // AJOUT: Filtrage final des entrées étendues basé sur le filtre de fréquence
+    // Enrichir les entrées avec les données de collection
+    const entriesWithCollectionData = useMemo(() => {
+        if (!expandedAndVatEntries || expandedAndVatEntries.length === 0) return [];
+
+        return expandedAndVatEntries.map(entry => {
+            const entryCollectionData = collectionData[entry.id] ||
+                collectionData[entry.budget_detail_id] ||
+                collectionData[entry.budget_id];
+
+            return {
+                ...entry,
+                collectionData: entryCollectionData
+            };
+        });
+    }, [expandedAndVatEntries, collectionData]);
+
     const filteredExpandedAndVatEntries = useMemo(() => {
         if (frequencyFilter === 'all') {
-            return expandedAndVatEntries;
+            return entriesWithCollectionData;
         }
-        
-        return expandedAndVatEntries.filter(entry => 
+
+        const filtered = entriesWithCollectionData.filter(entry =>
             shouldIncludeExtendedEntry(entry, filteredBudgetEntries)
         );
-    }, [expandedAndVatEntries, filteredBudgetEntries, frequencyFilter, shouldIncludeExtendedEntry]);
 
-    // MODIFICATION: Mise à jour des références pour utiliser les entrées filtrées
+        return filtered;
+    }, [entriesWithCollectionData, filteredBudgetEntries, frequencyFilter, shouldIncludeExtendedEntry]);
+
     const hasOffBudgetRevenues = useMemo(() => filteredExpandedAndVatEntries.some(e => e.isOffBudget && e.type === 'revenu' && isRowVisibleInPeriods(e)), [filteredExpandedAndVatEntries, isRowVisibleInPeriods]);
     const hasOffBudgetExpenses = useMemo(() => filteredExpandedAndVatEntries.some(e => e.isOffBudget && e.type === 'depense' && isRowVisibleInPeriods(e)), [filteredExpandedAndVatEntries, isRowVisibleInPeriods]);
     const groupedData = useGroupedData(filteredExpandedAndVatEntries, finalCategories, isRowVisibleInPeriods);
 
-    // ✅ CORRECTION: Calcul des positions de période avec les entrées filtrées
     const periodPositions = useMemo(() => {
         return calculatePeriodPositions(
             periods,
@@ -922,12 +1201,10 @@ const BudgetTableView = ({
 
     const formatDate = (dateString) => dateString ? new Date(dateString).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
 
-    // CORRECTION: Fonction getFrequencyTitle améliorée
     const getFrequencyTitle = (entry) => {
-        // CORRECTION: Utiliser frequency_name ou frequency
         const freq = (entry.frequency_name || entry.frequency || '');
         const freqFormatted = freq.charAt(0).toUpperCase() + freq.slice(1);
-        
+
         if (freq.toLowerCase() === 'ponctuel' || freq.toLowerCase() === 'ponctuelle') {
             const dateToShow = entry.date || entry.start_date;
             return `Ponctuel: ${formatDate(dateToShow)}`;
@@ -964,7 +1241,6 @@ const BudgetTableView = ({
             payments = finalActualTransactions.filter(t => t.budgetId === context.entryId).flatMap(t => (t.payments || []).filter(p => new Date(p.paymentDate) >= period.startDate && new Date(p.paymentDate) < period.endDate).map(p => ({ ...p, thirdParty: t.thirdParty, type: t.type })));
             title = `Détails pour ${entry?.supplier || 'Entrée'}`;
         } else if (context.mainCategory) {
-            // Implémentation simplifiée pour l'exemple
             title = `Détails pour ${context.mainCategory.name}`;
         }
         if (payments.length > 0) setDrawerData({ isOpen: true, transactions: payments, title: `${title} - ${period.label}` });
@@ -1149,9 +1425,15 @@ const BudgetTableView = ({
                                                     </div>
                                                 </div>
                                             </td>
-                                            {visibleColumns.description && (
-                                                <td className="sticky z-10 px-4 py-1 text-xs text-gray-500 truncate bg-white group-hover:bg-gray-50" style={{ left: `${descriptionColLeft}px`, width: columnWidths.description }} title={entry.description}>
-                                                    {entry.description}
+                                            {visibleColumns.description !== false && (
+                                                <td className="sticky z-10 px-4 py-1 text-xs text-gray-500 truncate bg-white group-hover:bg-gray-50"
+                                                    style={{ left: `${descriptionColLeft}px`, width: columnWidths.description }}
+                                                    title={getEntryDescription(entry)}>
+                                                    {getEntryDescription(entry) !== 'Aucune description disponible' ? (
+                                                        <span className="truncate">{getEntryDescription(entry)}</span>
+                                                    ) : (
+                                                        <span className="italic text-gray-400">-</span>
+                                                    )}
                                                 </td>
                                             )}
                                             {(isConsolidated || isCustomConsolidated) && (
@@ -1184,9 +1466,16 @@ const BudgetTableView = ({
                                                                             <button
                                                                                 onClick={() => handleOpenPaymentDrawer(entry, period)}
                                                                                 disabled={actual === 0 && budget === 0}
-                                                                                className="text-blue-600 hover:underline disabled:cursor-not-allowed disabled:text-gray-400"
+                                                                                className={`text-blue-600 hover:underline disabled:cursor-not-allowed disabled:text-gray-400 ${entry.collectionData && entry.collectionData.collection && entry.collectionData.collection.length > 0
+                                                                                    ? 'font-semibold text-green-600'
+                                                                                    : ''
+                                                                                    }`}
+                                                                                title={entry.collectionData ? "Montant provenant des collections" : "Montant provenant des paiements"}
                                                                             >
                                                                                 {formatCurrency(actual, currencySettings)}
+                                                                                {entry.collectionData && entry.collectionData.collection && entry.collectionData.collection.length > 0 && (
+                                                                                    <span className="ml-1 text-xs text-green-600" title="Données de collection">●</span>
+                                                                                )}
                                                                             </button>
                                                                             <CommentButton rowId={entry.id} columnId={`${columnIdBase}_actual`} rowName={entry.supplier} columnName={`${period.label} (Réel)`} />
                                                                         </div>
@@ -1214,16 +1503,59 @@ const BudgetTableView = ({
         );
     };
 
-    // Rendu conditionnel
+    // Afficher un état de chargement
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <div className="text-lg">Chargement des données budgétaires...</div>
+            </div>
+        );
+    }
+
+    // Afficher une erreur
+    if (error) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <div className="text-lg text-red-500">Erreur: {error}</div>
+                <button
+                    onClick={() => fetchProjectData(activeProjectId, frequencyFilter)}
+                    className="px-4 py-2 ml-4 text-white bg-blue-500 rounded hover:bg-blue-600"
+                >
+                    Réessayer
+                </button>
+            </div>
+        );
+    }
+
+    // Afficher un message quand il n'y a pas de données
+    if (hasNoData) {
+        const selectedFrequencyLabel = frequencyOptions.find(opt => opt.id === frequencyFilter)?.label || 'cette fréquence';
+
+        return (
+            <div className="flex flex-col items-center justify-center h-64">
+                <div className="mb-4 text-lg text-gray-500">
+                    Aucune donnée trouvée pour {selectedFrequencyLabel}
+                </div>
+                <button
+                    onClick={() => setFrequencyFilter('all')}
+                    className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
+                >
+                    Voir toutes les fréquences
+                </button>
+            </div>
+        );
+    }
+
+    // Rendu conditionnel pour le mode lecture
     if (tableauMode === 'lecture') {
         return <LectureView {...props} />;
     }
 
     return (
         <>
-            {/* Header COMPLÈTEMENT SÉPARÉ avec z-index élevé */}
+            {/* Header */}
             {showTemporalToolbar && (
-                <div className="relative z-50 mb-6"> {/* Z-INDEX TRÈS ÉLEVÉ */}
+                <div className="relative z-50 mb-6">
                     <BudgetTableHeader
                         timeUnit={timeUnit}
                         periodOffset={periodOffset}
@@ -1248,8 +1580,8 @@ const BudgetTableView = ({
                     />
                 </div>
             )}
-            
-            {/* Tableau avec z-index plus bas */}
+
+            {/* Tableau */}
             <div className="relative z-10 overflow-hidden rounded-lg shadow-lg bg-surface">
                 <div ref={topScrollRef} className="overflow-x-auto overflow-y-hidden custom-scrollbar">
                     <div style={{ width: `${totalTableWidth}px`, height: '1px' }}></div>
@@ -1441,13 +1773,13 @@ const BudgetTableView = ({
                     </table>
                 </div>
             </div>
-            
-            <TransactionDetailDrawer 
-                isOpen={drawerData.isOpen} 
-                onClose={handleCloseDrawer} 
-                transactions={drawerData.transactions} 
-                title={drawerData.title} 
-                currency={activeProject?.currency} 
+
+            <TransactionDetailDrawer
+                isOpen={drawerData.isOpen}
+                onClose={handleCloseDrawer}
+                transactions={drawerData.transactions}
+                title={drawerData.title}
+                currency={activeProject?.currency}
             />
         </>
     );

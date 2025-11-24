@@ -7,12 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import BudgetLineDialog from './BudgetLineDialog';
 import ConfirmationModal from './ui/alert-dialog';
 import { useMobile } from '../../../hooks/useMobile';
-import {
-  getBudget,
-  destroyBudget,
-} from '../../../components/context/budgetAction';
 import BudgetTable from './BudgetTable';
 import { formatCurrency } from '../../../utils/formatters';
+import { apiDelete, apiGet } from '../../../components/context/actionsMethode';
+import toast from 'react-hot-toast';
 
 const BudgetPage = () => {
   const { uiState } = useUI();
@@ -52,13 +50,13 @@ const BudgetPage = () => {
       });
 
       setError(null);
-      console.log(
-        `🔄 Chargement budget projet ${activeProjectId}, tentative ${
-          retryCount + 1
-        }`
-      );
+      // console.log(
+      //   `🔄 Chargement budget projet ${activeProjectId}, tentative ${
+      //     retryCount + 1
+      //   }`
+      // );
 
-      const data = await getBudget(activeProjectId);
+      const data = await apiGet(`/budget-projects/${activeProjectId}`);
 
       if (requestId === currentRequestId.current) {
         setBudget(data);
@@ -137,6 +135,7 @@ const BudgetPage = () => {
   };
 
   const handleDelete = (item, type) => {
+    // console.log('Supprimer:', item, type);
     setSelectedLine(item);
     setDeleteType(type);
     setDeleteModalOpen(true);
@@ -144,9 +143,13 @@ const BudgetPage = () => {
 
   const confirmDelete = async () => {
     if (selectedLine) {
-      try {
-        await destroyBudget(selectedLine.id);
+      console.log(selectedLine);
 
+      try {
+        const res = await apiDelete(
+          `/budget-projects/budgets/${selectedLine.budget_detail_id}`
+        );
+        toast.success(res.message);
         setTimeout(() => {
           fetchBudgetData();
         }, 500);
@@ -245,6 +248,7 @@ const BudgetPage = () => {
       </div>
     );
   }
+  // console.log(budget);
 
   return (
     <div className="min-h-screen p-6 bg-white">

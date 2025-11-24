@@ -1,17 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Button } from './ui/button';
-import {
-  getOptions,
-  showEditBudget,
-  storeBudget,
-  updateBudget,
-} from '../../../components/context/budgetAction';
 import AdvancedOptions from './AdvancedOptions';
 import BasicInfoSection from './BasicInfoSection';
 import QuickAddThirdPartyModal from './QuickAddThirdPartyModal';
 import { apiService } from '../../../utils/ApiService';
 import toast from 'react-hot-toast';
+import {
+  apiGet,
+  apiPost,
+  apiUpdate,
+} from '../../../components/context/actionsMethode';
 
 const BudgetLineDialog = ({
   open,
@@ -151,18 +150,21 @@ const BudgetLineDialog = ({
   const createThirdParty = async (thirdPartyData) => {
     try {
       setIsCreatingThirdParty(true);
-      const response = await apiService.post(
-        '/users/third-parties',
-        thirdPartyData
-      );
+
+      // Convertir user_type_id en number
+      const payload = {
+        ...thirdPartyData,
+        user_type_id: parseInt(thirdPartyData.user_type_id),
+      };
+
+      const response = await apiService.post('/users/third-parties', payload);
 
       if (response.status === 200) {
         await new Promise((resolve) => setTimeout(resolve, 500));
         await fetchOptions();
         return response.data || { success: true, message: response.message };
       } else {
-        // Gestion d'erreur...
-        throw new Error(errorMessage);
+        throw new Error(response.message || 'Erreur serveur');
       }
     } catch (error) {
       console.error('❌ Erreur création tiers:', error);
@@ -277,7 +279,7 @@ const BudgetLineDialog = ({
   const fetchEditData = async (budgetId) => {
     try {
       setIsLoadingEditData(true);
-      const res = await showEditBudget(budgetId);
+      const res = await apiGet(`/budget-projects/budgets/${budgetId}`);
       setEditData(res);
 
       if (res && res.budget) {
@@ -442,12 +444,15 @@ const BudgetLineDialog = ({
     setIsLoading(true);
     try {
       if (editLine) {
-        await updateBudget(apiData, editLine.id);
-        toast.success('Ligne budgétaire modifiée avec succès');
+        const res = await apiUpdate(
+          `budget-projects/budgets/${editLine.id}/details/${editLine.budget_detail_id}`,
+          apiData
+        );
+        toast.success(res.message);
         if (onBudgetUpdated) await onBudgetUpdated();
       } else {
-        await storeBudget(apiData, projectId);
-        toast.success('Ligne budgétaire créée avec succès');
+        const res = await apiPost(`/budget-projects/${projectId}`, apiData);
+        toast.success(res.message);
         if (onBudgetAdded) await onBudgetAdded();
       }
       onOpenChange(false);
@@ -481,7 +486,7 @@ const BudgetLineDialog = ({
     <>
       {open && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-60 backdrop-blur-sm"
           onClick={handleOverlayClick}
           onKeyDown={handleKeyDown}
           tabIndex={0}
@@ -514,20 +519,20 @@ const BudgetLineDialog = ({
                 variant="ghost"
                 size="sm"
                 onClick={() => onOpenChange(false)}
-                className="h-9 w-9 p-0 hover:bg-gray-100"
+                className="p-0 h-9 w-9 hover:bg-gray-100"
                 disabled={isLoading || isLoadingData || isLoadingEditData}
               >
-                <X className="h-4 w-4" />
+                <X className="w-4 h-4" />
                 <span className="sr-only">Fermer</span>
               </Button>
             </div>
 
             {/* Content */}
-            <div className="overflow-y-auto flex-1 p-6">
+            <div className="flex-1 p-6 overflow-y-auto">
               {isLoadingData || (editLine && isLoadingEditData) ? (
-                <div className="flex justify-center items-center py-12">
+                <div className="flex items-center justify-center py-12">
                   <div className="flex flex-col items-center space-y-3">
-                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+                    <div className="w-10 h-10 border-b-2 border-blue-600 rounded-full animate-spin"></div>
                     <span className="text-sm text-gray-600">
                       {editLine && isLoadingEditData
                         ? 'Chargement des données...'
@@ -590,7 +595,7 @@ const BudgetLineDialog = ({
               >
                 {isLoading ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    <div className="w-4 h-4 mr-2 border-b-2 border-white rounded-full animate-spin"></div>
                     {editLine ? 'Modification...' : 'Ajout...'}
                   </>
                 ) : editLine ? (

@@ -13,10 +13,11 @@ import {
 import { formatCurrency } from '../../../utils/formatting';
 import EmptyState from '../../../components/emptystate/EmptyState';
 import {
-  getUserFinancials,
-  storeTiers,
-  updateTiers,
-} from '../../../components/context/tiersActions';
+  apiGet,
+  apiPost,
+  apiUpdate,
+} from '../../../components/context/actionsMethode';
+import toast from 'react-hot-toast';
 
 // Composant pour l'ajout de prêteurs/emprunteurs
 const FinancialTierForm = ({ onAddFinancialTier, onRefreshData }) => {
@@ -49,8 +50,8 @@ const FinancialTierForm = ({ onAddFinancialTier, onRefreshData }) => {
       };
 
       try {
-        await storeTiers(formData);
-
+        const res = await apiPost(`/users/third-parties`, formData);
+        toast.success(res.message);
         if (onAddFinancialTier) {
           onAddFinancialTier({
             name: newFinancialTierName.trim(),
@@ -566,7 +567,7 @@ const FinancialTiersManagement = ({
     try {
       setTableLoading(true);
       setError(null);
-      const res = await getUserFinancials(page);
+      const res = await apiGet(`/users/financials`);
       setApiData(res);
     } catch (err) {
       setError('Erreur lors du chargement des données financières');
@@ -613,8 +614,11 @@ const FinancialTiersManagement = ({
           phone_number: editingFinancialTier.phone?.trim() || '',
           user_type_id: editingFinancialTier.user_type_id,
         };
-
-        await updateTiers(formData, editingFinancialTier.id);
+        const res = await apiUpdate(
+          `/users/collaborators/${parseInt(editingFinancialTier.id)}`,
+          formData
+        );
+        toast.success(res.message);
 
         if (onEditFinancialTier) {
           onEditFinancialTier(editingFinancialTier.id, {

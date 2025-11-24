@@ -13,22 +13,25 @@ export async function getBudgets(projectId) {
     throw error;
   }
 }
-export async function getCollection(budgetId, dateCollection) {
-  try {
-    // Utilisez le même nom de paramètre que dans la route Laravel
-    const res = await axios.get(
-      `/schedules/budgets/${budgetId}/date/${dateCollection}`
-    );
-    if (res.data.status === 200) {
-      return res.data;
-    } else {
-      throw new Error(`Statut inattendu: ${res.data.message}`);
+export const getCollection = async (budgetId, date) => {
+    try {
+        // CORRECTION : Vérifiez l'URL de l'endpoint
+        const response = await axios.get(`/schedules/budgets/${budgetId}/date/${date}`);
+        
+        if (response.status === 200) {
+            return response.data;
+        } else {
+            throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+        }
+    } catch (error) {
+        console.error('❌ Erreur lors de la récupération des collections:', {
+            budgetId,
+            dateCollection: date,
+            error: error.response?.data || error.message
+        });
+        throw error;
     }
-  } catch (error) {
-    console.error('Erreur lors de la récupération des collections:', error);
-    throw error;
-  }
-}
+};
 export async function saveCollection(collectionData) {
   try {
     const res = await axios.post('/schedules/collections', collectionData);

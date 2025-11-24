@@ -8,8 +8,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CollectionModal } from './collection-modal';
-import { getBudgets } from '../../../components/context/collectionActions';
 import { useUI } from '../../../components/context/UIContext';
+import { apiGet } from '../../../components/context/actionsMethode';
 
 // Fonction pour formater une date en YYYY-MM-DD (temps local)
 const formatDateToKey = (date) => {
@@ -485,7 +485,7 @@ const ScheduleView = () => {
           setLoading(true);
         }
 
-        const res = await getBudgets(projectId);
+        const res = await apiGet(`/schedules/budgets/project/${projectId}`);
         if (res.status === 200) {
           setBudgetData(res.budget);
         }
