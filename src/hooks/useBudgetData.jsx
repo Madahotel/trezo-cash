@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getBudget } from '../components/context/budgetAction';
+import { apiGet } from '../components/context/actionsMethode';
 import { transformBudgetData } from '../utils/transformBudgetData';
 
 export const useBudgetData = (activeProjectId) => {
@@ -28,7 +28,8 @@ export const useBudgetData = (activeProjectId) => {
             setLoading(true);
             setError(null);
             try {
-                const apiData = await getBudget(activeProjectId);
+                // const apiData = await apiGet(activeProjectId);
+            const apiData = await apiGet(`/budget-projects/${activeProjectId}`);
 
                 const transformedData = transformBudgetData(apiData);
 
