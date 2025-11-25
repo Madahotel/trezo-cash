@@ -10,7 +10,6 @@ import ExpenseAnalysisView from '../pages/clients/analyse/ExpenseAnalysisView';
 import MyTemplatesPage from '../pages/clients/models/MyTemplatesPage';
 import ProjectSettingsPage from '../pages/clients/projets/ProjectSettingsPage';
 import ProvisionsPage from '../pages/clients/suiviProvision/ProvisionsPage';
-import CategoryManagementPage from '../pages/clients/categories/CategoryManagementPage';
 import TiersManagementPage from '../pages/clients/tiers/TiersManagementPage';
 import CashAccountsPage from '../pages/clients/account/CashAccountsPage';
 import TimezoneSettingsPage from '../pages/clients/timeZone/TimezoneSettingsPage';
@@ -30,6 +29,7 @@ import ProjectsPage from '../pages/clients/projets/ProjectsPage';
 import { SettingsProvider } from '../contexts/SettingsContext';
 import DashboardProject from '../pages/clients/dashboard/DashboardProject';
 import CollaboratorsPage from '../pages/clients/collaborator/CollaboratorsPage';
+import CategoryView from '../pages/clients/categories/CategoryView';
 const ClientRoute = {
   path: '/client',
   element: (
@@ -52,7 +52,7 @@ const ClientRoute = {
     { path: 'templates', element: <MyTemplatesPage /> },
     { path: 'parametres-projet', element: <ProjectSettingsPage /> },
     { path: 'provisions', element: <ProvisionsPage /> },
-    { path: 'categories', element: <CategoryManagementPage /> },
+    { path: 'categories', element: <CategoryView /> },
     { path: 'tiers', element: <TiersManagementPage /> },
     { path: 'comptes', element: <CashAccountsPage /> },
     { path: 'timezoneSettings', element: <TimezoneSettingsPage /> },
