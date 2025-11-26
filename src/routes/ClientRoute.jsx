@@ -30,6 +30,14 @@ import { SettingsProvider } from '../contexts/SettingsContext';
 import DashboardProject from '../pages/clients/dashboard/DashboardProject';
 import CollaboratorsPage from '../pages/clients/collaborator/CollaboratorsPage';
 import CategoryView from '../pages/clients/categories/CategoryView';
+import ReferralsPage from '../pages/clients/ambassador/ReferralPage';
+import AmbassadorPage from '../pages/clients/ambassador/AmbassadorPage';
+import AmbassadorLayout from '../layouts/clients/ambassador/AmbassadorLayout';
+import ReferralDashboard from '../pages/clients/ambassador/ReferralDashboard';
+import AmbassadorGate from '../pages/clients/ambassador/AmbassadorGate';
+import PaymentHistoryPage from '../pages/clients/ambassador/PaymentHistoryPage';
+import ProgramInfoPage from '../pages/clients/ambassador/ProgramInfoPage';
+import BecomeAmbassadorPage from '../pages/clients/ambassador/BecomeAmbassadorPage';
 const ClientRoute = {
   path: '/client',
   element: (
@@ -63,7 +71,26 @@ const ClientRoute = {
     { path: 'aide', element: <Aide title="Centre d'aide" /> },
     { path: 'abonnement', element: <SubscriptionPage /> },
     { path: 'onboarding', element: <OnboardingView /> },
-    { path: 'parrainage', element: <ReferralPage /> },
+    // { path: "parrainage", element: <AmbassadorPage /> },
+    // { path: "parrainage/refferals", element: <ReferralsPage /> },
+    {
+      path: 'parrainage',
+      element: <AmbassadorGate />, // 🔹 Vérifie le statut
+      children: [
+        {
+          path: '',
+          element: <AmbassadorLayout />,
+          children: [
+            { index: true, element: <ReferralDashboard /> },
+            { path: 'refferals', element: <ReferralsPage /> },
+            { path: 'history', element: <PaymentHistoryPage /> },
+            { path: 'program-info', element: <ProgramInfoPage /> },
+          ],
+        },
+        // 🔹 Page affichée si l’utilisateur n’est PAS ambassadeur
+        { path: 'devenir', element: <BecomeAmbassadorPage /> },
+      ],
+    },
     { path: 'projets', element: <ProjectsPage /> },
     { path: 'project/:projectId/dashboard', element: <DashboardProject /> },
     { path: 'collaborators', element: <CollaboratorsPage /> },

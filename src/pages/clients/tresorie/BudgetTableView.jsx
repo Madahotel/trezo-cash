@@ -1,15 +1,22 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Plus, Edit, Search, ChevronDown, Folder, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, XCircle, Trash2, ArrowRightLeft, Lock, MessageSquare, ChevronUp, TableProperties, Filter } from 'lucide-react';
+import { Edit, Search, ChevronDown, Folder, TrendingUp, TrendingDown, XCircle, Trash2, ArrowRightLeft, Lock, ChevronUp, } from 'lucide-react';
 import TransactionDetailDrawer from './TransactionDetailDrawer.jsx';
 import ResizableTh from './ResizableTh.jsx';
-import { getStartOfWeek } from '../../../utils/budgetCalculations.js';
+import {
+    getStartOfWeek,
+    getActualAmountForPeriod,
+    calculateEntryAmountForPeriod,
+    calculateActualAmountForPeriod,
+    calculatePeriodPositions,
+    getEntryDescription,
+    getTotalsForPeriod
+} from '../../../utils/budgetCalculations.js';
 import { getTodayInTimezone } from '../../../utils/getTodayInTimezone.js';
 import { calculateGeneralTotals } from '../../../hooks/calculateGeneralTotals.jsx';
 import { useProcessedEntries } from '../../../hooks/useProcessedEntries.jsx';
 import { useGroupedData } from '../../../hooks/useGroupedData.jsx';
 import { calculateMainCategoryTotals } from '../../../hooks/calculateMainCategoryTotals.jsx';
 import { formatCurrency } from '../../../utils/formatting.js';
-import { motion, AnimatePresence } from 'framer-motion';
 import { deleteEntry, saveEntry } from '../../../components/context/actions.js';
 import LectureView from './LectureView.jsx';
 import CommentButton from './CommentButton.jsx';
@@ -17,396 +24,15 @@ import { useData } from '../../../components/context/DataContext.jsx';
 import {
     getCollection,
 } from '../../../components/context/collectionActions';
-import { trezoTableService } from '../../../services/trezoTableService';
 import axios from '../../../components/config/Axios.jsx';
-
-// Composant Header séparé
-const BudgetTableHeader = ({
-    timeUnit,
-    periodOffset,
-    activeQuickSelect,
-    tableauMode,
-    setTableauMode,
-    showViewModeSwitcher,
-    showNewEntryButton,
-    isConsolidated,
-    isCustomConsolidated,
-    handlePeriodChange,
-    handleQuickPeriodSelect,
-    handleNewBudget,
-    periodMenuRef,
-    isPeriodMenuOpen,
-    setIsPeriodMenuOpen,
-    frequencyFilter,
-    setFrequencyFilter,
-    isFrequencyFilterOpen,
-    setIsFrequencyFilterOpen,
-    frequencyFilterRef,
-}) => {
-    const timeUnitLabels = {
-        day: 'Jour',
-        week: 'Semaine',
-        fortnightly: 'Quinzaine',
-        month: 'Mois',
-        bimonthly: 'Bimestre',
-        quarterly: 'Trimestre',
-        semiannually: 'Semestre',
-        annually: 'Année',
-    };
-
-    const frequencyOptions = [
-        { id: 'all', label: 'Toutes les fréquences' },
-        { id: '1', label: 'Ponctuel' },
-        { id: '2', label: 'Journalier' },
-        { id: '3', label: 'Mensuel' },
-        { id: '4', label: 'Trimestriel' },
-        { id: '5', label: 'Annuel' },
-        { id: '6', label: 'Hebdomadaire' },
-        { id: '7', label: 'Bimestriel' },
-        { id: '8', label: 'Semestriel' },
-        { id: '9', label: 'Paiement irrégulier' },
-    ];
-
-    const periodLabel = useMemo(() => {
-        if (periodOffset === 0) return 'Actuel';
-        const label = timeUnitLabels[timeUnit] || 'Période';
-        const plural = Math.abs(periodOffset) > 1 ? 's' : '';
-        return `${periodOffset > 0 ? '+' : ''}${periodOffset} ${label}${plural}`;
-    }, [periodOffset, timeUnit, timeUnitLabels]);
-
-    const quickPeriodOptions = [
-        { id: 'today', label: 'Jour' },
-        { id: 'week', label: 'Semaine' },
-        { id: 'month', label: 'Mois' },
-        { id: 'quarter', label: 'Trimestre' },
-        { id: 'year', label: 'Année' },
-        { id: 'short_term', label: 'CT (3a)' },
-        { id: 'medium_term', label: 'MT (5a)' },
-        { id: 'long_term', label: 'LT (10a)' },
-    ];
-
-    const selectedPeriodLabel = quickPeriodOptions.find(opt => opt.id === activeQuickSelect)?.label || 'Période';
-    const selectedFrequencyLabel = frequencyOptions.find(opt => opt.id === frequencyFilter)?.label || 'Fréquence';
-
-    const handleFrequencyClick = () => {
-        setIsFrequencyFilterOpen(prev => !prev);
-        if (!isFrequencyFilterOpen) {
-            setIsPeriodMenuOpen(false);
-        }
-    };
-
-    const handlePeriodClick = () => {
-        setIsPeriodMenuOpen(prev => !prev);
-        if (!isPeriodMenuOpen) {
-            setIsFrequencyFilterOpen(false);
-        }
-    };
-
-    const handleFrequencySelect = (optionId) => {
-        setFrequencyFilter(optionId);
-        setIsFrequencyFilterOpen(false);
-    };
-
-    const handlePeriodSelect = (optionId) => {
-        handleQuickPeriodSelect(optionId);
-        setIsPeriodMenuOpen(false);
-    };
-
-    return (
-        <div className="relative z-50 mb-6">
-            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => handlePeriodChange(-1)}
-                            className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors"
-                            title="Période précédente"
-                        >
-                            <ChevronLeft size={18} />
-                        </button>
-                        <span
-                            className="w-24 text-sm font-semibold text-center text-gray-700"
-                            title="Décalage par rapport à la période actuelle"
-                        >
-                            {periodLabel}
-                        </span>
-                        <button
-                            onClick={() => handlePeriodChange(1)}
-                            className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors"
-                            title="Période suivante"
-                        >
-                            <ChevronRight size={18} />
-                        </button>
-                    </div>
-
-                    {/* Filtre de fréquence */}
-                    <div className="relative" ref={frequencyFilterRef}>
-                        <button
-                            onClick={handleFrequencyClick}
-                            className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-gray-700 transition-colors bg-white border border-gray-300 rounded-lg shadow-sm hover:border-blue-500 hover:text-blue-600"
-                        >
-                            <Filter size={16} className="text-gray-600" />
-                            <span>{selectedFrequencyLabel}</span>
-                            <ChevronDown className={`w-4 h-4 transition-transform ${isFrequencyFilterOpen ? 'rotate-180' : ''}`} />
-                        </button>
-                        <AnimatePresence>
-                            {isFrequencyFilterOpen && (
-                                <motion.div
-                                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                                    exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                                    transition={{ duration: 0.15 }}
-                                    className="absolute left-0 z-50 w-56 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl top-full"
-                                >
-                                    <div className="p-2 border-b border-gray-100">
-                                        <div className="text-xs font-semibold text-gray-500 uppercase">Filtrer par fréquence</div>
-                                    </div>
-                                    <ul className="p-1 overflow-y-auto max-h-60">
-                                        {frequencyOptions.map(option => (
-                                            <li key={option.id}>
-                                                <button
-                                                    onClick={() => handleFrequencySelect(option.id)}
-                                                    className={`w-full text-left px-3 py-2 text-sm rounded-md flex items-center justify-between ${frequencyFilter === option.id
-                                                        ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200'
-                                                        : 'text-gray-700 hover:bg-gray-50 border border-transparent'
-                                                        }`}
-                                                >
-                                                    <span>{option.label}</span>
-                                                    {frequencyFilter === option.id && (
-                                                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                                                    )}
-                                                </button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </div>
-
-                    {/* Menu période */}
-                    <div className="relative" ref={periodMenuRef}>
-                        <button
-                            onClick={handlePeriodClick}
-                            className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-gray-700 transition-colors bg-white border border-gray-300 rounded-lg shadow-sm hover:border-blue-500 hover:text-blue-600"
-                        >
-                            <span>{selectedPeriodLabel}</span>
-                            <ChevronDown className={`w-4 h-4 transition-transform ${isPeriodMenuOpen ? 'rotate-180' : ''}`} />
-                        </button>
-                        <AnimatePresence>
-                            {isPeriodMenuOpen && (
-                                <motion.div
-                                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                                    exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                                    transition={{ duration: 0.15 }}
-                                    className="absolute left-0 z-50 w-48 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl top-full"
-                                >
-                                    <ul className="p-1">
-                                        {quickPeriodOptions.map(option => (
-                                            <li key={option.id}>
-                                                <button
-                                                    onClick={() => handlePeriodSelect(option.id)}
-                                                    className={`w-full text-left px-3 py-1.5 text-sm rounded-md ${activeQuickSelect === option.id
-                                                        ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200'
-                                                        : 'text-gray-700 hover:bg-gray-50 border border-transparent'
-                                                        }`}
-                                                >
-                                                    {option.label}
-                                                </button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </div>
-                </div>
-                <div className="flex items-center gap-6">
-                    {showViewModeSwitcher && (
-                        <div className="flex items-center gap-4">
-                            <button
-                                onClick={() => setTableauMode('edition')}
-                                className={`flex items-center gap-2 text-sm font-semibold transition-colors ${tableauMode === 'edition' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-800'}`}
-                            >
-                                <TableProperties size={16} />
-                                TCD
-                            </button>
-                        </div>
-                    )}
-                    {showNewEntryButton && (
-                        <button
-                            onClick={handleNewBudget}
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white transition-colors bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={isConsolidated || isCustomConsolidated}
-                        >
-                            <Plus className="w-5 h-5" />
-                            Nouvelle Entrée
-                        </button>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-};
+import BudgetTableHeader from './BudgetTableHeader.jsx';
+import useRealBudgetData from '../../../hooks/useRealBudgetData.jsx';
 
 // Configuration et fonctions utilitaires
 const criticalityConfig = {
     critical: { label: 'Critique', color: 'bg-red-500' },
     essential: { label: 'Essentiel', color: 'bg-yellow-500' },
     discretionary: { label: 'Discrétionnaire', color: 'bg-blue-500' },
-};
-
-// CORRECTION COMPLÈTE de calculateEntryAmountForPeriod
-const calculateEntryAmountForPeriod = (entry, startDate, endDate) => {
-    if (!entry || !entry.amount) {
-        return 0;
-    }
-
-    const frequency = entry.frequency_name || entry.frequency;
-    const amount = parseFloat(entry.amount) || 0;
-
-    // Si pas de fréquence, retourner le montant complet
-    if (!frequency) {
-        return amount;
-    }
-
-    const freqLower = frequency.toLowerCase();
-
-    // CORRECTION: Pour "Monsuel" (mensuel), toujours retourner le montant
-    if (freqLower === 'monsuel' || freqLower === 'mensuel') {
-        return amount;
-    }
-
-    // CORRECTION: Pour les autres fréquences récurrentes, retourner le montant
-    if (freqLower === 'hebdomadaire' || freqLower === 'bimestriel' ||
-        freqLower === 'trimestriel' || freqLower === 'semestriel' ||
-        freqLower === 'annuel') {
-        return amount;
-    }
-
-    // Pour ponctuel, vérifier si la date est dans la période
-    if (freqLower === 'ponctuel' || freqLower === 'ponctuelle') {
-        const entryDate = entry.date ? new Date(entry.date) : (entry.start_date ? new Date(entry.start_date) : null);
-        if (!entryDate) {
-            return amount;
-        }
-
-        const isInPeriod = entryDate >= startDate && entryDate <= endDate;
-
-        return isInPeriod ? amount : 0;
-    }
-
-    // Par défaut, retourner le montant
-    return amount;
-};
-
-const calculateActualAmountForPeriod = (entry, actualTransactions, startDate, endDate) => {
-    if (!entry) return 0;
-
-    // PRIORITÉ 1: Utiliser les données de collection si disponibles
-    if (entry.collectionData && entry.collectionData.collection) {
-        let collectionAmount = 0;
-
-        if (Array.isArray(entry.collectionData.collection)) {
-            const collectionInPeriod = entry.collectionData.collection.filter(collection => {
-                if (!collection.collection_date) return false;
-                try {
-                    const collectionDate = new Date(collection.collection_date);
-                    return collectionDate >= startDate && collectionDate <= endDate;
-                } catch (error) {
-                    console.error('Erreur parsing date collection:', error);
-                    return false;
-                }
-            });
-
-            collectionAmount = collectionInPeriod.reduce((sum, coll) => {
-                const amount = parseFloat(coll.collection_amount) || 0;
-                return sum + amount;
-            }, 0);
-        }
-
-        // Si on a un montant de collection, on le retourne directement
-        if (collectionAmount > 0) {
-            return collectionAmount;
-        }
-    }
-
-    // PRIORITÉ 2: Fallback sur les paiements traditionnels
-    const entryActuals = actualTransactions.filter(actual =>
-        actual.budgetId === entry.id ||
-        actual.budgetId === entry.id.replace('_vat', '')
-    );
-
-    const paymentsAmount = entryActuals.reduce((sum, actual) => {
-        const paymentsInPeriod = (actual.payments || []).filter(p => {
-            const paymentDate = new Date(p.paymentDate);
-            return paymentDate >= startDate && paymentDate <= endDate;
-        });
-        return sum + paymentsInPeriod.reduce((paymentSum, p) => paymentSum + (p.paidAmount || 0), 0);
-    }, 0);
-
-    return paymentsAmount;
-};
-
-const calculatePeriodPositions = (periods, cashAccounts, groupedData, expandedAndVatEntries, finalActualTransactions, hasOffBudgetRevenues, hasOffBudgetExpenses) => {
-    if (!periods || periods.length === 0 || !cashAccounts || cashAccounts.length === 0) {
-        return periods?.map(() => ({ initial: 0, final: 0, netCashFlow: 0 })) || [];
-    }
-
-    const totalInitialBalance = cashAccounts.reduce((sum, account) => {
-        return sum + (account.initialBalance || 0);
-    }, 0);
-
-    const positions = [];
-    let runningBalance = totalInitialBalance;
-
-    for (let i = 0; i < periods.length; i++) {
-        const period = periods[i];
-
-        const revenueTotals = calculateGeneralTotals(
-            groupedData.entree || [],
-            period,
-            'entree',
-            expandedAndVatEntries,
-            finalActualTransactions,
-            hasOffBudgetRevenues,
-            hasOffBudgetExpenses
-        );
-
-        const expenseTotals = calculateGeneralTotals(
-            groupedData.sortie || [],
-            period,
-            'sortie',
-            expandedAndVatEntries,
-            finalActualTransactions,
-            hasOffBudgetRevenues,
-            hasOffBudgetExpenses
-        );
-
-        const netCashFlow = (revenueTotals.actual || 0) - (expenseTotals.actual || 0);
-
-        const initialBalance = runningBalance;
-        const finalBalance = initialBalance + netCashFlow;
-
-        runningBalance = finalBalance;
-
-        positions.push({
-            initial: initialBalance,
-            final: finalBalance,
-            netCashFlow: netCashFlow
-        });
-    }
-
-    return positions;
-};
-
-// Fonction helper pour la description
-const getEntryDescription = (entry) => {
-    return entry.description ||
-        entry.budget_description ||
-        entry.amount_type_description ||
-        'Aucune description disponible';
 };
 
 // Composant principal
@@ -452,6 +78,8 @@ const BudgetTableView = (props) => {
     const [hasNoData, setHasNoData] = useState(false);
 
     // États locaux
+    // Récupération des données real_budget
+    const { realBudgetData, loading: realBudgetLoading } = useRealBudgetData(activeProjectId);
     const [collectionData, setCollectionData] = useState({});
     const [loadingCollections, setLoadingCollections] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -490,7 +118,7 @@ const BudgetTableView = (props) => {
         decimalPlaces: activeProject?.decimal_places,
     }), [activeProject]);
 
-        const frequencyOptions = [
+    const frequencyOptions = [
         { id: 'all', label: 'Toutes les fréquences' },
         { id: '1', label: 'Ponctuel' },
         { id: '2', label: 'Journalier' },
@@ -503,79 +131,72 @@ const BudgetTableView = (props) => {
         { id: '9', label: 'Paiement irrégulier' },
     ];
 
-const fetchProjectData = async (projectId, frequencyId = null) => {
-    if (!projectId) return;
+    const fetchProjectData = async (projectId, frequencyId = null) => {
+        if (!projectId) return;
 
-    setLoading(true);
-    setError(null);
-    setHasNoData(false);
-
-    try {
-        const params = {};
-
-        if (frequencyId && frequencyId !== 'all') {
-            params.frequency_id = frequencyId;
-        }
-
-        const response = await axios.get(`/trezo-tables/projects/${projectId}`, { params });
-        const data = response.data;
-
-        // CORRECTION : Gestion simplifiée et robuste de la réponse
-        if (data && data.budgets) {
-            const hasBudgetItems = data.budgets.budget_items && data.budgets.budget_items.length > 0;
-            
-            if (hasBudgetItems) {
-                setProjectData(data);
-                setHasNoData(false);
-            } else {
-                // Aucune donnée trouvée pour ce filtre - ce n'est pas une erreur
-                setProjectData({ budgets: { budget_items: [] } });
-                setHasNoData(true);
-            }
-        } else {
-            // Format de réponse inattendu mais on gère gracieusement
-            console.warn('Format de réponse inattendu, mais traitement continué:', data);
-            setProjectData({ budgets: { budget_items: [] } });
-            setHasNoData(true);
-        }
-
-    } catch (err) {
-        console.error('❌ Erreur détaillée:', {
-            message: err.message,
-            response: err.response?.data,
-            status: err.response?.status
-        });
-
-        let errorMessage = 'Erreur de chargement des données';
-
-        if (err.response) {
-            // Erreur avec réponse du serveur
-            if (err.response.status === 404) {
-                errorMessage = 'Projet non trouvé';
-            } else if (err.response.status === 204) {
-                // Aucune donnée - ce n'est pas une erreur
-                setProjectData({ budgets: { budget_items: [] } });
-                setHasNoData(true);
-                setError(null);
-                setLoading(false);
-                return;
-            } else {
-                errorMessage = err.response.data?.message || `Erreur ${err.response.status}`;
-            }
-        } else if (err.request) {
-            // Erreur de réseau
-            errorMessage = 'Erreur de connexion au serveur';
-        } else {
-            // Autre erreur
-            errorMessage = err.message;
-        }
-
-        setError(errorMessage);
+        setLoading(true);
+        setError(null);
         setHasNoData(false);
-    } finally {
-        setLoading(false);
-    }
-};
+
+        try {
+            const params = {};
+
+            if (frequencyId && frequencyId !== 'all') {
+                params.frequency_id = frequencyId;
+            }
+
+            const response = await axios.get(`/trezo-tables/projects/${projectId}`, { params });
+            const data = response.data;
+
+            if (data && data.budgets) {
+                const hasBudgetItems = data.budgets.budget_items && data.budgets.budget_items.length > 0;
+
+                if (hasBudgetItems) {
+                    setProjectData(data);
+                    setHasNoData(false);
+                } else {
+                    setProjectData({ budgets: { budget_items: [] } });
+                    setHasNoData(true);
+                }
+            } else {
+                console.warn('Format de réponse inattendu, mais traitement continué:', data);
+                setProjectData({ budgets: { budget_items: [] } });
+                setHasNoData(true);
+            }
+
+        } catch (err) {
+            console.error('❌ Erreur détaillée:', {
+                message: err.message,
+                response: err.response?.data,
+                status: err.response?.status
+            });
+
+            let errorMessage = 'Erreur de chargement des données';
+
+            if (err.response) {
+                if (err.response.status === 404) {
+                    errorMessage = 'Projet non trouvé';
+                } else if (err.response.status === 204) {
+                    setProjectData({ budgets: { budget_items: [] } });
+                    setHasNoData(true);
+                    setError(null);
+                    setLoading(false);
+                    return;
+                } else {
+                    errorMessage = err.response.data?.message || `Erreur ${err.response.status}`;
+                }
+            } else if (err.request) {
+                errorMessage = 'Erreur de connexion au serveur';
+            } else {
+                errorMessage = err.message;
+            }
+
+            setError(errorMessage);
+            setHasNoData(false);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Récupération des données de l'API quand projectId ou frequencyFilter change
     useEffect(() => {
@@ -587,18 +208,15 @@ const fetchProjectData = async (projectId, frequencyId = null) => {
         if (!budgetItems || !Array.isArray(budgetItems)) return [];
 
         return budgetItems.map(item => {
-            // CORRECTION: Gestion du type (entree/sortie)
             let type;
             if (item.category_type_name === 'Revenue') {
                 type = 'entree';
             } else if (item.category_type_name === 'Dépense') {
                 type = 'sortie';
             } else {
-                // Fallback basé sur budget_type_name
                 type = item.budget_type_name === 'Entrée' ? 'entree' : 'sortie';
             }
 
-            // CORRECTION: Gestion des IDs
             const id = item.budget_detail_id?.toString() || `budget_${item.budget_id}`;
 
             return {
@@ -647,19 +265,20 @@ const fetchProjectData = async (projectId, frequencyId = null) => {
                 category_type_name: item.category_type_name,
                 entity_status_id: item.entity_status_id,
                 entity_status_name: item.entity_status_name,
-                // Champs calculés ou par défaut
                 type: type,
                 isProvision: false,
                 is_vat_child: false,
                 is_vat_payment: false,
                 is_tax_payment: false,
-                // AJOUT: Champs requis pour les calculs
                 date: item.start_date,
                 startDate: item.start_date ? new Date(item.start_date) : null,
                 endDate: item.end_date ? new Date(item.end_date) : null
             };
         });
     };
+
+
+
 
     // Utiliser les données récupérées
     const processedBudgetEntries = useMemo(() => {
@@ -752,56 +371,53 @@ const fetchProjectData = async (projectId, frequencyId = null) => {
         });
     }, [timeUnit, horizonLength, periodOffset, activeQuickSelect, settings.timezoneOffset]);
 
-// Dans BudgetTableView.jsx - Ajoutez cette fonction
-const fetchCollectionAccount = async (budgetId, date) => {
-    if (loadingCollections) return;
+    const fetchCollectionAccount = async (budgetId, date) => {
+        if (loadingCollections) return;
 
-    try {
-        setLoadingCollections(true);
-        
-        // ESSAYEZ D'ABORD L'APPEL NORMAL
-        const res = await getCollection(budgetId, date);
+        try {
+            setLoadingCollections(true);
 
-        if (res && res.status === 200) {
-            const hasValidCollections = Array.isArray(res.collection) && res.collection.length > 0;
+            const res = await getCollection(budgetId, date);
 
-            setCollectionData(prev => {
-                const newData = {
-                    ...prev,
-                    [budgetId]: res
-                };
+            if (res && res.status === 200) {
+                const hasValidCollections = Array.isArray(res.collection) && res.collection.length > 0;
 
-                if (res.budget && res.budget.budget_detail_id && res.budget.budget_detail_id !== budgetId) {
-                    newData[res.budget.budget_detail_id] = res;
-                }
+                setCollectionData(prev => {
+                    const newData = {
+                        ...prev,
+                        [budgetId]: res
+                    };
 
-                return newData;
-            });
+                    if (res.budget && res.budget.budget_detail_id && res.budget.budget_detail_id !== budgetId) {
+                        newData[res.budget.budget_detail_id] = res;
+                    }
 
-            if (hasValidCollections) {
-                console.log(`✅ Collection trouvée pour ${budgetId}:`, {
-                    montant: res.collection[0].collection_amount,
-                    date: res.collection[0].collection_date,
-                    count: res.collection.length
+                    return newData;
                 });
+
+                if (hasValidCollections) {
+                    console.log(`✅ Collection trouvée pour ${budgetId}:`, {
+                        montant: res.collection[0].collection_amount,
+                        date: res.collection[0].collection_date,
+                        count: res.collection.length
+                    });
+                }
             }
+        } catch (error) {
+            console.warn(`⚠️ Erreur fetch collection ${budgetId}, utilisation des données par défaut:`, error);
+
+            setCollectionData(prev => ({
+                ...prev,
+                [budgetId]: {
+                    collection: [],
+                    status: 'no_endpoint',
+                    message: 'Endpoint collections non disponible'
+                }
+            }));
+        } finally {
+            setLoadingCollections(false);
         }
-    } catch (error) {
-        console.warn(`⚠️ Erreur fetch collection ${budgetId}, utilisation des données par défaut:`, error);
-        
-        // EN CAS D'ERREUR, UTILISEZ DES DONNÉES PAR DÉFAUT
-        setCollectionData(prev => ({
-            ...prev,
-            [budgetId]: { 
-                collection: [], 
-                status: 'no_endpoint',
-                message: 'Endpoint collections non disponible'
-            }
-        }));
-    } finally {
-        setLoadingCollections(false);
-    }
-};
+    };
 
     useEffect(() => {
         const fetchCollectionsWithDelay = async () => {
@@ -877,6 +493,71 @@ const fetchCollectionAccount = async (budgetId, date) => {
         };
     }, []);
 
+
+    // Dans BudgetTableView.jsx - AJOUTEZ cette fonction :
+
+    const calculatePeriodPositions = (periods, cashAccounts, groupedData, expandedAndVatEntries, finalActualTransactions, hasOffBudgetRevenues, hasOffBudgetExpenses) => {
+        if (!periods || periods.length === 0 || !cashAccounts || cashAccounts.length === 0) {
+            return periods?.map(() => ({
+                initial: 0,
+                final: 0,
+                netCashFlow: 0,
+                totalEntrees: 0,
+                totalSorties: 0
+            })) || [];
+        }
+
+        const totalInitialBalance = cashAccounts.reduce((sum, account) => {
+            return sum + (account.initialBalance || 0);
+        }, 0);
+
+        const positions = [];
+        let runningBalance = totalInitialBalance;
+
+        for (let i = 0; i < periods.length; i++) {
+            const period = periods[i];
+
+            const revenueTotals = calculateGeneralTotals(
+                groupedData.entree || [],
+                period,
+                'entree',
+                expandedAndVatEntries,
+                finalActualTransactions,
+                hasOffBudgetRevenues,
+                hasOffBudgetExpenses
+            );
+
+            const expenseTotals = calculateGeneralTotals(
+                groupedData.sortie || [],
+                period,
+                'sortie',
+                expandedAndVatEntries,
+                finalActualTransactions,
+                hasOffBudgetRevenues,
+                hasOffBudgetExpenses
+            );
+
+            // CALCUL CORRECT: Flux de trésorerie = Entrées réelles - Sorties réelles
+            const totalEntrees = revenueTotals.actual || 0;
+            const totalSorties = expenseTotals.actual || 0;
+            const netCashFlow = totalEntrees - totalSorties;
+
+            const initialBalance = runningBalance;
+            const finalBalance = initialBalance + netCashFlow;
+
+            runningBalance = finalBalance;
+
+            positions.push({
+                initial: initialBalance,
+                final: finalBalance,
+                netCashFlow: netCashFlow,
+                totalEntrees: totalEntrees,
+                totalSorties: totalSorties
+            });
+        }
+
+        return positions;
+    };
     // Handlers
     const handlePeriodChange = (direction) => {
         uiDispatch({ type: 'SET_PERIOD_OFFSET', payload: periodOffset + direction });
@@ -1034,7 +715,7 @@ const fetchCollectionAccount = async (budgetId, date) => {
             });
         }
 
-        // Filtre par fréquence (maintenant géré par l'API, mais gardé pour la cohérence)
+        // Filtre par fréquence
         if (frequencyFilter !== 'all') {
             entries = entries.filter(entry => {
                 const entryFrequencyId = entry.frequency_id?.toString();
@@ -1160,6 +841,7 @@ const fetchCollectionAccount = async (budgetId, date) => {
         }));
     };
 
+
     useEffect(() => {
         localStorage.setItem('budgetAppColumnWidths', JSON.stringify(columnWidths));
     }, [columnWidths]);
@@ -1264,7 +946,7 @@ const fetchCollectionAccount = async (budgetId, date) => {
         setCollapsedItems(newCollapsedState);
     };
 
-    const numVisibleCols = Object.values(visibleColumns).filter(v => v).length;
+    const numVisibleCols = (visibleColumns.budget ? 1 : 0) + (visibleColumns.actual ? 1 : 0) + 1;
     const periodColumnWidth = numVisibleCols > 0 ? numVisibleCols * 90 : 50;
     const separatorWidth = 4;
 
@@ -1280,6 +962,12 @@ const fetchCollectionAccount = async (budgetId, date) => {
         const toggleMainCollapse = type === 'entree' ? () => setIsEntreesCollapsed(p => !p) : () => setIsSortiesCollapsed(p => !p);
         const Icon = type === 'entree' ? TrendingUp : TrendingDown;
         const colorClass = type === 'entree' ? 'text-success-600' : 'text-danger-600';
+
+        // Style pour les cellules de période
+        const periodCellStyle = {
+            minWidth: `${periodColumnWidth}px`,
+            width: `${periodColumnWidth}px`
+        };
 
         return (
             <>
@@ -1305,30 +993,34 @@ const fetchCollectionAccount = async (budgetId, date) => {
 
                         return (
                             <React.Fragment key={periodIndex}>
-                                <td className="px-2 py-1">
+                                <td className="px-1 py-1" style={periodCellStyle}>
                                     {numVisibleCols > 0 && (
-                                        <div className="flex justify-around gap-2 text-sm">
-                                            {visibleColumns.budget && <div className="relative flex-1 font-normal text-center group/subcell text-text-primary">
-                                                {formatCurrency(totals.budget, currencySettings)}
-                                                <CommentButton rowId={rowId} columnId={`${columnIdBase}_budget`} rowName={`Total ${isEntree ? 'Entrées' : 'Sorties'}`} columnName={`${period.label} (Prév.)`} />
-                                            </div>}
-                                            {visibleColumns.actual && <div className="relative flex-1 text-center group/subcell">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        if (totals.actual !== 0) handleActualClick({ type, period });
-                                                    }}
-                                                    disabled={totals.actual === 0}
-                                                    className="font-normal text-text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-60"
-                                                >
-                                                    {formatCurrency(totals.actual, currencySettings)}
-                                                </button>
-                                                <CommentButton rowId={rowId} columnId={`${columnIdBase}_actual`} rowName={`Total ${isEntree ? 'Entrées' : 'Sorties'}`} columnName={`${period.label} (Réel)`} />
-                                            </div>}
-                                            {visibleColumns.reste && <div className={`relative group/subcell flex-1 text-center font-normal ${getResteColor(reste, isEntree)}`}>
+                                        <div className="grid grid-cols-3 gap-1 text-xs">
+                                            {visibleColumns.budget && (
+                                                <div className="relative text-center text-gray-500 group/subcell">
+                                                    {formatCurrency(totals.budget, currencySettings)}
+                                                    <CommentButton rowId={rowId} columnId={`${columnIdBase}_budget`} rowName={`Total ${isEntree ? 'Entrées' : 'Sorties'}`} columnName={`${period.label} (Prév.)`} />
+                                                </div>
+                                            )}
+                                            {visibleColumns.actual && (
+                                                <div className="relative text-center group/subcell">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (totals.actual !== 0) handleActualClick({ type, period });
+                                                        }}
+                                                        disabled={totals.actual === 0}
+                                                        className="font-normal text-text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                                                    >
+                                                        {formatCurrency(totals.actual, currencySettings)}
+                                                    </button>
+                                                    <CommentButton rowId={rowId} columnId={`${columnIdBase}_actual`} rowName={`Total ${isEntree ? 'Entrées' : 'Sorties'}`} columnName={`${period.label} (Réel)`} />
+                                                </div>
+                                            )}
+                                            <div className={`relative text-center font-normal ${getResteColor(reste, isEntree)}`}>
                                                 {formatCurrency(reste, currencySettings)}
                                                 <CommentButton rowId={rowId} columnId={`${columnIdBase}_reste`} rowName={`Total ${isEntree ? 'Entrées' : 'Sorties'}`} columnName={`${period.label} (Reste)`} />
-                                            </div>}
+                                            </div>
                                         </div>
                                     )}
                                 </td>
@@ -1363,30 +1055,34 @@ const fetchCollectionAccount = async (budgetId, date) => {
                                     const rowId = `main_cat_${mainCategory.id}`;
                                     return (
                                         <React.Fragment key={periodIndex}>
-                                            <td className="px-2 py-1">
+                                            <td className="px-1 py-1" style={periodCellStyle}>
                                                 {numVisibleCols > 0 && (
-                                                    <div className="flex justify-around gap-2 text-xs">
-                                                        {visibleColumns.budget && <div className="relative flex-1 font-normal text-center group/subcell">
-                                                            {formatCurrency(totals.budget, currencySettings)}
-                                                            <CommentButton rowId={rowId} columnId={`${columnIdBase}_budget`} rowName={mainCategory.name} columnName={`${period.label} (Prév.)`} />
-                                                        </div>}
-                                                        {visibleColumns.actual && <div className="relative flex-1 font-normal text-center group/subcell">
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    if (totals.actual !== 0) handleActualClick({ mainCategory, period });
-                                                                }}
-                                                                disabled={totals.actual === 0}
-                                                                className="hover:underline disabled:cursor-not-allowed disabled:opacity-60"
-                                                            >
-                                                                {formatCurrency(totals.actual, currencySettings)}
-                                                            </button>
-                                                            <CommentButton rowId={rowId} columnId={`${columnIdBase}_actual`} rowName={mainCategory.name} columnName={`${period.label} (Réel)`} />
-                                                        </div>}
-                                                        {visibleColumns.reste && <div className={`relative group/subcell flex-1 text-center font-normal ${getResteColor(reste, isEntree)}`}>
+                                                    <div className="grid grid-cols-3 gap-1 text-xs">
+                                                        {visibleColumns.budget && (
+                                                            <div className="relative text-center text-gray-500 group/subcell">
+                                                                {formatCurrency(totals.budget, currencySettings)}
+                                                                <CommentButton rowId={rowId} columnId={`${columnIdBase}_budget`} rowName={mainCategory.name} columnName={`${period.label} (Prév.)`} />
+                                                            </div>
+                                                        )}
+                                                        {visibleColumns.actual && (
+                                                            <div className="relative text-center group/subcell">
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        if (totals.actual !== 0) handleActualClick({ mainCategory, period });
+                                                                    }}
+                                                                    disabled={totals.actual === 0}
+                                                                    className="hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                                                                >
+                                                                    {formatCurrency(totals.actual, currencySettings)}
+                                                                </button>
+                                                                <CommentButton rowId={rowId} columnId={`${columnIdBase}_actual`} rowName={mainCategory.name} columnName={`${period.label} (Réel)`} />
+                                                            </div>
+                                                        )}
+                                                        <div className={`relative text-center font-normal ${getResteColor(reste, isEntree)}`}>
                                                             {formatCurrency(reste, currencySettings)}
                                                             <CommentButton rowId={rowId} columnId={`${columnIdBase}_reste`} rowName={mainCategory.name} columnName={`${period.label} (Reste)`} />
-                                                        </div>}
+                                                        </div>
                                                     </div>
                                                 )}
                                             </td>
@@ -1447,45 +1143,60 @@ const fetchCollectionAccount = async (budgetId, date) => {
                                             <td className="bg-surface"></td>
                                             {periods.map((period, periodIndex) => {
                                                 const budget = calculateEntryAmountForPeriod(entry, period.startDate, period.endDate);
-                                                const actual = calculateActualAmountForPeriod(entry, finalActualTransactions, period.startDate, period.endDate);
+                                                const actual = calculateActualAmountForPeriod(entry, finalActualTransactions, period.startDate, period.endDate, realBudgetData);
                                                 const reste = budget - actual;
                                                 const columnIdBase = period.startDate.toISOString();
                                                 return (
                                                     <React.Fragment key={periodIndex}>
-                                                        <td className="px-2 py-1">
+                                                        <td className="px-1 py-1" style={periodCellStyle}>
                                                             {numVisibleCols > 0 && (
-                                                                <div className="flex justify-around gap-2 text-xs">
+                                                                <div className="grid grid-cols-3 gap-1 text-xs">
                                                                     {visibleColumns.budget && (
-                                                                        <div className="relative flex-1 text-center text-gray-500 group/subcell">
+                                                                        <div className="relative text-center text-gray-500 group/subcell">
                                                                             {formatCurrency(budget, currencySettings)}
                                                                             <CommentButton rowId={entry.id} columnId={`${columnIdBase}_budget`} rowName={entry.supplier} columnName={`${period.label} (Prév.)`} />
                                                                         </div>
                                                                     )}
                                                                     {visibleColumns.actual && (
-                                                                        <div className="relative flex-1 text-center group/subcell">
+                                                                        <div className="relative text-center group/subcell">
                                                                             <button
                                                                                 onClick={() => handleOpenPaymentDrawer(entry, period)}
                                                                                 disabled={actual === 0 && budget === 0}
-                                                                                className={`text-blue-600 hover:underline disabled:cursor-not-allowed disabled:text-gray-400 ${entry.collectionData && entry.collectionData.collection && entry.collectionData.collection.length > 0
+                                                                                className={`hover:underline disabled:cursor-not-allowed disabled:text-gray-400 ${realBudgetData?.real_budget_items?.data &&
+                                                                                    realBudgetData.real_budget_items.data.some(rb =>
+                                                                                        (rb.budget_id === entry.budget_id || rb.project_id === entry.project_id) &&
+                                                                                        rb.collection_date &&
+                                                                                        new Date(rb.collection_date) >= period.startDate &&
+                                                                                        new Date(rb.collection_date) <= period.endDate
+                                                                                    )
                                                                                     ? 'font-semibold text-green-600'
-                                                                                    : ''
+                                                                                    : entry.collectionData?.collection?.length > 0
+                                                                                        ? 'font-semibold text-blue-600'
+                                                                                        : 'text-blue-600'
                                                                                     }`}
-                                                                                title={entry.collectionData ? "Montant provenant des collections" : "Montant provenant des paiements"}
+                                                                                title={
+                                                                                    realBudgetData?.real_budget_items?.data &&
+                                                                                        realBudgetData.real_budget_items.data.some(rb =>
+                                                                                            (rb.budget_id === entry.budget_id || rb.project_id === entry.project_id) &&
+                                                                                            rb.collection_date &&
+                                                                                            new Date(rb.collection_date) >= period.startDate &&
+                                                                                            new Date(rb.collection_date) <= period.endDate
+                                                                                        )
+                                                                                        ? "Montant provenant des données real_budget API"
+                                                                                        : entry.collectionData?.collection?.length > 0
+                                                                                            ? "Montant provenant des collections"
+                                                                                            : "Montant provenant des paiements"
+                                                                                }
                                                                             >
                                                                                 {formatCurrency(actual, currencySettings)}
-                                                                                {entry.collectionData && entry.collectionData.collection && entry.collectionData.collection.length > 0 && (
-                                                                                    <span className="ml-1 text-xs text-green-600" title="Données de collection">●</span>
-                                                                                )}
                                                                             </button>
                                                                             <CommentButton rowId={entry.id} columnId={`${columnIdBase}_actual`} rowName={entry.supplier} columnName={`${period.label} (Réel)`} />
                                                                         </div>
                                                                     )}
-                                                                    {visibleColumns.reste && (
-                                                                        <div className={`relative group/subcell flex-1 text-center font-normal ${getResteColor(reste, isEntree)}`}>
-                                                                            {formatCurrency(reste, currencySettings)}
-                                                                            <CommentButton rowId={entry.id} columnId={`${columnIdBase}_reste`} rowName={entry.supplier} columnName={`${period.label} (Reste)`} />
-                                                                        </div>
-                                                                    )}
+                                                                    <div className={`relative text-center font-normal ${getResteColor(reste, isEntree)}`}>
+                                                                        {formatCurrency(reste, currencySettings)}
+                                                                        <CommentButton rowId={entry.id} columnId={`${columnIdBase}_reste`} rowName={entry.supplier} columnName={`${period.label} (Reste)`} />
+                                                                    </div>
                                                                 </div>
                                                             )}
                                                         </td>
@@ -1503,11 +1214,18 @@ const fetchCollectionAccount = async (budgetId, date) => {
         );
     };
 
-    // Afficher un état de chargement
+    useEffect(() => {
+        if (loading) {
+            // Les données sont en cours de chargement, on laisse le squelette s'afficher
+            return;
+        }
+    }, [loading]);
+
+    // Et modifiez la condition de rendu au début du return :
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="text-lg">Chargement des données budgétaires...</div>
+                <div className="text-lg">Chargement des données...</div>
             </div>
         );
     }
@@ -1651,7 +1369,7 @@ const fetchCollectionAccount = async (budgetId, date) => {
                                                     <div className="flex justify-around gap-2 text-xs font-medium text-gray-600">
                                                         {visibleColumns.budget && <div className="flex-1">Prév.</div>}
                                                         {visibleColumns.actual && <div className="flex-1">Réel</div>}
-                                                        {visibleColumns.reste && <div className="flex-1">Reste</div>}
+                                                        <div className="flex-1">Reste</div>
                                                     </div>
                                                 )}
                                             </th>
@@ -1680,7 +1398,7 @@ const fetchCollectionAccount = async (budgetId, date) => {
 
                                     return (
                                         <React.Fragment key={periodIndex}>
-                                            <td className="px-2 py-2 font-normal text-center" colSpan={1}>
+                                            <td className="px-2 py-2 font-normal text-center" colSpan={numVisibleCols}>
                                                 {formatCurrency(initialAmount, currencySettings)}
                                             </td>
                                             <td className="bg-surface"></td>
@@ -1730,10 +1448,10 @@ const fetchCollectionAccount = async (budgetId, date) => {
                                                             </button>
                                                             <CommentButton rowId={rowId} columnId={`${columnIdBase}_actual`} rowName="Flux de trésorerie" columnName={`${period.label} (Réel)`} />
                                                         </div>}
-                                                        {visibleColumns.reste && <div className={`relative group/subcell flex-1 text-center font-normal ${getResteColor(netReste, true)}`}>
+                                                        <div className={`relative group/subcell flex-1 text-center font-normal ${getResteColor(netReste, true)}`}>
                                                             {formatCurrency(netReste, currencySettings)}
                                                             <CommentButton rowId={rowId} columnId={`${columnIdBase}_reste`} rowName="Flux de trésorerie" columnName={`${period.label} (Reste)`} />
-                                                        </div>}
+                                                        </div>
                                                     </div>
                                                 )}
                                             </td>
@@ -1761,7 +1479,7 @@ const fetchCollectionAccount = async (budgetId, date) => {
 
                                     return (
                                         <React.Fragment key={periodIndex}>
-                                            <td className="px-2 py-2 font-normal text-center" colSpan={1}>
+                                            <td className="px-2 py-2 font-normal text-center" colSpan={numVisibleCols}>
                                                 {formatCurrency(finalAmount, currencySettings)}
                                             </td>
                                             <td className="bg-surface"></td>

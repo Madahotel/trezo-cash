@@ -250,7 +250,7 @@ const BudgetLineDialog = ({
   const fetchOptions = async () => {
     try {
       setIsLoadingData(true);
-      const res = await apiGet('/budget-projects/options');
+      const res = await apiGet(`/budget-projects/options`);
       let combinedList = [];
       if (res.users) {
         const userThirdParties =

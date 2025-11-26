@@ -6,6 +6,7 @@ import { useBudgetData } from '../../../hooks/useBudgetData.jsx';
 import { useActiveProjectData } from '../../../hooks/useActiveProjectData.jsx';
 import BudgetTableView from './BudgetTableView.jsx';
 import BudgetMobileView from './BudgetMobileView.jsx';
+import BudgetTableSkeleton from './BudgetTableSkeleton.jsx'; // Nouveau composant
 
 const BudgetTracker = ({
   quickFilter,
@@ -39,22 +40,18 @@ const BudgetTracker = ({
   const finalActualTransactions = actualTransactions;
   
   const finalCashAccounts = useMemo(() => {
-    // Vérifier d'abord si activeProjectId est valide
     if (!activeProjectId || activeProjectId === 'null') {
       return [];
     }
 
-    // Priorité 1: Données du hook useActiveProjectData
     if (cashAccounts?.length > 0) {
       return cashAccounts;
     }
     
-    // Priorité 2: Données de l'API
     if (budgetData?.cashAccounts?.length > 0) {
       return budgetData.cashAccounts;
     }
     
-    // Priorité 3: Données du contexte global
     if (dataState.allCashAccounts && dataState.allCashAccounts[activeProjectId]?.length > 0) {
       return dataState.allCashAccounts[activeProjectId];
     }
@@ -86,30 +83,27 @@ const BudgetTracker = ({
   }, []);
 
   // ✅ CORRECTION: Logique de chargement améliorée
-const startsWithConsolidatedView =
-  typeof activeProjectId === 'string' &&
-  activeProjectId.startsWith('consolidated_view_');
+  const startsWithConsolidatedView =
+    typeof activeProjectId === 'string' &&
+    activeProjectId.startsWith('consolidated_view_');
 
-const isValidProject =
-  typeof activeProjectId === 'string' &&
-  activeProjectId !== 'consolidated' &&
-  !startsWithConsolidatedView;
+  const isValidProject =
+    typeof activeProjectId === 'string' &&
+    activeProjectId !== 'consolidated' &&
+    !startsWithConsolidatedView;
 
-const shouldShowLoading =
-  loading && !isConsolidated && !isCustomConsolidated && isValidProject;
+  const shouldShowLoading =
+    loading && !isConsolidated && !isCustomConsolidated && isValidProject;
 
-const shouldShowError =
-  error && !isConsolidated && !isCustomConsolidated && isValidProject;
+  const shouldShowError =
+    error && !isConsolidated && !isCustomConsolidated && isValidProject;
 
   // ✅ CORRECTION: Vérifier si on a des données à afficher
   const hasData = finalBudgetEntries?.length > 0 || finalActualTransactions?.length > 0 || isConsolidated || isCustomConsolidated;
 
+  // ✅ NOUVEAU: Afficher le squelette pendant le chargement
   if (shouldShowLoading) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-lg">Chargement des données budgétaires...</div>
-      </div>
-    );
+    return <BudgetTableSkeleton isMobile={isMobile} />;
   }
 
   if (shouldShowError) {
@@ -120,8 +114,8 @@ const shouldShowError =
     );
   }
 
-  // ✅ CORRECTION: Afficher un état vide si pas de données
-  if (!hasData && activeProjectId) {
+  // ✅ CORRECTION: Afficher un état vide seulement APRÈS le chargement et si vraiment pas de données
+  if (!hasData && activeProjectId && !loading) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-gray-500">
         <div className="mb-2 text-lg">Aucune donnée budgétaire disponible</div>
@@ -168,7 +162,6 @@ const shouldShowError =
           visibleColumns={visibleColumns}
           tableauMode={tableauMode}
           setTableauMode={setTableauMode}
-          // showTemporalToolbar={showTemporalToolbar}
           showTemporalToolbar={true}
           showViewModeSwitcher={showViewModeSwitcher}
           showNewEntryButton={showNewEntryButton}

@@ -3,7 +3,7 @@ import { currencySymbols } from './currencies';
 export const formatCurrency = (amount, settings = {}) => {
   const { 
     displayUnit = 'standard', 
-    decimalPlaces = 2,
+    decimalPlaces = 0,
     currency = 'EUR'
   } = settings;
   

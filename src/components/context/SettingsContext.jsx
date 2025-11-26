@@ -44,15 +44,22 @@ export const SettingsProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    const fetchdata = async () => {
-      try {
-        const res = await apiGet('/currencies');
-        setCurrencies(res.currencies);
-      } catch (error) {
-        console.log(error);
-      }
-    };
-    fetchdata();
+const fetchdata = async () => {
+  try {
+    const res = await apiGet(`/currencies`);
+
+    if (!res) {
+      console.log("API returned empty response");
+      return;
+    }
+
+    const list = res.currencies || res.data?.currencies || [];
+
+    setCurrencies(list);
+  } catch (error) {
+    console.log("CURRENCY ERROR ===> ", error);
+  }
+}; fetchdata
   }, []);
 
   const languages = [
@@ -64,17 +71,23 @@ export const SettingsProvider = ({ children }) => {
     { code: 'pt', name: 'Português', flag: '🇵🇹' },
   ];
 
-  const getCurrencyByCode = (code) => {
-    return currencies.find((c) => c.code === code) || currencies[0];
-  };
+const getCurrencyByCode = (code) => {
+  if (!currencies.length) return null;
+
+  return (
+    currencies.find((c) => c.code === code) ||
+    currencies[0]
+  );
+};
 
   const getCurrentLanguage = () => {
     return languages.find((l) => l.code === language) || languages[0];
   };
 
-  const getCurrentCurrency = () => {
-    return getCurrencyByCode(selectedCurrency);
-  };
+const getCurrentCurrency = () => {
+  if (!currencies.length) return null;
+  return getCurrencyByCode(selectedCurrency);
+};
 
   return (
     <SettingsContext.Provider
