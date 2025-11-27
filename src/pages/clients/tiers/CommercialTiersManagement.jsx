@@ -593,6 +593,8 @@ const CommercialTiersManagement = ({
       setTableLoading(true);
       setError(null);
       const res = await apiGet(`/users/thirdParty`);
+      console.log(res);
+
       setApiData(res);
     } catch (err) {
       setError('Erreur lors du chargement des données');

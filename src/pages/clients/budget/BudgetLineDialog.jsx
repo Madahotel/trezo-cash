@@ -451,13 +451,15 @@ const BudgetLineDialog = ({
         toast.success(res.message);
         if (onBudgetUpdated) await onBudgetUpdated();
       } else {
+        console.log(apiData);
+
         const res = await apiPost(`/budget-projects/${projectId}`, apiData);
         toast.success(res.message);
         if (onBudgetAdded) await onBudgetAdded();
       }
       onOpenChange(false);
     } catch (error) {
-      console.error('Error saving budget:', error);
+      console.error('Error saving budget:', error.response.data);
       toast.error(
         `Erreur lors de ${
           editLine ? 'la modification' : "l'ajout"

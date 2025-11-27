@@ -156,7 +156,6 @@ export const AddSubcategoryModal = ({
                         }
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
                       >
-                        <option value="">Criticité</option>
                         {criticities.map((criticity) => (
                           <option key={criticity.id} value={criticity.id}>
                             {criticity.name}

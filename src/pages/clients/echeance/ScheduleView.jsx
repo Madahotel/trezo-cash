@@ -184,10 +184,10 @@ const DayCell = ({
                           <div className="flex justify-between items-start">
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-gray-900 text-sm truncate">
-                                {tx.thirdParty}
+                                {tx.subCategory}
                               </p>
                               <p className="text-xs text-gray-500 mt-0.5">
-                                {tx.subCategory}
+                                {tx.thirdParty}
                               </p>
                             </div>
                             <div
