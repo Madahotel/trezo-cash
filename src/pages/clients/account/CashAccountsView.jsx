@@ -61,6 +61,7 @@ const CashAccountsView = () => {
       date_balance:
         account.date_balance || new Date().toISOString().split('T')[0],
       currency_id: account.currency_id,
+      isEditable: account.isEditable,
     });
   };
 

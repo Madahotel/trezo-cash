@@ -105,6 +105,7 @@ const EditAccountForm = ({
           </label>
           <input
             type="number"
+            disabled={!editingAccount.isEditable}
             value={editingAccount.initial_amount || ''}
             onChange={(e) =>
               setEditingAccount((d) => ({
