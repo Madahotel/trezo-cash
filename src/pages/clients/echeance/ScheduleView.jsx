@@ -357,7 +357,6 @@ const ScheduleView = () => {
         }
 
         const res = await apiGet(`/schedules/budgets/project/${projectId}`);
-        console.log(res);
 
         if (res.status === 200) {
           // Les données reçues contiennent déjà toutes les transactions avec leurs dates générées
@@ -388,7 +387,6 @@ const ScheduleView = () => {
       </div>
     );
   }
-  console.log(budgetData);
 
   return (
     <div className="min-h-screen bg-white p-6">

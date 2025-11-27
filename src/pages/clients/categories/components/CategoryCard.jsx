@@ -5,6 +5,7 @@ import {
   Plus,
   TrendingUp,
   TrendingDown,
+  Lock,
 } from 'lucide-react';
 
 export const CategoryCard = ({
@@ -17,15 +18,14 @@ export const CategoryCard = ({
     colorOptions.find((color) => color.value === category.color) ||
     colorOptions[0];
 
-  // Fonction pour obtenir l'icône appropriée
+  // Fonction pour obtenir l'icône appropriée selon le type
   const getCategoryIcon = () => {
-    switch (category.icon) {
-      case 'TrendingDown':
-        return <TrendingDown className="w-3 h-3 text-white" />;
-      case 'TrendingUp':
-        return <TrendingUp className="w-3 h-3 text-white" />;
-      default:
-        return <Tag className="w-3 h-3 text-white" />;
+    if (category.type === 'expense') {
+      return <TrendingDown className="w-3 h-3 text-white" />;
+    } else if (category.type === 'income') {
+      return <TrendingUp className="w-3 h-3 text-white" />;
+    } else {
+      return <Tag className="w-3 h-3 text-white" />;
     }
   };
 
@@ -37,7 +37,7 @@ export const CategoryCard = ({
             className={`w-10 h-10 rounded-lg ${colorClass.light} flex items-center justify-center`}
           >
             <div
-              className={`w-6 h-6 ${colorClass.bg} rounded-md flex items-center justify-center`}
+              className={`w-6 h-6 ${colorClass.bg} rounded-md flex items-center justify-center border border-white`}
             >
               {getCategoryIcon()}
             </div>
@@ -84,14 +84,29 @@ export const CategoryCard = ({
         </div>
         <div className="flex flex-wrap gap-1">
           {category.subcategories.map((sub, index) => (
-            <button
+            <div
               key={index}
-              onClick={() => handleViewSubcategoryDetails(category, sub)}
-              className="px-2 py-1 bg-gray-50 text-gray-700 rounded text-sm border border-gray-200 hover:bg-gray-100 hover:border-gray-300 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
-              title={`Voir les détails de ${sub.name}`}
+              className={`px-2 py-1 bg-gray-50 text-gray-700 rounded text-sm border border-gray-200 transition-colors ${
+                sub.isDefault
+                  ? 'cursor-not-allowed'
+                  : 'cursor-pointer hover:bg-gray-100 hover:border-gray-300'
+              }`}
+              title={
+                sub.isDefault
+                  ? 'Non modifiable'
+                  : `Voir les détails de ${sub.name}`
+              }
+              onClick={
+                sub.isDefault
+                  ? undefined
+                  : () => handleViewSubcategoryDetails(category, sub)
+              }
             >
-              {sub.name}
-            </button>
+              <div className="flex items-center space-x-1">
+                <span>{sub.name}</span>
+                {sub.isDefault && <Lock className="w-3 h-3 text-gray-500" />}
+              </div>
+            </div>
           ))}
         </div>
       </div>

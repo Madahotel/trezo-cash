@@ -54,9 +54,9 @@ const CategoryView = () => {
   const fetchSubCategories = async () => {
     try {
       const resSubCategories = await apiGet('/sub-categories');
-      setSubCategories(
-        resSubCategories.sub_categories?.sub_category_items || []
-      );
+      console.log('SubCategories API response:', resSubCategories);
+
+      setSubCategories(resSubCategories);
       setCriticities(resSubCategories.criticities?.criticity_items || []);
     } catch (error) {
       console.log('Error fetching sub-categories:', error);
@@ -65,25 +65,46 @@ const CategoryView = () => {
 
   // Transformer les données de l'API en format utilisable
   const transformApiData = (categoriesData, subCategoriesData) => {
-    const baseCategories = categoriesData.map((category) => ({
-      id: category.id.toString(),
-      name: category.name,
-      description: '',
-      type: category.category_type_id === 1 ? 'expense' : 'income',
-      color: 'slate',
-      icon: 'Tag',
-      isBase: true,
-      subcategories: subCategoriesData
-        .filter((sub) => sub.category_id === category.id)
-        .map((sub) => ({
-          id: sub.id.toString(),
-          name: sub.name,
-          criticity: {
-            id: sub.criticity_id,
-            name: sub.criticity_name,
-          },
-        })),
-    }));
+    const baseCategories = categoriesData.map((category) => {
+      // Sous-catégories non modifiables (defaults)
+      const defaultSubcategories =
+        subCategoriesData.sub_category_defaults?.sub_category_default_items
+          ?.filter((sub) => sub.category_id === category.id)
+          .map((sub) => ({
+            id: sub.id.toString(),
+            name: sub.name,
+            criticity: {
+              id: sub.criticity_id,
+              name: sub.criticity_name,
+            },
+            isDefault: true, // Marquer comme non modifiable
+          })) || [];
+
+      // Sous-catégories modifiables
+      const customSubcategories =
+        subCategoriesData.sub_categories?.sub_category_items
+          ?.filter((sub) => sub.category_id === category.id)
+          .map((sub) => ({
+            id: sub.id.toString(),
+            name: sub.name,
+            criticity: {
+              id: sub.criticity_id,
+              name: sub.criticity_name,
+            },
+            isDefault: false, // Marquer comme modifiable
+          })) || [];
+
+      return {
+        id: category.id.toString(),
+        name: category.name,
+        description: '',
+        type: category.category_type_id === 1 ? 'expense' : 'income',
+        color: 'slate',
+        icon: 'Tag',
+        isBase: true,
+        subcategories: [...defaultSubcategories, ...customSubcategories],
+      };
+    });
 
     // Séparer par type
     const expenseCategories = baseCategories.filter(
@@ -105,7 +126,7 @@ const CategoryView = () => {
 
   // Mettre à jour les données transformées quand les données brutes changent
   useEffect(() => {
-    if (categories.length > 0 && subCategories.length > 0) {
+    if (categories.length > 0 && subCategories.criticities) {
       const newTransformedData = transformApiData(categories, subCategories);
       setTransformedData(newTransformedData);
     }
@@ -266,7 +287,7 @@ const CategoryView = () => {
 
         {/* Content */}
         <div className="space-y-8">
-          {/* Base Categories */}
+          {/* Toutes les Catégories */}
           <section>
             <div className="flex items-center space-x-3 mb-6">
               <div className="w-6 h-6 bg-blue-100 rounded flex items-center justify-center">
@@ -274,10 +295,10 @@ const CategoryView = () => {
               </div>
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">
-                  Catégories de Base
+                  Catégories
                 </h2>
                 <p className="text-gray-600">
-                  Catégories prédéfinies, non modifiables
+                  Toutes vos catégories avec leurs sous-catégories
                 </p>
               </div>
             </div>
