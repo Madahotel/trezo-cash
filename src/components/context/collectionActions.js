@@ -24,7 +24,7 @@ export const getCollection = async (budgetId, date) => {
             throw new Error(`Erreur ${response.status}: ${response.statusText}`);
         }
     } catch (error) {
-        console.error('❌ Erreur lors de la récupération des collections:', {
+        console.error('Erreur lors de la récupération des collections:', {
             budgetId,
             dateCollection: date,
             error: error.response?.data || error.message
