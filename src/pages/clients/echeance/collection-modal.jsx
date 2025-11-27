@@ -9,10 +9,7 @@ import {
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import {
-  getCollection,
-  saveCollection,
-} from '../../../components/context/collectionActions';
+import { apiGet, apiPost } from '../../../components/context/actionsMethode';
 
 const Cash = () => (
   <svg
@@ -81,7 +78,7 @@ export const CollectionModal = ({ isOpen, onClose, transaction, cellDate }) => {
   const fetchData = async (budgetId, date) => {
     try {
       setLoading(true);
-      const res = await getCollection(budgetId, date);
+      const res = await apiGet(`/schedules/budgets/${budgetId}/date/${date}`);
       setData(res || []);
     } catch (error) {
       console.error('Erreur lors du chargement des données:', error);
@@ -113,13 +110,12 @@ export const CollectionModal = ({ isOpen, onClose, transaction, cellDate }) => {
 
     try {
       setSubmitting(true);
-      const res = await saveCollection({
+      const res = await apiPost('/schedules/collections', {
         budget_id: transaction.budget_id,
         collection_amount: parseFloat(amountPaid),
         bank_account_id: paymentMethod,
         collection_date: formattedDate,
       });
-
       toast.success(res.message || 'Encaissement effectué avec succès !');
 
       await new Promise((resolve) => setTimeout(resolve, 800));
