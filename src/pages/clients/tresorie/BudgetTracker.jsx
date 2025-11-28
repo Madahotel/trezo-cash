@@ -6,7 +6,8 @@ import { useBudgetData } from '../../../hooks/useBudgetData.jsx';
 import { useActiveProjectData } from '../../../hooks/useActiveProjectData.jsx';
 import BudgetTableView from './BudgetTableView.jsx';
 import BudgetMobileView from './BudgetMobileView.jsx';
-import BudgetTableSkeleton from './BudgetTableSkeleton.jsx'; // Nouveau composant
+import BudgetTableSkeleton from './BudgetTableSkeleton.jsx';
+import BudgetLineDialog from '../../../pages/clients/budget/BudgetLineDialog.jsx';
 
 const BudgetTracker = ({
   quickFilter,
@@ -15,6 +16,11 @@ const BudgetTracker = ({
   showViewModeSwitcher = true,
   showNewEntryButton = true
 }) => {
+
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [budget, setBudget] = useState({});
+  const [editingLine, setEditingLine] = useState(null);
   const { dataState, dataDispatch } = useData();
   const { uiState, uiDispatch } = useUI();
   const { projects, categories, settings, vatRegimes, taxConfigs, loans, tiers } = dataState;
@@ -26,19 +32,20 @@ const BudgetTracker = ({
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false);
   const periodMenuRef = useRef(null);
   const { budgetData, loading, error } = useBudgetData(activeProjectId);
+  const { refetch } = useBudgetData(activeProjectId);
 
-  const { 
-    budgetEntries, 
-    actualTransactions, 
-    cashAccounts, 
-    activeProject, 
-    isConsolidated, 
-    isCustomConsolidated 
+  const {
+    budgetEntries,
+    actualTransactions,
+    cashAccounts,
+    activeProject,
+    isConsolidated,
+    isCustomConsolidated
   } = useActiveProjectData(dataState, uiState, budgetData);
 
   const finalBudgetEntries = budgetEntries;
   const finalActualTransactions = actualTransactions;
-  
+
   const finalCashAccounts = useMemo(() => {
     if (!activeProjectId || activeProjectId === 'null') {
       return [];
@@ -47,17 +54,17 @@ const BudgetTracker = ({
     if (cashAccounts?.length > 0) {
       return cashAccounts;
     }
-    
+
     if (budgetData?.cashAccounts?.length > 0) {
       return budgetData.cashAccounts;
     }
-    
+
     if (dataState.allCashAccounts && dataState.allCashAccounts[activeProjectId]?.length > 0) {
       return dataState.allCashAccounts[activeProjectId];
     }
     return [];
   }, [dataState.allCashAccounts, activeProjectId, budgetData?.cashAccounts, cashAccounts]);
-  
+
   const finalCategories = categories;
 
   const visibleColumns = useMemo(() => visibleColumnsProp || { budget: true, actual: true, reste: false, description: true }, [visibleColumnsProp]);
@@ -82,7 +89,49 @@ const BudgetTracker = ({
     };
   }, []);
 
-  // ✅ CORRECTION: Logique de chargement améliorée
+
+  const fetchBudgetData = async () => {
+    try {
+      if (budgetData?.refetch) {
+        await budgetData.refetch();
+      }
+    } catch (error) {
+      console.error('Error refreshing budget data:', error);
+    }
+  };
+
+  const handleDialogClose = (open) => {
+    setIsDialogOpen(open);
+    if (!open) {
+      setEditingLine(null);
+    }
+  };
+  const handleBudgetAdded = useCallback(() => {
+    setRefreshKey(prev => prev + 1);
+    if (refetch) {
+      refetch();
+    } else {
+      console.log('refetch non disponible, utilisation de refreshKey uniquement');
+    }
+  }, [refetch]);
+
+
+  const handleBudgetUpdated = useCallback(() => {
+    setRefreshKey(prev => prev + 1);
+    if (refetch) {
+      refetch();
+    }
+  }, [refetch]);
+  const handleEditEntry = (entry) => {
+    console.log('Editing entry:', entry);
+    setEditingLine(entry);
+    setIsDialogOpen(true);
+  };
+
+  const handleAddNewLine = () => {
+    setEditingLine(null);
+    setIsDialogOpen(true);
+  };
   const startsWithConsolidatedView =
     typeof activeProjectId === 'string' &&
     activeProjectId.startsWith('consolidated_view_');
@@ -98,10 +147,8 @@ const BudgetTracker = ({
   const shouldShowError =
     error && !isConsolidated && !isCustomConsolidated && isValidProject;
 
-  // ✅ CORRECTION: Vérifier si on a des données à afficher
   const hasData = finalBudgetEntries?.length > 0 || finalActualTransactions?.length > 0 || isConsolidated || isCustomConsolidated;
 
-  // ✅ NOUVEAU: Afficher le squelette pendant le chargement
   if (shouldShowLoading) {
     return <BudgetTableSkeleton isMobile={isMobile} />;
   }
@@ -114,7 +161,6 @@ const BudgetTracker = ({
     );
   }
 
-  // ✅ CORRECTION: Afficher un état vide seulement APRÈS le chargement et si vraiment pas de données
   if (!hasData && activeProjectId && !loading) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-gray-500">
@@ -143,6 +189,7 @@ const BudgetTracker = ({
         />
       ) : (
         <BudgetTableView
+          key={refreshKey}
           finalBudgetEntries={finalBudgetEntries}
           finalActualTransactions={finalActualTransactions}
           finalCashAccounts={finalCashAccounts}
@@ -172,8 +219,19 @@ const BudgetTracker = ({
           periodMenuRef={periodMenuRef}
           isPeriodMenuOpen={isPeriodMenuOpen}
           setIsPeriodMenuOpen={setIsPeriodMenuOpen}
+          onEdit={handleEditEntry}
+
         />
       )}
+      <BudgetLineDialog
+        open={isDialogOpen}
+        onOpenChange={handleDialogClose}
+        onBudgetAdded={handleBudgetUpdated}
+        onBudgetUpdated={handleBudgetUpdated}
+        data={budget}
+        editLine={editingLine}
+        projectId={activeProjectId}
+      />
     </>
   );
 };

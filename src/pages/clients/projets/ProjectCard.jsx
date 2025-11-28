@@ -416,11 +416,30 @@ const ProjectCard = ({
                                                             Archiver
                                                         </button>
                                                     )}
+
                                                     <button
                                                         className="flex items-center w-full px-2 py-1.5 text-xs text-red-600 hover:bg-red-50"
-                                                        onClick={() => {
+                                                        onClick={async () => {
                                                             if (window.confirm(`Êtes-vous sûr de vouloir supprimer définitivement le projet "${project.name}" ?`)) {
-                                                                handleDeleteProject(project.id);
+                                                                try {
+                                                                    await handleDeleteProject(project.id);
+                                                                    
+                                                                    // Déclencher un événement pour notifier la suppression
+                                                                    window.dispatchEvent(new CustomEvent('projectDeleted', {
+                                                                        detail: { projectId: project.id }
+                                                                    }));
+                                                                    
+                                                                    // OU déclencher l'événement existant
+                                                                    window.dispatchEvent(new CustomEvent('projectsUpdated', {
+                                                                        detail: { 
+                                                                            action: 'deleted',
+                                                                            projectId: project.id 
+                                                                        }
+                                                                    }));
+                                                                    
+                                                                } catch (error) {
+                                                                    console.error('Erreur lors de la suppression:', error);
+                                                                }
                                                             }
                                                             setShowActionsMenu(false);
                                                         }}

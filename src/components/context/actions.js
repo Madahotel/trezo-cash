@@ -144,41 +144,42 @@ export const deleteEntry = async (
   { entryId, entryProjectId }
 ) => {
   try {
-    if (
-      !entryProjectId ||
-      entryProjectId === 'consolidated' ||
-      entryProjectId.startsWith('consolidated_view_')
-    ) {
+    uiDispatch({ type: 'SET_LOADING', payload: true });
+    const response = await axios.delete(`/budget-projects/budgets/${entryId}`);
+    if (response.status === 200) {
+      dataDispatch({
+        type: 'DELETE_BUDGET_ENTRY',
+        payload: { entryId, projectId: entryProjectId },
+      });
+
       uiDispatch({
-        type: 'ADD_TOAST',
+        type: 'CLOSE_CONFIRMATION_MODAL',
+      });
+
+      uiDispatch({
+        type: 'SHOW_TOAST',
         payload: {
-          message: 'Impossible de supprimer une entrée en vue consolidée.',
-          type: 'error',
+          type: 'success',
+          message: response.data.message || 'Entrée supprimée avec succès',
         },
       });
-      return;
+
+      return response.data;
     }
-
-    await api.delete(`${apiEndpoints.budgetEntries}/${entryId}`);
-
-    dataDispatch({
-      type: 'DELETE_ENTRY_SUCCESS',
-      payload: { entryId, entryProjectId },
-    });
-    uiDispatch({
-      type: 'ADD_TOAST',
-      payload: { message: 'Entrée budgétaire supprimée.', type: 'success' },
-    });
-    uiDispatch({ type: 'CLOSE_BUDGET_MODAL' });
   } catch (error) {
-    console.error('Error deleting entry:', error);
+    console.error('❌ Erreur suppression entrée:', error);
+    
     uiDispatch({
-      type: 'ADD_TOAST',
+      type: 'SHOW_TOAST',
       payload: {
-        message: `Erreur lors de la suppression: ${error.message}`,
         type: 'error',
+        message: error.response?.data?.message || 'Erreur lors de la suppression',
       },
     });
+    
+    throw error;
+  } finally {
+    uiDispatch({ type: 'SET_LOADING', payload: false });
   }
 };
 
