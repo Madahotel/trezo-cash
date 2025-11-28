@@ -26,7 +26,6 @@ const AVATAR_COLORS = [
   'bg-indigo-200 text-indigo-700',
 ];
 
-// ✅ OPTIMISATION: Fonctions utilitaires déplacées en dehors du composant
 const getProjectInitial = (projectName) => {
   return projectName ? projectName[0].toUpperCase() : '?';
 };
@@ -66,22 +65,20 @@ const ProjectSwitcher = () => {
   const listRef = useRef(null);
   const projectsLoaded = useRef(false);
   const initialLoadDone = useRef(false);
-  
-  // ✅ OPTIMISATION: useMemo simplifié avec cache
+
   const myProjects = useMemo(() => {
     if (!rawProjects || rawProjects.length === 0) return [];
-    
+
     return rawProjects.filter((project) => {
       if (!project) return false;
       const isArchived = project.is_archived || project.isArchived;
       return !isArchived;
     });
   }, [rawProjects]);
-  
+
   const activeProjectId = uiState.activeProject?.id || null;
   const activeProject = uiState.activeProject;
 
-  // ✅ OPTIMISATION: useCallback avec dépendances minimales
   const getSavedProject = useCallback(() => {
     try {
       const saved = localStorage.getItem('activeProject');
@@ -102,7 +99,6 @@ const ProjectSwitcher = () => {
     }
   }, []);
 
-  // ✅ OPTIMISATION: useMemo pour displayName avec cache
   const displayName = useMemo(() => {
     if (activeProjectId === 'consolidated') {
       return 'Mes projets consolidés';
@@ -126,7 +122,6 @@ const ProjectSwitcher = () => {
     return 'Sélectionner un projet';
   }, [activeProjectId, uiState.activeProject?.name, myProjects]);
 
-  // ✅ OPTIMISATION: refreshProjects simplifié
   const refreshProjects = useCallback(async () => {
     if (!user?.id) return;
     try {
@@ -137,14 +132,13 @@ const ProjectSwitcher = () => {
     }
   }, [user?.id, refetchProjects]);
 
-  // ✅ OPTIMISATION: useEffect principal consolidé
   useEffect(() => {
     // Éviter les exécutions multiples
     if (initialLoadDone.current || projectsLoading) return;
 
     const initializeProject = async () => {
       const savedProject = getSavedProject();
-      
+
       if (savedProject && !activeProjectId) {
         console.log('🔄 Restauration du projet sauvegardé:', savedProject.name);
         uiDispatch({
@@ -174,18 +168,16 @@ const ProjectSwitcher = () => {
     initializeProject();
   }, [myProjects, activeProjectId, projectsLoading, uiDispatch, getSavedProject, saveProject]);
 
-  // ✅ OPTIMISATION: Chargement initial simplifié
   useEffect(() => {
     if (!projectsLoaded.current && !projectsLoading && user?.id) {
       refreshProjects();
     }
   }, [projectsLoading, user?.id, refreshProjects]);
 
-  // ✅ OPTIMISATION: Gestion des événements avec cleanup propre
   useEffect(() => {
     const handleProjectEvent = async (event) => {
       await refreshProjects();
-      
+
       const project = event.detail?.project || event.detail?.newProject;
       if (project && (!event.detail?.action || event.detail.action === 'created')) {
         uiDispatch({
@@ -205,7 +197,6 @@ const ProjectSwitcher = () => {
     };
   }, [refreshProjects, uiDispatch, saveProject]);
 
-  // ✅ OPTIMISATION: Gestion du clic en dehors avec useRef stable
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (listRef.current && !listRef.current.contains(event.target)) {
@@ -217,7 +208,6 @@ const ProjectSwitcher = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // ✅ OPTIMISATION: handleSelect optimisé
   const handleSelect = useCallback((id) => {
     const idString = String(id);
 
@@ -226,12 +216,12 @@ const ProjectSwitcher = () => {
         ? 'Mes projets consolidés'
         : CONSISTENT_VIEWS.find((v) => `consolidated_view_${v.id}` === idString)?.name || 'Vue consolidée';
 
-      const consolidatedProject = { 
-        id: idString, 
-        name: viewName, 
-        type: 'consolidated' 
+      const consolidatedProject = {
+        id: idString,
+        name: viewName,
+        type: 'consolidated'
       };
-      
+
       uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: consolidatedProject });
       saveProject(consolidatedProject);
     } else {
@@ -248,7 +238,78 @@ const ProjectSwitcher = () => {
     setIsListOpen(false);
   }, [myProjects, uiDispatch, saveProject, refreshProjects]);
 
-  // ✅ OPTIMISATION: Handlers simplifiés
+
+  useEffect(() => {
+    const handleProjectDeleted = async (event) => {
+      const deletedProjectId = event.detail?.projectId;
+
+      if (!deletedProjectId) return;
+
+      await refreshProjects();
+      if (areIdsEqual(activeProjectId, deletedProjectId)) {
+        if (myProjects.length > 0) {
+          const newActiveProject = myProjects.find(p => !areIdsEqual(p.id, deletedProjectId)) || myProjects[0];
+          if (newActiveProject) {
+            uiDispatch({
+              type: 'SET_ACTIVE_PROJECT',
+              payload: newActiveProject,
+            });
+            saveProject(newActiveProject);
+          }
+        } else {
+          const consolidatedProject = {
+            id: 'consolidated',
+            name: 'Mes projets consolidés',
+            type: 'consolidated'
+          };
+          uiDispatch({
+            type: 'SET_ACTIVE_PROJECT',
+            payload: consolidatedProject
+          });
+          saveProject(consolidatedProject);
+        }
+      }
+    };
+
+    window.addEventListener('projectDeleted', handleProjectDeleted);
+    window.addEventListener('projectsUpdated', handleProjectDeleted);
+
+    return () => {
+      window.removeEventListener('projectDeleted', handleProjectDeleted);
+      window.removeEventListener('projectsUpdated', handleProjectDeleted);
+    };
+  }, [activeProjectId, myProjects, uiDispatch, saveProject, refreshProjects]);
+
+
+  useEffect(() => {
+    const handleProjectRestored = async (event) => {
+      const restoredProjectId = event.detail?.projectId;
+      const restoredProject = event.detail?.project;
+
+      if (!restoredProjectId) return;
+
+      console.log('🔄 Projet restauré détecté:', restoredProjectId);
+      await refreshProjects();
+      if (restoredProject && !activeProjectId) {
+        setTimeout(() => {
+          uiDispatch({
+            type: 'SET_ACTIVE_PROJECT',
+            payload: restoredProject,
+          });
+          saveProject(restoredProject);
+        }, 500);
+      }
+    };
+
+    window.addEventListener('projectRestored', handleProjectRestored);
+    window.addEventListener('projectsUpdated', handleProjectRestored);
+
+    return () => {
+      window.removeEventListener('projectRestored', handleProjectRestored);
+      window.removeEventListener('projectsUpdated', handleProjectRestored);
+    };
+  }, [activeProjectId, uiDispatch, saveProject, refreshProjects]);
+
   const handleAddProject = useCallback(() => {
     if (location.pathname === '/client/onboarding') {
       setIsListOpen(false);
@@ -270,7 +331,6 @@ const ProjectSwitcher = () => {
   const isLoading = projectsLoading;
   const hasProjects = myProjects.length > 0;
 
-  // ✅ OPTIMISATION: Rendu conditionnel optimisé
   return (
     <div className="relative w-full" ref={listRef}>
       <button
@@ -288,7 +348,7 @@ const ProjectSwitcher = () => {
       {isListOpen && (
         <div className="absolute z-30 mt-2 bg-white border rounded-lg shadow-lg w-72">
           <div className="p-1 overflow-y-auto max-h-80">
-            <ProjectList 
+            <ProjectList
               activeProjectId={activeProjectId}
               myProjects={myProjects}
               hasProjects={hasProjects}
@@ -327,14 +387,13 @@ const ProjectSwitcher = () => {
   );
 };
 
-// ✅ OPTIMISATION: Sous-composant pour la liste des projets
-const ProjectList = React.memo(({ 
-  activeProjectId, 
-  myProjects, 
-  hasProjects, 
-  isLoading, 
-  onSelect, 
-  onAddProject 
+const ProjectList = React.memo(({
+  activeProjectId,
+  myProjects,
+  hasProjects,
+  isLoading,
+  onSelect,
+  onAddProject
 }) => {
   return (
     <ul>

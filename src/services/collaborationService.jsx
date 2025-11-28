@@ -6,10 +6,12 @@ class CollaborationService {
   async getCollaborators() {
     try {
       const response = await apiService.get('/users/collaborators');
-      return response.data || response;
+      // S'assurer que nous retournons toujours un tableau
+      return Array.isArray(response.data) ? response.data : 
+             Array.isArray(response) ? response : [];
     } catch (error) {
       console.error('Erreur lors de la récupération des collaborateurs:', error);
-      throw error;
+      return [];
     }
   }
 
@@ -17,21 +19,32 @@ class CollaborationService {
   async getProjectCollaborators(projectId) {
     try {
       const allCollaborators = await this.getCollaborators();
+      if (!Array.isArray(allCollaborators)) {
+        console.warn('getProjectCollaborators: allCollaborators n\'est pas un tableau', allCollaborators);
+        return [];
+      }
+      
       return allCollaborators.filter(collaborator => 
         collaborator.projects?.some(project => project.id === parseInt(projectId))
       );
     } catch (error) {
       console.error('Erreur lors de la récupération des collaborateurs du projet:', error);
-      throw error;
+      return [];
     }
   }
 
-  // Récupérer les collaborateurs formatés pour l'affichage
+  // Récupérer les collaborateurs formatés pour l'affichage - CORRIGÉ
   async getFormattedCollaborators(projectId = null) {
     try {
       const collaborators = projectId 
         ? await this.getProjectCollaborators(projectId)
         : await this.getCollaborators();
+
+      // S'assurer que collaborators est un tableau avant d'utiliser .map()
+      if (!Array.isArray(collaborators)) {
+        console.warn('getFormattedCollaborators: collaborators n\'est pas un tableau', collaborators);
+        return [];
+      }
 
       return collaborators.map(collaborator => ({
         id: collaborator.id,
@@ -48,7 +61,7 @@ class CollaborationService {
       }));
     } catch (error) {
       console.error('Erreur lors du formatage des collaborateurs:', error);
-      throw error;
+      return [];
     }
   }
 
@@ -96,12 +109,14 @@ class CollaborationService {
       ]);
       
       return {
-        permissions: permissionsResponse.data || permissionsResponse,
-        roles: rolesResponse.data || rolesResponse
+        permissions: Array.isArray(permissionsResponse.data) ? permissionsResponse.data : 
+                    Array.isArray(permissionsResponse) ? permissionsResponse : [],
+        roles: Array.isArray(rolesResponse.data) ? rolesResponse.data : 
+               Array.isArray(rolesResponse) ? rolesResponse : []
       };
     } catch (error) {
       console.error('Erreur lors de la récupération des permissions:', error);
-      throw error;
+      return { permissions: [], roles: [] };
     }
   }
 
@@ -123,9 +138,10 @@ class CollaborationService {
       const invitations = await this.getProjectInvitations(projectId);
       
       return {
-        collaborators: collaborators.length,
-        pendingInvitations: invitations.length,
-        totalInvitations: collaborators.length + invitations.length
+        collaborators: Array.isArray(collaborators) ? collaborators.length : 0,
+        pendingInvitations: Array.isArray(invitations) ? invitations.length : 0,
+        totalInvitations: (Array.isArray(collaborators) ? collaborators.length : 0) + 
+                         (Array.isArray(invitations) ? invitations.length : 0)
       };
     } catch (error) {
       console.error('Erreur lors de la récupération des statistiques:', error);
@@ -161,7 +177,7 @@ class CollaborationService {
       console.log('Annulation invitation:', { projectId, invitationId });
       return { success: true, message: 'Invitation annulée' };
     } catch (error) {
-      console.error('Erreur lors de l\'annulation de l\'invitation:', error);
+      console.error("Erreur lors de l'annulation de l'invitation:", error);
       throw error;
     }
   }
@@ -291,7 +307,7 @@ class CollaborationService {
     try {
       const collaborators = await this.getCollaborators();
       return {
-        collaborations: collaborators,
+        collaborations: Array.isArray(collaborators) ? collaborators : [],
         exportDate: new Date().toISOString()
       };
     } catch (error) {
@@ -330,11 +346,30 @@ class CollaborationService {
   async debugCollaborator(collaboratorId) {
     try {
       const allCollaborators = await this.getCollaborators();
+      if (!Array.isArray(allCollaborators)) {
+        console.warn('debugCollaborator: allCollaborators n\'est pas un tableau', allCollaborators);
+        return null;
+      }
       const collaborator = allCollaborators.find(c => c.id === collaboratorId);
       console.log('Données du collaborateur:', collaborator);
       return collaborator;
     } catch (error) {
       console.error('Erreur lors du debug du collaborateur:', error);
+      throw error;
+    }
+  }
+
+  // Nouvelle méthode pour debugger la structure de la réponse API
+  async debugApiResponse() {
+    try {
+      const response = await apiService.get('/users/collaborators');
+      console.log('Structure complète de la réponse API:', response);
+      console.log('Type de response.data:', typeof response.data);
+      console.log('Est un tableau?', Array.isArray(response.data));
+      console.log('Keys de response:', Object.keys(response));
+      return response;
+    } catch (error) {
+      console.error('Erreur lors du debug API:', error);
       throw error;
     }
   }

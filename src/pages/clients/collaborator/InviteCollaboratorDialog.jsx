@@ -33,25 +33,38 @@ const InviteCollaboratorDialog = ({ open, onOpenChange, project, onInviteSent })
       setValidationErrors({}); // Réinitialiser les erreurs à l'ouverture
     }
   }, [open]);
+const loadPermissionsAndRoles = async () => {
+  try {
+    const [permissionsData, rolesData] = await Promise.all([
+      apiService.get('/users/collaborator-permission'),
+      apiService.get('/users/collaborator-roles')
+    ]);
 
-  const loadPermissionsAndRoles = async () => {
-    try {
-      const [permissionsData, rolesData] = await Promise.all([
-        apiService.get('/collaborator-permissions'),
-        apiService.get('/collaborator-roles')
-      ]);
-      
-      setPermissions(permissionsData);
-      setRoles(rolesData);
-    } catch (error) {
-      console.error('Erreur lors du chargement des données:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de charger les permissions et rôles",
-        variant: "destructive"
-      });
-    }
-  };
+    console.log("permissionsData =", permissionsData);
+    console.log("rolesData =", rolesData);
+
+    setPermissions(
+      Array.isArray(permissionsData)
+        ? permissionsData
+        : permissionsData.data ?? []
+    );
+
+    setRoles(
+      Array.isArray(rolesData)
+        ? rolesData
+        : rolesData.data ?? []
+    );
+
+  } catch (error) {
+    console.error('Erreur lors du chargement des données:', error);
+    toast({
+      title: "Erreur",
+      description: "Impossible de charger les permissions et rôles",
+      variant: "destructive"
+    });
+  }
+};
+
 
   const validateForm = () => {
     const errors = {};

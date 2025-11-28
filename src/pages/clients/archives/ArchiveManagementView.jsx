@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/card';
-import { Input } from '../../../components/ui/input';
+import { Input } from '../../../components/ui/Input';
 import EmptyState from '../../../components/emptystate/EmptyState';
 import axios from '../../../components/config/Axios';
 import toast from 'react-hot-toast';
@@ -23,27 +23,19 @@ const ArchiveManagementView = () => {
   const [localLoading, setLocalLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
-
-  // Récupérer TOUS les projets et filtrer les archivés côté client
   const fetchAllProjects = async () => {
     try {
       setLoading(true);
 
       const response = await axios.get('/projects');
       const allProjects = response.data;
-
       const transformedProjects = transformApiData(allProjects);
-
-      // 🔥 CORRECTION : Filtrer uniquement les projets archivés
       const archived = transformedProjects.filter(project => project.is_archived);
-
+      
       setArchivedProjects(archived);
-
-      console.log('📁 Archives chargées:', archived.length, 'projets archivés');
 
     } catch (error) {
       console.error('Erreur lors du chargement des projets:', error);
-      toast.error('Erreur lors du chargement des données');
     } finally {
       setLoading(false);
     }
@@ -56,8 +48,6 @@ const ArchiveManagementView = () => {
       console.warn('Aucun projet trouvé dans la réponse API');
       return transformedProjects;
     }
-
-    // Même logique de transformation que ProjectsPage mais sans filtre
     if (apiData.projects.business?.project_business_items?.data) {
       apiData.projects.business.project_business_items.data.forEach(project => {
         const isArchived = project.entity_status_id === 3;
@@ -68,7 +58,6 @@ const ArchiveManagementView = () => {
           description: project.description || 'Aucune description',
           type: 'business',
           typeName: project.type_name || 'Business',
-          // ... autres champs
           is_archived: isArchived,
           entity_status_id: project.entity_status_id || 1,
           archived_at: project.updated_at,
@@ -152,42 +141,55 @@ const ArchiveManagementView = () => {
     fetchAllProjects();
   }, []);
 
-  // Fonction pour restaurer un projet avec l'endpoint RESTORE
-  const handleRestoreProject = async (projectId) => {
-    try {
-      setLocalLoading(true);
-      const loadingToast = toast.loading('Restauration du projet en cours...');
+const handleRestoreProject = async (projectId) => {
+  try {
+    setLocalLoading(true);
+    const loadingToast = toast.loading('Restauration du projet en cours...');
+    await axios.patch(`/projects/${projectId}/restore`, {}, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
+        'Content-Type': 'application/json',
+      },
+    });
 
-      // Utiliser l'endpoint RESTORE dédié
-      await axios.patch(`/projects/${projectId}/restore`, {}, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json',
-        },
-      });
+    const restoredProject = archivedProjects.find(p => p.id === projectId);
+    
+    setArchivedProjects(prev => prev.filter(project => project.id !== projectId));
 
-      // Mettre à jour la liste locale
-      setArchivedProjects(prev => prev.filter(project => project.id !== projectId));
-
-      toast.success('Projet restauré avec succès !', {
-        id: loadingToast,
-        duration: 4000,
-      });
-
-    } catch (error) {
-      console.error('Erreur lors de la restauration:', error);
-
-      if (error.response?.status === 404) {
-        toast.error('Projet non trouvé');
-      } else {
-        toast.error('Erreur lors de la restauration du projet');
+    window.dispatchEvent(new CustomEvent('projectRestored', {
+      detail: { 
+        projectId: projectId,
+        project: restoredProject,
+        action: 'restored'
       }
-    } finally {
-      setLocalLoading(false);
-    }
-  };
+    }));
 
-  // Filtrer les données selon la recherche
+    window.dispatchEvent(new CustomEvent('projectsUpdated', {
+      detail: { 
+        action: 'restored',
+        projectId: projectId,
+        project: restoredProject
+      }
+    }));
+
+    toast.success('Projet restauré avec succès !', {
+      id: loadingToast,
+      duration: 4000,
+    });
+
+  } catch (error) {
+    console.error('Erreur lors de la restauration:', error);
+
+    if (error.response?.status === 404) {
+      toast.error('Projet non trouvé');
+    } else {
+      toast.error('Erreur lors de la restauration du projet');
+    }
+  } finally {
+    setLocalLoading(false);
+  }
+};
+
   const filteredProjects = archivedProjects.filter(project =>
     project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     project.description?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -207,22 +209,21 @@ const ArchiveManagementView = () => {
     });
   };
 
-  // Composant de carte pour projet archivé
   const ArchivedProjectCard = ({ project }) => (
-    <Card className="border-l-4 border-l-orange-500 hover:shadow-md transition-shadow">
+    <Card className="transition-shadow border-l-4 border-l-orange-500 hover:shadow-md">
       <CardContent className="p-4">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
               <Folder className="w-5 h-5 text-orange-500" />
               <h3 className="font-semibold text-gray-900">{project.name}</h3>
-              <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+              <span className="px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded-full">
                 {project.typeName || 'Projet'}
               </span>
             </div>
 
             {project.description && (
-              <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+              <p className="mb-3 text-sm text-gray-600 line-clamp-2">
                 {project.description}
               </p>
             )}
@@ -241,7 +242,7 @@ const ArchiveManagementView = () => {
           <Button
             onClick={() => handleRestoreProject(project.id)}
             disabled={localLoading}
-            className="bg-green-100 text-green-700 hover:bg-green-200 px-3 py-2 flex items-center gap-2 text-sm"
+            className="flex items-center gap-2 px-3 py-2 text-sm text-green-700 bg-green-100 hover:bg-green-200"
           >
             <ArchiveRestore className="w-4 h-4" />
             Restaurer
@@ -251,7 +252,6 @@ const ArchiveManagementView = () => {
     </Card>
   );
 
-  // Squelette de chargement
   const ArchiveCardSkeleton = () => (
     <Card className="animate-pulse">
       <CardContent className="p-4">
@@ -259,13 +259,13 @@ const ArchiveManagementView = () => {
           <div className="flex-1 space-y-3">
             <div className="flex items-center gap-3">
               <div className="w-5 h-5 bg-gray-200 rounded"></div>
-              <div className="h-4 bg-gray-200 rounded w-48"></div>
-              <div className="h-6 bg-gray-200 rounded w-16"></div>
+              <div className="w-48 h-4 bg-gray-200 rounded"></div>
+              <div className="w-16 h-6 bg-gray-200 rounded"></div>
             </div>
-            <div className="h-3 bg-gray-200 rounded w-3/4"></div>
-            <div className="h-3 bg-gray-200 rounded w-32"></div>
+            <div className="w-3/4 h-3 bg-gray-200 rounded"></div>
+            <div className="w-32 h-3 bg-gray-200 rounded"></div>
           </div>
-          <div className="h-9 bg-gray-200 rounded w-24"></div>
+          <div className="w-24 bg-gray-200 rounded h-9"></div>
         </div>
       </CardContent>
     </Card>
@@ -274,21 +274,16 @@ const ArchiveManagementView = () => {
   if (loading) {
     return (
       <div className="space-y-6">
-        {/* Header skeleton */}
-        <div className="flex justify-between items-center">
+        <div className="flex items-center justify-between">
           <div className="space-y-2">
-            <div className="h-8 bg-gray-200 rounded w-64 animate-pulse"></div>
+            <div className="w-64 h-8 bg-gray-200 rounded animate-pulse"></div>
             <div className="h-4 bg-gray-200 rounded w-96 animate-pulse"></div>
           </div>
         </div>
-
-        {/* Filtres skeleton */}
         <div className="flex gap-4">
-          <div className="h-10 bg-gray-200 rounded w-64 animate-pulse"></div>
-          <div className="h-10 bg-gray-200 rounded w-32 animate-pulse"></div>
+          <div className="w-64 h-10 bg-gray-200 rounded animate-pulse"></div>
+          <div className="w-32 h-10 bg-gray-200 rounded animate-pulse"></div>
         </div>
-
-        {/* Content skeleton */}
         <div className="space-y-4">
           {[...Array(3)].map((_, index) => (
             <ArchiveCardSkeleton key={index} />
@@ -302,18 +297,16 @@ const ArchiveManagementView = () => {
 
   return (
     <div className="space-y-6">
-      {/* Overlay de chargement local */}
       {localLoading && (
-        <div className="fixed inset-0 bg-black bg-opacity-10 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-4 flex items-center space-x-3">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-10">
+          <div className="flex items-center p-4 space-x-3 bg-white rounded-lg">
+            <div className="w-6 h-6 border-b-2 border-blue-500 rounded-full animate-spin"></div>
             <span className="text-gray-600">Traitement en cours...</span>
           </div>
         </div>
       )}
 
-      {/* Header */}
-      <div className="bg-white p-6 rounded-lg shadow">
+      <div className="p-6 bg-white rounded-lg shadow">
         <div className="flex items-center gap-3 mb-2">
           <Archive className="w-8 h-8 text-slate-600" />
           <div>
@@ -326,15 +319,15 @@ const ArchiveManagementView = () => {
 
         {/* Statistiques */}
         <div className="grid grid-cols-3 gap-4 mt-4">
-          <div className="text-center p-4 bg-blue-50 rounded-lg">
+          <div className="p-4 text-center rounded-lg bg-blue-50">
             <div className="text-2xl font-bold text-blue-600">{archivedProjects.length}</div>
             <div className="text-sm text-blue-600">Projets archivés</div>
           </div>
-          <div className="text-center p-4 bg-purple-50 rounded-lg">
+          <div className="p-4 text-center rounded-lg bg-purple-50">
             <div className="text-2xl font-bold text-purple-600">{archivedScenarios.length}</div>
             <div className="text-sm text-purple-600">Scénarios archivés</div>
           </div>
-          <div className="text-center p-4 bg-gray-50 rounded-lg">
+          <div className="p-4 text-center rounded-lg bg-gray-50">
             <div className="text-2xl font-bold text-gray-600">{totalArchivedItems}</div>
             <div className="text-sm text-gray-600">Total archivé</div>
           </div>
@@ -342,11 +335,11 @@ const ArchiveManagementView = () => {
       </div>
 
       {/* Filtres et recherche */}
-      <div className="bg-white p-4 rounded-lg shadow">
-        <div className="flex flex-col sm:flex-row gap-4">
+      <div className="p-4 bg-white rounded-lg shadow">
+        <div className="flex flex-col gap-4 sm:flex-row">
           {/* Barre de recherche */}
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <div className="relative flex-1">
+            <Search className="absolute w-4 h-4 text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
             <Input
               type="text"
               placeholder="Rechercher dans les archives..."
@@ -379,8 +372,8 @@ const ArchiveManagementView = () => {
       </div>
 
       {/* Section Projets Archivés */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+      <div className="p-6 bg-white rounded-lg shadow">
+        <h2 className="flex items-center gap-2 mb-4 text-lg font-semibold">
           <Folder className="w-5 h-5 text-orange-500" />
           Projets Archivés ({filteredProjects.length})
         </h2>

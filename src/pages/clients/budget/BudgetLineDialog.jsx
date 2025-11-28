@@ -34,7 +34,6 @@ const BudgetLineDialog = ({
     user_type_id: '',
   });
 
-  // Extraction des données de l'API avec valeurs par défaut
   const {
     listCategories = [],
     listSubCategories = [],
@@ -70,8 +69,6 @@ const BudgetLineDialog = ({
   });
 
   const [isLoading, setIsLoading] = useState(false);
-
-  // Transformations simples - déplacées après les useState
   const currencies = listCurrencies.map((currency) => ({
     value: currency.id?.toString() || `currency-${currency.code}`,
     label: `${currency.code} (${currency.symbol})`,
@@ -92,7 +89,6 @@ const BudgetLineDialog = ({
     label: account.name,
   }));
 
-  // Fonction pour filtrer les tiers
   const getFilteredThirdPartyOptions = (type, thirdPartyList) => {
     if (!thirdPartyList || thirdPartyList.length === 0) return [];
 
@@ -150,8 +146,6 @@ const BudgetLineDialog = ({
   const createThirdParty = async (thirdPartyData) => {
     try {
       setIsCreatingThirdParty(true);
-
-      // Convertir user_type_id en number
       const payload = {
         ...thirdPartyData,
         user_type_id: parseInt(thirdPartyData.user_type_id),
@@ -276,19 +270,25 @@ const BudgetLineDialog = ({
     }
   };
 
-  const fetchEditData = async (budgetId) => {
+  const fetchEditData = async (entry) => {
     try {
       setIsLoadingEditData(true);
-      const res = await apiGet(`/budget-projects/budgets/${budgetId}`);
-      setEditData(res);
 
-      if (res && res.budget) {
+      // Utilisez le budget_id au lieu de l'id de l'entrée
+      const budgetId = entry.budget_id || entry.id;
+
+      if (!budgetId) {
+        throw new Error('ID du budget non trouvé');
+      }
+
+      const res = await apiGet(`/budget-projects/budgets/${budgetId}`);
+
+      if (res.status === 200 && res.budget) {
         const budget = res.budget;
         const thirdPartyOption = {
           value: budget.user_third_party_id?.toString(),
-          label: `${budget.user_third_party_firstname || ''} ${
-            budget.user_third_party_name || ''
-          }`.trim(),
+          label: `${budget.user_third_party_firstname || ''} ${budget.user_third_party_name || ''
+            }`.trim(),
           email: budget.user_third_party_email,
         };
 
@@ -300,13 +300,13 @@ const BudgetLineDialog = ({
           type: budget.budget_type_id?.toString() || '1',
           mainCategory: budget.category_id?.toString() || '',
           subcategory: budget.sub_category_id?.toString() || '',
-          amount: budget.amount?.toString() || '',
+          amount: budget.budget_amount?.toString() || budget.amount?.toString() || '',
           currency: currency?.value || '1',
           frequency: budget.frequency_id?.toString() || '1',
           startDate: budget.start_date || '',
           endDate: budget.end_date || '',
           isIndefinite: budget.is_duration_indefinite || false,
-          description: budget.description || '',
+          description: budget.description || budget.budget_description || '',
           thirdParty: thirdPartyOption,
         });
 
@@ -321,29 +321,30 @@ const BudgetLineDialog = ({
             provisionAccountId: budget.provision_account_id?.toString() || '',
           });
         }
+      } else {
+        throw new Error(res.message || 'Données non trouvées');
       }
+
     } catch (error) {
       console.error("Erreur lors du chargement des données d'édition:", error);
-      toast.error("Erreur lors du chargement des données d'édition");
+      toast.error(`Erreur lors du chargement: ${error.message}`);
     } finally {
       setIsLoadingEditData(false);
     }
   };
 
-  // CORRECTION : Effets avec dépendances fixes
   useEffect(() => {
     if (open && !data) {
       fetchOptions();
     }
-  }, [open]); // ← data retiré des dépendances
+  }, [open]);
 
   useEffect(() => {
     if (open && editLine && !editData) {
-      fetchEditData(editLine.id);
+      fetchEditData(editLine);
     }
-  }, [open, editLine?.id]); // ← editData retiré, seulement l'ID
+  }, [open, editLine?.id]);
 
-  // CORRECTION : Effet de reset
   useEffect(() => {
     if (open && !editLine) {
       setFormData({
@@ -373,7 +374,7 @@ const BudgetLineDialog = ({
         user_type_id: '',
       });
     }
-  }, [open, editLine]); // ← defaultCurrency retiré
+  }, [open, editLine]);
 
   const handleChange = (field, value) => {
     setFormData((prev) => {
@@ -443,33 +444,50 @@ const BudgetLineDialog = ({
 
     setIsLoading(true);
     try {
+      let result;
       if (editLine) {
-        const res = await apiUpdate(
+        result = await apiUpdate(
           `budget-projects/budgets/${editLine.id}/details/${editLine.budget_detail_id}`,
           apiData
         );
-        toast.success(res.message);
-        if (onBudgetUpdated) await onBudgetUpdated();
-      } else {
-        console.log(apiData);
+        toast.success(result.message);
 
-        const res = await apiPost(`/budget-projects/${projectId}`, apiData);
-        toast.success(res.message);
-        if (onBudgetAdded) await onBudgetAdded();
+        if (onBudgetUpdated) {
+          setTimeout(() => {
+            onBudgetUpdated();
+          }, 500);
+        }
+      } else {
+        console.log('Creating budget with data:', apiData);
+        result = await apiPost(`/budget-projects/${projectId}`, apiData);
+        toast.success(result.message);
+
+        if (onBudgetAdded) {
+          setTimeout(() => {
+            onBudgetAdded();
+          }, 500);
+        }
       }
-      onOpenChange(false);
+
+      setTimeout(() => {
+        onOpenChange(false);
+      }, 600);
+
     } catch (error) {
-      console.error('Error saving budget:', error.response.data);
+      console.error('Error saving budget:', error);
+
+      const errorMessage = error.response?.data?.message ||
+        error.message ||
+        'Erreur inconnue lors de la sauvegarde';
+
       toast.error(
-        `Erreur lors de ${
-          editLine ? 'la modification' : "l'ajout"
-        } de la ligne budgétaire: ${error.message}`
+        `Erreur lors de ${editLine ? 'la modification' : "l'ajout"
+        } de la ligne budgétaire: ${errorMessage}`
       );
     } finally {
       setIsLoading(false);
     }
   };
-
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) {
       onOpenChange(false);
