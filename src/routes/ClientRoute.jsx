@@ -38,6 +38,7 @@ import AmbassadorGate from '../pages/clients/ambassador/AmbassadorGate';
 import PaymentHistoryPage from '../pages/clients/ambassador/PaymentHistoryPage';
 import ProgramInfoPage from '../pages/clients/ambassador/ProgramInfoPage';
 import BecomeAmbassadorPage from '../pages/clients/ambassador/BecomeAmbassadorPage';
+import ConsolidatedViewPage from '../pages/clients/consolidate/ConsolidatedViewPage';
 const ClientRoute = {
   path: '/client',
   element: (
@@ -71,8 +72,11 @@ const ClientRoute = {
     { path: 'aide', element: <Aide title="Centre d'aide" /> },
     { path: 'abonnement', element: <SubscriptionPage /> },
     { path: 'onboarding', element: <OnboardingView /> },
+    { path: 'consolidations/:id', element: <ConsolidatedViewPage  /> },
+    
     // { path: "parrainage", element: <AmbassadorPage /> },
     // { path: "parrainage/refferals", element: <ReferralsPage /> },
+    
     {
       path: 'parrainage',
       element: <AmbassadorGate />, // 🔹 Vérifie le statut
