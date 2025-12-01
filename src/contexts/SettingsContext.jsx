@@ -55,7 +55,6 @@ export const SettingsProvider = ({ children }) => {
     };
     fetchdata();
   }, []);
-  console.log(currencies);
 
   const languages = [
     { code: 'fr', name: 'Français', flag: '🇫🇷' },

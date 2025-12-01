@@ -6,7 +6,6 @@ import ProjetClient from '../pages/clients/projets/ProjetClient';
 import ScenarioView from '../pages/clients/scenario/ScenarioView';
 import BudgetTracker from '../pages/clients/tresorie/BudgetTracker';
 import TrezoPage from '../pages/clients/tresorie/TrezoPage';
-import ExpenseAnalysisView from '../pages/clients/analyse/ExpenseAnalysisView';
 import MyTemplatesPage from '../pages/clients/models/MyTemplatesPage';
 import ProjectSettingsPage from '../pages/clients/projets/ProjectSettingsPage';
 import ProvisionsPage from '../pages/clients/suiviProvision/ProvisionsPage';
@@ -38,6 +37,7 @@ import AmbassadorGate from '../pages/clients/ambassador/AmbassadorGate';
 import PaymentHistoryPage from '../pages/clients/ambassador/PaymentHistoryPage';
 import ProgramInfoPage from '../pages/clients/ambassador/ProgramInfoPage';
 import BecomeAmbassadorPage from '../pages/clients/ambassador/BecomeAmbassadorPage';
+import AnalyseView from '../pages/clients/analyse/AnalyseView';
 const ClientRoute = {
   path: '/client',
   element: (
@@ -56,7 +56,7 @@ const ClientRoute = {
     { path: 'scenarios', element: <ScenarioView /> },
     { path: 'flux', element: <CashflowView /> },
     { path: 'echeancier', element: <ScheduleView /> },
-    { path: 'analyse', element: <ExpenseAnalysisView /> },
+    { path: 'analyse', element: <AnalyseView /> },
     { path: 'templates', element: <MyTemplatesPage /> },
     { path: 'parametres-projet', element: <ProjectSettingsPage /> },
     { path: 'provisions', element: <ProvisionsPage /> },

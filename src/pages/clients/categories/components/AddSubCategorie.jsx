@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Plus, X } from 'lucide-react';
-
 import toast from 'react-hot-toast';
 import { apiPost } from '../../../../components/context/actionsMethode';
 
@@ -12,8 +11,10 @@ export const AddSubcategoryModal = ({
   onSubcategoriesCreated,
 }) => {
   const [submitting, setSubmitting] = useState(false);
+
+  // Initialiser avec une valeur par défaut pour criticity_id
   const [formData, setFormData] = useState({
-    subcategories: [{ name: '', criticity_id: '' }],
+    subcategories: [{ name: '', criticity_id: criticities[0]?.id || '' }],
   });
 
   const handleSubcategoryChange = (index, field, value) => {
@@ -30,7 +31,7 @@ export const AddSubcategoryModal = ({
       ...formData,
       subcategories: [
         ...formData.subcategories,
-        { name: '', criticity_id: '' },
+        { name: '', criticity_id: criticities[0]?.id || '' }, // Valeur par défaut
       ],
     });
   };
@@ -78,8 +79,9 @@ export const AddSubcategoryModal = ({
   };
 
   const resetForm = () => {
+    // Réinitialiser avec la première criticité comme valeur par défaut
     setFormData({
-      subcategories: [{ name: '', criticity_id: '' }],
+      subcategories: [{ name: '', criticity_id: criticities[0]?.id || '' }],
     });
     onClose();
   };
@@ -156,6 +158,8 @@ export const AddSubcategoryModal = ({
                         }
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
                       >
+                        {/* Option par défaut */}
+                        <option value="">Sélectionner une criticité</option>
                         {criticities.map((criticity) => (
                           <option key={criticity.id} value={criticity.id}>
                             {criticity.name}

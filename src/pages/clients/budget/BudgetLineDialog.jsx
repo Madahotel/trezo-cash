@@ -451,7 +451,7 @@ const BudgetLineDialog = ({
         toast.success(res.message);
         if (onBudgetUpdated) await onBudgetUpdated();
       } else {
-        console.log(apiData);
+        // console.log(apiData);
 
         const res = await apiPost(`/budget-projects/${projectId}`, apiData);
         toast.success(res.message);

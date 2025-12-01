@@ -1,0 +1,1336 @@
+// Fonctions utilitaires
+export const formatCurrency = (amount, settings) => {
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: settings?.currency || 'EUR',
+  }).format(amount || 0);
+};
+
+// Fonction pour générer les transactions récurrentes à partir des budgets
+export const transformBudgetDataWithDates = (budgetData) => {
+  const transactions = [];
+
+  budgetData.forEach((budget) => {
+    const frequencyId = budget.frequency_id;
+    const type = budget.category_type_id == 2 ? 'receivable' : 'payable';
+
+    const dates = generateDatesByFrequency(
+      frequencyId,
+      budget.start_date,
+      budget.end_date
+    );
+
+    dates.forEach((date, occurrenceIndex) => {
+      const dateKey = date.toISOString().split('T')[0];
+
+      const uniqueId = `budget-${budget.budget_id}-${dateKey}-${occurrenceIndex}`;
+
+      // Créer le nom du tiers
+      const thirdPartyName = budget.third_party_firstname
+        ? `${budget.third_party_name} ${budget.third_party_firstname}`
+        : budget.third_party_name;
+
+      transactions.push({
+        id: uniqueId,
+        thirdParty: thirdPartyName || budget.category_name,
+        thirdPartyId: budget.user_third_party_id,
+        amount: parseFloat(budget.budget_amount || 0),
+        type: type,
+        category: budget.category_name,
+        subCategory: budget.sub_category_name,
+        date: dateKey,
+        yearMonth: dateKey.substring(0, 7), // YYYY-MM pour le regroupement par mois
+        budget_id: budget.budget_id,
+        start_date: budget.start_date,
+        end_date: budget.end_date,
+        frequency_id: frequencyId,
+        frequency_name: budget.frequency_name,
+        budget_type_id: budget.budget_type_id,
+        budget_type_name: budget.budget_type_name,
+        category_type_id: budget.category_type_id,
+        category_type_name: budget.category_type_name,
+        entity_status_id: budget.entity_status_id,
+        is_duration_indefinite: budget.is_duration_indefinite,
+        due_date: dateKey,
+        occurrence_index: occurrenceIndex,
+        project_id: budget.project_id,
+        project_name: budget.project_name,
+      });
+    });
+  });
+
+  return transactions;
+};
+
+// Fonction pour générer les dates selon la fréquence
+export const generateDatesByFrequency = (
+  frequencyId,
+  startDate,
+  endDate = null
+) => {
+  const dates = [];
+
+  // Fonction pour parser correctement les dates
+  const parseDate = (dateStr) => {
+    if (!dateStr) return null;
+
+    // Prendre seulement la partie date (avant l'espace si présent)
+    const datePart = dateStr.split(' ')[0];
+    const [year, month, day] = datePart
+      .split('-')
+      .map((num) => parseInt(num, 10));
+
+    // Créer la date en UTC pour éviter les problèmes de fuseau horaire
+    return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+  };
+
+  const start = parseDate(startDate);
+  if (!start || isNaN(start.getTime())) {
+    return dates;
+  }
+
+  // Cas des fréquences sans répétition (ponctuel)
+  if (frequencyId === 1 || frequencyId === 9) {
+    dates.push(start);
+    return dates;
+  }
+
+  // Si pas de date de fin, générer pour 2 ans
+  if (!endDate) {
+    const futureEnd = new Date(start);
+    futureEnd.setUTCFullYear(futureEnd.getUTCFullYear() + 2);
+
+    let current = new Date(start);
+    let iteration = 0;
+
+    while (current <= futureEnd && iteration < 1000) {
+      dates.push(new Date(current));
+
+      const next = new Date(current);
+      switch (frequencyId) {
+        case 2: // Quotidienne
+          next.setUTCDate(next.getUTCDate() + 1);
+          break;
+        case 3: // Mensuelle
+          next.setUTCMonth(next.getUTCMonth() + 1);
+          break;
+        case 4: // Hebdomadaire
+          next.setUTCDate(next.getUTCDate() + 7);
+          break;
+        case 5: // Bimensuelle
+          next.setUTCDate(next.getUTCDate() + 15);
+          break;
+        case 6: // Trimestrielle
+          next.setUTCMonth(next.getUTCMonth() + 3);
+          break;
+        case 7: // Semestrielle
+          next.setUTCMonth(next.getUTCMonth() + 6);
+          break;
+        case 8: // Annuelle
+          next.setUTCFullYear(next.getUTCFullYear() + 1);
+          break;
+      }
+
+      current = next;
+      iteration++;
+    }
+    return dates;
+  }
+
+  // Avec date de fin
+  const end = parseDate(endDate);
+  if (!end || isNaN(end.getTime())) {
+    console.error('❌ Date de fin invalide:', endDate);
+    return dates;
+  }
+
+  if (start > end) {
+    console.error('❌ Erreur: start_date > end_date');
+    return dates;
+  }
+
+  let current = new Date(start);
+  let iteration = 0;
+  const maxIterations = 10000;
+
+  while (current <= end && iteration < maxIterations) {
+    dates.push(new Date(current));
+
+    const next = new Date(current);
+    switch (frequencyId) {
+      case 2: // Quotidienne
+        next.setUTCDate(next.getUTCDate() + 1);
+        break;
+      case 3: // Mensuelle
+        next.setUTCMonth(next.getUTCMonth() + 1);
+        break;
+      case 4: // Hebdomadaire
+        next.setUTCDate(next.getUTCDate() + 7);
+        break;
+      case 5: // Bimensuelle
+        next.setUTCDate(next.getUTCDate() + 15);
+        break;
+      case 6: // Trimestrielle
+        next.setUTCMonth(next.getUTCMonth() + 3);
+        break;
+      case 7: // Semestrielle
+        next.setUTCMonth(next.getUTCMonth() + 6);
+        break;
+      case 8: // Annuelle
+        next.setUTCFullYear(next.getUTCFullYear() + 1);
+        break;
+      default:
+        return dates;
+    }
+
+    current = next;
+    iteration++;
+  }
+
+  return dates;
+};
+
+// Gestion des périodes
+export const getInitialPeriod = () => {
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+
+  return {
+    type: 'month',
+    year: currentYear,
+    month: currentMonth,
+    quarter: Math.floor(currentMonth / 3) + 1,
+    semester: Math.floor(currentMonth / 6) + 1,
+    bimester: Math.floor(currentMonth / 2) + 1,
+  };
+};
+
+export const handlePeriodChange = (currentPeriod, direction) => {
+  const prev = currentPeriod;
+
+  switch (prev.type) {
+    case 'month':
+      let newMonth = prev.month + direction;
+      let newYear = prev.year;
+
+      if (newMonth < 0) {
+        newMonth = 11;
+        newYear--;
+      } else if (newMonth > 11) {
+        newMonth = 0;
+        newYear++;
+      }
+
+      return {
+        ...prev,
+        year: newYear,
+        month: newMonth,
+        quarter: Math.floor(newMonth / 3) + 1,
+        semester: Math.floor(newMonth / 6) + 1,
+        bimester: Math.floor(newMonth / 2) + 1,
+      };
+
+    case 'bimester':
+      let newBimester = prev.bimester + direction;
+      let newYearB = prev.year;
+
+      if (newBimester < 1) {
+        newBimester = 6; // 6 bimester par an
+        newYearB--;
+      } else if (newBimester > 6) {
+        newBimester = 1;
+        newYearB++;
+      }
+
+      // Calculer le mois correspondant (bimester 1 = mois 0-1, bimester 2 = mois 2-3, etc.)
+      const newMonthB = (newBimester - 1) * 2;
+
+      return {
+        ...prev,
+        type: 'bimester',
+        year: newYearB,
+        bimester: newBimester,
+        month: newMonthB,
+        quarter: Math.floor(newMonthB / 3) + 1,
+        semester: Math.floor(newMonthB / 6) + 1,
+      };
+
+    case 'quarter':
+      let newQuarter = prev.quarter + direction;
+      let newYearQ = prev.year;
+
+      if (newQuarter < 1) {
+        newQuarter = 4;
+        newYearQ--;
+      } else if (newQuarter > 4) {
+        newQuarter = 1;
+        newYearQ++;
+      }
+
+      // Calculer le mois correspondant (trimestre 1 = mois 0-2, trimestre 2 = mois 3-5, etc.)
+      const newMonthQ = (newQuarter - 1) * 3;
+
+      return {
+        ...prev,
+        type: 'quarter',
+        year: newYearQ,
+        quarter: newQuarter,
+        month: newMonthQ,
+        semester: Math.floor(newMonthQ / 6) + 1,
+        bimester: Math.floor(newMonthQ / 2) + 1,
+      };
+
+    case 'semester':
+      let newSemester = prev.semester + direction;
+      let newYearS = prev.year;
+
+      if (newSemester < 1) {
+        newSemester = 2;
+        newYearS--;
+      } else if (newSemester > 2) {
+        newSemester = 1;
+        newYearS++;
+      }
+
+      // Calculer le mois correspondant (semestre 1 = mois 0-5, semestre 2 = mois 6-11)
+      const newMonthS = (newSemester - 1) * 6;
+
+      return {
+        ...prev,
+        type: 'semester',
+        year: newYearS,
+        semester: newSemester,
+        month: newMonthS,
+        quarter: Math.floor(newMonthS / 3) + 1,
+        bimester: Math.floor(newMonthS / 2) + 1,
+      };
+
+    case 'year':
+      return {
+        ...prev,
+        year: prev.year + direction,
+        month: 0,
+        quarter: 1,
+        semester: 1,
+        bimester: 1,
+      };
+
+    default:
+      // Type 'month' par défaut
+      let newMonthDefault = prev.month + direction;
+      let newYearDefault = prev.year;
+
+      if (newMonthDefault < 0) {
+        newMonthDefault = 11;
+        newYearDefault--;
+      } else if (newMonthDefault > 11) {
+        newMonthDefault = 0;
+        newYearDefault++;
+      }
+
+      return {
+        ...prev,
+        year: newYearDefault,
+        month: newMonthDefault,
+        quarter: Math.floor(newMonthDefault / 3) + 1,
+        semester: Math.floor(newMonthDefault / 6) + 1,
+        bimester: Math.floor(newMonthDefault / 2) + 1,
+      };
+  }
+};
+
+export const handleQuickPeriodSelect = (periodType) => {
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+
+  return {
+    type: periodType,
+    year: currentYear,
+    month: currentMonth,
+    quarter: Math.floor(currentMonth / 3) + 1,
+    semester: Math.floor(currentMonth / 6) + 1,
+    bimester: Math.floor(currentMonth / 2) + 1,
+  };
+};
+
+// Calcul de la plage de dates
+export const calculateDateRange = (
+  rangeStartProp,
+  rangeEndProp,
+  currentPeriod
+) => {
+  // Si les dates sont fournies en props, on les utilise
+  if (rangeStartProp && rangeEndProp) {
+    const start = new Date(rangeStartProp);
+    const end = new Date(rangeEndProp);
+
+    let periodName = '';
+    if (
+      start.getMonth() === end.getMonth() &&
+      start.getFullYear() === end.getFullYear()
+    ) {
+      // C'est un mois
+      periodName = start.toLocaleString('fr-FR', {
+        month: 'long',
+        year: 'numeric',
+      });
+    } else {
+      // Période personnalisée
+      const startStr = start.toLocaleString('fr-FR', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+      const endStr = end.toLocaleString('fr-FR', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+      periodName = `${startStr} - ${endStr}`;
+    }
+
+    return {
+      rangeStart: start,
+      rangeEnd: end,
+      analysisPeriodName: periodName,
+    };
+  }
+
+  // Sinon, calculer selon le type de période
+  let startDate, endDate, periodName;
+  const { type, year, month, quarter, semester, bimester } = currentPeriod;
+
+  switch (type) {
+    case 'month':
+      startDate = new Date(year, month, 1);
+      endDate = new Date(year, month + 1, 0, 23, 59, 59, 999);
+      periodName = startDate.toLocaleString('fr-FR', {
+        month: 'long',
+        year: 'numeric',
+      });
+      break;
+
+    case 'bimester':
+      const bimStartMonth = (bimester - 1) * 2;
+      startDate = new Date(year, bimStartMonth, 1);
+      endDate = new Date(year, bimStartMonth + 2, 0, 23, 59, 59, 999);
+      const bimMonth1 = startDate.toLocaleString('fr-FR', { month: 'short' });
+      const bimMonth2 = new Date(year, bimStartMonth + 1, 1).toLocaleString(
+        'fr-FR',
+        { month: 'short' }
+      );
+      periodName = `Bimestre ${bimester} (${bimMonth1}-${bimMonth2}) ${year}`;
+      break;
+
+    case 'quarter':
+      const qStartMonth = (quarter - 1) * 3;
+      startDate = new Date(year, qStartMonth, 1);
+      endDate = new Date(year, qStartMonth + 3, 0, 23, 59, 59, 999);
+      periodName = `Trimestre ${quarter} ${year}`;
+      break;
+
+    case 'semester':
+      const sStartMonth = (semester - 1) * 6;
+      startDate = new Date(year, sStartMonth, 1);
+      endDate = new Date(year, sStartMonth + 6, 0, 23, 59, 59, 999);
+      periodName = `Semestre ${semester} ${year}`;
+      break;
+
+    case 'year':
+      startDate = new Date(year, 0, 1);
+      endDate = new Date(year, 11, 31, 23, 59, 59, 999);
+      periodName = `Année ${year}`;
+      break;
+
+    default: // 'month'
+      startDate = new Date(year, month, 1);
+      endDate = new Date(year, month + 1, 0, 23, 59, 59, 999);
+      periodName = startDate.toLocaleString('fr-FR', {
+        month: 'long',
+        year: 'numeric',
+      });
+  }
+
+  return {
+    rangeStart: startDate,
+    rangeEnd: endDate,
+    analysisPeriodName: periodName,
+  };
+};
+
+// Transformation des données API
+export const transformApiData = (apiData, defaultSettings) => {
+  if (!apiData) return null;
+
+  const { budgets, collections } = apiData;
+
+  // Générer les transactions récurrentes à partir des budgets
+  const budgetTransactions = transformBudgetDataWithDates(budgets);
+
+  // Extraire les catégories uniques
+  const categories = {
+    expense: [],
+    revenue: [],
+  };
+
+  // Extraire les tiers uniques
+  const tiers = {
+    expense: [],
+    revenue: [],
+  };
+
+  // Organiser par catégorie (Dépense ou Revenue) et par tiers
+  budgets.forEach((budget) => {
+    const isExpense = budget.category_type_id === 1;
+    const categoryList = isExpense ? categories.expense : categories.revenue;
+    const tierList = isExpense ? tiers.expense : tiers.revenue;
+
+    // Créer le nom du tiers
+    const thirdPartyName = budget.third_party_firstname
+      ? `${budget.third_party_name} ${budget.third_party_firstname}`
+      : budget.third_party_name;
+
+    // Trouver ou créer la catégorie principale
+    let mainCategory = categoryList.find(
+      (cat) => cat.name === budget.category_name
+    );
+
+    if (!mainCategory) {
+      mainCategory = {
+        name: budget.category_name,
+        subCategories: [],
+      };
+      categoryList.push(mainCategory);
+    }
+
+    // Ajouter la sous-catégorie si elle n'existe pas
+    const subCategoryExists = mainCategory.subCategories.some(
+      (sub) => sub.name === budget.sub_category_name
+    );
+
+    if (!subCategoryExists && budget.sub_category_name) {
+      mainCategory.subCategories.push({
+        name: budget.sub_category_name,
+      });
+    }
+
+    // Trouver ou créer le tiers
+    let tier = tierList.find(
+      (t) => t.name === thirdPartyName || t.id === budget.user_third_party_id
+    );
+
+    if (!tier && thirdPartyName) {
+      tier = {
+        id: budget.user_third_party_id,
+        name: thirdPartyName,
+        email: budget.third_party_email,
+      };
+      tierList.push(tier);
+    }
+  });
+
+  // Transformer les collections en actuals (paiements réels)
+  const actualsMap = {};
+
+  // Les collections sont un tableau de tableaux, on les aplatie
+  const flatCollections = collections.flat();
+
+  flatCollections.forEach((collection) => {
+    const relatedBudget = budgets.find(
+      (b) => b.budget_id === collection.budget_id
+    );
+
+    if (relatedBudget) {
+      const projectId = relatedBudget.project_id;
+      if (!actualsMap[projectId]) {
+        actualsMap[projectId] = [];
+      }
+
+      // Déterminer le type basé sur category_type_id
+      const type =
+        relatedBudget.category_type_id === 2 ? 'receivable' : 'payable';
+
+      // Créer le nom du tiers
+      const thirdPartyName = relatedBudget.third_party_firstname
+        ? `${relatedBudget.third_party_name} ${relatedBudget.third_party_firstname}`
+        : relatedBudget.third_party_name;
+
+      actualsMap[projectId].push({
+        id: collection.id,
+        type: type,
+        category: relatedBudget.category_name,
+        subCategory: relatedBudget.sub_category_name,
+        thirdParty: thirdPartyName || relatedBudget.category_name,
+        thirdPartyId: relatedBudget.user_third_party_id,
+        amount: parseFloat(collection.collection_amount || 0),
+        payments: [
+          {
+            paymentDate: collection.collection_date,
+            paidAmount: parseFloat(collection.collection_amount || 0),
+          },
+        ],
+        budgetId: collection.budget_id,
+        projectId: projectId,
+        budget_type_id: relatedBudget.budget_type_id,
+        category_type_id: relatedBudget.category_type_id,
+        yearMonth: collection.collection_date.substring(0, 7), // YYYY-MM
+      });
+    }
+  });
+
+  // Organiser les transactions par projet
+  const entriesMap = {};
+  const projectsMap = {};
+
+  budgets.forEach((budget) => {
+    const projectId = budget.project_id;
+
+    if (!projectsMap[projectId]) {
+      projectsMap[projectId] = {
+        id: projectId,
+        name: budget.project_name,
+        isArchived: budget.entity_status_name !== 'active',
+      };
+    }
+  });
+
+  // Regrouper les transactions par projet
+  budgetTransactions.forEach((transaction) => {
+    const projectId = transaction.project_id;
+    if (!entriesMap[projectId]) {
+      entriesMap[projectId] = [];
+    }
+
+    entriesMap[projectId].push({
+      ...transaction,
+      supplier: transaction.thirdParty,
+    });
+  });
+
+  return {
+    projects: Object.values(projectsMap),
+    categories,
+    tiers,
+    allEntries: entriesMap,
+    allActuals: actualsMap,
+    settings: defaultSettings,
+    consolidatedViews: [],
+    budgetTransactions, // Ajout des transactions générées
+  };
+};
+
+// Filtrage des données par projet et période
+export const filterProjectData = ({
+  budgetTransactions,
+  allActuals,
+  consolidatedViews,
+  activeProjectId,
+  analysisType,
+  rangeStart,
+  rangeEnd,
+  isConsolidated,
+  isCustomConsolidated,
+}) => {
+  // Filtrer les entrées du projet (transactions générées à partir des budgets) pour la période
+  const projectEntries = (() => {
+    if (!budgetTransactions || budgetTransactions.length === 0) return [];
+
+    let relevant;
+    if (isConsolidated) {
+      relevant = budgetTransactions;
+    } else if (isCustomConsolidated) {
+      const viewId = activeProjectId.replace('consolidated_view_', '');
+      const view = consolidatedViews.find((v) => v.id === viewId);
+      if (!view || !view.project_ids) return [];
+      // Filtrer par projets de la vue consolidée
+      relevant = budgetTransactions.filter((transaction) =>
+        view.project_ids.includes(transaction.project_id.toString())
+      );
+    } else {
+      // Filtrer par projet actif
+      relevant = budgetTransactions.filter(
+        (transaction) => transaction.project_id.toString() === activeProjectId
+      );
+    }
+
+    // Filtrer par type d'analyse et période
+    return relevant.filter((transaction) => {
+      // Vérifier le type
+      const isCorrectType =
+        analysisType === 'expense'
+          ? transaction.type === 'payable'
+          : transaction.type === 'receivable';
+
+      if (!isCorrectType) return false;
+
+      // Vérifier si la transaction est dans la période
+      const transactionDate = new Date(transaction.date);
+      return transactionDate >= rangeStart && transactionDate <= rangeEnd;
+    });
+  })();
+
+  // Filtrer les actuals du projet (collections = paiements réels) pour la période
+  const projectActuals = (() => {
+    if (!rangeStart || !rangeEnd) return [];
+
+    let relevant;
+    if (isConsolidated) {
+      relevant = Object.values(allActuals).flat();
+    } else if (isCustomConsolidated) {
+      const viewId = activeProjectId.replace('consolidated_view_', '');
+      const view = consolidatedViews.find((v) => v.id === viewId);
+      if (!view || !view.project_ids) return [];
+      relevant = view.project_ids.flatMap(
+        (projectId) => allActuals[projectId] || []
+      );
+    } else {
+      relevant = allActuals[activeProjectId] || [];
+    }
+
+    // Filtrer par type et période
+    return relevant.filter((actual) => {
+      // Vérifier le type selon l'analyse
+      const isCorrectType =
+        analysisType === 'expense'
+          ? actual.type === 'payable'
+          : actual.type === 'receivable';
+
+      if (!isCorrectType) return false;
+
+      // Vérifier si au moins un paiement est dans la période
+      return (actual.payments || []).some((p) => {
+        const paymentDate = new Date(p.paymentDate);
+        return paymentDate >= rangeStart && paymentDate <= rangeEnd;
+      });
+    });
+  })();
+
+  return { projectEntries, projectActuals };
+};
+
+// Calcul des totaux par catégorie
+export const calculateBudgetByCategory = (
+  transactions,
+  rangeStart,
+  rangeEnd
+) => {
+  const categoryTotals = {};
+
+  transactions.forEach((transaction) => {
+    const category = transaction.category;
+    if (!categoryTotals[category]) {
+      categoryTotals[category] = 0;
+    }
+    categoryTotals[category] += parseFloat(transaction.amount || 0);
+  });
+
+  return categoryTotals;
+};
+
+export const calculateActualByCategory = (actuals, rangeStart, rangeEnd) => {
+  const categoryTotals = {};
+
+  actuals.forEach((actual) => {
+    const category = actual.category;
+    if (!categoryTotals[category]) {
+      categoryTotals[category] = 0;
+    }
+
+    // Somme des paiements pour cette période
+    const periodTotal = (actual.payments || []).reduce((sum, payment) => {
+      const paymentDate = new Date(payment.paymentDate);
+      if (paymentDate >= rangeStart && paymentDate <= rangeEnd) {
+        return sum + parseFloat(payment.paidAmount || 0);
+      }
+      return sum;
+    }, 0);
+
+    categoryTotals[category] += periodTotal;
+  });
+
+  return categoryTotals;
+};
+
+// Calcul des totaux par tiers
+export const calculateBudgetByTier = (transactions, rangeStart, rangeEnd) => {
+  const tierTotals = {};
+
+  transactions.forEach((transaction) => {
+    const tierName = transaction.thirdParty || 'Non spécifié';
+    if (!tierTotals[tierName]) {
+      tierTotals[tierName] = 0;
+    }
+    tierTotals[tierName] += parseFloat(transaction.amount || 0);
+  });
+
+  return tierTotals;
+};
+
+export const calculateActualByTier = (actuals, rangeStart, rangeEnd) => {
+  const tierTotals = {};
+
+  actuals.forEach((actual) => {
+    const tierName = actual.thirdParty || 'Non spécifié';
+    if (!tierTotals[tierName]) {
+      tierTotals[tierName] = 0;
+    }
+
+    // Somme des paiements pour cette période
+    const periodTotal = (actual.payments || []).reduce((sum, payment) => {
+      const paymentDate = new Date(payment.paymentDate);
+      if (paymentDate >= rangeStart && paymentDate <= rangeEnd) {
+        return sum + parseFloat(payment.paidAmount || 0);
+      }
+      return sum;
+    }, 0);
+
+    tierTotals[tierName] += periodTotal;
+  });
+
+  return tierTotals;
+};
+
+// Analyse par catégorie
+export const getCategoryAnalysisData = ({
+  categories,
+  projectEntries,
+  projectActuals,
+  analysisType,
+  rangeStart,
+  rangeEnd,
+}) => {
+  if (!rangeStart || !rangeEnd) {
+    return {
+      categories: [],
+      budgetData: [],
+      actualData: [],
+      totalBudget: 0,
+      totalActual: 0,
+    };
+  }
+
+  const mainCategories =
+    analysisType === 'expense' ? categories.expense : categories.revenue;
+
+  if (!mainCategories || mainCategories.length === 0) {
+    return {
+      categories: [],
+      budgetData: [],
+      actualData: [],
+      totalBudget: 0,
+      totalActual: 0,
+    };
+  }
+
+  // Calculer les totaux par catégorie
+  const budgetByCategory = calculateBudgetByCategory(
+    projectEntries,
+    rangeStart,
+    rangeEnd
+  );
+  const actualByCategory = calculateActualByCategory(
+    projectActuals,
+    rangeStart,
+    rangeEnd
+  );
+
+  // Créer les données pour le graphique
+  const data = mainCategories
+    .map((mainCat) => {
+      const budgetAmount = budgetByCategory[mainCat.name] || 0;
+      const actualAmount = actualByCategory[mainCat.name] || 0;
+
+      return {
+        name: mainCat.name,
+        budget: budgetAmount,
+        actual: actualAmount,
+      };
+    })
+    .filter((item) => item.budget > 0 || item.actual > 0);
+
+  // Trier par montant réel (ou budget si aucun réel)
+  data.sort((a, b) => {
+    if (a.actual > 0 || b.actual > 0) {
+      return b.actual - a.actual;
+    }
+    return b.budget - a.budget;
+  });
+
+  const totalBudget = data.reduce((sum, item) => sum + item.budget, 0);
+  const totalActual = data.reduce((sum, item) => sum + item.actual, 0);
+
+  return {
+    categories: data.map((item) => item.name),
+    budgetData: data.map((item) => item.budget),
+    actualData: data.map((item) => item.actual),
+    totalBudget,
+    totalActual,
+    rawData: data,
+  };
+};
+
+// Analyse par tiers
+export const getTierAnalysisData = ({
+  tiers,
+  projectEntries,
+  projectActuals,
+  analysisType,
+  rangeStart,
+  rangeEnd,
+}) => {
+  if (!rangeStart || !rangeEnd) {
+    return {
+      tiers: [],
+      budgetData: [],
+      actualData: [],
+      totalBudget: 0,
+      totalActual: 0,
+    };
+  }
+
+  const tierList = analysisType === 'expense' ? tiers.expense : tiers.revenue;
+
+  // Calculer les totaux par tiers
+  const budgetByTier = calculateBudgetByTier(
+    projectEntries,
+    rangeStart,
+    rangeEnd
+  );
+  const actualByTier = calculateActualByTier(
+    projectActuals,
+    rangeStart,
+    rangeEnd
+  );
+
+  // Si aucun tiers défini, utiliser ceux des transactions
+  if (tierList.length === 0) {
+    // Créer une liste de tous les tiers uniques à partir des transactions
+    const allTiers = new Set();
+
+    projectEntries.forEach((transaction) => {
+      if (transaction.thirdParty) {
+        allTiers.add(transaction.thirdParty);
+      }
+    });
+
+    projectActuals.forEach((actual) => {
+      if (actual.thirdParty) {
+        allTiers.add(actual.thirdParty);
+      }
+    });
+
+    // Convertir en tableau
+    tierList.push(
+      ...Array.from(allTiers).map((tierName) => ({ name: tierName }))
+    );
+  }
+
+  // Créer les données pour le graphique
+  const data = tierList
+    .map((tier) => {
+      const tierName = tier.name;
+      const budgetAmount = budgetByTier[tierName] || 0;
+      const actualAmount = actualByTier[tierName] || 0;
+
+      return {
+        name: tierName,
+        budget: budgetAmount,
+        actual: actualAmount,
+        email: tier.email,
+      };
+    })
+    .filter((item) => item.budget > 0 || item.actual > 0);
+
+  // Trier par montant réel (ou budget si aucun réel)
+  data.sort((a, b) => {
+    if (a.actual > 0 || b.actual > 0) {
+      return b.actual - a.actual;
+    }
+    return b.budget - a.budget;
+  });
+
+  const totalBudget = data.reduce((sum, item) => sum + item.budget, 0);
+  const totalActual = data.reduce((sum, item) => sum + item.actual, 0);
+
+  return {
+    tiers: data.map((item) => item.name),
+    budgetData: data.map((item) => item.budget),
+    actualData: data.map((item) => item.actual),
+    totalBudget,
+    totalActual,
+    rawData: data,
+  };
+};
+
+// Configuration des graphiques par catégorie
+export const getCategoryChartOptions = ({
+  categoryAnalysisData,
+  analysisType,
+  analysisPeriodName,
+  settings,
+  visibleData,
+}) => {
+  const { categories, budgetData, actualData, totalBudget, totalActual } =
+    categoryAnalysisData;
+
+  // Déterminer les couleurs selon le type d'analyse
+  const chartColors =
+    analysisType === 'expense'
+      ? {
+          budget: '#fca5a5', // rouge clair pour budget dépense
+          actual: '#ef4444', // rouge vif pour réel dépense
+          budgetLabel: '#b91c1c',
+          actualLabel: '#7f1d1d',
+        }
+      : {
+          budget: '#6ee7b7', // vert clair pour budget revenue
+          actual: '#10b981', // vert vif pour réel revenue
+          budgetLabel: '#047857',
+          actualLabel: '#065f46',
+        };
+
+  const series = [];
+
+  if (visibleData.budget && totalBudget > 0) {
+    series.push({
+      name: `Budget: ${formatCurrency(totalBudget, settings)}`,
+      type: 'bar',
+      data: budgetData,
+      itemStyle: { color: chartColors.budget, borderRadius: [0, 5, 5, 0] },
+      emphasis: { focus: 'series' },
+      label: {
+        show: true,
+        position: 'right',
+        formatter: (params) => {
+          if (params.value <= 0) return '';
+          const percentage =
+            totalBudget > 0 ? (params.value / totalBudget) * 100 : 0;
+          return `${formatCurrency(
+            params.value,
+            settings
+          )} (${percentage.toFixed(0)}%)`;
+        },
+        color: chartColors.budgetLabel,
+      },
+    });
+  }
+
+  if (visibleData.actual && totalActual > 0) {
+    series.push({
+      name: `Réel: ${formatCurrency(totalActual, settings)}`,
+      type: 'bar',
+      data: actualData,
+      itemStyle: { color: chartColors.actual, borderRadius: [0, 5, 5, 0] },
+      emphasis: { focus: 'series' },
+      label: {
+        show: true,
+        position: 'right',
+        formatter: (params) => {
+          if (params.value <= 0) return '';
+          const percentage =
+            totalActual > 0 ? (params.value / totalActual) * 100 : 0;
+          return `${formatCurrency(
+            params.value,
+            settings
+          )} (${percentage.toFixed(0)}%)`;
+        },
+        color: chartColors.actualLabel,
+      },
+    });
+  }
+
+  if (series.length === 0) {
+    return {
+      title: {
+        text: 'Aucune donnée à analyser',
+        left: 'center',
+        top: 'center',
+        textStyle: { fontSize: 16, fontWeight: '600', color: '#475569' },
+      },
+      series: [],
+    };
+  }
+
+  const chartTitle = analysisType === 'expense' ? 'Dépenses' : 'Revenus';
+
+  return {
+    title: {
+      text: `Analyse par Catégorie - ${chartTitle} - ${analysisPeriodName}`,
+      left: 'center',
+      top: 0,
+      textStyle: { fontSize: 16, fontWeight: '600', color: '#475569' },
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: (params) => {
+        let tooltip = `<strong>${params[0].name}</strong><br/>`;
+        params
+          .slice()
+          .reverse()
+          .forEach((param) => {
+            const seriesName = param.seriesName;
+            const total = seriesName.startsWith('Budget')
+              ? totalBudget
+              : totalActual;
+            const percentage = total > 0 ? (param.value / total) * 100 : 0;
+            tooltip += `${param.marker} ${
+              seriesName.split(':')[0]
+            }: <strong>${formatCurrency(
+              param.value,
+              settings
+            )}</strong> (${percentage.toFixed(1)}%)<br/>`;
+          });
+        return tooltip;
+      },
+    },
+    legend: { show: false },
+    grid: {
+      left: '3%',
+      right: '10%',
+      bottom: '3%',
+      containLabel: true,
+    },
+    xAxis: {
+      type: 'value',
+      axisLabel: {
+        formatter: (value) =>
+          formatCurrency(value, { ...settings, displayUnit: 'standard' }),
+      },
+    },
+    yAxis: {
+      type: 'category',
+      data: categories,
+      axisLabel: {
+        interval: 0,
+        rotate: 0,
+        formatter: (value) => {
+          // Tronquer les longues étiquettes
+          return value.length > 20 ? value.substring(0, 20) + '...' : value;
+        },
+      },
+    },
+    series: series,
+  };
+};
+
+// Configuration des graphiques par tiers
+export const getTierChartOptions = ({
+  tierAnalysisData,
+  analysisType,
+  analysisPeriodName,
+  settings,
+  visibleData,
+}) => {
+  const { tiers, budgetData, actualData, totalBudget, totalActual } =
+    tierAnalysisData;
+
+  // Déterminer les couleurs selon le type d'analyse
+  const chartColors =
+    analysisType === 'expense'
+      ? {
+          budget: '#fca5a5', // rouge clair pour budget dépense
+          actual: '#ef4444', // rouge vif pour réel dépense
+          budgetLabel: '#b91c1c',
+          actualLabel: '#7f1d1d',
+        }
+      : {
+          budget: '#6ee7b7', // vert clair pour budget revenue
+          actual: '#10b981', // vert vif pour réel revenue
+          budgetLabel: '#047857',
+          actualLabel: '#065f46',
+        };
+
+  const series = [];
+
+  if (visibleData.budget && totalBudget > 0) {
+    series.push({
+      name: `Budget: ${formatCurrency(totalBudget, settings)}`,
+      type: 'bar',
+      data: budgetData,
+      itemStyle: { color: chartColors.budget, borderRadius: [0, 5, 5, 0] },
+      emphasis: { focus: 'series' },
+      label: {
+        show: true,
+        position: 'right',
+        formatter: (params) => {
+          if (params.value <= 0) return '';
+          const percentage =
+            totalBudget > 0 ? (params.value / totalBudget) * 100 : 0;
+          return `${formatCurrency(
+            params.value,
+            settings
+          )} (${percentage.toFixed(0)}%)`;
+        },
+        color: chartColors.budgetLabel,
+      },
+    });
+  }
+
+  if (visibleData.actual && totalActual > 0) {
+    series.push({
+      name: `Réel: ${formatCurrency(totalActual, settings)}`,
+      type: 'bar',
+      data: actualData,
+      itemStyle: { color: chartColors.actual, borderRadius: [0, 5, 5, 0] },
+      emphasis: { focus: 'series' },
+      label: {
+        show: true,
+        position: 'right',
+        formatter: (params) => {
+          if (params.value <= 0) return '';
+          const percentage =
+            totalActual > 0 ? (params.value / totalActual) * 100 : 0;
+          return `${formatCurrency(
+            params.value,
+            settings
+          )} (${percentage.toFixed(0)}%)`;
+        },
+        color: chartColors.actualLabel,
+      },
+    });
+  }
+
+  if (series.length === 0) {
+    return {
+      title: {
+        text: 'Aucune donnée à analyser',
+        left: 'center',
+        top: 'center',
+        textStyle: { fontSize: 16, fontWeight: '600', color: '#475569' },
+      },
+      series: [],
+    };
+  }
+
+  const chartTitle = analysisType === 'expense' ? 'Dépenses' : 'Revenus';
+
+  return {
+    title: {
+      text: `Analyse par Tiers - ${chartTitle} - ${analysisPeriodName}`,
+      left: 'center',
+      top: 0,
+      textStyle: { fontSize: 16, fontWeight: '600', color: '#475569' },
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: (params) => {
+        let tooltip = `<strong>${params[0].name}</strong><br/>`;
+        params
+          .slice()
+          .reverse()
+          .forEach((param) => {
+            const seriesName = param.seriesName;
+            const total = seriesName.startsWith('Budget')
+              ? totalBudget
+              : totalActual;
+            const percentage = total > 0 ? (param.value / total) * 100 : 0;
+            tooltip += `${param.marker} ${
+              seriesName.split(':')[0]
+            }: <strong>${formatCurrency(
+              param.value,
+              settings
+            )}</strong> (${percentage.toFixed(1)}%)<br/>`;
+          });
+        return tooltip;
+      },
+    },
+    legend: { show: false },
+    grid: {
+      left: '3%',
+      right: '10%',
+      bottom: '3%',
+      containLabel: true,
+    },
+    xAxis: {
+      type: 'value',
+      axisLabel: {
+        formatter: (value) =>
+          formatCurrency(value, { ...settings, displayUnit: 'standard' }),
+      },
+    },
+    yAxis: {
+      type: 'category',
+      data: tiers,
+      axisLabel: {
+        interval: 0,
+        rotate: 0,
+        formatter: (value) => {
+          // Tronquer les longues étiquettes
+          return value.length > 20 ? value.substring(0, 20) + '...' : value;
+        },
+      },
+    },
+    series: series,
+  };
+};
+
+// Fonction générique pour obtenir les options du graphique selon le mode
+export const getChartOptions = ({
+  analysisMode,
+  categoryAnalysisData,
+  tierAnalysisData,
+  analysisType,
+  analysisPeriodName,
+  settings,
+  visibleData,
+}) => {
+  if (analysisMode === 'tier') {
+    return getTierChartOptions({
+      tierAnalysisData,
+      analysisType,
+      analysisPeriodName,
+      settings,
+      visibleData,
+    });
+  } else {
+    // Par défaut, analyse par catégorie
+    return getCategoryChartOptions({
+      categoryAnalysisData,
+      analysisType,
+      analysisPeriodName,
+      settings,
+      visibleData,
+    });
+  }
+};
+
+// Options pour les menus
+export const quickPeriodOptions = [
+  { id: 'month', label: 'Mois' },
+  { id: 'bimester', label: 'Bimestre' },
+  { id: 'quarter', label: 'Trimestre' },
+  { id: 'semester', label: 'Semestre' },
+  { id: 'year', label: 'Année' },
+];
+
+export const analysisTypeOptions = [
+  {
+    id: 'expense',
+    label: 'Sorties',
+    icon: 'TrendingDown',
+    color: 'text-red-600',
+  },
+  {
+    id: 'revenue',
+    label: 'Entrées',
+    icon: 'TrendingUp',
+    color: 'text-green-600',
+  },
+];
+
+export const getAnalysisModeOptions = (
+  isConsolidated,
+  isCustomConsolidated
+) => {
+  return [
+    { id: 'category', label: 'Par catégorie' },
+    ...(isConsolidated || isCustomConsolidated
+      ? [{ id: 'project', label: 'Par projet' }]
+      : []),
+    { id: 'tier', label: 'Par tiers' },
+  ];
+};
