@@ -688,9 +688,6 @@ const AnalyseView = ({
                         settings
                       )}
                     </p>
-                    <p className="text-xs text-gray-500">
-                      {projectEntries.length} transactions générées
-                    </p>
                   </div>
                   <div className="p-3 bg-white rounded border">
                     <h4 className="font-medium text-gray-600">Total Réel</h4>
@@ -699,9 +696,6 @@ const AnalyseView = ({
                         currentAnalysisData.data.totalActual,
                         settings
                       )}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {projectActuals.length} paiements réels
                     </p>
                   </div>
                   <div className="p-3 bg-white rounded border">
@@ -719,12 +713,6 @@ const AnalyseView = ({
                           currentAnalysisData.data.totalBudget,
                         settings
                       )}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {currentAnalysisData.data.totalActual <=
-                      currentAnalysisData.data.totalBudget
-                        ? 'Sous le budget'
-                        : 'Dépassement'}
                     </p>
                   </div>
                 </div>

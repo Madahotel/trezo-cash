@@ -50,7 +50,6 @@ const BudgetDetailModal = ({ open, onClose, subCategory, type, onEdit }) => {
     onClose();
     onEdit(subCategory, type, e);
   };
-  console.log(subCategory);
 
   return (
     <AnimatePresence>

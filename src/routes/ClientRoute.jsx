@@ -38,6 +38,7 @@ import PaymentHistoryPage from '../pages/clients/ambassador/PaymentHistoryPage';
 import ProgramInfoPage from '../pages/clients/ambassador/ProgramInfoPage';
 import BecomeAmbassadorPage from '../pages/clients/ambassador/BecomeAmbassadorPage';
 import AnalyseView from '../pages/clients/analyse/AnalyseView';
+import TVATable from '../pages/clients/tva/TVATable';
 const ClientRoute = {
   path: '/client',
   element: (
@@ -71,6 +72,7 @@ const ClientRoute = {
     { path: 'aide', element: <Aide title="Centre d'aide" /> },
     { path: 'abonnement', element: <SubscriptionPage /> },
     { path: 'onboarding', element: <OnboardingView /> },
+    { path: 'tableau-tva', element: <TVATable /> },
     // { path: "parrainage", element: <AmbassadorPage /> },
     // { path: "parrainage/refferals", element: <ReferralsPage /> },
     {
