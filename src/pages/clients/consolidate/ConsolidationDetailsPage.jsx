@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useConsolidationDetails } from '../../../hooks/useConsolidationDetails';
 import ConsolidatedView from './ConsolidatedView';
-import { useSettings } from '../../../contexts/SettingsContext';
+import { formatCurrency } from '../../../utils/formatters';
 import { useUI } from '../../../components/context/UIContext';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/card';
@@ -12,7 +12,7 @@ import { useConsolidations } from '../../../hooks/useConsolidations';
 const ConsolidationDetailsPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { formatCurrency } = useSettings();
+    // const { formatCurrency } = useSettings();
     const { uiDispatch } = useUI();
     const { consolidations, loading: consolidationsLoading } = useConsolidations();
 
