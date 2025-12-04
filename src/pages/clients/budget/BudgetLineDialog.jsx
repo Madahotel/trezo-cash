@@ -69,6 +69,8 @@ const BudgetLineDialog = ({
   });
 
   const [isLoading, setIsLoading] = useState(false);
+
+  // Transformations
   const currencies = listCurrencies.map((currency) => ({
     value: currency.id?.toString() || `currency-${currency.code}`,
     label: `${currency.code} (${currency.symbol})`,
@@ -89,59 +91,45 @@ const BudgetLineDialog = ({
     label: account.name,
   }));
 
-  const getFilteredThirdPartyOptions = (type, thirdPartyList) => {
-    if (!thirdPartyList || thirdPartyList.length === 0) return [];
-
-    const normalizedList = thirdPartyList.map((thirdParty) => ({
-      id: thirdParty.id || thirdParty.user_id || thirdParty.user_third_party_id,
-      user_type_id: thirdParty.user_type_id || thirdParty.type_id,
-      name:
-        thirdParty.name ||
-        thirdParty.company_name ||
-        thirdParty.entreprise_name,
-      firstname: thirdParty.firstname || thirdParty.prenom || '',
-      email: thirdParty.email || thirdParty.mail || '',
-      raw: thirdParty,
-    }));
-
-    if (type === '1') {
-      return normalizedList
-        .filter(
-          (thirdParty) =>
-            thirdParty.user_type_id == 6 || thirdParty.user_type_id == 5
-        )
-        .map((thirdParty) => ({
-          value: thirdParty.id?.toString(),
-          label:
-            `${thirdParty.firstname || ''} ${thirdParty.name || ''}`.trim() ||
-            'Sans nom',
-          email: thirdParty.email,
-          type: thirdParty.user_type_id == 6 ? 'Fournisseur' : 'Emprunteur',
-          rawData: thirdParty.raw,
-        }));
-    } else if (type === '2') {
-      return normalizedList
-        .filter(
-          (thirdParty) =>
-            thirdParty.user_type_id == 4 || thirdParty.user_type_id == 7
-        )
-        .map((thirdParty) => ({
-          value: thirdParty.id?.toString(),
-          label:
-            `${thirdParty.firstname || ''} ${thirdParty.name || ''}`.trim() ||
-            'Sans nom',
-          email: thirdParty.email,
-          type: thirdParty.user_type_id == 4 ? 'Client' : 'Prêteur',
-          rawData: thirdParty.raw,
-        }));
+  // Fonction pour transformer les tiers en format React Select
+  const transformThirdParties = (thirdParties) => {
+    if (!thirdParties || !Array.isArray(thirdParties)) {
+      return [];
     }
-    return [];
-  };
 
-  const thirdPartyOptions = getFilteredThirdPartyOptions(
-    formData.type,
-    listThirdParty
-  );
+    return thirdParties.map((thirdParty) => {
+      // Déterminer le nom à afficher
+      let displayName = '';
+      if (thirdParty.firstname && thirdParty.name) {
+        displayName = `${thirdParty.firstname} ${thirdParty.name}`;
+      } else if (thirdParty.name) {
+        displayName = thirdParty.name;
+      } else if (thirdParty.firstname) {
+        displayName = thirdParty.firstname;
+      } else if (thirdParty.email) {
+        displayName = thirdParty.email;
+      } else {
+        displayName = 'Tiers sans nom';
+      }
+
+      // Déterminer l'ID
+      let id = '';
+      if (thirdParty.id) {
+        id = thirdParty.id.toString();
+      } else if (thirdParty.user_id) {
+        id = thirdParty.user_id.toString();
+      } else {
+        id = `thirdparty-${Math.random().toString(36).substr(2, 9)}`;
+      }
+
+      return {
+        value: id,
+        label: displayName.trim(),
+        email: thirdParty.email || '',
+        originalData: thirdParty, // Conserver les données originales
+      };
+    });
+  };
 
   const createThirdParty = async (thirdPartyData) => {
     try {
@@ -167,6 +155,7 @@ const BudgetLineDialog = ({
       setIsCreatingThirdParty(false);
     }
   };
+
   const handleAddNewThirdParty = async () => {
     if (!newThirdPartyData.name.trim()) {
       toast.error('Le nom du tiers est obligatoire');
@@ -246,6 +235,7 @@ const BudgetLineDialog = ({
       setIsLoadingData(true);
       const res = await apiGet(`/budget-projects/options`);
       let combinedList = [];
+
       if (res.users) {
         const userThirdParties =
           res.users.user_third_parties?.user_third_party_items?.data || [];
@@ -254,13 +244,20 @@ const BudgetLineDialog = ({
         combinedList = [...userThirdParties, ...userFinancials];
       } else if (res.listThirdParty) {
         combinedList = res.listThirdParty;
+      } else if (res.thirdParties) {
+        combinedList = res.thirdParties;
+      } else if (res.data) {
+        combinedList = res.data;
       } else {
-        combinedList = res.thirdParties || res.data || [];
+        combinedList = [];
       }
+
+      // Transformer les tiers en format React Select
+      const transformedThirdParties = transformThirdParties(combinedList);
 
       setData({
         ...res,
-        listThirdParty: combinedList,
+        listThirdParty: transformedThirdParties,
       });
     } catch (error) {
       console.error('❌ Erreur chargement options:', error);
@@ -285,12 +282,21 @@ const BudgetLineDialog = ({
 
       if (res.status === 200 && res.budget) {
         const budget = res.budget;
-        const thirdPartyOption = {
-          value: budget.user_third_party_id?.toString(),
-          label: `${budget.user_third_party_firstname || ''} ${budget.user_third_party_name || ''
-            }`.trim(),
-          email: budget.user_third_party_email,
-        };
+
+        // Formater le tiers pour l'édition
+        let thirdPartyOption = null;
+        if (budget.user_third_party_id) {
+          thirdPartyOption = {
+            value: budget.user_third_party_id?.toString(),
+            label:
+              `${budget.user_third_party_firstname || ''} ${
+                budget.user_third_party_name || ''
+              }`.trim() ||
+              budget.user_third_party_email ||
+              'Tiers',
+            email: budget.user_third_party_email || '',
+          };
+        }
 
         const currency = currencies.find(
           (curr) => curr.value === budget.currency_id?.toString()
@@ -333,6 +339,7 @@ const BudgetLineDialog = ({
     }
   };
 
+  // Effets
   useEffect(() => {
     if (open && !data) {
       fetchOptions();
@@ -376,13 +383,15 @@ const BudgetLineDialog = ({
     }
   }, [open, editLine]);
 
+  // MODIFICATION : Le tiers n'est pas effacé quand on change le type
   const handleChange = (field, value) => {
     setFormData((prev) => {
       const newData = { ...prev, [field]: value };
       if (field === 'type') {
         newData.mainCategory = '';
         newData.subcategory = '';
-        newData.thirdParty = null;
+        // NE PAS EFFACER le tiers quand on change le type
+        // newData.thirdParty = null;
       }
       if (field === 'mainCategory') {
         newData.subcategory = '';
@@ -392,14 +401,15 @@ const BudgetLineDialog = ({
   };
 
   const handleSubmit = async () => {
+    // Validation des champs obligatoires
     if (
       !formData.mainCategory ||
       !formData.subcategory ||
       !formData.amount ||
       !formData.currency ||
       !formData.frequency ||
-      !formData.thirdParty ||
-      !formData.startDate
+      !formData.startDate ||
+      !formData.thirdParty // Tiers maintenant toujours obligatoire pour tous les types
     ) {
       toast.error('Veuillez remplir tous les champs obligatoires');
       return;
@@ -417,7 +427,9 @@ const BudgetLineDialog = ({
       is_duration_indefinite: formData.isIndefinite,
       sub_category_id: parseInt(formData.subcategory),
       currency_id: parseInt(formData.currency),
-      user_third_party_id: parseInt(formData.thirdParty.value),
+      user_third_party_id: formData.thirdParty
+        ? parseInt(formData.thirdParty.value)
+        : null,
       frequency_id: parseInt(formData.frequency),
       budget_type_id: parseInt(formData.type),
       end_date: formData.isIndefinite ? null : formData.endDate,
@@ -450,23 +462,12 @@ const BudgetLineDialog = ({
           `budget-projects/budgets/${editLine.id}/details/${editLine.budget_detail_id}`,
           apiData
         );
-        toast.success(result.message);
-
-        if (onBudgetUpdated) {
-          setTimeout(() => {
-            onBudgetUpdated();
-          }, 500);
-        }
+        toast.success(res.message);
+        if (onBudgetUpdated) await onBudgetUpdated();
       } else {
-        console.log('Creating budget with data:', apiData);
-        result = await apiPost(`/budget-projects/${projectId}`, apiData);
-        toast.success(result.message);
-
-        if (onBudgetAdded) {
-          setTimeout(() => {
-            onBudgetAdded();
-          }, 500);
-        }
+        const res = await apiPost(`/budget-projects/${projectId}`, apiData);
+        toast.success(res.message);
+        if (onBudgetAdded) await onBudgetAdded();
       }
 
       setTimeout(() => {
@@ -474,12 +475,7 @@ const BudgetLineDialog = ({
       }, 600);
 
     } catch (error) {
-      console.error('Error saving budget:', error);
-
-      const errorMessage = error.response?.data?.message ||
-        error.message ||
-        'Erreur inconnue lors de la sauvegarde';
-
+      console.error('Error saving budget:', error.response?.data || error);
       toast.error(
         `Erreur lors de ${editLine ? 'la modification' : "l'ajout"
         } de la ligne budgétaire: ${errorMessage}`
@@ -573,7 +569,7 @@ const BudgetLineDialog = ({
                     listSubCategories={listSubCategories}
                     currencies={currencies}
                     frequencies={frequencies}
-                    thirdPartyOptions={thirdPartyOptions}
+                    listThirdParty={listThirdParty || []}
                     onAddThirdParty={() => setShowThirdPartyModal(true)}
                   />
 

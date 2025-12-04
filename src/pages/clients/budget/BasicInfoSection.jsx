@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { Check, ChevronDown, User, Tag, Plus } from '../../../utils/Icons';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -17,7 +17,7 @@ const BasicInfoSection = ({
   listSubCategories,
   currencies,
   frequencies,
-  thirdPartyOptions,
+  listThirdParty = [],
   onAddThirdParty,
 }) => {
   // États pour les menus déroulants
@@ -167,10 +167,8 @@ const BasicInfoSection = ({
     return frequency?.label || 'Choisir une fréquence';
   };
 
+  // MODIFICATION : Placeholder simplifié pour le tiers
   const getThirdPartyPlaceholder = () => {
-    if (formData.type === '1')
-      return 'Sélectionnez un fournisseur ou prêteur...';
-    if (formData.type === '2') return 'Sélectionnez un client ou emprunteur...';
     return 'Sélectionnez un tiers...';
   };
 
@@ -371,17 +369,26 @@ const BasicInfoSection = ({
       <User className="h-4 w-4 mr-2 text-gray-500" />
       <div className="flex-1">
         <div className="font-medium">{data.label}</div>
-        <div
-          className={`text-xs ${
-            isSelected ? 'text-blue-100' : 'text-gray-500'
-          }`}
-        >
-          {data.email}
-        </div>
+        {data.email && (
+          <div
+            className={`text-xs ${
+              isSelected ? 'text-blue-100' : 'text-gray-500'
+            }`}
+          >
+            {data.email}
+          </div>
+        )}
       </div>
       {isSelected && <Check className="h-4 w-4 ml-2" />}
     </div>
   );
+
+  // Filtrage des tiers disponibles
+  const availableThirdParties = Array.isArray(listThirdParty)
+    ? listThirdParty.filter(
+        (thirdParty) => thirdParty && thirdParty.value && thirdParty.label
+      )
+    : [];
 
   return (
     <div className="space-y-4">
@@ -623,7 +630,7 @@ const BasicInfoSection = ({
         </CustomDropdown>
       </div>
 
-      {/* Tiers - AVEC BOUTON DE CRÉATION */}
+      {/* Tiers - OBLIGATOIRE POUR TOUS LES TYPES */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label htmlFor="thirdparty-select">Tiers *</Label>
@@ -647,25 +654,28 @@ const BasicInfoSection = ({
               onChange={(selectedOption) =>
                 onFormChange('thirdParty', selectedOption)
               }
-              options={thirdPartyOptions}
+              options={availableThirdParties}
               placeholder={getThirdPartyPlaceholder()}
               isClearable
               styles={customStyles}
               components={{ Option: CustomOption }}
               className="react-select-container"
               classNamePrefix="react-select"
-              isDisabled={thirdPartyOptions.length === 0}
+              isDisabled={availableThirdParties.length === 0}
               menuShouldScrollIntoView={true}
               menuPlacement="auto"
+              noOptionsMessage={({ inputValue }) =>
+                inputValue
+                  ? `Aucun tiers trouvé pour "${inputValue}"`
+                  : 'Aucun tiers disponible. Cliquez sur "Nouveau" pour en créer un.'
+              }
             />
           </div>
         </div>
 
-        {thirdPartyOptions.length === 0 && (
+        {availableThirdParties.length === 0 && (
           <p className="text-xs text-gray-500 mt-1">
-            {formData.type === '1'
-              ? 'Aucun fournisseur ou prêteur disponible. Cliquez sur "Nouveau" pour en créer un.'
-              : 'Aucun client ou emprunteur disponible. Cliquez sur "Nouveau" pour en créer un.'}
+            Aucun tiers disponible. Cliquez sur "Nouveau" pour en créer un.
           </p>
         )}
       </div>
@@ -738,40 +748,7 @@ const BasicInfoSection = ({
         </div>
       )}
 
-      {/* Message d'information selon la fréquence */}
-      {/* {frequencyInfoMessage && (
-        <div
-          className={`p-3 rounded-md ${
-            formData.isIndefinite
-              ? 'bg-green-50 border border-green-200'
-              : isIrregularFrequency
-              ? 'bg-yellow-50 border border-yellow-200'
-              : 'bg-blue-50 border border-blue-200'
-          }`}
-        >
-          <p
-            className={`text-sm ${
-              formData.isIndefinite
-                ? 'text-green-700'
-                : isIrregularFrequency
-                ? 'text-yellow-700'
-                : 'text-blue-700'
-            }`}
-          >
-            <strong>
-              {formData.isIndefinite
-                ? 'Durée indéterminée'
-                : isPonctualFrequency
-                ? 'Ponctuelle'
-                : isIrregularFrequency
-                ? 'Irregulière'
-                : 'Périodique'}{' '}
-              :
-            </strong>{' '}
-            {frequencyInfoMessage}
-          </p>
-        </div>
-      )} */}
+      {/* Description */}
       <div className="space-y-2">
         <Label htmlFor="description">Description (optionnel)</Label>
         <Input

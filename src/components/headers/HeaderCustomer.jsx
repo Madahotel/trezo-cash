@@ -16,7 +16,7 @@ import {
   Coins,
 } from 'lucide-react';
 import AmbassadorIcon from '../../components/sidebar/AmbassadorIcon';
-import { useSettings } from '../context/SettingsContext';
+
 import { useAuth } from '../context/AuthContext';
 
 import {
@@ -28,6 +28,7 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import { Button } from '../ui/Button';
+import { useSettings } from '../../contexts/SettingsContext';
 
 const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
   const { uiState, uiDispatch } = useUI();
@@ -45,6 +46,8 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
     setSelectedCurrency,
     getAllThemes,
   } = useSettings();
+  console.log(currencies);
+
   const navigate = useNavigate();
   const location = useLocation();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -213,12 +216,12 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
       {/* --- VERSION DESKTOP --- */}
-      <div className="items-center justify-between hidden w-full px-6 py-4 md:flex">
-        <div className="flex items-center flex-1 min-w-0 gap-4">
-          <div className="flex items-center flex-1 min-w-0 gap-2">
+      <div className="hidden md:flex items-center justify-between px-6 py-4 w-full">
+        <div className="flex items-center gap-4 flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
             <button
               onClick={handleOpenMobileNav}
-              className="p-2 text-gray-600 transition-colors rounded-full hover:bg-gray-200 md:hidden"
+              className="p-2 text-gray-600 hover:bg-gray-200 rounded-full transition-colors md:hidden"
             >
               <Menu size={20} />
             </button>
@@ -227,20 +230,20 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
             </div>
           </div>
 
-          <div className="flex-grow hidden text-center md:block">
+          <div className="hidden md:block flex-grow text-center">
             {pageTitle && (
-              <h1 className="text-base font-semibold text-gray-800 truncate md:text-lg">
+              <h1 className="text-base md:text-lg font-semibold text-gray-800 truncate">
                 {pageTitle}
               </h1>
             )}
           </div>
 
-          <div className="flex items-center justify-end flex-1 min-w-0 gap-4">
+          <div className="flex items-center justify-end gap-4 flex-1 min-w-0">
             <ProjectCollaborators />
             {canShareProject && (
               <button
                 onClick={handleShareClick}
-                className="flex items-center gap-2 px-3 py-2 text-gray-700 transition-all duration-200 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 hover:border-gray-400"
+                className="flex items-center gap-2 px-3 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 shadow-sm"
                 title="Partager et gérer les collaborateurs"
               >
                 <Share2 size={16} />
@@ -275,7 +278,7 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
                     >
                       <div className="flex items-center space-x-3">
                         <div
-                          className="w-6 h-6 border-2 border-white rounded-full shadow-sm"
+                          className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
                           style={{
                             backgroundColor: themeOption.colors.primary,
                           }}
@@ -349,14 +352,14 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
 
             <button
               onClick={() => navigate('/client/parrainage')}
-              className="p-2 text-purple-600 transition-colors rounded-full hover:bg-purple-100"
+              className="p-2 text-purple-600 hover:bg-purple-100 rounded-full transition-colors"
               title="Programme Ambassadeur"
             >
               <AmbassadorIcon size={20} />
             </button>
           </div>
         </div>
-        <div className="px-4 pb-2 text-center md:hidden">
+        <div className="px-4 pb-2 md:hidden text-center">
           {pageTitle && (
             <h1 className="text-sm font-semibold text-gray-800 truncate">
               {pageTitle}
@@ -366,7 +369,7 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
       </div>
 
       {/* --- VERSION MOBILE --- */}
-      <div className="flex flex-col items-center justify-center w-full md:hidden">
+      <div className="md:hidden flex flex-col items-center justify-center w-full">
         {/* Ligne supérieure : menu + logo + recherche */}
         <div className="flex items-center justify-between w-full px-4 py-2 border-b border-gray-200">
           <button
@@ -392,7 +395,7 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
         </div>
 
         {/* Ligne inférieure : icônes principales */}
-        <div className="flex justify-around w-full py-3 bg-white border-t border-gray-100">
+        <div className="flex justify-around w-full py-3 border-t border-gray-100 bg-white">
           <button
             onClick={() => navigate('/client/dashboard')}
             className="flex flex-col items-center text-gray-700 hover:text-purple-600"
@@ -427,7 +430,7 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
                   >
                     <div className="flex items-center space-x-3">
                       <div
-                        className="w-6 h-6 border-2 border-white rounded-full shadow-sm"
+                        className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
                         style={{ backgroundColor: themeOption.colors.primary }}
                       ></div>
                       <IconComponent
@@ -471,7 +474,7 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
 
       {/* Barre de recherche (mobile) */}
       {isSearchOpen && (
-        <div className="w-full px-4 py-2 border-b border-gray-200 bg-gray-50 animate-fadeIn">
+        <div className="w-full px-4 py-2 bg-gray-50 border-b border-gray-200 animate-fadeIn">
           <div className="flex items-center gap-2">
             <input
               type="text"
@@ -482,7 +485,7 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
             />
             <button
               onClick={() => setIsSearchOpen(false)}
-              className="p-2 text-gray-500 rounded-md hover:text-gray-800"
+              className="p-2 rounded-md text-gray-500 hover:text-gray-800"
             >
               ✕
             </button>

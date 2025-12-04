@@ -412,6 +412,7 @@ const BudgetPage = () => {
       </div>
     );
   }
+  // console.log(loadingState);
 
   return (
     <div className="min-h-screen p-6 bg-white">
@@ -490,7 +491,7 @@ const BudgetPage = () => {
                 <CardContent>
                   <div className="flex items-center justify-between">
                     <div className="text-3xl font-bold text-green-700">
-                      {formatCurrency(budget.sumEntries || 0)}
+                      {formatCurrency(budget?.sums?.revenus) || '0'}
                     </div>
                     <div className="flex items-center justify-center w-12 h-12 bg-green-100 rounded-xl">
                       <TrendingUp className="w-6 h-6 text-green-600" />
@@ -510,7 +511,7 @@ const BudgetPage = () => {
                 <CardContent>
                   <div className="flex items-center justify-between">
                     <div className="text-3xl font-bold text-red-700">
-                      {formatCurrency(budget.sumExpenses || 0)}
+                      {formatCurrency(budget?.sums?.depenses) || '0'}
                     </div>
                     <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-xl">
                       <TrendingDown className="w-6 h-6 text-red-600" />
@@ -524,13 +525,13 @@ const BudgetPage = () => {
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-gray-600 uppercase">
                     <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    Solde prévisionnel
+                    Balance
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between">
                     <div className="text-3xl font-bold text-blue-700">
-                      {formatCurrency(budget.sumForecast || 0)}
+                      {formatCurrency(budget?.sums?.balance) || '0'}
                     </div>
                     <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-xl">
                       <Target className="w-6 h-6 text-blue-600" />

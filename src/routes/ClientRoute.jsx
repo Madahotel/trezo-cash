@@ -6,7 +6,6 @@ import ProjetClient from '../pages/clients/projets/ProjetClient';
 import ScenarioView from '../pages/clients/scenario/ScenarioView';
 import BudgetTracker from '../pages/clients/tresorie/BudgetTracker';
 import TrezoPage from '../pages/clients/tresorie/TrezoPage';
-import ExpenseAnalysisView from '../pages/clients/analyse/ExpenseAnalysisView';
 import MyTemplatesPage from '../pages/clients/models/MyTemplatesPage';
 import ProjectSettingsPage from '../pages/clients/projets/ProjectSettingsPage';
 import ProvisionsPage from '../pages/clients/suiviProvision/ProvisionsPage';
@@ -41,6 +40,8 @@ import BecomeAmbassadorPage from '../pages/clients/ambassador/BecomeAmbassadorPa
 import ConsolidatedViewPage from '../pages/clients/consolidate/ConsolidatedViewPage';
 import ConsolidationDetailsPage from '../pages/clients/consolidate/ConsolidationDetailsPage';
 import ConsolidatedAllViewPage from '../pages/clients/consolidate/ConsolidatedViewPage';
+import AnalyseView from '../pages/clients/analyse/AnalyseView';
+import TVATable from '../pages/clients/tva/TVATable';
 const ClientRoute = {
   path: '/client',
   element: (
@@ -59,7 +60,7 @@ const ClientRoute = {
     { path: 'scenarios', element: <ScenarioView /> },
     { path: 'flux', element: <CashflowView /> },
     { path: 'echeancier', element: <ScheduleView /> },
-    { path: 'analyse', element: <ExpenseAnalysisView /> },
+    { path: 'analyse', element: <AnalyseView /> },
     { path: 'templates', element: <MyTemplatesPage /> },
     { path: 'parametres-projet', element: <ProjectSettingsPage /> },
     { path: 'provisions', element: <ProvisionsPage /> },
@@ -77,6 +78,7 @@ const ClientRoute = {
     { path: 'consolidations/:id', element: <ConsolidationDetailsPage /> },
     { path: 'consolidations', element: <ConsolidatedAllViewPage /> },
     
+    { path: 'tableau-tva', element: <TVATable /> },
     // { path: "parrainage", element: <AmbassadorPage /> },
     // { path: "parrainage/refferals", element: <ReferralsPage /> },
     
