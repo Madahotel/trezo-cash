@@ -165,82 +165,149 @@ const BudgetTableView = (props) => {
     }
   };
 
-  const fetchProjectData = async (projectId, frequencyId = null, forceRefresh = false) => {
-    if (!projectId) return;
+const fetchProjectData = async (projectId, frequencyId = null, forceRefresh = false) => {
+  if (!projectId) return;
+  
+  console.log('📊 [fetchProjectData] Début:', {
+    projectId,
+    isCustomConsolidated: String(projectId).startsWith('consolidated_view_'),
+    isConsolidated: projectId === 'consolidated',
+    finalBudgetEntriesCount: finalBudgetEntries?.length,
+    forceRefresh
+  });
+
+  // Vérifier si c'est une vue consolidée
+  const isConsolidated = projectId === 'consolidated';
+  const isCustomConsolidated = String(projectId).startsWith('consolidated_view_');
+  
+  // Pour les vues consolidées, utiliser les données des props
+  if (isConsolidated || isCustomConsolidated) {
+    console.log('📊 [fetchProjectData] Vue consolidée détectée - Utilisation des données des props');
+    
+    // Si on force le rafraîchissement, mettre en état de chargement
     if (forceRefresh) {
       setLoading(true);
       setError(null);
       setHasNoData(false);
     }
-
-    try {
-      const params = {};
-
-      if (frequencyId && frequencyId !== 'all') {
-        params.frequency_id = frequencyId;
-      }
-      if (forceRefresh) {
-        params._t = Date.now();
-      }
-
-      const response = await axios.get(`/trezo-tables/projects/${projectId}`, {
-        params,
+    
+    // Vérifier si les données consolidées sont déjà disponibles
+    if (!finalBudgetEntries) {
+      console.log('📊 [fetchProjectData] Données consolidées non encore chargées');
+      setLoading(true);
+      setHasNoData(false);
+      return;
+    }
+    
+    console.log('📊 [fetchProjectData] Données consolidées disponibles:', finalBudgetEntries.length, 'items');
+    
+    setLoading(false);
+    setError(null);
+    
+    if (finalBudgetEntries.length > 0) {
+      console.log('📊 [fetchProjectData] Mise à jour des données consolidées');
+      setProjectData({ 
+        budgets: { 
+          budget_items: finalBudgetEntries 
+        } 
       });
-      const data = response.data;
+      setHasNoData(false);
+    } else {
+      console.log('📊 [fetchProjectData] Aucune donnée consolidée trouvée');
+      setProjectData({ budgets: { budget_items: [] } });
+      setHasNoData(true);
+    }
+    return;
+  }
+  
+  // Pour les projets normaux, appeler l'API
+  console.log('📊 [fetchProjectData] Projet normal - Appel API');
+  
+  if (forceRefresh) {
+    setLoading(true);
+    setError(null);
+    setHasNoData(false);
+  }
 
-      if (data && data.budgets) {
-        const hasBudgetItems =
-          data.budgets.budget_items && data.budgets.budget_items.length > 0;
+  try {
+    const params = {};
 
-        if (hasBudgetItems) {
-          setProjectData(data);
-          setHasNoData(false);
-        } else {
-          setProjectData({ budgets: { budget_items: [] } });
-          setHasNoData(true);
-        }
+    if (frequencyId && frequencyId !== 'all') {
+      params.frequency_id = frequencyId;
+    }
+    if (forceRefresh) {
+      params._t = Date.now();
+    }
+
+    console.log('📊 [fetchProjectData] Appel API:', `/trezo-tables/projects/${projectId}`, params);
+    
+    const response = await axios.get(`/trezo-tables/projects/${projectId}`, {
+      params,
+    });
+    const data = response.data;
+
+    console.log('📊 [fetchProjectData] Réponse API:', {
+      status: response.status,
+      hasBudgets: !!(data && data.budgets),
+      budgetItemsCount: data?.budgets?.budget_items?.length || 0
+    });
+
+    if (data && data.budgets) {
+      const hasBudgetItems = data.budgets.budget_items && data.budgets.budget_items.length > 0;
+
+      if (hasBudgetItems) {
+        setProjectData(data);
+        setHasNoData(false);
+        console.log('📊 [fetchProjectData] Données API chargées avec succès:', data.budgets.budget_items.length, 'items');
       } else {
-        console.warn(
-          'Format de réponse inattendu, mais traitement continué:',
-          data
-        );
         setProjectData({ budgets: { budget_items: [] } });
         setHasNoData(true);
+        console.log('📊 [fetchProjectData] API a retourné un tableau vide');
       }
-    } catch (err) {
-      console.error('❌ Erreur détaillée:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-      });
-
-      let errorMessage = 'Erreur de chargement des données';
-
-      if (err.response) {
-        if (err.response.status === 404) {
-          errorMessage = 'Projet non trouvé';
-        } else if (err.response.status === 204) {
-          setProjectData({ budgets: { budget_items: [] } });
-          setHasNoData(true);
-          setError(null);
-          setLoading(false);
-          return;
-        } else {
-          errorMessage =
-            err.response.data?.message || `Erreur ${err.response.status}`;
-        }
-      } else if (err.request) {
-        errorMessage = 'Erreur de connexion au serveur';
-      } else {
-        errorMessage = err.message;
-      }
-
-      setError(errorMessage);
-      setHasNoData(false);
-    } finally {
-      setLoading(false);
+    } else {
+      console.warn(
+        '📊 [fetchProjectData] Format de réponse inattendu, mais traitement continué:',
+        data
+      );
+      setProjectData({ budgets: { budget_items: [] } });
+      setHasNoData(true);
     }
-  };
+  } catch (err) {
+    console.error('❌ [fetchProjectData] Erreur détaillée:', {
+      message: err.message,
+      response: err.response?.data,
+      status: err.response?.status,
+      url: err.config?.url
+    });
+
+    let errorMessage = 'Erreur de chargement des données';
+
+    if (err.response) {
+      if (err.response.status === 404) {
+        errorMessage = 'Projet non trouvé';
+      } else if (err.response.status === 204) {
+        setProjectData({ budgets: { budget_items: [] } });
+        setHasNoData(true);
+        setError(null);
+        setLoading(false);
+        console.log('📊 [fetchProjectData] Statut 204 - Pas de contenu');
+        return;
+      } else {
+        errorMessage = err.response.data?.message || `Erreur ${err.response.status}`;
+      }
+    } else if (err.request) {
+      errorMessage = 'Erreur de connexion au serveur';
+    } else {
+      errorMessage = err.message;
+    }
+
+    setError(errorMessage);
+    setHasNoData(false);
+  } finally {
+    setLoading(false);
+    console.log('📊 [fetchProjectData] Fin - loading:', false);
+  }
+};
   useEffect(() => {
     fetchProjectData(activeProjectId, frequencyFilter);
   }, [activeProjectId, frequencyFilter, refreshTrigger]);
@@ -901,39 +968,41 @@ const BudgetTableView = (props) => {
     }
   };
 
-const handleDeleteEntry = (entry) => {
-  if (entry.is_vat_payment || entry.is_tax_payment) return;
-  
-  const originalEntryId = entry.is_vat_child
-    ? entry.id.replace('_vat', '')
-    : entry.id;
+  const handleDeleteEntry = (entry) => {
+    if (entry.is_vat_payment || entry.is_tax_payment || isConsolidated || isCustomConsolidated) {
+      return; // Ne pas permettre la suppression en mode consolidé
+    }
 
-  const originalEntry = processedBudgetEntries.find(
-    (e) => e.id === originalEntryId
-  );
+    const originalEntryId = entry.is_vat_child
+      ? entry.id.replace('_vat', '')
+      : entry.id;
 
-  if (!originalEntry) return;
+    const originalEntry = processedBudgetEntries.find(
+      (e) => e.id === originalEntryId
+    );
 
-  uiDispatch({
-    type: 'OPEN_CONFIRMATION_MODAL',
-    payload: {
-      title: `Supprimer "${originalEntry.supplier}" ?`,
-      message:
-        "Cette action est irréversible et supprimera l'entrée budgétaire et ses prévisions.",
-      onConfirm: () =>
-        deleteEntry(
-          { dataDispatch, uiDispatch },
-          {
-            entryId: originalEntry.budget_id || originalEntry.id, // ✅ Utiliser budget_id pour la route
-            entryProjectId: originalEntry.projectId,
-          }
-        ).then(() => {
-          console.log('✅ Entrée supprimée, rafraîchissement des données...');
-          refreshData();
-        }),
-    },
-  });
-};
+    if (!originalEntry) return;
+
+    uiDispatch({
+      type: 'OPEN_CONFIRMATION_MODAL',
+      payload: {
+        title: `Supprimer "${originalEntry.supplier}" ?`,
+        message:
+          "Cette action est irréversible et supprimera l'entrée budgétaire et ses prévisions.",
+        onConfirm: () =>
+          deleteEntry(
+            { dataDispatch, uiDispatch },
+            {
+              entryId: originalEntry.budget_id || originalEntry.id,
+              entryProjectId: originalEntry.projectId,
+            }
+          ).then(() => {
+            console.log('✅ Entrée supprimée, rafraîchissement des données...');
+            refreshData();
+          }),
+      },
+    });
+  };
 
   const filteredBudgetEntries = useMemo(() => {
     let entries = processedBudgetEntries || [];
@@ -1653,18 +1722,22 @@ const handleDeleteEntry = (entry) => {
                                 </span>
                               </div>
                               <div className="flex items-center gap-1 transition-opacity opacity-0 group-hover:opacity-100">
-                                <button
-                                  onClick={(event) => handleEditBudget(entry, 'entry', event)}
-                                  className="p-1 text-blue-500 hover:text-blue-700"
-                                >
-                                  <Edit size={14} />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteEntry(entry)}
-                                  className="p-1 text-red-500 hover:text-red-700"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
+                                {!isConsolidated && !isCustomConsolidated && (
+                                  <>
+                                    <button
+                                      onClick={(event) => handleEditBudget(entry, 'entry', event)}
+                                      className="p-1 text-blue-500 hover:text-blue-700"
+                                    >
+                                      <Edit size={14} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteEntry(entry)}
+                                      className="p-1 text-red-500 hover:text-red-700"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             </div>
                           </td>

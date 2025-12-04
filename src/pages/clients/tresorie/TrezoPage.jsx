@@ -5,7 +5,7 @@ import { useUI } from '../../../components/context/UIContext';
 import { useData } from '../../../components/context/DataContext';
 import { updateProjectOnboardingStep } from '../../../components/context/actions';
 import { useActiveProjectData } from '../../../hooks/useActiveProjectData';
-import { Lock, PiggyBank, Banknote, Coins } from 'lucide-react';
+import { Lock, PiggyBank, Banknote, Coins, Filter } from 'lucide-react';
 import WidgetIcon from '../../../pages/clients/dashboard/WidgetIcon';
 
 const defaultTrezoWidgetSettings = {
@@ -21,7 +21,12 @@ const TrezoPage = () => {
     const navigate = useNavigate();
     const { activeProjectId } = uiState;
 
-    const { activeProject, isConsolidated } = useActiveProjectData(dataState, uiState);
+    const { 
+        activeProject, 
+        isConsolidated, 
+        isCustomConsolidated 
+    } = useActiveProjectData(dataState, uiState);
+    
     const [quickFilter, setQuickFilter] = useState('all');
 
     const widgetVisibility = useMemo(() => ({
@@ -48,10 +53,55 @@ const TrezoPage = () => {
         uiDispatch({ type: 'OPEN_CUSTOMIZATION_DRAWER', payload: 'trezo' });
     };
 
+    // Afficher un message spécial pour les vues consolidées
+    if (isConsolidated || isCustomConsolidated) {
+        return (
+            <div className="min-h-screen p-6 bg-white">
+                <div className="">
+                    {/* Header avec le nom de la vue consolidée */}
+                    <div className="flex flex-col gap-4 mb-6 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center justify-center w-10 h-10 bg-purple-100 rounded-xl">
+                                    <Filter className="w-6 h-6 text-purple-600" />
+                                </div>
+                                <div>
+                                    <h1 className="text-4xl font-bold text-transparent bg-gradient-to-r from-purple-900 to-indigo-900 bg-clip-text">
+                                        Trésorerie Consolidée
+                                    </h1>
+                                    <p className="text-lg text-gray-600">
+                                        Vue globale de la trésorerie de{' '}
+                                        <span className="font-semibold text-purple-900">
+                                            {activeProject?.name || 'la vue consolidée'}
+                                        </span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* BudgetTracker pour vue consolidée */}
+                    <BudgetTracker 
+                        quickFilter={quickFilter}
+                        showTemporalToolbar={true}
+                        visibleColumns={{
+                            budget: true,
+                            actual: true,
+                            reste: false,
+                            description: true,
+                        }}
+                        showViewModeSwitcher={false} // Désactiver le mode vue pour consolidé
+                        showNewEntryButton={false} // Désactiver nouveau bouton pour consolidé
+                    />
+                </div>
+            </div>
+        );
+    }
+
     return (
         <>
-            <div className="p-6 max-w-full">
-                <div className="mb-4 flex items-center justify-between">
+            <div className="max-w-full p-6">
+                <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                         {widgetVisibility.trezo_quick_filters && filterOptions.map(opt => {
                             const visibilityKey = `trezo_quickfilter_${opt.id}`;
@@ -75,20 +125,18 @@ const TrezoPage = () => {
                         {showValidationButton && (
                             <button
                                 onClick={handleValidation}
-                                className="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg shadow-sm hover:bg-green-700 transition-colors"
+                                className="px-4 py-2 text-sm font-semibold text-white transition-colors bg-green-600 rounded-lg shadow-sm hover:bg-green-700"
                             >
                                 Valider mon tableau et voir mon flux de trésorerie
                             </button>
                         )}
-                        {!isConsolidated && (
-                            <button
-                                onClick={handleOpenSettings}
-                                className="hidden md:block p-2 text-gray-600 bg-white border rounded-lg hover:bg-gray-100 transition-colors"
-                                title="Personnaliser le tableau de trésorerie"
-                            >
-                                <WidgetIcon className="w-5 h-5" />
-                            </button>
-                        )}
+                        <button
+                            onClick={handleOpenSettings}
+                            className="hidden p-2 text-gray-600 transition-colors bg-white border rounded-lg md:block hover:bg-gray-100"
+                            title="Personnaliser le tableau de trésorerie"
+                        >
+                            <WidgetIcon className="w-5 h-5" />
+                        </button>
                     </div>
                 </div>
                 <BudgetTracker 

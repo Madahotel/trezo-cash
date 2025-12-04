@@ -42,12 +42,11 @@ const QuickAddThirdPartyModal = ({
 
     const handleThirdPartyTypeSelect = (type) => {
         setSelectedThirdPartyType(type);
-        // NOUVELLE LOGIQUE : Fournisseur + Emprunteur ensemble, Client + Prêteur ensemble
         let userTypeId = '';
-        if (formData.type === '1') { // Dépense
-            userTypeId = type === 'supplier' ? '6' : '5'; // Fournisseur (6) ou Emprunteur (5)
-        } else { // Revenu
-            userTypeId = type === 'client' ? '4' : '7'; // Client (4) ou Prêteur (7)
+        if (formData.type === '1') { 
+            userTypeId = type === 'supplier' ? '6' : '5'; 
+        } else { 
+            userTypeId = type === 'client' ? '4' : '7'; 
         }
 
         setNewThirdPartyData(prev => ({
@@ -56,14 +55,12 @@ const QuickAddThirdPartyModal = ({
         }));
     };
 
-    // Références pour chaque champ
     const nameInputRef = useRef(null);
     const firstnameInputRef = useRef(null);
     const emailInputRef = useRef(null);
     const phoneInputRef = useRef(null);
     const hasFocused = useRef(false);
 
-    // Focus seulement sur le premier champ quand le modal s'ouvre
     useEffect(() => {
         if (showThirdPartyModal && !hasFocused.current && nameInputRef.current) {
             setTimeout(() => {
@@ -80,11 +77,7 @@ const QuickAddThirdPartyModal = ({
 
     if (!showThirdPartyModal) return null;
 
-    // NOUVELLE LOGIQUE : Déterminer les types disponibles selon le contexte
-    const isExpense = formData.type === '1'; // 1 = Dépense, 2 = Revenu
-    
-    // Dépense : Fournisseur ou Emprunteur
-    // Revenu : Client ou Prêteur
+    const isExpense = formData.type === '1'; 
     const availableTypes = isExpense
         ? [
             { 
@@ -122,16 +115,16 @@ const QuickAddThirdPartyModal = ({
                 onClick={handleModalClick}
             >
                 {/* Header */}
-                <div className="flex items-center justify-between p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
+                <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
                     <div className="flex items-center space-x-3">
                         <div className="p-2 bg-blue-100 rounded-lg">
-                            <Building className="h-5 w-5 text-blue-600" />
+                            <Building className="w-5 h-5 text-blue-600" />
                         </div>
                         <div>
                             <h3 className="text-lg font-semibold text-gray-900">
                                 Nouveau tiers
                             </h3>
-                            <p className="text-sm text-gray-600 mt-1">
+                            <p className="mt-1 text-sm text-gray-600">
                                 {isExpense ? 'Ajouter un fournisseur ou un emprunteur' : 'Ajouter un client ou un prêteur'}
                             </p>
                         </div>
@@ -141,9 +134,9 @@ const QuickAddThirdPartyModal = ({
                         size="sm"
                         onClick={handleModalClose}
                         disabled={isCreatingThirdParty}
-                        className="h-8 w-8 p-0 hover:bg-white/50"
+                        className="w-8 h-8 p-0 hover:bg-white/50"
                     >
-                        <X className="h-4 w-4" />
+                        <X className="w-4 h-4" />
                     </Button>
                 </div>
 
@@ -162,14 +155,14 @@ const QuickAddThirdPartyModal = ({
                                         <button
                                             key={type.id}
                                             onClick={() => handleThirdPartyTypeSelect(type.id)}
-                                            className="flex items-start p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-left"
+                                            className="flex items-start p-4 text-left transition-colors border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50"
                                         >
-                                            <div className="p-2 bg-blue-100 rounded-lg mr-3">
-                                                <IconComponent className="h-5 w-5 text-blue-600" />
+                                            <div className="p-2 mr-3 bg-blue-100 rounded-lg">
+                                                <IconComponent className="w-5 h-5 text-blue-600" />
                                             </div>
                                             <div className="flex-1">
                                                 <h4 className="font-medium text-gray-900">{type.label}</h4>
-                                                <p className="text-sm text-gray-600 mt-1">{type.description}</p>
+                                                <p className="mt-1 text-sm text-gray-600">{type.description}</p>
                                             </div>
                                         </button>
                                     );
@@ -182,14 +175,14 @@ const QuickAddThirdPartyModal = ({
                     {selectedThirdPartyType && (
                         <>
                             {/* Type sélectionné */}
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <div className="p-3 border border-blue-200 rounded-lg bg-blue-50">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center space-x-2">
                                         <div className="p-1 bg-blue-100 rounded">
                                             {(() => {
                                                 const type = availableTypes.find(t => t.id === selectedThirdPartyType);
                                                 const IconComponent = type?.icon || Building;
-                                                return <IconComponent className="h-3 w-3 text-blue-600" />;
+                                                return <IconComponent className="w-3 h-3 text-blue-600" />;
                                             })()}
                                         </div>
                                         <span className="text-sm font-medium text-blue-900">
@@ -209,8 +202,8 @@ const QuickAddThirdPartyModal = ({
 
                             {/* Nom de l'entreprise */}
                             <div className="space-y-2">
-                                <Label htmlFor="thirdparty-company-name" className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                                    <Building className="h-4 w-4 text-gray-500" />
+                                <Label htmlFor="thirdparty-company-name" className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                    <Building className="w-4 h-4 text-gray-500" />
                                     Nom {selectedThirdPartyType === 'client' || selectedThirdPartyType === 'borrower' ? 'du client' : 'de l\'entreprise'} *
                                 </Label>
                                 <Input
@@ -241,8 +234,8 @@ const QuickAddThirdPartyModal = ({
 
                             {/* Prénom du contact */}
                             <div className="space-y-2">
-                                <Label htmlFor="thirdparty-contact-firstname" className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                                    <User className="h-4 w-4 text-gray-500" />
+                                <Label htmlFor="thirdparty-contact-firstname" className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                    <User className="w-4 h-4 text-gray-500" />
                                     Prénom du contact
                                 </Label>
                                 <Input
@@ -265,8 +258,8 @@ const QuickAddThirdPartyModal = ({
 
                             {/* Email */}
                             <div className="space-y-2">
-                                <Label htmlFor="thirdparty-contact-email" className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                                    <Mail className="h-4 w-4 text-gray-500" />
+                                <Label htmlFor="thirdparty-contact-email" className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                    <Mail className="w-4 h-4 text-gray-500" />
                                     Email
                                 </Label>
                                 <Input
@@ -289,8 +282,8 @@ const QuickAddThirdPartyModal = ({
 
                             {/* Téléphone */}
                             <div className="space-y-2">
-                                <Label htmlFor="thirdparty-contact-phone" className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                                    <Phone className="h-4 w-4 text-gray-500" />
+                                <Label htmlFor="thirdparty-contact-phone" className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                    <Phone className="w-4 h-4 text-gray-500" />
                                     Téléphone
                                 </Label>
                                 <Input
@@ -315,7 +308,7 @@ const QuickAddThirdPartyModal = ({
                 </div>
 
                 {/* Footer */}
-                <div className="flex justify-end gap-3 p-6 bg-gray-50 border-t border-gray-200">
+                <div className="flex justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
                     <Button
                         variant="outline"
                         onClick={handleModalClose}
@@ -331,12 +324,12 @@ const QuickAddThirdPartyModal = ({
                     >
                         {isCreatingThirdParty ? (
                             <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                <div className="w-4 h-4 mr-2 border-b-2 border-white rounded-full animate-spin"></div>
                                 Création...
                             </>
                         ) : (
                             <>
-                                <Plus className="h-4 w-4 mr-2" />
+                                <Plus className="w-4 h-4 mr-2" />
                                 Créer
                             </>
                         )}

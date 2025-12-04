@@ -39,6 +39,8 @@ import PaymentHistoryPage from '../pages/clients/ambassador/PaymentHistoryPage';
 import ProgramInfoPage from '../pages/clients/ambassador/ProgramInfoPage';
 import BecomeAmbassadorPage from '../pages/clients/ambassador/BecomeAmbassadorPage';
 import ConsolidatedViewPage from '../pages/clients/consolidate/ConsolidatedViewPage';
+import ConsolidationDetailsPage from '../pages/clients/consolidate/ConsolidationDetailsPage';
+import ConsolidatedAllViewPage from '../pages/clients/consolidate/ConsolidatedViewPage';
 const ClientRoute = {
   path: '/client',
   element: (
@@ -72,7 +74,8 @@ const ClientRoute = {
     { path: 'aide', element: <Aide title="Centre d'aide" /> },
     { path: 'abonnement', element: <SubscriptionPage /> },
     { path: 'onboarding', element: <OnboardingView /> },
-    { path: 'consolidations/:id', element: <ConsolidatedViewPage  /> },
+    { path: 'consolidations/:id', element: <ConsolidationDetailsPage /> },
+    { path: 'consolidations', element: <ConsolidatedAllViewPage /> },
     
     // { path: "parrainage", element: <AmbassadorPage /> },
     // { path: "parrainage/refferals", element: <ReferralsPage /> },

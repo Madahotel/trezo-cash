@@ -11,7 +11,7 @@ import {
     List,
     X,
     Search,
-    Layers,FolderKanban
+    Layers, FolderKanban
 } from '../../../utils/Icons';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/card';
@@ -26,7 +26,6 @@ const ProjectCard = lazy(() => import('./ProjectCard'));
 const ArchiveDialog = lazy(() => import('./ArchiveDialog'));
 const ProjectStats = lazy(() => import('./ProjectStats'));
 
-// Configuration des icônes par type de projet
 const projectTypeIcons = {
     'Business': lazy(() => import('../../../utils/Icons').then(module => ({ default: module.Briefcase }))),
     'Événement': lazy(() => import('../../../utils/Icons').then(module => ({ default: module.PartyPopper }))),
@@ -37,7 +36,6 @@ const projectTypeIcons = {
     'default': lazy(() => import('../../../utils/Icons').then(module => ({ default: module.Briefcase })))
 };
 
-// Couleurs pour les types de projet
 const projectTypeColors = {
     'Business': 'blue',
     'Événement': 'pink',
@@ -53,7 +51,6 @@ const ProjectsPage = () => {
     const { formatCurrency } = useSettings();
     const { uiState } = useUI();
 
-    // Utilisation du hook useProjects
     const { projects, loading, error, refetch: fetchProjects, setProjects } = useProjects();
 
     const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
@@ -65,7 +62,6 @@ const ProjectsPage = () => {
     const [editForm, setEditForm] = useState({});
     const [localLoading, setLocalLoading] = useState(false);
 
-    // États pour les filtres et la vue consolidée
     const [viewMode, setViewMode] = useState('grid');
     const [searchTerm, setSearchTerm] = useState('');
     const [showFilters, setShowFilters] = useState(false);
@@ -76,10 +72,8 @@ const ProjectsPage = () => {
     const [consolidatedData, setConsolidatedData] = useState(null);
     const [consolidatedLoading, setConsolidatedLoading] = useState(false);
 
-    // Récupérer l'ID du projet actif
     const activeProjectId = uiState.activeProject?.id;
 
-    // Options de filtre
     const filterOptions = {
         types: [
             { value: 'all', label: 'Tous les types' },
@@ -103,7 +97,6 @@ const ProjectsPage = () => {
         ]
     };
 
-    // Stats optimisées avec useMemo
     const projectStats = useMemo(() => {
         if (!projects || projects.length === 0) {
             return { total: 0, business: 0, events: 0, menages: 0 };
@@ -117,20 +110,17 @@ const ProjectsPage = () => {
         };
     }, [projects]);
 
-    // Fonction de filtrage des projets
     const filteredProjects = useMemo(() => {
         if (!projects) return [];
 
         return projects
             .filter(project => {
-                // Filtre par recherche
                 if (searchTerm &&
                     !project.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
                     !project.description?.toLowerCase().includes(searchTerm.toLowerCase())) {
                     return false;
                 }
 
-                // Filtre par type
                 if (selectedType !== 'all') {
                     const projectType = project.type || project.typeName?.toLowerCase();
                     if (!projectType || projectType !== selectedType) {
@@ -138,7 +128,6 @@ const ProjectsPage = () => {
                     }
                 }
 
-                // Filtre par statut
                 if (selectedStatus !== 'all') {
                     const isArchived = project.is_archived || project.isArchived;
                     if (selectedStatus === 'active' && isArchived) return false;
@@ -171,7 +160,42 @@ const ProjectsPage = () => {
             });
     }, [projects, searchTerm, selectedType, selectedStatus, sortBy]);
 
-    // Redirection automatique selon l'état des projets
+    useEffect(() => {
+        const refreshProjects = () => {
+            console.log('🔄 ProjectsPage: Rafraîchissement déclenché par événement');
+            fetchProjects().catch(error =>
+                console.warn("Erreur lors du rafraîchissement:", error)
+            );
+        };
+
+        window.addEventListener('projectCreated', refreshProjects);
+        window.addEventListener('projectsUpdated', refreshProjects);
+        window.addEventListener('projectCreatedInSwitcher', refreshProjects);
+        window.addEventListener('projectArchived', refreshProjects);
+        window.addEventListener('projectRestored', refreshProjects);
+        window.addEventListener('projectDeleted', refreshProjects);
+
+        const handleVisibilityChange = () => {
+            if (!document.hidden) {
+                setTimeout(() => {
+                    fetchProjects();
+                }, 1000);
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            window.removeEventListener('projectCreated', refreshProjects);
+            window.removeEventListener('projectsUpdated', refreshProjects);
+            window.removeEventListener('projectCreatedInSwitcher', refreshProjects);
+            window.removeEventListener('projectArchived', refreshProjects);
+            window.removeEventListener('projectRestored', refreshProjects);
+            window.removeEventListener('projectDeleted', refreshProjects);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [fetchProjects]);
+
     useEffect(() => {
         if (!loading && !error) {
             if (projects.length === 0) {
@@ -184,7 +208,6 @@ const ProjectsPage = () => {
         }
     }, [loading, error, projects.length, activeProjectId, navigate]);
 
-    // Fonctions mémoïsées
     const getProjectIcon = useCallback((typeName) => {
         return projectTypeIcons[typeName] || projectTypeIcons.default;
     }, []);
@@ -207,11 +230,17 @@ const ProjectsPage = () => {
             const loadingToast = toast.loading('Archivage du projet en cours...');
 
             await archiveService.archiveProject(project.id, "Archivage manuel");
-
-            // Mettre à jour l'état local en filtrant le projet archivé
             setProjects((prevProjects) =>
                 prevProjects.filter((p) => p.id !== project.id)
             );
+            window.dispatchEvent(new CustomEvent('projectArchived', {
+                detail: { projectId: project.id }
+            }));
+            if (activeProjectId === project.id) {
+                window.dispatchEvent(new CustomEvent('activeProjectArchived', {
+                    detail: { projectId: project.id }
+                }));
+            }
 
             toast.success('Projet archivé avec succès !', {
                 id: loadingToast,
@@ -226,7 +255,8 @@ const ProjectsPage = () => {
         } finally {
             setLocalLoading(false);
         }
-    }, [setProjects]);
+    }, [setProjects, activeProjectId]);
+
 
     const confirmArchiveProject = useCallback(async () => {
         if (!selectedProject) return;
@@ -241,6 +271,15 @@ const ProjectsPage = () => {
             setProjects((prevProjects) =>
                 prevProjects.filter((p) => p.id !== selectedProject.id)
             );
+            window.dispatchEvent(new CustomEvent('projectArchived', {
+                detail: { projectId: selectedProject.id }
+            }));
+
+            if (activeProjectId === selectedProject.id) {
+                window.dispatchEvent(new CustomEvent('activeProjectArchived', {
+                    detail: { projectId: selectedProject.id }
+                }));
+            }
 
             setArchiveDialogOpen(false);
             setSelectedProject(null);
@@ -260,7 +299,7 @@ const ProjectsPage = () => {
         } finally {
             setLocalLoading(false);
         }
-    }, [selectedProject, archiveReason, setProjects]);
+    }, [selectedProject, archiveReason, setProjects, activeProjectId]);
 
     const handleDeleteProject = useCallback(async (projectId) => {
         try {
@@ -274,6 +313,15 @@ const ProjectsPage = () => {
             });
 
             setProjects(prev => prev.filter(project => project.id !== projectId));
+            window.dispatchEvent(new CustomEvent('projectDeleted', {
+                detail: { projectId }
+            }));
+            window.dispatchEvent(new CustomEvent('projectsUpdated', {
+                detail: {
+                    action: 'deleted',
+                    projectId: projectId
+                }
+            }));
 
             toast.success('Projet supprimé avec succès !', {
                 id: loadingToast,
@@ -303,6 +351,10 @@ const ProjectsPage = () => {
             });
 
             await fetchProjects();
+
+            window.dispatchEvent(new CustomEvent('projectRestored', {
+                detail: { projectId }
+            }));
 
             toast.success('Projet restauré avec succès !', {
                 id: loadingToast,
@@ -387,7 +439,6 @@ const ProjectsPage = () => {
         }
     }, [setProjects]);
 
-    // Fonctions pour la sélection multiple
     const toggleProjectSelection = useCallback((projectId) => {
         setSelectedProjects(prev =>
             prev.includes(projectId)
@@ -454,7 +505,6 @@ const ProjectsPage = () => {
         }
     }, [selectedProjects, projects, setProjects, clearSelection]);
 
-    // Fonction pour réinitialiser les filtres
     const resetFilters = useCallback(() => {
         setSearchTerm('');
         setSelectedType('all');
@@ -463,7 +513,6 @@ const ProjectsPage = () => {
         toast.success('Filtres réinitialisés');
     }, []);
 
-    // Fonction pour charger les données consolidées
     const loadConsolidatedData = useCallback(async () => {
         const projectsToConsolidate = selectedProjects.length > 0
             ? selectedProjects
@@ -478,15 +527,12 @@ const ProjectsPage = () => {
             setConsolidatedLoading(true);
             const loadingToast = toast.loading('Préparation de la vue consolidée...');
 
-            // Simuler un chargement de données
             await new Promise(resolve => setTimeout(resolve, 800));
 
-            // Calculer les données consolidées
             const selectedProjectsData = filteredProjects.filter(p =>
                 selectedProjects.length > 0 ? selectedProjects.includes(p.id) : true
             );
 
-            // Calculer les totaux
             const totalBudget = selectedProjectsData.reduce((sum, p) =>
                 sum + (p.incomeRealized || 0), 0
             );
@@ -495,7 +541,6 @@ const ProjectsPage = () => {
             );
             const totalNet = totalBudget - totalExpenses;
 
-            // Calculer par type
             const projectsByType = selectedProjectsData.reduce((acc, p) => {
                 const type = p.type || p.typeName || 'Autre';
                 if (!acc[type]) acc[type] = { count: 0, budget: 0, expenses: 0 };
@@ -505,10 +550,9 @@ const ProjectsPage = () => {
                 return acc;
             }, {});
 
-            // Calculer les performances par projet
             const projectsWithPerformance = selectedProjectsData.map(p => ({
                 ...p,
-                performance: p.incomeRealized > 0 ? 
+                performance: p.incomeRealized > 0 ?
                     ((p.incomeRealized - p.expenseRealized) / p.incomeRealized) * 100 : 0
             }));
 
@@ -519,12 +563,12 @@ const ProjectsPage = () => {
                 totalNet,
                 averageBudget: selectedProjectsData.length > 0 ? totalBudget / selectedProjectsData.length : 0,
                 averageExpenses: selectedProjectsData.length > 0 ? totalExpenses / selectedProjectsData.length : 0,
-                averagePerformance: selectedProjectsData.length > 0 ? 
+                averagePerformance: selectedProjectsData.length > 0 ?
                     projectsWithPerformance.reduce((sum, p) => sum + p.performance, 0) / selectedProjectsData.length : 0,
                 projectsByType,
                 selectedProjects: projectsWithPerformance,
                 projectIds: projectsToConsolidate,
-                currency: 'EUR' // Devise par défaut
+                currency: 'EUR'
             });
 
             toast.dismiss(loadingToast);
@@ -541,23 +585,20 @@ const ProjectsPage = () => {
         }
     }, [selectedProjects, filteredProjects]);
 
-    // Fonction pour ouvrir/fermer la vue consolidée
-    const toggleConsolidatedView = useCallback(async () => {
-        if (showConsolidatedView) {
-            // Fermer la vue consolidée
-            setShowConsolidatedView(false);
-            setConsolidatedData(null);
-            toast.info('Retour à la liste des projets');
-        } else {
-            // Ouvrir la vue consolidée
-            const success = await loadConsolidatedData();
-            if (!success) {
-                toast.error('Impossible de charger la vue consolidée');
-            }
-        }
-    }, [showConsolidatedView, loadConsolidatedData]);
+    const toggleConsolidatedView = async () => {
+        setConsolidatedLoading(true);
 
-    // Fonction pour sauvegarder la vue consolidée
+        const success = await loadConsolidatedData();
+
+        setConsolidatedLoading(false);
+
+        if (!success) {
+            toast.error("Impossible de charger la vue consolidée");
+            return;
+        }
+        navigate("/client/consolidations");
+    };
+
     const saveConsolidatedView = useCallback(async () => {
         if (!consolidatedData) return;
 
@@ -574,7 +615,6 @@ const ProjectsPage = () => {
                 return;
             }
 
-            // Sauvegarder dans localStorage
             const savedViews = JSON.parse(localStorage.getItem('consolidatedViews') || '[]');
             const newView = {
                 id: `consolidated_view_${Date.now()}`,
@@ -596,14 +636,12 @@ const ProjectsPage = () => {
         }
     }, [consolidatedData, selectedProjects]);
 
-    // Fonction pour revenir à la liste des projets
     const backToProjectsList = useCallback(() => {
         setShowConsolidatedView(false);
         setConsolidatedData(null);
         toast.info('Retour à la liste des projets');
     }, []);
 
-    // Props communs mémoïsés pour ProjectCard
     const commonProjectCardProps = useMemo(() => ({
         projectTypeIcons,
         projectTypeColors,
@@ -638,7 +676,6 @@ const ProjectsPage = () => {
         toggleProjectSelection
     ]);
 
-    // Squelettes mémoïsés
     const ProjectCardSkeleton = useMemo(() => {
         const Skeleton = () => (
             <Card className="border-gray-200 animate-pulse">
@@ -714,7 +751,6 @@ const ProjectsPage = () => {
         return Skeleton;
     }, []);
 
-    // Affichage du chargement avec squelettes
     if (loading) {
         return (
             <div className="max-w-full min-h-screen p-4 space-y-6 sm:p-6 sm:space-y-8 bg-gray-50/50">
@@ -740,7 +776,6 @@ const ProjectsPage = () => {
         );
     }
 
-    // Affichage des erreurs
     if (error) {
         return (
             <div className="p-6">
@@ -767,24 +802,23 @@ const ProjectsPage = () => {
                 </div>
             )}
 
-            {/* En-tête principal */}
             <div className="sticky top-0 z-10 flex items-center justify-between pt-4 pb-2 bg-white">
                 <div>
 
 
-<h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
-    {showConsolidatedView ? (
-        <>
-            <Layers className="w-6 h-6" />
-            Vue Consolidée
-        </>
-    ) : (
-        <>
-            <FolderKanban className="w-6 h-6" />
-            Projets
-        </>
-    )}
-</h1>
+                    <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
+                        {showConsolidatedView ? (
+                            <>
+                                <Layers className="w-6 h-6" />
+                                Vue Consolidée
+                            </>
+                        ) : (
+                            <>
+                                <FolderKanban className="w-6 h-6" />
+                                Projets
+                            </>
+                        )}
+                    </h1>
 
                     <p className="text-sm text-gray-500">
                         {showConsolidatedView
@@ -863,6 +897,38 @@ const ProjectsPage = () => {
                                 <Plus className="w-4 h-4 mr-2" />
                                 Nouveau projet
                             </Button>
+
+                            {selectedProjects.length > 0 && (
+                                <Button
+                                    onClick={toggleSelectAll}
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-white bg-blue-500 hover:bg-blue-600"
+                                >
+                                    {selectedProjects.length === filteredProjects.length ? 'Tout désélectionner' : 'Tout sélectionner'}
+                                </Button>
+                            )}
+                            <Button
+                                onClick={toggleConsolidatedView}
+                                variant="default"
+                                className="text-white bg-blue-500 hover:bg-blue-600"
+                                disabled={filteredProjects.length === 0 || consolidatedLoading}
+                            >
+                                {consolidatedLoading ? (
+                                    <>
+                                        <div className="w-4 h-4 mr-2 border-2 border-white rounded-full border-t-transparent animate-spin"></div>
+                                        Préparation...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Layers className="w-4 h-4 mr-2" />
+                                        {selectedProjects.length > 0
+                                            ? `Voir consolidé (${selectedProjects.length})`
+                                            : 'Voir tous consolidés'}
+                                    </>
+                                )}
+                            </Button>
+
                         </>
                     )}
                 </div>
@@ -870,7 +936,6 @@ const ProjectsPage = () => {
 
             {!showConsolidatedView && <ProjectStats stats={projectStats} />}
 
-            {/* Barre de recherche et filtres (uniquement en mode liste) */}
             {!showConsolidatedView && (
                 <div className="space-y-4">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -896,7 +961,6 @@ const ProjectsPage = () => {
                         </div>
 
                         <div className="flex items-center gap-2">
-                            {/* Bouton pour montrer/cacher les filtres */}
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -912,7 +976,6 @@ const ProjectsPage = () => {
                                 )}
                             </Button>
 
-                            {/* Boutons de changement de vue */}
                             <div className="flex overflow-hidden border border-gray-300 rounded-lg">
                                 <button
                                     onClick={() => setViewMode('grid')}
@@ -932,7 +995,6 @@ const ProjectsPage = () => {
                         </div>
                     </div>
 
-                    {/* Panneau de filtres */}
                     {showFilters && (
                         <Card className="border border-gray-200 shadow-sm animate-slideDown">
                             <CardContent className="p-4">
@@ -982,7 +1044,6 @@ const ProjectsPage = () => {
                                         </div>
                                     </div>
 
-                                    {/* Filtre par statut */}
                                     <div>
                                         <label className="block mb-2 text-sm font-medium text-gray-700">
                                             Statut
@@ -1004,7 +1065,6 @@ const ProjectsPage = () => {
                                         </div>
                                     </div>
 
-                                    {/* Trier par */}
                                     <div>
                                         <label className="block mb-2 text-sm font-medium text-gray-700">
                                             Trier par
@@ -1023,7 +1083,6 @@ const ProjectsPage = () => {
                                     </div>
                                 </div>
 
-                                {/* Indicateur de résultats */}
                                 <div className="pt-4 mt-4 border-t border-gray-200">
                                     <div className="flex items-center justify-between">
                                         <p className="text-sm text-gray-600">
@@ -1040,7 +1099,6 @@ const ProjectsPage = () => {
                         </Card>
                     )}
 
-                    {/* Indicateur de filtres actifs */}
                     {(selectedType !== 'all' || selectedStatus !== 'all' || searchTerm) && !showFilters && (
                         <div className="flex items-center gap-2 p-2 border border-blue-100 rounded-lg bg-blue-50">
                             <span className="text-sm text-blue-700">Filtres actifs:</span>
@@ -1079,65 +1137,10 @@ const ProjectsPage = () => {
                             )}
                         </div>
                     )}
-
-                    {/* Vue consolidée (uniquement en mode liste) */}
-                    {filteredProjects.length > 0 && !showConsolidatedView && (
-                        <Card className="border-blue-200 shadow-sm bg-gradient-to-r from-blue-50 to-indigo-50">
-                            <CardContent className="p-4">
-                                <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                                    <div>
-                                        <h3 className="flex items-center gap-2 font-semibold text-blue-900">
-                                            <Layers className="w-5 h-5" />
-                                            Vue consolidée
-                                        </h3>
-                                        <p className="text-sm text-blue-700">
-                                            {selectedProjects.length > 0
-                                                ? `Visualisez ensemble les ${selectedProjects.length} projet${selectedProjects.length > 1 ? 's' : ''} sélectionné${selectedProjects.length > 1 ? 's' : ''}`
-                                                : 'Visualisez tous vos projets filtrés ensemble'}
-                                        </p>
-                                    </div>
-                                    <div className="flex flex-wrap gap-2">
-                                        {selectedProjects.length > 0 && (
-                                            <Button
-                                                onClick={toggleSelectAll}
-                                                variant="outline"
-                                                size="sm"
-                                                className="text-blue-700 border-blue-300 hover:bg-blue-50"
-                                            >
-                                                {selectedProjects.length === filteredProjects.length ? 'Tout désélectionner' : 'Tout sélectionner'}
-                                            </Button>
-                                        )}
-                                        <Button
-                                            onClick={toggleConsolidatedView}
-                                            variant="default"
-                                            className="bg-blue-600 hover:bg-blue-700"
-                                            disabled={filteredProjects.length === 0 || consolidatedLoading}
-                                        >
-                                            {consolidatedLoading ? (
-                                                <>
-                                                    <div className="w-4 h-4 mr-2 border-2 border-white rounded-full border-t-transparent animate-spin"></div>
-                                                    Préparation...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Layers className="w-4 h-4 mr-2" />
-                                                    {selectedProjects.length > 0
-                                                        ? `Voir consolidé (${selectedProjects.length})`
-                                                        : 'Voir tous consolidés'}
-                                                </>
-                                            )}
-                                        </Button>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
                 </div>
             )}
 
-            {/* Contenu principal */}
             {showConsolidatedView ? (
-                // Afficher la vue consolidée
                 consolidatedLoading ? (
                     <div className="flex flex-col items-center justify-center py-12 space-y-4">
                         <div className="w-12 h-12 border-4 border-blue-200 rounded-full border-t-blue-600 animate-spin"></div>
@@ -1157,7 +1160,6 @@ const ProjectsPage = () => {
                     />
                 ) : null
             ) : filteredProjects.length === 0 ? (
-                // Aucun projet
                 <Card className="p-8 text-center border-2 border-dashed">
                     <CardContent className="pt-6">
                         <FolderOpen className="w-16 h-16 mx-auto mb-3 text-gray-400" />
@@ -1192,7 +1194,6 @@ const ProjectsPage = () => {
                     </CardContent>
                 </Card>
             ) : (
-                // Liste des projets
                 <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4' : 'grid-cols-1'}`}>
                     {filteredProjects.map((project) => (
                         <ProjectCard

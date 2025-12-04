@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Save, Layers } from 'lucide-react';
-import axios from '../../components/config/Axios'
+import axios from '../../components/config/Axios';
 
 const ConsolidatedViewModal = ({
   isOpen,
@@ -60,8 +60,22 @@ const ConsolidatedViewModal = ({
       });
 
       if (response.data.status === 200) {
-        alert("Vue consolidée créée avec succès !");
-        onClose(); // fermer le modal
+        // Émettre un événement pour indiquer la création réussie
+        window.dispatchEvent(new CustomEvent('consolidationCreatedSuccess', {
+          detail: {
+            consolidation: response.data.consolidation,
+            message: 'Vue consolidée créée avec succès !'
+          }
+        }));
+
+        // Émettre un événement pour rafraîchir les consolidations
+        window.dispatchEvent(new CustomEvent('consolidationsRefreshed'));
+
+        // Fermer le modal avec un petit délai pour l'UI
+        setTimeout(() => {
+          onClose();
+          alert("Vue consolidée créée avec succès !");
+        }, 100);
       } else {
         alert(response.data.message || "Erreur lors de la création de la consolidation");
       }
@@ -96,50 +110,72 @@ const ConsolidatedViewModal = ({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
               placeholder="Ex: Tous mes projets pros, Patrimoine Global..."
               required
               autoFocus
             />
           </div>
           <div>
-            <label className="block mb-1 text-sm font-medium text-gray-700">Projets à inclure *</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">
+                Projets à inclure *
+              </label>
+              <span className="text-sm text-gray-500">
+                {selectedProjects.size} sélectionné(s)
+              </span>
+            </div>
             <div className="p-2 space-y-2 overflow-y-auto border rounded-lg max-h-60 bg-gray-50">
               {activeProjects.length > 0 ? (
                 activeProjects.map(project => (
-                  <div key={project.id} className="flex items-center p-2 rounded-md hover:bg-gray-100">
+                  <div key={project.id} className="flex items-center p-2 transition-colors rounded-md hover:bg-gray-100">
                     <input
                       type="checkbox"
                       id={`project-${project.id}`}
                       checked={selectedProjects.has(project.id)}
                       onChange={() => handleProjectToggle(project.id)}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
                     />
-                    <label htmlFor={`project-${project.id}`} className="ml-3 text-sm font-medium text-gray-700">
+                    <label htmlFor={`project-${project.id}`} className="flex-1 ml-3 text-sm font-medium text-gray-700 cursor-pointer">
                       {project.name}
                     </label>
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-gray-500">Aucun projet actif disponible.</p>
+                <p className="p-2 text-sm text-gray-500">Aucun projet actif disponible.</p>
               )}
             </div>
+            {selectedProjects.size > 0 && (
+              <div className="mt-2 text-xs text-purple-600">
+                ✅ Prêt à créer avec {selectedProjects.size} projet(s)
+              </div>
+            )}
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              className="px-4 py-2 font-medium text-gray-700 transition-colors bg-gray-100 rounded-lg hover:bg-gray-200"
               disabled={loading}
             >
               Annuler
             </button>
             <button
               type="submit"
-              className="flex items-center gap-2 px-4 py-2 font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700"
-              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 font-medium text-white transition-colors bg-purple-600 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading || selectedProjects.size < 2 || !name.trim()}
             >
-              <Save className="w-4 h-4" /> {loading ? 'Enregistrement...' : 'Enregistrer'}
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white rounded-full animate-spin border-t-transparent"></div>
+                  Création...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" /> 
+                  Créer la vue
+                </>
+              )}
             </button>
           </div>
         </form>

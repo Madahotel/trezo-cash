@@ -8,6 +8,7 @@ import BudgetTableView from './BudgetTableView.jsx';
 import BudgetMobileView from './BudgetMobileView.jsx';
 import BudgetTableSkeleton from './BudgetTableSkeleton.jsx';
 import BudgetLineDialog from '../../../pages/clients/budget/BudgetLineDialog.jsx';
+import toast from 'react-hot-toast';
 
 const BudgetTracker = ({
   quickFilter,
@@ -16,7 +17,6 @@ const BudgetTracker = ({
   showViewModeSwitcher = true,
   showNewEntryButton = true
 }) => {
-
   const [refreshKey, setRefreshKey] = useState(0);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [budget, setBudget] = useState({});
@@ -40,7 +40,9 @@ const BudgetTracker = ({
     cashAccounts,
     activeProject,
     isConsolidated,
-    isCustomConsolidated
+    isCustomConsolidated,
+    loading: dataLoading,
+    error: dataError
   } = useActiveProjectData(dataState, uiState, budgetData);
 
   const finalBudgetEntries = budgetEntries;
@@ -89,7 +91,6 @@ const BudgetTracker = ({
     };
   }, []);
 
-
   const fetchBudgetData = async () => {
     try {
       if (budgetData?.refetch) {
@@ -106,6 +107,7 @@ const BudgetTracker = ({
       setEditingLine(null);
     }
   };
+
   const handleBudgetAdded = useCallback(() => {
     setRefreshKey(prev => prev + 1);
     if (refetch) {
@@ -115,23 +117,34 @@ const BudgetTracker = ({
     }
   }, [refetch]);
 
-
   const handleBudgetUpdated = useCallback(() => {
     setRefreshKey(prev => prev + 1);
     if (refetch) {
       refetch();
     }
   }, [refetch]);
+
   const handleEditEntry = (entry) => {
+    // Pour les vues consolidées, désactiver l'édition
+    if (isConsolidated || isCustomConsolidated) {
+      toast.error('L\'édition n\'est pas disponible en vue consolidée');
+      return;
+    }
     console.log('Editing entry:', entry);
     setEditingLine(entry);
     setIsDialogOpen(true);
   };
 
   const handleAddNewLine = () => {
+    // Pour les vues consolidées, désactiver l'ajout
+    if (isConsolidated || isCustomConsolidated) {
+      toast.error('L\'ajout n\'est pas disponible en vue consolidée');
+      return;
+    }
     setEditingLine(null);
     setIsDialogOpen(true);
   };
+
   const startsWithConsolidatedView =
     typeof activeProjectId === 'string' &&
     activeProjectId.startsWith('consolidated_view_');
@@ -148,6 +161,25 @@ const BudgetTracker = ({
     error && !isConsolidated && !isCustomConsolidated && isValidProject;
 
   const hasData = finalBudgetEntries?.length > 0 || finalActualTransactions?.length > 0 || isConsolidated || isCustomConsolidated;
+
+  // Si c'est une vue consolidée sans données, afficher un message
+  if ((isConsolidated || isCustomConsolidated) && !finalBudgetEntries?.length && !dataLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 text-gray-500">
+        <div className="flex items-center justify-center w-16 h-16 mb-4 bg-purple-100 rounded-full">
+          <ChevronDown className="w-8 h-8 text-purple-600" />
+        </div>
+        <div className="mb-2 text-lg font-medium">Tableau de trésorerie consolidé</div>
+        <div className="text-sm text-center">
+          {activeProject?.name ? (
+            <>Aucune donnée trouvée pour la vue consolidée "<span className="font-semibold">{activeProject.name}</span>"</>
+          ) : (
+            'Aucune donnée disponible pour cette vue consolidée'
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (shouldShowLoading) {
     return <BudgetTableSkeleton isMobile={isMobile} />;
@@ -209,9 +241,9 @@ const BudgetTracker = ({
           visibleColumns={visibleColumns}
           tableauMode={tableauMode}
           setTableauMode={setTableauMode}
-          showTemporalToolbar={true}
-          showViewModeSwitcher={showViewModeSwitcher}
-          showNewEntryButton={showNewEntryButton}
+          showTemporalToolbar={showTemporalToolbar}
+          showViewModeSwitcher={!isConsolidated && !isCustomConsolidated && showViewModeSwitcher}
+          showNewEntryButton={!isConsolidated && !isCustomConsolidated && showNewEntryButton}
           quickFilter={quickFilter}
           dataState={dataState}
           dataDispatch={dataDispatch}
@@ -220,18 +252,22 @@ const BudgetTracker = ({
           isPeriodMenuOpen={isPeriodMenuOpen}
           setIsPeriodMenuOpen={setIsPeriodMenuOpen}
           onEdit={handleEditEntry}
-
+          onRefresh={fetchBudgetData}
         />
       )}
-      <BudgetLineDialog
-        open={isDialogOpen}
-        onOpenChange={handleDialogClose}
-        onBudgetAdded={handleBudgetUpdated}
-        onBudgetUpdated={handleBudgetUpdated}
-        data={budget}
-        editLine={editingLine}
-        projectId={activeProjectId}
-      />
+
+      {/* Dialogue d'ajout/modification (seulement pour les projets normaux) */}
+      {!isConsolidated && !isCustomConsolidated && (
+        <BudgetLineDialog
+          open={isDialogOpen}
+          onOpenChange={handleDialogClose}
+          onBudgetAdded={handleBudgetUpdated}
+          onBudgetUpdated={handleBudgetUpdated}
+          data={budget}
+          editLine={editingLine}
+          projectId={activeProjectId}
+        />
+      )}
     </>
   );
 };
