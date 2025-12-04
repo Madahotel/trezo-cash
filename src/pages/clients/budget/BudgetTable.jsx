@@ -32,6 +32,7 @@ const SubCategoryRow = ({
   isSubMenuOpen,
   onSubCategoryMenuToggle,
   menuRefs,
+  isReadOnly = false
 }) => {
   const menuPosition = isSubMenuOpen
     ? getMenuPosition(menuRefs.current[item.id])
@@ -39,12 +40,12 @@ const SubCategoryRow = ({
 
   return (
     <motion.div
-      className="flex justify-between items-center p-4 bg-white rounded-lg border border-gray-100 hover:bg-gray-25 transition-all duration-200 group"
+      className="flex items-center justify-between p-4 transition-all duration-200 bg-white border border-gray-100 rounded-lg hover:bg-gray-25 group"
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.02 }}
     >
-      <div className="flex items-center gap-3 flex-1">
+      <div className="flex items-center flex-1 gap-3">
         <div className="w-1.5 h-1.5 bg-gray-300 rounded-full group-hover:bg-blue-500 transition-colors" />
         <div className="flex flex-col">
           <span className="text-sm font-medium text-gray-900">
@@ -60,18 +61,18 @@ const SubCategoryRow = ({
 
       <div className="flex items-center gap-6">
         <div className="text-right">
-          <div className="text-xs text-gray-500 mb-1">Budget</div>
+          <div className="mb-1 text-xs text-gray-500">Budget</div>
           <div className="font-medium text-gray-900">
-            {formatCurrency(item.amount)}
+            {formatCurrency(item.amount || item.budget_forecast_amount)}
           </div>
         </div>
 
         <div className="text-right">
-          <div className="text-xs text-gray-500 mb-1">Période</div>
-          <div className="text-sm text-gray-600 flex items-center gap-1">
+          <div className="mb-1 text-xs text-gray-500">Période</div>
+          <div className="flex items-center gap-1 text-sm text-gray-600">
             <Calendar className="w-3 h-3" />
             {formatShortDate(item.start_date)}
-            {item.is_duration_indefinite ? (
+            {item.is_duration_indefinite || item.is_budget_duration_indefinite ? (
               <span> → ∞</span>
             ) : item.end_date ? (
               <span> → {formatShortDate(item.end_date)}</span>
@@ -80,33 +81,35 @@ const SubCategoryRow = ({
         </div>
 
         <div className="text-right">
-          <div className="text-xs text-gray-500 mb-1">Fréquence</div>
+          <div className="mb-1 text-xs text-gray-500">Fréquence</div>
           <div className="text-sm text-gray-600">{item.frequency_name}</div>
         </div>
 
-        <div className="relative">
-          <button
-            ref={(el) => (menuRefs.current[item.id] = el)}
-            onClick={(e) => onSubCategoryMenuToggle(item.id, e)}
-            className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
-          >
-            <MoreVertical className="w-4 h-4 text-gray-500" />
-          </button>
+        {!isReadOnly && (
+          <div className="relative">
+            <button
+              ref={(el) => (menuRefs.current[item.id] = el)}
+              onClick={(e) => onSubCategoryMenuToggle(item.id, e)}
+              className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+            >
+              <MoreVertical className="w-4 h-4 text-gray-500" />
+            </button>
 
-          <AnimatePresence>
-            {isSubMenuOpen && (
-              <SubCategoryMenu
-                item={item}
-                activeTab={activeTab}
-                menuPosition={menuPosition}
-                menuRefs={menuRefs}
-                onEdit={onEdit}
-                onDelete={onDelete}
-                onViewDetails={onViewDetails}
-              />
-            )}
-          </AnimatePresence>
-        </div>
+            <AnimatePresence>
+              {isSubMenuOpen && (
+                <SubCategoryMenu
+                  item={item}
+                  activeTab={activeTab}
+                  menuPosition={menuPosition}
+                  menuRefs={menuRefs}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                  onViewDetails={onViewDetails}
+                />
+              )}
+            </AnimatePresence>
+          </div>
+        )}
       </div>
     </motion.div>
   );
@@ -123,7 +126,7 @@ const SubCategoryMenu = ({
 }) => {
   return (
     <motion.div
-      className="fixed w-48 bg-white rounded-lg border border-gray-200 z-50 overflow-hidden"
+      className="fixed z-50 w-48 overflow-hidden bg-white border border-gray-200 rounded-lg"
       initial={{ opacity: 0, scale: 0.95, y: -4 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95, y: -4 }}
@@ -132,41 +135,38 @@ const SubCategoryMenu = ({
         position: 'fixed',
         [menuPosition === 'top' ? 'bottom' : 'top']:
           menuPosition === 'top'
-            ? `${
-                window.innerHeight -
-                menuRefs.current[item.id]?.getBoundingClientRect().top +
-                8
-              }px`
-            : `${
-                menuRefs.current[item.id]?.getBoundingClientRect().bottom + 8
-              }px`,
-        right: `${
-          window.innerWidth -
+            ? `${window.innerHeight -
+            menuRefs.current[item.id]?.getBoundingClientRect().top +
+            8
+            }px`
+            : `${menuRefs.current[item.id]?.getBoundingClientRect().bottom + 8
+            }px`,
+        right: `${window.innerWidth -
           menuRefs.current[item.id]?.getBoundingClientRect().right
-        }px`,
+          }px`,
       }}
     >
       <div className="p-1">
         <button
           onClick={(e) => onViewDetails(item, e)}
-          className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+          className="flex items-center w-full px-3 py-2 text-sm text-gray-700 transition-colors rounded-md hover:bg-gray-50"
         >
           <Eye className="w-4 h-4 mr-2 text-gray-500" />
           Voir les détails
         </button>
         <button
           onClick={(e) => onEdit(item, activeTab, e)}
-          className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+          className="flex items-center w-full px-3 py-2 text-sm text-gray-700 transition-colors rounded-md hover:bg-gray-50"
         >
           <Edit className="w-4 h-4 mr-2 text-gray-500" />
           Modifier
         </button>
 
-        <div className="border-t border-gray-100 my-1"></div>
+        <div className="my-1 border-t border-gray-100"></div>
 
         <button
           onClick={(e) => onDelete(item, activeTab, e)}
-          className="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors"
+          className="flex items-center w-full px-3 py-2 text-sm text-red-600 transition-colors rounded-md hover:bg-red-50"
         >
           <Trash2 className="w-4 h-4 mr-2" />
           Supprimer
@@ -182,6 +182,7 @@ const BudgetTable = ({
   onEdit,
   onDelete,
   loading = false,
+  isReadOnly = false
 }) => {
   const [activeTab, setActiveTab] = useState('revenus');
   const [expandedRow, setExpandedRow] = useState(null);
@@ -192,7 +193,48 @@ const BudgetTable = ({
 
   const getGroupedData = () => {
     if (!budgetData || loading) return [];
+    if (budgetData.budgetEntries) {
+      const consolidatedEntries = budgetData.budgetEntries || [];
+      const categoryMap = new Map();
+      consolidatedEntries.forEach(item => {
+        const categoryId = item.category_id;
+        if (!categoryMap.has(categoryId)) {
+          categoryMap.set(categoryId, {
+            id: categoryId,
+            categoryName: item.category_name,
+            items: []
+          });
+        }
+        const category = categoryMap.get(categoryId);
+        category.items.push({
+          id: item.id,
+          sub_category_name: item.sub_category_name,
+          amount: item.budget_forecast_amount,
+          start_date: item.start_date,
+          end_date: item.end_date,
+          is_budget_duration_indefinite: item.is_budget_duration_indefinite,
+          frequency_name: item.frequency_name,
+          budget_type_id: item.budget_type_id,
+          ...item
+        });
+      });
 
+      return Array.from(categoryMap.values()).map(category => {
+        const totalAmount = category.items.reduce(
+          (sum, item) => sum + parseFloat(item.amount || 0),
+          0
+        );
+
+        return {
+          ...category,
+          amount: totalAmount,
+          subcategoryName: `${category.items.length} sous-catégorie${category.items.length > 1 ? 's' : ''
+            }`
+        };
+      });
+    }
+
+    // Structure normale
     let data;
     if (activeTab === 'revenus') {
       const entries = budgetData?.entries || {};
@@ -211,9 +253,8 @@ const BudgetTable = ({
         return {
           id: category.category_id,
           categoryName: category.category_name,
-          subcategoryName: `${categoryItems.length} sous-catégorie${
-            categoryItems.length > 1 ? 's' : ''
-          }`,
+          subcategoryName: `${categoryItems.length} sous-catégorie${categoryItems.length > 1 ? 's' : ''
+            }`,
           amount: totalAmount,
           items: categoryItems,
         };
@@ -235,9 +276,8 @@ const BudgetTable = ({
         return {
           id: category.category_id,
           categoryName: category.category_name,
-          subcategoryName: `${categoryItems.length} sous-catégorie${
-            categoryItems.length > 1 ? 's' : ''
-          }`,
+          subcategoryName: `${categoryItems.length} sous-catégorie${categoryItems.length > 1 ? 's' : ''
+            }`,
           amount: totalAmount,
           items: categoryItems,
         };
@@ -263,19 +303,19 @@ const BudgetTable = ({
   };
 
   const handleEdit = (item, type, event) => {
-    event.stopPropagation();
+    if (event) event.stopPropagation();
     closeAllMenus();
     onEdit(item, type);
   };
 
   const handleDelete = (item, type, event) => {
-    event.stopPropagation();
+    if (event) event.stopPropagation();
     closeAllMenus();
     onDelete(item, type);
   };
 
   const handleViewDetails = (item, event) => {
-    event.stopPropagation();
+    if (event) event.stopPropagation();
     closeAllMenus();
     setSelectedSubCategory(item);
     setDetailModalOpen(true);
@@ -299,23 +339,23 @@ const BudgetTable = ({
 
   const LoadingRow = () => (
     <tr className="border-b border-gray-100 animate-pulse">
-      <td className="py-4 px-6">
+      <td className="px-6 py-4">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 bg-gray-200 rounded-lg"></div>
           <div className="space-y-2">
-            <div className="h-4 bg-gray-200 rounded w-32"></div>
-            <div className="h-3 bg-gray-200 rounded w-24"></div>
+            <div className="w-32 h-4 bg-gray-200 rounded"></div>
+            <div className="w-24 h-3 bg-gray-200 rounded"></div>
           </div>
         </div>
       </td>
-      <td className="py-4 px-6 text-center">
-        <div className="h-6 bg-gray-200 rounded w-20 mx-auto"></div>
+      <td className="px-6 py-4 text-center">
+        <div className="w-20 h-6 mx-auto bg-gray-200 rounded"></div>
       </td>
-      <td className="py-4 px-6 text-right">
-        <div className="h-6 bg-gray-200 rounded w-24 ml-auto"></div>
+      <td className="px-6 py-4 text-right">
+        <div className="w-24 h-6 ml-auto bg-gray-200 rounded"></div>
       </td>
-      <td className="py-4 px-6 text-center">
-        <div className="h-8 bg-gray-200  w-8 mx-auto rounded-full"></div>
+      <td className="px-6 py-4 text-center">
+        <div className="w-8 h-8 mx-auto bg-gray-200 rounded-full"></div>
       </td>
     </tr>
   );
@@ -324,13 +364,13 @@ const BudgetTable = ({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="flex justify-between items-center mb-6">
-          <div className="h-6 bg-gray-200 rounded w-48 animate-pulse"></div>
-          <div className="h-9 bg-gray-200 rounded-lg w-24 animate-pulse"></div>
+      <div className="p-6 bg-white border border-gray-200 rounded-xl">
+        <div className="flex items-center justify-between mb-6">
+          <div className="w-48 h-6 bg-gray-200 rounded animate-pulse"></div>
+          <div className="w-24 bg-gray-200 rounded-lg h-9 animate-pulse"></div>
         </div>
 
-        <div className="flex space-x-1 rounded-lg bg-gray-100 p-1 mb-6">
+        <div className="flex p-1 mb-6 space-x-1 bg-gray-100 rounded-lg">
           <div className="flex-1 rounded-md px-4 py-2.5 bg-gray-200 animate-pulse"></div>
           <div className="flex-1 rounded-md px-4 py-2.5 bg-gray-200 animate-pulse"></div>
         </div>
@@ -339,16 +379,16 @@ const BudgetTable = ({
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-100">
-                <th className="text-left py-3 px-6 font-medium text-gray-700 text-sm">
+                <th className="px-6 py-3 text-sm font-medium text-left text-gray-700">
                   Catégorie
                 </th>
-                <th className="text-center py-3 px-6 font-medium text-gray-700 text-sm">
+                <th className="px-6 py-3 text-sm font-medium text-center text-gray-700">
                   Période
                 </th>
-                <th className="text-right py-3 px-6 font-medium text-gray-700 text-sm">
+                <th className="px-6 py-3 text-sm font-medium text-right text-gray-700">
                   Budget
                 </th>
-                <th className="text-center py-3 px-6 font-medium text-gray-700 text-sm">
+                <th className="px-6 py-3 text-sm font-medium text-center text-gray-700">
                   Actions
                 </th>
               </tr>
@@ -365,61 +405,66 @@ const BudgetTable = ({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
+    <div className="p-6 bg-white border border-gray-200 rounded-xl">
       {/* En-tête */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-xl font-semibold text-gray-900">
-            Détail du budget
+            {isReadOnly ? 'Détail du budget consolidé' : 'Détail du budget'}
           </h2>
-          <p className="text-gray-500 text-sm mt-1">
-            Gestion de vos revenus et dépenses
+          <p className="mt-1 text-sm text-gray-500">
+            {isReadOnly
+              ? 'Visualisation des budgets consolidés'
+              : 'Gestion de vos revenus et dépenses'}
           </p>
         </div>
-        <button className="flex items-center px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:border-gray-400 hover:bg-gray-50 transition-all duration-200">
-          <Filter className="w-4 h-4 mr-2" />
-          <span>Filtrer</span>
-        </button>
+        {!isReadOnly && (
+          <button className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 transition-all duration-200 border border-gray-300 rounded-lg hover:border-gray-400 hover:bg-gray-50">
+            <Filter className="w-4 h-4 mr-2" />
+            <span>Filtrer</span>
+          </button>
+        )}
       </div>
 
-      {/* Tabs */}
-      <div className="flex space-x-1 rounded-lg bg-gray-100 p-1 mb-4">
-        <button
-          className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 ${
-            activeTab === 'revenus'
-              ? 'bg-white text-gray-900 border border-gray-200 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
-          }`}
-          onClick={() => handleTabChange('revenus')}
-        >
-          Revenus ({budgetData?.entries?.entry_count || 0})
-        </button>
-        <button
-          className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 ${
-            activeTab === 'depenses'
-              ? 'bg-white text-gray-900 border border-gray-200 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
-          }`}
-          onClick={() => handleTabChange('depenses')}
-        >
-          Dépenses ({budgetData?.exits?.exit_count || 0})
-        </button>
-      </div>
+      {/* Tabs - seulement pour les vues non consolidées */}
+      {!isReadOnly && (
+        <div className="flex p-1 mb-4 space-x-1 bg-gray-100 rounded-lg">
+          <button
+            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 ${activeTab === 'revenus'
+                ? 'bg-white text-gray-900 border border-gray-200 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+              }`}
+            onClick={() => handleTabChange('revenus')}
+          >
+            Revenus ({budgetData?.entries?.entry_count || 0})
+          </button>
+          <button
+            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 ${activeTab === 'depenses'
+                ? 'bg-white text-gray-900 border border-gray-200 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+              }`}
+            onClick={() => handleTabChange('depenses')}
+          >
+            Dépenses ({budgetData?.exits?.exit_count || 0})
+          </button>
+        </div>
+      )}
+
       {/* Tableau */}
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-200">
-              <th className="text-left py-3 px-6 font-medium text-gray-700 text-sm">
+              <th className="px-6 py-3 text-sm font-medium text-left text-gray-700">
                 Catégorie
               </th>
-              <th className="text-center py-3 px-6 font-medium text-gray-700 text-sm">
+              <th className="px-6 py-3 text-sm font-medium text-center text-gray-700">
                 Période
               </th>
-              <th className="text-right py-3 px-6 font-medium text-gray-700 text-sm">
+              <th className="px-6 py-3 text-sm font-medium text-right text-gray-700">
                 Budget
               </th>
-              <th className="text-center py-3 px-6 font-medium text-gray-700 text-sm">
+              <th className="px-6 py-3 text-sm font-medium text-center text-gray-700">
                 Actions
               </th>
             </tr>
@@ -434,10 +479,10 @@ const BudgetTable = ({
                   <React.Fragment key={category.id}>
                     {/* Ligne principale */}
                     <tr
-                      className="border-b border-gray-100 hover:bg-gray-25 cursor-pointer transition-colors duration-200"
+                      className="transition-colors duration-200 border-b border-gray-100 cursor-pointer hover:bg-gray-25"
                       onClick={() => handleRowClick(category.id)}
                     >
-                      <td className="py-4 px-6">
+                      <td className="px-6 py-4">
                         <div className="flex items-center gap-4">
                           <div className={`p-2.5 rounded-lg ${colorClass}`}>
                             <Tag className="w-4 h-4" />
@@ -453,7 +498,7 @@ const BudgetTable = ({
                         </div>
                       </td>
 
-                      <td className="py-4 px-6 text-center">
+                      <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-1 text-sm text-gray-600">
                           <Calendar className="w-3 h-3" />
                           {category.items.length > 0 ? (
@@ -464,13 +509,13 @@ const BudgetTable = ({
                         </div>
                       </td>
 
-                      <td className="text-right py-4 px-6">
+                      <td className="px-6 py-4 text-right">
                         <div className="font-semibold text-gray-900">
                           {formatCurrency(category.amount)}
                         </div>
                       </td>
 
-                      <td className="py-4 px-6 text-center">
+                      <td className="px-6 py-4 text-center">
                         <div className="flex justify-center">
                           <button
                             onClick={(e) => {
@@ -499,7 +544,7 @@ const BudgetTable = ({
                           animate="visible"
                           exit="hidden"
                         >
-                          <td colSpan="5" className="py-4 px-6">
+                          <td colSpan="5" className="px-6 py-4">
                             <motion.div
                               className="pl-14"
                               variants={contentVariants}
@@ -511,7 +556,7 @@ const BudgetTable = ({
                                 <h4 className="font-medium text-gray-900">
                                   Sous-catégories - {category.categoryName}
                                 </h4>
-                                <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded border border-gray-200">
+                                <span className="px-2 py-1 text-xs text-gray-500 bg-white border border-gray-200 rounded">
                                   {category.items.length} élément
                                   {category.items.length > 1 ? 's' : ''}
                                 </span>
@@ -533,6 +578,7 @@ const BudgetTable = ({
                                       handleSubCategoryMenuToggle
                                     }
                                     menuRefs={menuRefs}
+                                    isReadOnly={isReadOnly}
                                   />
                                 ))}
                               </div>
@@ -548,16 +594,18 @@ const BudgetTable = ({
               <tr>
                 <td colSpan="5" className="py-12 text-center">
                   <div className="flex flex-col items-center justify-center text-gray-400">
-                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                    <div className="flex items-center justify-center w-12 h-12 mb-3 bg-gray-100 rounded-full">
                       <Tag className="w-5 h-5" />
                     </div>
                     <div className="font-medium text-gray-500">
                       Aucune donnée disponible
                     </div>
-                    <div className="text-sm mt-1">
-                      {activeTab === 'revenus'
-                        ? 'Aucun revenu trouvé'
-                        : 'Aucune dépense trouvée'}
+                    <div className="mt-1 text-sm">
+                      {isReadOnly
+                        ? 'Aucun budget consolidé trouvé'
+                        : activeTab === 'revenus'
+                          ? 'Aucun revenu trouvé'
+                          : 'Aucune dépense trouvée'}
                     </div>
                   </div>
                 </td>

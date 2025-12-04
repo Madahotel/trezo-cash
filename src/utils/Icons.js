@@ -96,6 +96,10 @@ export const FolderOpen = LucideIcons.FolderOpen;
 export const PartyPopper = LucideIcons.PartyPopper;
 export const Tag = LucideIcons.Tag;
 export const Loader = LucideIcons.Loader;
+export const Share2 = LucideIcons.Share2;
+export const Loader2 = LucideIcons.Loader2;
+export const RefreshCw = LucideIcons.RefreshCw;
+export const FolderKanban = LucideIcons.FolderKanban;
 
 
 export const ExternalLink = LucideIcons.ExternalLink;

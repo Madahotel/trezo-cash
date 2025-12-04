@@ -170,6 +170,7 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
       prefix = 'Collaborators ';
     else if (location.pathname.startsWith('/client/comptes'))
       prefix = 'Comptes associé';
+    
     return `${prefix} ${projectTypeLabel} : "${projectName}"`;
   }, [activeProjectOrView, location.pathname, profile, user]);
 
