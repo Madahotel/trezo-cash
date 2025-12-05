@@ -1,30 +1,32 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from '../components/config/Axios';
 import { useAuth } from '../components/context/AuthContext';
+
+let globalProjectsCache = null;
+let globalCacheTimestamp = 0;
+const CACHE_TTL = 120000; 
 
 export const useProjects = () => {
   const { user, token } = useAuth();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  const isFetching = useRef(false);
+  const abortControllerRef = useRef(null);
 
   const transformApiData = useCallback((apiData) => {
     const transformedProjects = [];
 
-    // Vérification plus robuste de la structure des données
     if (!apiData || !apiData.projects || apiData.status === 204) {
       return transformedProjects;
     }
 
-    // CORRECTION: Transformation des projets business avec vérifications
     if (apiData.projects.business?.project_business_items?.data) {
       apiData.projects.business.project_business_items.data.forEach(
         (project) => {
           if (project && project.id) {
-            // Vérification que le projet existe
             const isArchived = project.entity_status_id === 3;
-
-            // FILTRER : ne garder que les projets NON archivés
             if (!isArchived) {
               transformedProjects.push({
                 id: project.id,
@@ -61,7 +63,6 @@ export const useProjects = () => {
       );
     }
 
-    // CORRECTION: Transformation des projets événements avec vérifications
     if (apiData.projects.events?.project_event_items?.data) {
       apiData.projects.events.project_event_items.data.forEach((project) => {
         if (project && project.id) {
@@ -102,7 +103,6 @@ export const useProjects = () => {
       });
     }
 
-    // CORRECTION: Transformation des projets ménages avec vérifications
     if (apiData.projects.menages?.project_menage_items?.data) {
       apiData.projects.menages.project_menage_items.data.forEach((project) => {
         if (project && project.id) {
@@ -147,80 +147,147 @@ export const useProjects = () => {
   }, []);
 
   const fetchProjects = useCallback(
-    async (retryCount = 0) => {
+    async (forceRefresh = false) => {
+      if (isFetching.current && !forceRefresh) {
+        return globalProjectsCache || [];
+      }
+
+      const now = Date.now();
+      if (!forceRefresh && globalProjectsCache && 
+          now - globalCacheTimestamp < CACHE_TTL) {
+        setProjects(globalProjectsCache);
+        setLoading(false);
+        return globalProjectsCache;
+      }
+
       if (!user?.id || !token) {
-        console.log('❌ useProjects: Utilisateur non connecté');
         setError('Utilisateur non connecté');
         setLoading(false);
         return [];
       }
 
       try {
+        isFetching.current = true;
         setLoading(true);
         setError(null);
 
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+        abortControllerRef.current = new AbortController();
+
+        
         const response = await axios.get('/projects', {
           headers: {
             Authorization: `Bearer ${token}`,
           },
+          signal: abortControllerRef.current.signal,
         });
 
         const data = response.data;
 
-        // Vérification plus robuste du statut 204
         if (data.status === 204 || !data.projects) {
-          console.log('useProjects: Aucun projet trouvé');
           setProjects([]);
+          globalProjectsCache = [];
+          globalCacheTimestamp = now;
           return [];
         }
 
         const transformedProjects = transformApiData(data);
+        
         setProjects(transformedProjects);
+        globalProjectsCache = transformedProjects;
+        globalCacheTimestamp = now;
+        
         return transformedProjects;
       } catch (err) {
-        console.error('useProjects - Erreur détaillée:', {
-          status: err.response?.status,
-          message: err.message,
-          data: err.response?.data,
-        });
 
-        // Gestion du rate limiting
-        if (err.response?.status === 429 && retryCount < 3) {
-          const delay = Math.pow(2, retryCount) * 1000;
-
-          await new Promise((resolve) => setTimeout(resolve, delay));
-          return fetchProjects(retryCount + 1);
+        if (err.name === 'AbortError' || err.code === 'ERR_CANCELED') {
+          return globalProjectsCache || [];
+        }
+        
+        if (err.response?.status === 429) {
+          setError('Trop de requêtes. Veuillez patienter quelques instants...');
+          return globalProjectsCache || [];
         }
 
-        const errorMsg =
-          err.response?.data?.message ||
-          err.message ||
-          'Erreur lors du chargement des projets';
+        const errorMsg = err.response?.data?.message || 
+                        err.message || 
+                        'Erreur lors du chargement des projets';
         setError(errorMsg);
-        return [];
+        
+        return globalProjectsCache || [];
       } finally {
+        isFetching.current = false;
         setLoading(false);
+        abortControllerRef.current = null;
       }
     },
     [user?.id, token, transformApiData]
   );
 
   useEffect(() => {
-    if (user?.id && token) {
-      fetchProjects();
-    } else {
-      setLoading(false);
-      setProjects([]);
-    }
-  }, [user?.id, token, fetchProjects]);
+    let timer;
+    let mounted = true;
+
+    const loadProjects = async () => {
+      if (!user?.id || !token) {
+        if (mounted) {
+          setLoading(false);
+          setProjects([]);
+        }
+        return;
+      }
+
+      const delay = Math.random() * 1500;
+      
+      timer = setTimeout(async () => {
+        if (mounted) {
+          await fetchProjects();
+        }
+      }, delay);
+    };
+
+    loadProjects();
+
+    return () => {
+      mounted = false;
+      if (timer) clearTimeout(timer);
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [user?.id, token]); 
+
+  const refetch = useCallback(() => {
+    return fetchProjects(true);
+  }, [fetchProjects]);
+
+  const clearCache = useCallback(() => {
+    globalProjectsCache = null;
+    globalCacheTimestamp = 0;
+  }, []);
+
+  const updateProjects = useCallback((updatedProjects) => {
+    setProjects(updatedProjects);
+    globalProjectsCache = updatedProjects;
+    globalCacheTimestamp = Date.now();
+  }, []);
 
   return {
     projects,
     loading,
     error,
-    refetch: fetchProjects,
-    setProjects,
+    refetch,
+    setProjects: updateProjects,
+    clearCache,
   };
 };
 
-//Ity hook ity no maka sy mitantana ny lisitry ny projets avy amin’ny API
+export const invalidateProjectsCache = () => {
+  globalProjectsCache = null;
+  globalCacheTimestamp = 0;
+};
+
+// Ity hook ity no maka sy mitantana ny lisitry ny projets avy amin'ny API
+// avec optimisation de performance et gestion du rate limiting

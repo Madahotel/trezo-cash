@@ -22,12 +22,9 @@ import TransactionDetailDrawer from './TransactionDetailDrawer.jsx';
 import ResizableTh from './ResizableTh.jsx';
 import {
   getStartOfWeek,
-  getActualAmountForPeriod,
   calculateEntryAmountForPeriod,
   calculateActualAmountForPeriod,
-  calculatePeriodPositions,
   getEntryDescription,
-  getTotalsForPeriod,
 } from '../../../utils/budgetCalculations.js';
 import { getTodayInTimezone } from '../../../utils/getTodayInTimezone.js';
 import { calculateGeneralTotals } from '../../../hooks/calculateGeneralTotals.jsx';
@@ -39,7 +36,6 @@ import { deleteEntry, saveEntry } from '../../../components/context/actions.js';
 import LectureView from './LectureView.jsx';
 import CommentButton from './CommentButton.jsx';
 import { useData } from '../../../components/context/DataContext.jsx';
-import { getCollection } from '../../../components/context/collectionActions';
 import axios from '../../../components/config/Axios.jsx';
 import BudgetTableHeader from './BudgetTableHeader.jsx';
 import useRealBudgetData from '../../../hooks/useRealBudgetData.jsx';
@@ -83,18 +79,18 @@ const BudgetTableView = (props) => {
     periodMenuRef,
     isPeriodMenuOpen,
     setIsPeriodMenuOpen,
+    onEdit,
+    onRefresh,
   } = props;
-
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { dataState: contextDataState } = useData();
-
-  // États pour l'API
+  const [subCategoryMenuOpen, setSubCategoryMenuOpen] = useState(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [projectData, setProjectData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [hasNoData, setHasNoData] = useState(false);
 
-  // États locaux
-  // Récupération des données real_budget
   const { realBudgetData, loading: realBudgetLoading } =
     useRealBudgetData(activeProjectId);
   const [collectionData, setCollectionData] = useState({});
@@ -121,12 +117,10 @@ const BudgetTableView = (props) => {
   const [isTierSearchOpen, setIsTierSearchOpen] = useState(false);
   const [isProjectSearchOpen, setIsProjectSearchOpen] = useState(false);
 
-  // États pour le filtre de fréquence
   const [frequencyFilter, setFrequencyFilter] = useState('all');
   const [isFrequencyFilterOpen, setIsFrequencyFilterOpen] = useState(false);
   const frequencyFilterRef = useRef(null);
 
-  // Références
   const topScrollRef = useRef(null);
   const mainScrollRef = useRef(null);
   const tierSearchRef = useRef(null);
@@ -154,86 +148,197 @@ const BudgetTableView = (props) => {
     { id: '8', label: 'Semestriel' },
     { id: '9', label: 'Paiement irrégulier' },
   ];
+  const closeAllMenus = () => {
+    setSubCategoryMenuOpen(null);
+  };
 
-  const fetchProjectData = async (projectId, frequencyId = null) => {
-    if (!projectId) return;
-
-    setLoading(true);
-    setError(null);
-    setHasNoData(false);
-
-    try {
-      const params = {};
-
-      if (frequencyId && frequencyId !== 'all') {
-        params.frequency_id = frequencyId;
-      }
-
-      const response = await axios.get(`/trezo-tables/projects/${projectId}`, {
-        params,
-      });
-      const data = response.data;
-
-      if (data && data.budgets) {
-        const hasBudgetItems =
-          data.budgets.budget_items && data.budgets.budget_items.length > 0;
-
-        if (hasBudgetItems) {
-          setProjectData(data);
-          setHasNoData(false);
-        } else {
-          setProjectData({ budgets: { budget_items: [] } });
-          setHasNoData(true);
-        }
-      } else {
-        console.warn(
-          'Format de réponse inattendu, mais traitement continué:',
-          data
-        );
-        setProjectData({ budgets: { budget_items: [] } });
-        setHasNoData(true);
-      }
-    } catch (err) {
-      console.error('❌ Erreur détaillée:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-      });
-
-      let errorMessage = 'Erreur de chargement des données';
-
-      if (err.response) {
-        if (err.response.status === 404) {
-          errorMessage = 'Projet non trouvé';
-        } else if (err.response.status === 204) {
-          setProjectData({ budgets: { budget_items: [] } });
-          setHasNoData(true);
-          setError(null);
-          setLoading(false);
-          return;
-        } else {
-          errorMessage =
-            err.response.data?.message || `Erreur ${err.response.status}`;
-        }
-      } else if (err.request) {
-        errorMessage = 'Erreur de connexion au serveur';
-      } else {
-        errorMessage = err.message;
-      }
-
-      setError(errorMessage);
-      setHasNoData(false);
-    } finally {
-      setLoading(false);
+  const handleEditBudget = (item, type, event) => {
+    if (event && event.stopPropagation) {
+      event.stopPropagation();
+    }
+    closeAllMenus();
+    if (onEdit) {
+      onEdit(item, type);
+    } else {
+      console.warn('onEdit function is not defined');
+      handleEditEntry(item);
     }
   };
 
-  // Récupération des données de l'API quand projectId ou frequencyFilter change
+const fetchProjectData = async (projectId, frequencyId = null, forceRefresh = false) => {
+  if (!projectId) return;
+  
+  console.log('📊 [fetchProjectData] Début:', {
+    projectId,
+    isCustomConsolidated: String(projectId).startsWith('consolidated_view_'),
+    isConsolidated: projectId === 'consolidated',
+    finalBudgetEntriesCount: finalBudgetEntries?.length,
+    forceRefresh
+  });
+
+  // Vérifier si c'est une vue consolidée
+  const isConsolidated = projectId === 'consolidated';
+  const isCustomConsolidated = String(projectId).startsWith('consolidated_view_');
+  
+  // Pour les vues consolidées, utiliser les données des props
+  if (isConsolidated || isCustomConsolidated) {
+    console.log('📊 [fetchProjectData] Vue consolidée détectée - Utilisation des données des props');
+    
+    // Si on force le rafraîchissement, mettre en état de chargement
+    if (forceRefresh) {
+      setLoading(true);
+      setError(null);
+      setHasNoData(false);
+    }
+    
+    // Vérifier si les données consolidées sont déjà disponibles
+    if (!finalBudgetEntries) {
+      console.log('📊 [fetchProjectData] Données consolidées non encore chargées');
+      setLoading(true);
+      setHasNoData(false);
+      return;
+    }
+    
+    console.log('📊 [fetchProjectData] Données consolidées disponibles:', finalBudgetEntries.length, 'items');
+    
+    setLoading(false);
+    setError(null);
+    
+    if (finalBudgetEntries.length > 0) {
+      console.log('📊 [fetchProjectData] Mise à jour des données consolidées');
+      setProjectData({ 
+        budgets: { 
+          budget_items: finalBudgetEntries 
+        } 
+      });
+      setHasNoData(false);
+    } else {
+      console.log('📊 [fetchProjectData] Aucune donnée consolidée trouvée');
+      setProjectData({ budgets: { budget_items: [] } });
+      setHasNoData(true);
+    }
+    return;
+  }
+  
+  // Pour les projets normaux, appeler l'API
+  console.log('📊 [fetchProjectData] Projet normal - Appel API');
+  
+  if (forceRefresh) {
+    setLoading(true);
+    setError(null);
+    setHasNoData(false);
+  }
+
+  try {
+    const params = {};
+
+    if (frequencyId && frequencyId !== 'all') {
+      params.frequency_id = frequencyId;
+    }
+    if (forceRefresh) {
+      params._t = Date.now();
+    }
+
+    console.log('📊 [fetchProjectData] Appel API:', `/trezo-tables/projects/${projectId}`, params);
+    
+    const response = await axios.get(`/trezo-tables/projects/${projectId}`, {
+      params,
+    });
+    const data = response.data;
+
+    console.log('📊 [fetchProjectData] Réponse API:', {
+      status: response.status,
+      hasBudgets: !!(data && data.budgets),
+      budgetItemsCount: data?.budgets?.budget_items?.length || 0
+    });
+
+    if (data && data.budgets) {
+      const hasBudgetItems = data.budgets.budget_items && data.budgets.budget_items.length > 0;
+
+      if (hasBudgetItems) {
+        setProjectData(data);
+        setHasNoData(false);
+        console.log('📊 [fetchProjectData] Données API chargées avec succès:', data.budgets.budget_items.length, 'items');
+      } else {
+        setProjectData({ budgets: { budget_items: [] } });
+        setHasNoData(true);
+        console.log('📊 [fetchProjectData] API a retourné un tableau vide');
+      }
+    } else {
+      console.warn(
+        '📊 [fetchProjectData] Format de réponse inattendu, mais traitement continué:',
+        data
+      );
+      setProjectData({ budgets: { budget_items: [] } });
+      setHasNoData(true);
+    }
+  } catch (err) {
+    console.error('❌ [fetchProjectData] Erreur détaillée:', {
+      message: err.message,
+      response: err.response?.data,
+      status: err.response?.status,
+      url: err.config?.url
+    });
+
+    let errorMessage = 'Erreur de chargement des données';
+
+    if (err.response) {
+      if (err.response.status === 404) {
+        errorMessage = 'Projet non trouvé';
+      } else if (err.response.status === 204) {
+        setProjectData({ budgets: { budget_items: [] } });
+        setHasNoData(true);
+        setError(null);
+        setLoading(false);
+        console.log('📊 [fetchProjectData] Statut 204 - Pas de contenu');
+        return;
+      } else {
+        errorMessage = err.response.data?.message || `Erreur ${err.response.status}`;
+      }
+    } else if (err.request) {
+      errorMessage = 'Erreur de connexion au serveur';
+    } else {
+      errorMessage = err.message;
+    }
+
+    setError(errorMessage);
+    setHasNoData(false);
+  } finally {
+    setLoading(false);
+    console.log('📊 [fetchProjectData] Fin - loading:', false);
+  }
+};
+  useEffect(() => {
+    fetchProjectData(activeProjectId, frequencyFilter);
+  }, [activeProjectId, frequencyFilter, refreshTrigger]);
+
   useEffect(() => {
     fetchProjectData(activeProjectId, frequencyFilter);
   }, [activeProjectId, frequencyFilter]);
 
-  // Fonction pour traiter les données de l'API
+  const refreshData = useCallback(async () => {
+    try {
+      console.log('🔄 Rafraîchissement des données budgétaires...');
+      setIsRefreshing(true);
+      setRefreshTrigger(prev => prev + 1);
+
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      if (onRefresh) {
+        await onRefresh();
+      }
+    } catch (error) {
+      console.error('Erreur lors du rafraîchissement:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [onRefresh]);
+
+  const forceRefreshData = useCallback(() => {
+    console.log('🔄 Forcer le rafraîchissement des données...');
+    fetchProjectData(activeProjectId, frequencyFilter, true);
+  }, [activeProjectId, frequencyFilter]);
+
   const processBudgetItems = (budgetItems) => {
     if (!budgetItems || !Array.isArray(budgetItems)) return [];
 
@@ -273,9 +378,8 @@ const BudgetTableView = (props) => {
         third_party_name: item.third_party_name,
         third_party_firstname: item.third_party_firstname,
         supplier:
-          `${item.third_party_firstname || ''} ${
-            item.third_party_name || ''
-          }`.trim() || 'Non spécifié',
+          `${item.third_party_firstname || ''} ${item.third_party_name || ''
+            }`.trim() || 'Non spécifié',
         third_party_email: item.third_party_email,
         amount_type_id: item.amount_type_id,
         amount_type_name: item.amount_type_name,
@@ -311,7 +415,6 @@ const BudgetTableView = (props) => {
     });
   };
 
-  // Utiliser les données récupérées
   const processedBudgetEntries = useMemo(() => {
     if (
       projectData &&
@@ -324,7 +427,6 @@ const BudgetTableView = (props) => {
     return finalBudgetEntries || [];
   }, [projectData, finalBudgetEntries]);
 
-  // Logique des périodes
   const periods = useMemo(() => {
     const today = getTodayInTimezone(settings.timezoneOffset);
     let baseDate;
@@ -486,9 +588,8 @@ const BudgetTableView = (props) => {
           break;
         case 'fortnightly':
           const fortnightNum = periodStart.getDate() === 1 ? '1' : '2';
-          label = `${fortnightNum}Q-${
-            monthsShort[periodStart.getMonth()]
-          }'${year}`;
+          label = `${fortnightNum}Q-${monthsShort[periodStart.getMonth()]
+            }'${year}`;
           break;
         case 'month':
           label = `${periodStart.toLocaleString('fr-FR', {
@@ -522,7 +623,6 @@ const BudgetTableView = (props) => {
     settings.timezoneOffset,
   ]);
 
-  // Récupération des comptes de trésorerie
   const effectiveCashAccounts = useMemo(() => {
     if (finalCashAccounts && finalCashAccounts.length > 0) {
       return finalCashAccounts;
@@ -560,7 +660,6 @@ const BudgetTableView = (props) => {
     ];
   }, [finalCashAccounts, contextDataState.allCashAccounts, activeProjectId]);
 
-  // Gestion du clic en dehors des menus
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -587,8 +686,6 @@ const BudgetTableView = (props) => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
-
-  // Dans BudgetTableView.jsx - AJOUTEZ cette fonction :
 
   const calculatePeriodPositions = (
     periods,
@@ -646,7 +743,6 @@ const BudgetTableView = (props) => {
         hasOffBudgetExpenses
       );
 
-      // CALCUL CORRECT: Flux de trésorerie = Entrées réelles - Sorties réelles
       const totalEntrees = revenueTotals.actual || 0;
       const totalSorties = expenseTotals.actual || 0;
       const netCashFlow = totalEntrees - totalSorties;
@@ -667,7 +763,6 @@ const BudgetTableView = (props) => {
 
     return positions;
   };
-  // Handlers
   const handlePeriodChange = (direction) => {
     uiDispatch({
       type: 'SET_PERIOD_OFFSET',
@@ -711,7 +806,7 @@ const BudgetTableView = (props) => {
         const horizon =
           Math.round(
             (startOfWeekOfLastDay - startOfWeekOfFirstDay) /
-              (1000 * 60 * 60 * 24 * 7)
+            (1000 * 60 * 60 * 24 * 7)
           ) + 1;
 
         const startOfCurrentWeek = getStartOfWeek(today);
@@ -748,7 +843,7 @@ const BudgetTableView = (props) => {
         const monthsDiff =
           (currentFortnightStart.getFullYear() -
             targetFortnightStart.getFullYear()) *
-            12 +
+          12 +
           (currentFortnightStart.getMonth() - targetFortnightStart.getMonth());
         let fortnightOffset = -monthsDiff * 2;
         if (currentFortnightStart.getDate() > 15) {
@@ -859,8 +954,12 @@ const BudgetTableView = (props) => {
             cashAccounts: cashAccountsForEntry,
             exchangeRates: dataState.exchangeRates,
           }
-        );
+        ).then(() => {
+          console.log('✅ Entrée modifiée, rafraîchissement des données...');
+          refreshData();
+        });
       };
+
       const onDelete = () => handleDeleteEntry(originalEntry);
       uiDispatch({
         type: 'OPEN_BUDGET_DRAWER',
@@ -870,7 +969,10 @@ const BudgetTableView = (props) => {
   };
 
   const handleDeleteEntry = (entry) => {
-    if (entry.is_vat_payment || entry.is_tax_payment) return;
+    if (entry.is_vat_payment || entry.is_tax_payment || isConsolidated || isCustomConsolidated) {
+      return; // Ne pas permettre la suppression en mode consolidé
+    }
+
     const originalEntryId = entry.is_vat_child
       ? entry.id.replace('_vat', '')
       : entry.id;
@@ -891,26 +993,25 @@ const BudgetTableView = (props) => {
           deleteEntry(
             { dataDispatch, uiDispatch },
             {
-              entryId: originalEntry.id,
+              entryId: originalEntry.budget_id || originalEntry.id,
               entryProjectId: originalEntry.projectId,
             }
-          ),
+          ).then(() => {
+            console.log('✅ Entrée supprimée, rafraîchissement des données...');
+            refreshData();
+          }),
       },
     });
   };
 
-  // Filtrage des entrées
   const filteredBudgetEntries = useMemo(() => {
     let entries = processedBudgetEntries || [];
 
-    // Filtre par recherche de tiers
     if (searchTerm) {
       entries = entries.filter((entry) =>
         entry.supplier?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
-
-    // Filtre par recherche de projet
     if ((isConsolidated || isCustomConsolidated) && projectSearchTerm) {
       entries = entries.filter((entry) => {
         const project = projects.find((p) => p.id === entry.projectId);
@@ -920,8 +1021,6 @@ const BudgetTableView = (props) => {
         );
       });
     }
-
-    // Filtre par fréquence
     if (frequencyFilter !== 'all') {
       entries = entries.filter((entry) => {
         const entryFrequencyId = entry.frequency_id?.toString();
@@ -929,7 +1028,6 @@ const BudgetTableView = (props) => {
       });
     }
 
-    // Filtres rapides existants
     if (quickFilter !== 'all') {
       if (quickFilter === 'provisions') {
         entries = entries.filter((e) => e.isProvision);
@@ -969,7 +1067,6 @@ const BudgetTableView = (props) => {
     frequencyFilter,
   ]);
 
-  // Fonction pour propager le filtre de fréquence aux entrées étendues
   const shouldIncludeExtendedEntry = useCallback((entry, filteredEntries) => {
     if (!entry.is_vat_child && !entry.is_vat_payment && !entry.is_tax_payment) {
       return filteredEntries.some(
@@ -996,12 +1093,10 @@ const BudgetTableView = (props) => {
     return true;
   }, []);
 
-  // Fonction de visibilité
   const isRowVisibleInPeriods = useCallback((entry) => {
     return true;
   }, []);
 
-  // Données traitées
   const safeBudgetEntries = useMemo(
     () => filteredBudgetEntries || [],
     [filteredBudgetEntries]
@@ -1018,7 +1113,6 @@ const BudgetTableView = (props) => {
   const safeTaxConfigs = useMemo(() => taxConfigs || [], [taxConfigs]);
   const safePeriods = useMemo(() => periods || [], [periods]);
 
-  // Entrées étendues avec TVA
   const expandedAndVatEntries = useProcessedEntries(
     safeBudgetEntries,
     safeActualTransactions,
@@ -1032,7 +1126,6 @@ const BudgetTableView = (props) => {
     collectionData
   );
 
-  // Enrichir les entrées avec les données de collection
   const entriesWithCollectionData = useMemo(() => {
     if (!expandedAndVatEntries || expandedAndVatEntries.length === 0) return [];
 
@@ -1166,10 +1259,10 @@ const BudgetTableView = (props) => {
   const formatDate = (dateString) =>
     dateString
       ? new Date(dateString).toLocaleDateString('fr-FR', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-        })
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })
       : '';
 
   const getFrequencyTitle = (entry) => {
@@ -1186,11 +1279,10 @@ const BudgetTableView = (props) => {
     if (freq.toLowerCase() === 'irregulier') {
       return `Irrégulier: ${entry.payments?.length || 0} paiements`;
     }
-    const period = `De ${formatDate(entry.startDate || entry.start_date)} à ${
-      entry.endDate || entry.end_date
-        ? formatDate(entry.endDate || entry.end_date)
-        : '...'
-    }`;
+    const period = `De ${formatDate(entry.startDate || entry.start_date)} à ${entry.endDate || entry.end_date
+      ? formatDate(entry.endDate || entry.end_date)
+      : '...'
+      }`;
     return `${freqFormatted} | ${period}`;
   };
 
@@ -1198,12 +1290,12 @@ const BudgetTableView = (props) => {
     reste === 0
       ? 'text-text-secondary'
       : isEntree
-      ? reste <= 0
-        ? 'text-success-600'
-        : 'text-danger-600'
-      : reste >= 0
-      ? 'text-success-600'
-      : 'text-danger-600';
+        ? reste <= 0
+          ? 'text-success-600'
+          : 'text-danger-600'
+        : reste >= 0
+          ? 'text-success-600'
+          : 'text-danger-600';
 
   const handleOpenPaymentDrawer = (entry, period) => {
     const entryActuals = finalActualTransactions.filter(
@@ -1296,7 +1388,6 @@ const BudgetTableView = (props) => {
   const totalCols =
     (isConsolidated || isCustomConsolidated ? 5 : 4) + periods.length * 2;
 
-  // Rendu des lignes de budget
   const renderBudgetRows = (type) => {
     const isEntree = type === 'entree';
     const mainCategories = groupedData[type] || [];
@@ -1310,7 +1401,6 @@ const BudgetTableView = (props) => {
     const colorClass =
       type === 'entree' ? 'text-success-600' : 'text-danger-600';
 
-    // Style pour les cellules de période
     const periodCellStyle = {
       minWidth: `${periodColumnWidth}px`,
       width: `${periodColumnWidth}px`,
@@ -1318,7 +1408,6 @@ const BudgetTableView = (props) => {
 
     return (
       <>
-        {/* Total Row for Type */}
         <tr
           className="bg-gray-200 border-gray-300 cursor-pointer border-y-2"
           onClick={toggleMainCollapse}
@@ -1329,9 +1418,8 @@ const BudgetTableView = (props) => {
           >
             <div className="flex items-center gap-2 font-bold">
               <ChevronDown
-                className={`w-4 h-4 transition-transform ${
-                  isCollapsed ? '-rotate-90' : ''
-                }`}
+                className={`w-4 h-4 transition-transform ${isCollapsed ? '-rotate-90' : ''
+                  }`}
               />
               <Icon className={`w-4 h-4 ${colorClass}`} />
               {isEntree ? 'Total Entrées' : 'Total Sorties'}
@@ -1392,9 +1480,8 @@ const BudgetTableView = (props) => {
                           <CommentButton
                             rowId={rowId}
                             columnId={`${columnIdBase}_budget`}
-                            rowName={`Total ${
-                              isEntree ? 'Entrées' : 'Sorties'
-                            }`}
+                            rowName={`Total ${isEntree ? 'Entrées' : 'Sorties'
+                              }`}
                             columnName={`${period.label} (Prév.)`}
                           />
                         </div>
@@ -1415,9 +1502,8 @@ const BudgetTableView = (props) => {
                           <CommentButton
                             rowId={rowId}
                             columnId={`${columnIdBase}_actual`}
-                            rowName={`Total ${
-                              isEntree ? 'Entrées' : 'Sorties'
-                            }`}
+                            rowName={`Total ${isEntree ? 'Entrées' : 'Sorties'
+                              }`}
                             columnName={`${period.label} (Réel)`}
                           />
                         </div>
@@ -1445,7 +1531,6 @@ const BudgetTableView = (props) => {
           })}
         </tr>
 
-        {/* Catégories principales */}
         {!isCollapsed &&
           mainCategories.length > 0 &&
           mainCategories.map((mainCategory) => {
@@ -1464,9 +1549,8 @@ const BudgetTableView = (props) => {
                   >
                     <div className="flex items-center gap-2 text-xs font-semibold">
                       <ChevronDown
-                        className={`w-4 h-4 transition-transform ${
-                          isMainCollapsed ? '-rotate-90' : ''
-                        }`}
+                        className={`w-4 h-4 transition-transform ${isMainCollapsed ? '-rotate-90' : ''
+                          }`}
                       />
                       {mainCategory.name}
                     </div>
@@ -1596,18 +1680,16 @@ const BudgetTableView = (props) => {
                       return (
                         <tr
                           key={entry.id}
-                          className={`border-b border-gray-100 hover:bg-gray-50 group ${
-                            entry.is_vat_child
-                              ? 'bg-gray-50/50'
-                              : entry.is_vat_payment || entry.is_tax_payment
+                          className={`border-b border-gray-100 hover:bg-gray-50 group ${entry.is_vat_child
+                            ? 'bg-gray-50/50'
+                            : entry.is_vat_payment || entry.is_tax_payment
                               ? 'bg-blue-50/50'
                               : ''
-                          }`}
+                            }`}
                         >
                           <td
-                            className={`px-4 py-1 font-normal text-gray-800 sticky left-0 bg-white group-hover:bg-gray-50 z-20 ${
-                              entry.is_vat_child ? 'pl-8' : ''
-                            }`}
+                            className={`px-4 py-1 font-normal text-gray-800 sticky left-0 bg-white group-hover:bg-gray-50 z-20 ${entry.is_vat_child ? 'pl-8' : ''
+                              }`}
                             style={{ width: columnWidths.category }}
                           >
                             <div className="flex items-center gap-2">
@@ -1640,18 +1722,22 @@ const BudgetTableView = (props) => {
                                 </span>
                               </div>
                               <div className="flex items-center gap-1 transition-opacity opacity-0 group-hover:opacity-100">
-                                <button
-                                  onClick={() => handleEditEntry(entry)}
-                                  className="p-1 text-blue-500 hover:text-blue-700"
-                                >
-                                  <Edit size={14} />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteEntry(entry)}
-                                  className="p-1 text-red-500 hover:text-red-700"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
+                                {!isConsolidated && !isCustomConsolidated && (
+                                  <>
+                                    <button
+                                      onClick={(event) => handleEditBudget(entry, 'entry', event)}
+                                      className="p-1 text-blue-500 hover:text-blue-700"
+                                    >
+                                      <Edit size={14} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteEntry(entry)}
+                                      className="p-1 text-red-500 hover:text-red-700"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             </div>
                           </td>
@@ -1665,7 +1751,7 @@ const BudgetTableView = (props) => {
                               title={getEntryDescription(entry)}
                             >
                               {getEntryDescription(entry) !==
-                              'Aucune description disponible' ? (
+                                'Aucune description disponible' ? (
                                 <span className="truncate">
                                   {getEntryDescription(entry)}
                                 </span>
@@ -1738,15 +1824,14 @@ const BudgetTableView = (props) => {
                                             disabled={
                                               actual === 0 && budget === 0
                                             }
-                                            className={`hover:underline disabled:cursor-not-allowed disabled:text-gray-400 ${
-                                              realBudgetData?.real_budget_items
-                                                ?.data &&
+                                            className={`hover:underline disabled:cursor-not-allowed disabled:text-gray-400 ${realBudgetData?.real_budget_items
+                                              ?.data &&
                                               realBudgetData.real_budget_items.data.some(
                                                 (rb) =>
                                                   (rb.budget_id ===
                                                     entry.budget_id ||
                                                     rb.project_id ===
-                                                      entry.project_id) &&
+                                                    entry.project_id) &&
                                                   rb.collection_date &&
                                                   new Date(
                                                     rb.collection_date
@@ -1755,34 +1840,34 @@ const BudgetTableView = (props) => {
                                                     rb.collection_date
                                                   ) <= period.endDate
                                               )
-                                                ? 'font-semibold text-green-600'
-                                                : entry.collectionData
-                                                    ?.collection?.length > 0
+                                              ? 'font-semibold text-green-600'
+                                              : entry.collectionData
+                                                ?.collection?.length > 0
                                                 ? 'font-semibold text-blue-600'
                                                 : 'text-blue-600'
-                                            }`}
+                                              }`}
                                             title={
                                               realBudgetData?.real_budget_items
                                                 ?.data &&
-                                              realBudgetData.real_budget_items.data.some(
-                                                (rb) =>
-                                                  (rb.budget_id ===
-                                                    entry.budget_id ||
-                                                    rb.project_id ===
+                                                realBudgetData.real_budget_items.data.some(
+                                                  (rb) =>
+                                                    (rb.budget_id ===
+                                                      entry.budget_id ||
+                                                      rb.project_id ===
                                                       entry.project_id) &&
-                                                  rb.collection_date &&
-                                                  new Date(
-                                                    rb.collection_date
-                                                  ) >= period.startDate &&
-                                                  new Date(
-                                                    rb.collection_date
-                                                  ) <= period.endDate
-                                              )
+                                                    rb.collection_date &&
+                                                    new Date(
+                                                      rb.collection_date
+                                                    ) >= period.startDate &&
+                                                    new Date(
+                                                      rb.collection_date
+                                                    ) <= period.endDate
+                                                )
                                                 ? 'Montant provenant des données real_budget API'
                                                 : entry.collectionData
-                                                    ?.collection?.length > 0
-                                                ? 'Montant provenant des collections'
-                                                : 'Montant provenant des paiements'
+                                                  ?.collection?.length > 0
+                                                  ? 'Montant provenant des collections'
+                                                  : 'Montant provenant des paiements'
                                             }
                                           >
                                             {formatCurrency(
@@ -1834,12 +1919,10 @@ const BudgetTableView = (props) => {
 
   useEffect(() => {
     if (loading) {
-      // Les données sont en cours de chargement, on laisse le squelette s'afficher
       return;
     }
   }, [loading]);
 
-  // Et modifiez la condition de rendu au début du return :
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -1848,7 +1931,6 @@ const BudgetTableView = (props) => {
     );
   }
 
-  // Afficher une erreur
   if (error) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -1863,7 +1945,6 @@ const BudgetTableView = (props) => {
     );
   }
 
-  // Afficher un message quand il n'y a pas de données
   if (hasNoData) {
     const selectedFrequencyLabel =
       frequencyOptions.find((opt) => opt.id === frequencyFilter)?.label ||
@@ -1884,14 +1965,13 @@ const BudgetTableView = (props) => {
     );
   }
 
-  // Rendu conditionnel pour le mode lecture
   if (tableauMode === 'lecture') {
     return <LectureView {...props} />;
   }
 
   return (
     <>
-      {/* Header */}
+
       {showTemporalToolbar && (
         <div className="relative z-50 mb-6">
           <BudgetTableHeader
@@ -1918,8 +1998,6 @@ const BudgetTableView = (props) => {
           />
         </div>
       )}
-
-      {/* Tableau */}
       <div className="relative z-10 overflow-hidden rounded-lg shadow-lg bg-surface">
         <div
           ref={topScrollRef}
@@ -2087,17 +2165,15 @@ const BudgetTableView = (props) => {
                   return (
                     <React.Fragment key={periodIndex}>
                       <th
-                        className={`px-2 py-2 text-center font-medium border-b-2 ${
-                          isPast ? 'bg-gray-50' : 'bg-surface'
-                        } ${isNegativeFlow && !isPast ? 'bg-red-50' : ''}`}
+                        className={`px-2 py-2 text-center font-medium border-b-2 ${isPast ? 'bg-gray-50' : 'bg-surface'
+                          } ${isNegativeFlow && !isPast ? 'bg-red-50' : ''}`}
                         style={{ minWidth: `${periodColumnWidth}px` }}
                       >
                         <div
-                          className={`text-base mb-1 ${
-                            isNegativeFlow && !isPast
-                              ? 'text-red-700'
-                              : 'text-gray-600'
-                          }`}
+                          className={`text-base mb-1 ${isNegativeFlow && !isPast
+                            ? 'text-red-700'
+                            : 'text-gray-600'
+                            }`}
                         >
                           {period.label}
                         </div>
@@ -2261,11 +2337,10 @@ const BudgetTableView = (props) => {
                           <div className="flex justify-around gap-2 text-sm">
                             {visibleColumns.budget && (
                               <div
-                                className={`relative group/subcell flex-1 text-center font-normal ${
-                                  netBudget < 0
-                                    ? 'text-red-600'
-                                    : 'text-text-primary'
-                                }`}
+                                className={`relative group/subcell flex-1 text-center font-normal ${netBudget < 0
+                                  ? 'text-red-600'
+                                  : 'text-text-primary'
+                                  }`}
                               >
                                 {formatCurrency(netBudget, currencySettings)}
                                 <CommentButton
@@ -2385,6 +2460,7 @@ const BudgetTableView = (props) => {
         title={drawerData.title}
         currency={activeProject?.currency}
       />
+
     </>
   );
 };

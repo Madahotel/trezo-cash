@@ -7,11 +7,21 @@ export default defineConfig({
   build: {
     outDir: 'F:/Upskill/Trezocash/git/trezo.cash/public/react',
     emptyOutDir: true,
-    manifest: true, // zava-dehibe
+    manifest: true,
   },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000', 
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
 });
+

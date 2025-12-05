@@ -170,16 +170,16 @@ const QuickAddThirdPartyModal = ({
         onClick={handleModalClick}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
           <div className="flex items-center space-x-3">
             <div className="p-2 bg-blue-100 rounded-lg">
-              <Building className="h-5 w-5 text-blue-600" />
+              <Building className="w-5 h-5 text-blue-600" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900">
                 Nouveau tiers
               </h3>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="mt-1 text-sm text-gray-600">
                 Ajouter un nouveau tiers à votre liste
               </p>
             </div>
@@ -189,9 +189,9 @@ const QuickAddThirdPartyModal = ({
             size="sm"
             onClick={handleModalClose}
             disabled={isCreatingThirdParty}
-            className="h-8 w-8 p-0 hover:bg-white/50"
+            className="w-8 h-8 p-0 hover:bg-white/50"
           >
-            <X className="h-4 w-4" />
+            <X className="w-4 h-4" />
           </Button>
         </div>
 
@@ -203,7 +203,7 @@ const QuickAddThirdPartyModal = ({
               <Label className="text-sm font-medium text-gray-700">
                 Type de tiers *
               </Label>
-              <p className="text-sm text-gray-600 mb-3">
+              <p className="mb-3 text-sm text-gray-600">
                 Sélectionnez le type de tiers que vous souhaitez créer
               </p>
               <div className="grid grid-cols-2 gap-3">
@@ -219,10 +219,10 @@ const QuickAddThirdPartyModal = ({
                       <div className={`p-3 rounded-full mb-2 ${colors.bg}`}>
                         <IconComponent className={`h-6 w-6 ${colors.text}`} />
                       </div>
-                      <h4 className="font-medium text-gray-900 text-center">
+                      <h4 className="font-medium text-center text-gray-900">
                         {type.label}
                       </h4>
-                      <p className="text-xs text-gray-600 mt-1 text-center">
+                      <p className="mt-1 text-xs text-center text-gray-600">
                         {type.description}
                       </p>
                     </button>
@@ -277,9 +277,9 @@ const QuickAddThirdPartyModal = ({
               <div className="space-y-2">
                 <Label
                   htmlFor="thirdparty-name"
-                  className="text-sm font-medium text-gray-700 flex items-center gap-2"
+                  className="flex items-center gap-2 text-sm font-medium text-gray-700"
                 >
-                  <Building className="h-4 w-4 text-gray-500" />
+                  <Building className="w-4 h-4 text-gray-500" />
                   Nom *
                 </Label>
                 <Input
@@ -313,9 +313,9 @@ const QuickAddThirdPartyModal = ({
               <div className="space-y-2">
                 <Label
                   htmlFor="thirdparty-contact-firstname"
-                  className="text-sm font-medium text-gray-700 flex items-center gap-2"
+                  className="flex items-center gap-2 text-sm font-medium text-gray-700"
                 >
-                  <User className="h-4 w-4 text-gray-500" />
+                  <User className="w-4 h-4 text-gray-500" />
                   Prénom
                 </Label>
                 <Input
@@ -342,9 +342,9 @@ const QuickAddThirdPartyModal = ({
               <div className="space-y-2">
                 <Label
                   htmlFor="thirdparty-contact-email"
-                  className="text-sm font-medium text-gray-700 flex items-center gap-2"
+                  className="flex items-center gap-2 text-sm font-medium text-gray-700"
                 >
-                  <Mail className="h-4 w-4 text-gray-500" />
+                  <Mail className="w-4 h-4 text-gray-500" />
                   Email
                 </Label>
                 <Input
@@ -369,9 +369,9 @@ const QuickAddThirdPartyModal = ({
               <div className="space-y-2">
                 <Label
                   htmlFor="thirdparty-contact-phone"
-                  className="text-sm font-medium text-gray-700 flex items-center gap-2"
+                  className="flex items-center gap-2 text-sm font-medium text-gray-700"
                 >
-                  <Phone className="h-4 w-4 text-gray-500" />
+                  <Phone className="w-4 h-4 text-gray-500" />
                   Téléphone
                 </Label>
                 <Input
@@ -398,7 +398,7 @@ const QuickAddThirdPartyModal = ({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 p-6 bg-gray-50 border-t border-gray-200">
+        <div className="flex justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
           <Button
             variant="outline"
             onClick={handleModalClose}
@@ -418,12 +418,12 @@ const QuickAddThirdPartyModal = ({
           >
             {isCreatingThirdParty ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                <div className="w-4 h-4 mr-2 border-b-2 border-white rounded-full animate-spin"></div>
                 Création...
               </>
             ) : (
               <>
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className="w-4 h-4 mr-2" />
                 Créer
               </>
             )}

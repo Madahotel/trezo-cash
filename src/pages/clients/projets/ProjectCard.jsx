@@ -17,10 +17,10 @@ import {
 } from '../../../utils/Icons';
 import { Button } from '../../../components/ui/Button';
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
 } from '../../../components/ui/card';
 import { Textarea } from '../../../components/ui/textarea';
 import Badge from '../../../components/ui/badge';
@@ -28,34 +28,34 @@ import { formatCurrency } from '../../../utils/formatters';
 import { apiGet } from '../../../components/context/actionsMethode';
 
 const ProjectCard = ({
-  project,
-  isSelectMode,
-  isSelected,
-  onToggleSelection,
-  projectTypeIcons,
-  projectTypeColors,
-  getProjectIcon,
-  getProjectColor,
-  editingProjectId,
-  editForm,
-  setEditForm,
-  setEditingProjectId,
-  updateProject,
-  navigate,
-  handleArchiveProject,
-  handleRestoreProject,
-  handleDeleteProject,
-  localLoading,
-  activeProjectId,
+    project,
+    isSelectMode,
+    isSelected,
+    onToggleSelection,
+    projectTypeIcons,
+    projectTypeColors,
+    getProjectIcon,
+    getProjectColor,
+    editingProjectId,
+    editForm,
+    setEditForm,
+    setEditingProjectId,
+    updateProject,
+    navigate,
+    handleArchiveProject,
+    handleRestoreProject,
+    handleDeleteProject,
+    localLoading,
+    activeProjectId,
 }) => {
-  const IconComponent = getProjectIcon(project.typeName);
-  const projectColor = getProjectColor(project.typeName);
-  const isActiveProject = activeProjectId === project.id;
+    const IconComponent = getProjectIcon(project.typeName);
+    const projectColor = getProjectColor(project.typeName);
+    const isActiveProject = activeProjectId === project.id;
 
-    const isDurationUndetermined = project.isDurationUndetermined || 
-                                  project.isEndDateIndefinite || 
-                                  !project.endDate || 
-                                  project.endDate === project.startDate;
+    const isDurationUndetermined = project.isDurationUndetermined ||
+        project.isEndDateIndefinite ||
+        !project.endDate ||
+        project.endDate === project.startDate;
 
     const [projectBudget, setProjectBudget] = useState({
         sumEntries: 0,
@@ -78,7 +78,7 @@ const ProjectCard = ({
         try {
             setBudgetLoading(true);
             await new Promise(resolve => setTimeout(resolve, 100));
-            
+
             // const data = await apiGet();
             const data = await apiGet(`/budget-projects/${project.id}`);
 
@@ -109,35 +109,35 @@ const ProjectCard = ({
         };
     }, [project.id]);
 
-  const getProgressPercentage = (realized, budget) => {
-    if (budget === 0) return 0;
-    return Math.min((realized / budget) * 100, 100);
-  };
+    const getProgressPercentage = (realized, budget) => {
+        if (budget === 0) return 0;
+        return Math.min((realized / budget) * 100, 100);
+    };
 
     const netBudget = projectBudget.sumEntries - projectBudget.sumExpenses;
     const netRealized = project.incomeRealized - project.expenseRealized;
 
-  const incomeProgress = getProgressPercentage(
-    project.incomeRealized,
-    projectBudget.sumEntries || 1
-  );
-  const expenseProgress = getProgressPercentage(
-    project.expenseRealized,
-    projectBudget.sumExpenses || 1
-  );
+    const incomeProgress = getProgressPercentage(
+        project.incomeRealized,
+        projectBudget.sumEntries || 1
+    );
+    const expenseProgress = getProgressPercentage(
+        project.expenseRealized,
+        projectBudget.sumExpenses || 1
+    );
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Non définie';
-    return new Date(dateString).toLocaleDateString('fr-FR');
-  };
+    const formatDate = (dateString) => {
+        if (!dateString) return 'Non définie';
+        return new Date(dateString).toLocaleDateString('fr-FR');
+    };
 
-  const getInitials = (name) => {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase();
-  };
+    const getInitials = (name) => {
+        return name
+            .split(' ')
+            .map((n) => n[0])
+            .join('')
+            .toUpperCase();
+    };
 
     // Palette de couleurs épurée et professionnelle
     const colorClasses = {
@@ -175,7 +175,7 @@ const ProjectCard = ({
         }
     };
 
-  const currentColor = colorClasses[projectColor] || colorClasses.gray;
+    const currentColor = colorClasses[projectColor] || colorClasses.gray;
 
     const handleDurationChange = (isIndetermined) => {
         setEditForm(prev => ({
@@ -228,18 +228,16 @@ const ProjectCard = ({
     }, [showActionsMenu]);
 
     return (
-        <Card className={`relative transition-all duration-200 hover:shadow-md border border-slate-200 bg-white ${
-            isSelected ? 'ring-2 ring-blue-500 shadow-lg' : 
-            'hover:border-slate-300'
-        } ${isActiveProject ? 'ring-1 ring-emerald-500' : ''}`}>
+        <Card className={`relative transition-all duration-200 hover:shadow-md border border-slate-200 bg-white ${isSelected ? 'ring-2 ring-blue-500 shadow-lg' :
+                'hover:border-slate-300'
+            } ${isActiveProject ? 'ring-1 ring-emerald-500' : ''}`}>
 
             {/* Indicateur de sélection compact */}
             {isSelectMode && (
                 <div className="absolute z-10 top-2 left-2">
-                    <div 
-                        className={`w-4 h-4 rounded border flex items-center justify-center transition-all duration-200 cursor-pointer ${
-                            isSelected ? 'bg-blue-500 border-blue-500' : 'bg-white border-slate-300 hover:border-slate-400'
-                        }`}
+                    <div
+                        className={`w-4 h-4 rounded border flex items-center justify-center transition-all duration-200 cursor-pointer ${isSelected ? 'bg-blue-500 border-blue-500' : 'bg-white border-slate-300 hover:border-slate-400'
+                            }`}
                         onClick={() => onToggleSelection(project.id)}
                     >
                         {isSelected && (
@@ -288,7 +286,7 @@ const ProjectCard = ({
                                         <label className="block text-sm font-medium text-slate-700">
                                             Période du projet
                                         </label>
-                                        
+
                                         <div>
                                             <label className="block mb-1 text-xs text-slate-600">
                                                 Date de début
@@ -362,7 +360,7 @@ const ProjectCard = ({
                                                 {project.typeName}
                                             </Badge>
                                         </div>
-                                        
+
                                         {/* Menu d'actions compact */}
                                         <div className="relative">
                                             <Button
@@ -383,7 +381,7 @@ const ProjectCard = ({
                                                         className="flex items-center w-full px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
                                                         onClick={() => {
                                                             setEditingProjectId(project.id);
-                                                            setEditForm({ 
+                                                            setEditForm({
                                                                 ...project,
                                                                 isDurationUndetermined: project.isDurationUndetermined || !project.endDate
                                                             });
@@ -416,11 +414,30 @@ const ProjectCard = ({
                                                             Archiver
                                                         </button>
                                                     )}
+
                                                     <button
                                                         className="flex items-center w-full px-2 py-1.5 text-xs text-red-600 hover:bg-red-50"
-                                                        onClick={() => {
+                                                        onClick={async () => {
                                                             if (window.confirm(`Êtes-vous sûr de vouloir supprimer définitivement le projet "${project.name}" ?`)) {
-                                                                handleDeleteProject(project.id);
+                                                                try {
+                                                                    await handleDeleteProject(project.id);
+
+                                                                    // Déclencher un événement pour notifier la suppression
+                                                                    window.dispatchEvent(new CustomEvent('projectDeleted', {
+                                                                        detail: { projectId: project.id }
+                                                                    }));
+
+                                                                    // OU déclencher l'événement existant
+                                                                    window.dispatchEvent(new CustomEvent('projectsUpdated', {
+                                                                        detail: {
+                                                                            action: 'deleted',
+                                                                            projectId: project.id
+                                                                        }
+                                                                    }));
+
+                                                                } catch (error) {
+                                                                    console.error('Erreur lors de la suppression:', error);
+                                                                }
                                                             }
                                                             setShowActionsMenu(false);
                                                         }}
@@ -432,7 +449,7 @@ const ProjectCard = ({
                                             )}
                                         </div>
                                     </div>
-                                    
+
                                     <p className="mb-2 text-sm leading-relaxed text-slate-600 line-clamp-2">
                                         {project.description || "Aucune description fournie"}
                                     </p>
@@ -498,18 +515,16 @@ const ProjectCard = ({
                         <div className="flex items-center justify-between p-2 rounded-lg bg-slate-50">
                             <span className="text-xs font-medium text-slate-700">Performance</span>
                             <div className="flex items-center space-x-1.5">
-                                <div className={`w-1.5 h-1.5 rounded-full ${
-                                    financialHealth === 'excellent' ? 'bg-emerald-500' :
-                                    financialHealth === 'bon' ? 'bg-blue-500' :
-                                    financialHealth === 'moyen' ? 'bg-amber-500' :
-                                    financialHealth === 'à améliorer' ? 'bg-orange-500' : 'bg-red-500'
-                                }`}></div>
-                                <span className={`text-xs font-semibold ${
-                                    financialHealth === 'excellent' ? 'text-emerald-700' :
-                                    financialHealth === 'bon' ? 'text-blue-700' :
-                                    financialHealth === 'moyen' ? 'text-amber-700' :
-                                    financialHealth === 'à améliorer' ? 'text-orange-700' : 'text-red-700'
-                                }`}>
+                                <div className={`w-1.5 h-1.5 rounded-full ${financialHealth === 'excellent' ? 'bg-emerald-500' :
+                                        financialHealth === 'bon' ? 'bg-blue-500' :
+                                            financialHealth === 'moyen' ? 'bg-amber-500' :
+                                                financialHealth === 'à améliorer' ? 'bg-orange-500' : 'bg-red-500'
+                                    }`}></div>
+                                <span className={`text-xs font-semibold ${financialHealth === 'excellent' ? 'text-emerald-700' :
+                                        financialHealth === 'bon' ? 'text-blue-700' :
+                                            financialHealth === 'moyen' ? 'text-amber-700' :
+                                                financialHealth === 'à améliorer' ? 'text-orange-700' : 'text-red-700'
+                                    }`}>
                                     {financialHealth.charAt(0).toUpperCase() + financialHealth.slice(1)}
                                 </span>
                             </div>
@@ -564,9 +579,8 @@ const ProjectCard = ({
                             <div className="flex items-center justify-between">
                                 <div className="text-center">
                                     <p className="text-xs text-slate-500 mb-0.5">Prévu</p>
-                                    <p className={`text-sm font-bold ${
-                                        netBudget >= 0 ? 'text-emerald-600' : 'text-red-600'
-                                    }`}>
+                                    <p className={`text-sm font-bold ${netBudget >= 0 ? 'text-emerald-600' : 'text-red-600'
+                                        }`}>
                                         {budgetLoading ? (
                                             <span className="text-slate-400">...</span>
                                         ) : (
@@ -577,9 +591,8 @@ const ProjectCard = ({
                                 <div className="w-px h-5 bg-slate-300"></div>
                                 <div className="text-center">
                                     <p className="text-xs text-slate-500 mb-0.5">Réalisé</p>
-                                    <p className={`text-sm font-bold ${
-                                        netRealized >= 0 ? 'text-emerald-600' : 'text-red-600'
-                                    }`}>
+                                    <p className={`text-sm font-bold ${netRealized >= 0 ? 'text-emerald-600' : 'text-red-600'
+                                        }`}>
                                         {formatCurrency(netRealized, project.mainCurrency)}
                                     </p>
                                 </div>
@@ -594,9 +607,9 @@ const ProjectCard = ({
                                     <span className="text-slate-600">Début:</span>
                                     <span className="font-medium text-slate-900">{formatDate(project.startDate)}</span>
                                 </div>
-                                
+
                                 <div className="text-slate-300">→</div>
-                                
+
                                 <div className="flex items-center space-x-1">
                                     {isDurationUndetermined ? (
                                         <>

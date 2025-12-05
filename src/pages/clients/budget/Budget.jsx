@@ -1,9 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useUI } from '../../../components/context/UIContext';
-import { Plus, TrendingUp, TrendingDown, Target } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, Target, Filter } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-
 import BudgetLineDialog from './BudgetLineDialog';
 import ConfirmationModal from './ui/alert-dialog';
 import { useMobile } from '../../../hooks/useMobile';
@@ -11,10 +10,24 @@ import BudgetTable from './BudgetTable';
 import { formatCurrency } from '../../../utils/formatters';
 import { apiDelete, apiGet } from '../../../components/context/actionsMethode';
 import toast from 'react-hot-toast';
+import { useData } from '../../../components/context/DataContext';
+import { useActiveProjectData } from '../../../hooks/useActiveProjectData';
 
 const BudgetPage = () => {
   const { uiState } = useUI();
+  const { dataState } = useData();
   const activeProjectId = uiState.activeProject?.id;
+  
+  const { 
+    budgetEntries, 
+    activeProject, 
+    isConsolidated, 
+    isCustomConsolidated,
+    loading: dataLoading,
+    error: dataError,
+    consolidatedBudgetData,
+    refetch: refetchConsolidatedData
+  } = useActiveProjectData(dataState, uiState);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLine, setEditingLine] = useState(null);
@@ -23,7 +36,6 @@ const BudgetPage = () => {
   const [deleteType, setDeleteType] = useState(null);
   const isMobile = useMobile();
 
-  // État de chargement amélioré
   const [loadingState, setLoadingState] = useState({
     summary: false,
     table: false,
@@ -34,6 +46,25 @@ const BudgetPage = () => {
   const currentRequestId = useRef(0);
 
   const fetchBudgetData = async (retryCount = 0) => {
+    if (isConsolidated || isCustomConsolidated) {
+      if (consolidatedBudgetData) {
+        setBudget({
+          entries: consolidatedBudgetData.entries,
+          expenses: consolidatedBudgetData.expenses,
+          sumEntries: consolidatedBudgetData.sumEntries,
+          sumExpenses: consolidatedBudgetData.sumExpenses,
+          sumForecast: consolidatedBudgetData.sumForecast,
+          budgetEntries: consolidatedBudgetData.budgetEntries
+        });
+      }
+      setLoadingState({
+        summary: false,
+        table: false,
+        initial: false,
+      });
+      return;
+    }
+
     if (!activeProjectId || typeof activeProjectId === 'string') {
       setError('Aucun projet valide sélectionné');
       setLoadingState({ summary: false, table: false, initial: false });
@@ -50,12 +81,6 @@ const BudgetPage = () => {
       });
 
       setError(null);
-      // console.log(
-      //   `🔄 Chargement budget projet ${activeProjectId}, tentative ${
-      //     retryCount + 1
-      //   }`
-      // );
-
       const data = await apiGet(`/budget-projects/${activeProjectId}`);
 
       if (requestId === currentRequestId.current) {
@@ -71,10 +96,6 @@ const BudgetPage = () => {
         const delay = Math.pow(2, retryCount) * 1000;
 
         if (retryCount < 3) {
-          console.warn(
-            `⏳ Trop de requêtes, nouvelle tentative dans ${delay}ms...`
-          );
-
           setTimeout(() => {
             if (requestId === currentRequestId.current) {
               fetchBudgetData(retryCount + 1);
@@ -99,9 +120,10 @@ const BudgetPage = () => {
     }
   };
 
-  // Recharger les données quand le projet actif change
   useEffect(() => {
-    if (activeProjectId && typeof activeProjectId === 'number') {
+    if (isConsolidated || isCustomConsolidated) {
+      fetchBudgetData();
+    } else if (activeProjectId && typeof activeProjectId === 'number') {
       currentRequestId.current++;
       setLoadingState({
         summary: true,
@@ -123,19 +145,30 @@ const BudgetPage = () => {
         initial: false,
       });
     }
-  }, [activeProjectId]);
+  }, [activeProjectId, isConsolidated, isCustomConsolidated, consolidatedBudgetData]);
 
   const handleBudgetUpdated = async () => {
-    await fetchBudgetData();
+    if (isConsolidated || isCustomConsolidated) {
+      refetchConsolidatedData();
+    } else {
+      await fetchBudgetData();
+    }
   };
 
   const handleEdit = (item, type) => {
+    if (isConsolidated || isCustomConsolidated) {
+      toast.error('L\'édition n\'est pas disponible en vue consolidée');
+      return;
+    }
     setEditingLine(item);
     setIsDialogOpen(true);
   };
 
   const handleDelete = (item, type) => {
-    // console.log('Supprimer:', item, type);
+    if (isConsolidated || isCustomConsolidated) {
+      toast.error('La suppression n\'est pas disponible en vue consolidée');
+      return;
+    }
     setSelectedLine(item);
     setDeleteType(type);
     setDeleteModalOpen(true);
@@ -143,8 +176,6 @@ const BudgetPage = () => {
 
   const confirmDelete = async () => {
     if (selectedLine) {
-      console.log(selectedLine);
-
       try {
         const res = await apiDelete(
           `/budget-projects/budgets/${selectedLine.budget_detail_id}`
@@ -155,7 +186,6 @@ const BudgetPage = () => {
         }, 500);
       } catch (error) {
         console.error('Erreur lors de la suppression:', error);
-
         if (error.response?.status === 429) {
           setError(
             'Trop de requêtes. Veuillez patienter avant de supprimer à nouveau.'
@@ -177,11 +207,14 @@ const BudgetPage = () => {
   };
 
   const handleAddNewLine = () => {
+    if (isConsolidated || isCustomConsolidated) {
+      toast.error('L\'ajout n\'est pas disponible en vue consolidée');
+      return;
+    }
     setEditingLine(null);
     setIsDialogOpen(true);
   };
 
-  // Composant de chargement moderne pour les cartes
   const LoadingCard = () => (
     <Card className="border-0 animate-pulse bg-gradient-to-br from-gray-50 to-gray-100/50">
       <CardHeader className="pb-3">
@@ -197,22 +230,153 @@ const BudgetPage = () => {
     </Card>
   );
 
-  // Gestion des erreurs pour projets consolidés
-  if (typeof activeProjectId === 'string') {
+  if (isConsolidated || isCustomConsolidated) {
     return (
-      <div className="flex items-center justify-center min-h-screen p-6 bg-gradient-to-br from-gray-50 to-blue-50/30">
-        <div className="max-w-md mx-auto text-center">
-          <div className="flex items-center justify-center w-20 h-20 mx-auto mb-4 bg-yellow-100 rounded-full">
-            <Target className="w-10 h-10 text-yellow-600" />
+      <div className="min-h-screen p-6 bg-white">
+        <div className="">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-10 h-10 bg-purple-100 rounded-xl">
+                  <Filter className="w-6 h-6 text-purple-600" />
+                </div>
+                <div>
+                  <h1 className="text-4xl font-bold text-transparent bg-gradient-to-r from-purple-900 to-indigo-900 bg-clip-text">
+                    Budget Consolidé
+                  </h1>
+                  <p className="text-lg text-gray-600">
+                    Vue globale de tous les budgets de{' '}
+                    <span className="font-semibold text-purple-900">
+                      {activeProject?.name || 'la vue consolidée'}
+                    </span>
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
-          <h2 className="mb-3 text-2xl font-bold text-gray-900">
-            Vue consolidée
-          </h2>
-          <p className="mb-4 leading-relaxed text-gray-600">
-            La fonctionnalité Budget n'est pas disponible en vue consolidée.
-            Veuillez sélectionner un projet spécifique pour accéder à la gestion
-            détaillée du budget.
-          </p>
+          
+          <div className="grid gap-6 mt-6 md:grid-cols-3">
+            {loadingState.summary ? (
+              <>
+                <LoadingCard />
+                <LoadingCard />
+                <LoadingCard />
+              </>
+            ) : (
+              <>
+                {/* Carte Revenus consolidés */}
+                <Card className="transition-all duration-300 border-0 shadow-sm bg-gradient-to-br from-green-50 to-emerald-50/50 hover:shadow-md">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-gray-600 uppercase">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      Revenus totaux
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-between">
+                      <div className="text-3xl font-bold text-green-700">
+                        {formatCurrency(budget.sumEntries || 0)}
+                      </div>
+                      <div className="flex items-center justify-center w-12 h-12 bg-green-100 rounded-xl">
+                        <TrendingUp className="w-6 h-6 text-green-600" />
+                      </div>
+                    </div>
+                    <p className="mt-2 text-sm text-gray-500">
+                      Consolidés sur tous les projets
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Carte Dépenses consolidées */}
+                <Card className="transition-all duration-300 border-0 shadow-sm bg-gradient-to-br from-red-50 to-orange-50/50 hover:shadow-md">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-gray-600 uppercase">
+                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                      Dépenses totales
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-between">
+                      <div className="text-3xl font-bold text-red-700">
+                        {formatCurrency(budget.sumExpenses || 0)}
+                      </div>
+                      <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-xl">
+                        <TrendingDown className="w-6 h-6 text-red-600" />
+                      </div>
+                    </div>
+                    <p className="mt-2 text-sm text-gray-500">
+                      Consolidées sur tous les projets
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Carte Solde consolidé */}
+                <Card className="transition-all duration-300 border-0 shadow-sm bg-gradient-to-br from-purple-50 to-indigo-50/50 hover:shadow-md">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-gray-600 uppercase">
+                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                      Solde consolidé
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-between">
+                      <div className={`text-3xl font-bold ${(budget.sumForecast || 0) >= 0 ? 'text-purple-700' : 'text-red-700'}`}>
+                        {formatCurrency(budget.sumForecast || 0)}
+                      </div>
+                      <div className="flex items-center justify-center w-12 h-12 bg-purple-100 rounded-xl">
+                        <Target className="w-6 h-6 text-purple-600" />
+                      </div>
+                    </div>
+                    <p className="mt-2 text-sm text-gray-500">
+                      Bilan global de tous les projets
+                    </p>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </div>
+
+          {/* Tableau des budgets consolidés */}
+          {!isMobile && (
+            <div className="mt-8">
+              {loadingState.table ? (
+                <div className="p-8 bg-white border border-gray-100 shadow-sm rounded-2xl">
+                  <div className="flex items-center justify-between mb-8">
+                    <div className="space-y-2">
+                      <div className="w-48 h-6 bg-gray-200 rounded-full animate-pulse"></div>
+                      <div className="w-64 h-4 bg-gray-200 rounded-full animate-pulse"></div>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    {[...Array(4)].map((_, index) => (
+                      <div
+                        key={index}
+                        className="h-20 bg-gray-200 rounded-2xl animate-pulse"
+                      ></div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-6 bg-white border border-gray-100 shadow-sm rounded-2xl">
+                  <div className="mb-6">
+                    <h2 className="text-xl font-bold text-gray-900">
+                      Détails des budgets consolidés
+                    </h2>
+                    <p className="text-gray-600">
+                      {budget.budgetEntries?.length || 0} lignes de budget au total
+                    </p>
+                  </div>
+                  <BudgetTable
+                    budgetData={budget}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    loading={loadingState.table}
+                    isReadOnly={true} 
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );

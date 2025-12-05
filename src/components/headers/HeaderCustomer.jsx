@@ -163,7 +163,17 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
       prefix = 'Tableau de trésorerie';
     else if (location.pathname.startsWith('/client/flux'))
       prefix = 'Flux de trésorerie';
-
+    else if (location.pathname.startsWith('/client/echeancier'))
+      prefix = 'Échéancier de trésorerie';
+    else if (location.pathname.startsWith('/client/analyse'))
+      prefix = 'Analyse trésorerie';
+    else if (location.pathname.startsWith('/client/scenarios'))
+      prefix = 'Scenarios trésorerie';
+    else if (location.pathname.startsWith('/client/Collaborators'))
+      prefix = 'Collaborators ';
+    else if (location.pathname.startsWith('/client/comptes'))
+      prefix = 'Comptes associé';
+    
     return `${prefix} ${projectTypeLabel} : "${projectName}"`;
   }, [activeProjectOrView, location.pathname, profile, user]);
 
@@ -320,7 +330,7 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
                     className="flex items-center justify-between p-3 cursor-pointer"
                   >
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-6 flex items-center justify-center bg-gray-100 rounded border">
+                      <div className="flex items-center justify-center w-8 h-6 bg-gray-100 border rounded">
                         <span className="text-xs font-medium">
                           {currency.symbol}
                         </span>

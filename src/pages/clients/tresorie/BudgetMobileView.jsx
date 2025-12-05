@@ -156,32 +156,63 @@ const BudgetMobileView = ({
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    const fetchProjectData = async (projectId) => {
-        if (!projectId) return;
+const fetchProjectData = async (projectId, frequencyId = null, forceRefresh = false) => {
+  if (!projectId) return;
+  
+  setLoading(true);
+  setError(null);
 
-        setLoading(true);
-        setError(null);
+  try {
+    // 1. Vérifiez d'abord si la route existe
+    console.log('📍 URL appelée:', `/trezo-tables/projects/${projectId}`);
+    
+    const response = await axios.get(`/trezo-tables/projects/${projectId}`, {
+      params: {
+        ...(frequencyId && frequencyId !== 'all' && { frequency_id: frequencyId }),
+        ...(forceRefresh && { _t: Date.now() })
+      }
+    });
 
-        try {
-            const response = await axios.get(`/trezo-tables/projects/${projectId}`);
-            const data = response.data;
+    console.log('✅ Statut réponse:', response.status);
+    console.log('📊 Type de contenu:', response.headers['content-type']);
+    console.log('📦 Données brutes:', response.data);
 
-            if (data && data.budgets) {
-                setProjectData(data);
-            } else {
-                setProjectData({ budgets: { budget_items: [] } });
-            }
-        } catch (err) {
-            console.error('❌ Erreur détaillée:', {
-                message: err.message,
-                response: err.response?.data,
-                status: err.response?.status
-            });
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
+    // 2. Vérifiez si vous recevez bien du JSON
+    if (typeof response.data === 'string' && response.data.includes('<!doctype html>')) {
+      throw new Error('Route API introuvable - La page HTML est renvoyée au lieu des données JSON');
+    }
+
+    // 3. Continuez avec le traitement normal
+    if (response.data && response.data.budgets) {
+      setProjectData(response.data);
+      setHasNoData(false);
+    } else {
+      setProjectData({ budgets: { budget_items: [] } });
+      setHasNoData(true);
+    }
+
+  } catch (err) {
+    console.error('❌ Erreur détaillée fetchProjectData:', {
+      message: err.message,
+      response: err.response,
+      status: err.response?.status,
+      url: err.config?.url
+    });
+
+    // Message d'erreur plus clair
+    if (err.response?.status === 404) {
+      setError(`Route API non trouvée: ${err.config?.url}`);
+    } else if (err.response?.data && typeof err.response.data === 'string' && 
+               err.response.data.includes('<!doctype html>')) {
+      setError('Erreur de routage : La route API n\'existe pas');
+    } else {
+      setError(err.message || 'Erreur de chargement des données');
+    }
+    setHasNoData(false);
+  } finally {
+    setLoading(false);
+  }
+};
 
     // Récupération des données de l'API
     useEffect(() => {
