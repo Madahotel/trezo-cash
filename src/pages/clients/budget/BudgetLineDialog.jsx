@@ -456,9 +456,9 @@ const BudgetLineDialog = ({
 
     setIsLoading(true);
     try {
-      let result;
+      let res;
       if (editLine) {
-        result = await apiUpdate(
+        res = await apiUpdate(
           `budget-projects/budgets/${editLine.id}/details/${editLine.budget_detail_id}`,
           apiData
         );

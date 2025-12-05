@@ -5,25 +5,23 @@ import CommentButton from './CommentButton.jsx';
 
 const calculateEntryAmountForPeriod = (entry, startDate, endDate) => {
     if (!entry || !entry.amount) return 0;
-    
-    // Logique simplifiée pour la démo - à adapter selon votre structure de données
+
     if (entry.frequency === 'ponctuel') {
         const entryDate = new Date(entry.date);
         return (entryDate >= startDate && entryDate <= endDate) ? entry.amount : 0;
     }
-    
-    // Pour les fréquences récurrentes, calculer le montant pour la période
+
     return entry.amount || 0;
 };
 
 const calculateActualAmountForPeriod = (entry, actualTransactions, startDate, endDate) => {
     if (!actualTransactions || !entry) return 0;
-    
-    const entryActuals = actualTransactions.filter(actual => 
-        actual.budgetId === entry.id || 
+
+    const entryActuals = actualTransactions.filter(actual =>
+        actual.budgetId === entry.id ||
         actual.budgetId === entry.id.replace('_vat', '')
     );
-    
+
     return entryActuals.reduce((sum, actual) => {
         const paymentsInPeriod = (actual.payments || []).filter(p => {
             const paymentDate = new Date(p.paymentDate);
@@ -103,12 +101,12 @@ const LectureView = ({ entries, periods, settings, actuals, isConsolidated, proj
                             isFirstExpense = false;
                         }
 
-                        const subCat = (entry.type === 'depense' && entry.category) 
-                            ? categories.expense.flatMap(mc => mc.subCategories).find(sc => sc.name === entry.category) 
+                        const subCat = (entry.type === 'depense' && entry.category)
+                            ? categories.expense.flatMap(mc => mc.subCategories).find(sc => sc.name === entry.category)
                             : null;
                         const criticality = subCat?.criticality;
                         const critConfig = criticalityConfig[criticality];
-                        
+
                         return (
                             <tr key={entry.id} className="border-b hover:bg-gray-50">
                                 <td className="px-4 py-2 font-bold text-gray-500 align-top">{groupLabel}</td>

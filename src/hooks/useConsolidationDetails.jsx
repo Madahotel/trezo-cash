@@ -257,3 +257,4 @@ export const useConsolidationDetails = (consolidationId) => {
     fetchPage: (page) => fetchConsolidationDetails(consolidationId, page)
   };
 };
+

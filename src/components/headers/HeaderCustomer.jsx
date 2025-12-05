@@ -32,8 +32,8 @@ import { useSettings } from '../../contexts/SettingsContext';
 
 const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
   const { uiState, uiDispatch } = useUI();
-  const { activeProject } = uiState; // C'est l'objet complet
-  const activeProjectId = activeProject?.id || null; // Extraire l'ID
+  const { activeProject } = uiState; 
+  const activeProjectId = activeProject?.id || null; 
   const { dataState, fetchProjects } = useData();
 
   const { user, token } = useAuth();
@@ -46,7 +46,6 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
     setSelectedCurrency,
     getAllThemes,
   } = useSettings();
-  console.log(currencies);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -55,15 +54,12 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
 
   const [themeActive, setThemeActive] = useState('');
 
-  // Charger les projets quand l'utilisateur se connecte
   useEffect(() => {
     if (user?.id && token) {
-      //   console.log('🔄 Header: Chargement des projets pour user:', user.id);
       fetchProjects();
     }
   }, [user?.id, token, fetchProjects]);
 
-  // Close menu when clicking outside
   useEffect(() => {
     const selectedTheme = getAllThemes().find(
       (themeOption) => theme === themeOption.id
@@ -79,7 +75,6 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
     uiDispatch({ type: 'OPEN_NAV_DRAWER' });
   };
 
-  // Filtrer les projets pour n'afficher que ceux de l'utilisateur connecté
   const userProjects = useMemo(() => {
     if (!user?.id || !projects?.length) return [];
 
@@ -94,7 +89,6 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
     });
   }, [projects, user?.id]);
 
-  // CORRECTION : Fonction utilitaire pour gérer les IDs de projet
   const getProjectIdInfo = (projectId) => {
     if (!projectId)
       return { string: '', isConsolidated: false, isCustomConsolidated: false };
@@ -207,21 +201,16 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
     navigate('/app/collaborateurs');
   };
 
-  // Debug amélioré
-  // useEffect(() => {
-  //     console.log('Header Debug - activeProjectId:', activeProjectId, 'type:', typeof activeProjectId);
-  //     console.log('Header Debug - activeProjectOrView:', activeProjectOrView);
-  // }, [activeProjectId, activeProjectOrView]);
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
       {/* --- VERSION DESKTOP --- */}
-      <div className="hidden md:flex items-center justify-between px-6 py-4 w-full">
-        <div className="flex items-center gap-4 flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
+      <div className="items-center justify-between hidden w-full px-6 py-4 md:flex">
+        <div className="flex items-center flex-1 min-w-0 gap-4">
+          <div className="flex items-center flex-1 min-w-0 gap-2">
             <button
               onClick={handleOpenMobileNav}
-              className="p-2 text-gray-600 hover:bg-gray-200 rounded-full transition-colors md:hidden"
+              className="p-2 text-gray-600 transition-colors rounded-full hover:bg-gray-200 md:hidden"
             >
               <Menu size={20} />
             </button>
@@ -230,20 +219,20 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
             </div>
           </div>
 
-          <div className="hidden md:block flex-grow text-center">
+          <div className="flex-grow hidden text-center md:block">
             {pageTitle && (
-              <h1 className="text-base md:text-lg font-semibold text-gray-800 truncate">
+              <h1 className="text-base font-semibold text-gray-800 truncate md:text-lg">
                 {pageTitle}
               </h1>
             )}
           </div>
 
-          <div className="flex items-center justify-end gap-4 flex-1 min-w-0">
+          <div className="flex items-center justify-end flex-1 min-w-0 gap-4">
             <ProjectCollaborators />
             {canShareProject && (
               <button
                 onClick={handleShareClick}
-                className="flex items-center gap-2 px-3 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 shadow-sm"
+                className="flex items-center gap-2 px-3 py-2 text-gray-700 transition-all duration-200 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 hover:border-gray-400"
                 title="Partager et gérer les collaborateurs"
               >
                 <Share2 size={16} />
@@ -278,7 +267,7 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
                     >
                       <div className="flex items-center space-x-3">
                         <div
-                          className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
+                          className="w-6 h-6 border-2 border-white rounded-full shadow-sm"
                           style={{
                             backgroundColor: themeOption.colors.primary,
                           }}
@@ -352,14 +341,14 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
 
             <button
               onClick={() => navigate('/client/parrainage')}
-              className="p-2 text-purple-600 hover:bg-purple-100 rounded-full transition-colors"
+              className="p-2 text-purple-600 transition-colors rounded-full hover:bg-purple-100"
               title="Programme Ambassadeur"
             >
               <AmbassadorIcon size={20} />
             </button>
           </div>
         </div>
-        <div className="px-4 pb-2 md:hidden text-center">
+        <div className="px-4 pb-2 text-center md:hidden">
           {pageTitle && (
             <h1 className="text-sm font-semibold text-gray-800 truncate">
               {pageTitle}
@@ -369,7 +358,7 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
       </div>
 
       {/* --- VERSION MOBILE --- */}
-      <div className="md:hidden flex flex-col items-center justify-center w-full">
+      <div className="flex flex-col items-center justify-center w-full md:hidden">
         {/* Ligne supérieure : menu + logo + recherche */}
         <div className="flex items-center justify-between w-full px-4 py-2 border-b border-gray-200">
           <button
@@ -395,7 +384,7 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
         </div>
 
         {/* Ligne inférieure : icônes principales */}
-        <div className="flex justify-around w-full py-3 border-t border-gray-100 bg-white">
+        <div className="flex justify-around w-full py-3 bg-white border-t border-gray-100">
           <button
             onClick={() => navigate('/client/dashboard')}
             className="flex flex-col items-center text-gray-700 hover:text-purple-600"
@@ -430,7 +419,7 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
                   >
                     <div className="flex items-center space-x-3">
                       <div
-                        className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
+                        className="w-6 h-6 border-2 border-white rounded-full shadow-sm"
                         style={{ backgroundColor: themeOption.colors.primary }}
                       ></div>
                       <IconComponent
@@ -474,7 +463,7 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
 
       {/* Barre de recherche (mobile) */}
       {isSearchOpen && (
-        <div className="w-full px-4 py-2 bg-gray-50 border-b border-gray-200 animate-fadeIn">
+        <div className="w-full px-4 py-2 border-b border-gray-200 bg-gray-50 animate-fadeIn">
           <div className="flex items-center gap-2">
             <input
               type="text"
@@ -485,7 +474,7 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
             />
             <button
               onClick={() => setIsSearchOpen(false)}
-              className="p-2 rounded-md text-gray-500 hover:text-gray-800"
+              className="p-2 text-gray-500 rounded-md hover:text-gray-800"
             >
               ✕
             </button>

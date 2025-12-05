@@ -1,11 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BudgetTracker from './BudgetTracker';
 import { useUI } from '../../../components/context/UIContext';
 import { useData } from '../../../components/context/DataContext';
 import { updateProjectOnboardingStep } from '../../../components/context/actions';
 import { useActiveProjectData } from '../../../hooks/useActiveProjectData';
-import { Lock, PiggyBank, Banknote, Coins, Filter } from 'lucide-react';
+import { Lock, PiggyBank, Banknote, Coins, Filter, AlertCircle } from 'lucide-react';
 import WidgetIcon from '../../../pages/clients/dashboard/WidgetIcon';
 
 const defaultTrezoWidgetSettings = {
@@ -24,10 +24,33 @@ const TrezoPage = () => {
     const { 
         activeProject, 
         isConsolidated, 
-        isCustomConsolidated 
+        isCustomConsolidated,
+        budgetEntries,
+        actualTransactions,
+        cashAccounts,
+        loading: dataLoading,
+        error: dataError,
+        consolidatedBudgetData
     } = useActiveProjectData(dataState, uiState);
     
     const [quickFilter, setQuickFilter] = useState('all');
+    const [showConsolidatedData, setShowConsolidatedData] = useState(false);
+
+    useEffect(() => {
+        // Lorsque nous sommes en vue consolidée, forcer l'affichage des données
+        if (isConsolidated || isCustomConsolidated) {
+            setShowConsolidatedData(true);
+            
+            // Debug logging
+            console.log('TrezoPage - Vue consolidée détectée:');
+            console.log('- activeProjectId:', activeProjectId);
+            console.log('- activeProject:', activeProject);
+            console.log('- isConsolidated:', isConsolidated);
+            console.log('- isCustomConsolidated:', isCustomConsolidated);
+            console.log('- budgetEntries count:', budgetEntries?.length);
+            console.log('- consolidatedBudgetData:', consolidatedBudgetData);
+        }
+    }, [isConsolidated, isCustomConsolidated, activeProjectId, activeProject, budgetEntries, consolidatedBudgetData]);
 
     const widgetVisibility = useMemo(() => ({
         ...defaultTrezoWidgetSettings,
@@ -55,6 +78,14 @@ const TrezoPage = () => {
 
     // Afficher un message spécial pour les vues consolidées
     if (isConsolidated || isCustomConsolidated) {
+        console.log('Rendu de la vue consolidée dans TrezoPage');
+        
+        // Debug: Vérifier si nous avons des données
+        const hasBudgetData = budgetEntries && budgetEntries.length > 0;
+        const hasConsolidatedData = consolidatedBudgetData && 
+            (consolidatedBudgetData.budgetEntries?.length > 0 || 
+             consolidatedBudgetData.entries?.length > 0);
+
         return (
             <div className="min-h-screen p-6 bg-white">
                 <div className="">
@@ -80,19 +111,35 @@ const TrezoPage = () => {
                         </div>
                     </div>
                     
-                    {/* BudgetTracker pour vue consolidée */}
-                    <BudgetTracker 
-                        quickFilter={quickFilter}
-                        showTemporalToolbar={true}
-                        visibleColumns={{
-                            budget: true,
-                            actual: true,
-                            reste: false,
-                            description: true,
-                        }}
-                        showViewModeSwitcher={false} // Désactiver le mode vue pour consolidé
-                        showNewEntryButton={false} // Désactiver nouveau bouton pour consolidé
-                    />
+                    {/* Afficher les données consolidées */}
+                    {dataLoading ? (
+                        <div className="flex items-center justify-center p-8">
+                            <div className="text-lg">Chargement des données consolidées...</div>
+                        </div>
+                    ) : dataError ? (
+                        <div className="p-4 mb-6 rounded-lg bg-red-50">
+                            <div className="flex items-center gap-2 text-red-700">
+                                <AlertCircle className="w-5 h-5" />
+                                <span>Erreur: {dataError}</span>
+                            </div>
+                        </div>
+                    ) : (
+                        <BudgetTracker 
+                            quickFilter={quickFilter}
+                            showTemporalToolbar={false} 
+                            visibleColumns={{
+                                budget: true,
+                                actual: true,
+                                reste: false,
+                                description: true,
+                            }}
+                            showViewModeSwitcher={false}
+                            showNewEntryButton={false}
+                            consolidatedData={consolidatedBudgetData}
+                            isConsolidated={isConsolidated}
+                            isCustomConsolidated={isCustomConsolidated}
+                        />
+                    )}
                 </div>
             </div>
         );

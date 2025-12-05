@@ -12,10 +12,14 @@ import toast from 'react-hot-toast';
 
 const BudgetTracker = ({
   quickFilter,
+  
   showTemporalToolbar = true,
   visibleColumns: visibleColumnsProp,
   showViewModeSwitcher = true,
-  showNewEntryButton = true
+  showNewEntryButton = true,
+  consolidatedData = null, // Nouveau prop pour les données consolidées
+  isConsolidated = false, // Nouveau prop explicite
+  isCustomConsolidated = false // Nouveau prop explicite
 }) => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -39,13 +43,45 @@ const BudgetTracker = ({
     actualTransactions,
     cashAccounts,
     activeProject,
-    isConsolidated,
-    isCustomConsolidated,
+    isConsolidated: hookIsConsolidated,
+    isCustomConsolidated: hookIsCustomConsolidated,
     loading: dataLoading,
-    error: dataError
+    error: dataError,
+    consolidatedBudgetData: hookConsolidatedData
   } = useActiveProjectData(dataState, uiState, budgetData);
 
-  const finalBudgetEntries = budgetEntries;
+  // Utiliser les props explicites ou les données du hook
+  const finalIsConsolidated = isConsolidated || hookIsConsolidated;
+  const finalIsCustomConsolidated = isCustomConsolidated || hookIsCustomConsolidated;
+  const finalConsolidatedData = consolidatedData || hookConsolidatedData;
+
+  // Gestion spéciale pour les données consolidées
+  const finalBudgetEntries = useMemo(() => {
+    if (finalIsConsolidated || finalIsCustomConsolidated) {
+      console.log('BudgetTracker - Mode consolidé détecté');
+      console.log('- finalConsolidatedData:', finalConsolidatedData);
+      
+      // Si nous avons des données consolidées explicites, les utiliser
+      if (finalConsolidatedData) {
+        // Les données consolidées peuvent être dans différents formats
+        if (finalConsolidatedData.budgetEntries && Array.isArray(finalConsolidatedData.budgetEntries)) {
+          console.log('- Utilisation de budgetEntries consolidées:', finalConsolidatedData.budgetEntries.length);
+          return finalConsolidatedData.budgetEntries;
+        } else if (finalConsolidatedData.entries && Array.isArray(finalConsolidatedData.entries)) {
+          console.log('- Utilisation de entries consolidées:', finalConsolidatedData.entries.length);
+          return finalConsolidatedData.entries;
+        }
+      }
+      
+      // Sinon, utiliser les données du hook
+      console.log('- Utilisation de budgetEntries du hook:', budgetEntries?.length);
+      return budgetEntries;
+    }
+    
+    // Mode normal - projet individuel
+    return budgetEntries;
+  }, [finalIsConsolidated, finalIsCustomConsolidated, finalConsolidatedData, budgetEntries]);
+
   const finalActualTransactions = actualTransactions;
 
   const finalCashAccounts = useMemo(() => {
@@ -53,6 +89,23 @@ const BudgetTracker = ({
       return [];
     }
 
+    // Pour les vues consolidées, on peut agréger les comptes ou en utiliser un fictif
+    if (finalIsConsolidated || finalIsCustomConsolidated) {
+      console.log('BudgetTracker - Création des comptes consolidés');
+      
+      // Créer un compte consolidé fictif ou agréger les comptes des projets
+      return [{
+        id: `consolidated_account_${activeProjectId}`,
+        name: 'Trésorerie Consolidée',
+        initialBalance: 0, // Vous pourriez vouloir agréger les soldes initiaux
+        currentBalance: 0,
+        initialBalanceDate: new Date().toISOString().split('T')[0],
+        projectId: activeProjectId,
+        isConsolidated: true
+      }];
+    }
+
+    // Mode normal - projet individuel
     if (cashAccounts?.length > 0) {
       return cashAccounts;
     }
@@ -65,20 +118,18 @@ const BudgetTracker = ({
       return dataState.allCashAccounts[activeProjectId];
     }
     return [];
-  }, [dataState.allCashAccounts, activeProjectId, budgetData?.cashAccounts, cashAccounts]);
+  }, [dataState.allCashAccounts, activeProjectId, budgetData?.cashAccounts, cashAccounts, finalIsConsolidated, finalIsCustomConsolidated]);
 
   const finalCategories = categories;
 
   const visibleColumns = useMemo(() => visibleColumnsProp || { budget: true, actual: true, reste: false, description: true }, [visibleColumnsProp]);
 
-  // Gestion du responsive
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Gestion du clic en dehors du menu des périodes
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (periodMenuRef.current && !periodMenuRef.current.contains(event.target)) {
@@ -125,19 +176,16 @@ const BudgetTracker = ({
   }, [refetch]);
 
   const handleEditEntry = (entry) => {
-    // Pour les vues consolidées, désactiver l'édition
-    if (isConsolidated || isCustomConsolidated) {
+    if (finalIsConsolidated || finalIsCustomConsolidated) {
       toast.error('L\'édition n\'est pas disponible en vue consolidée');
       return;
     }
-    console.log('Editing entry:', entry);
     setEditingLine(entry);
     setIsDialogOpen(true);
   };
 
   const handleAddNewLine = () => {
-    // Pour les vues consolidées, désactiver l'ajout
-    if (isConsolidated || isCustomConsolidated) {
+    if (finalIsConsolidated || finalIsCustomConsolidated) {
       toast.error('L\'ajout n\'est pas disponible en vue consolidée');
       return;
     }
@@ -155,15 +203,19 @@ const BudgetTracker = ({
     !startsWithConsolidatedView;
 
   const shouldShowLoading =
-    loading && !isConsolidated && !isCustomConsolidated && isValidProject;
+    loading && !finalIsConsolidated && !finalIsCustomConsolidated && isValidProject;
 
   const shouldShowError =
-    error && !isConsolidated && !isCustomConsolidated && isValidProject;
+    error && !finalIsConsolidated && !finalIsCustomConsolidated && isValidProject;
 
-  const hasData = finalBudgetEntries?.length > 0 || finalActualTransactions?.length > 0 || isConsolidated || isCustomConsolidated;
+  const hasData = finalBudgetEntries?.length > 0 || 
+                  finalActualTransactions?.length > 0 || 
+                  finalIsConsolidated || 
+                  finalIsCustomConsolidated ||
+                  (finalConsolidatedData && Object.keys(finalConsolidatedData).length > 0);
 
-  // Si c'est une vue consolidée sans données, afficher un message
-  if ((isConsolidated || isCustomConsolidated) && !finalBudgetEntries?.length && !dataLoading) {
+  if ((finalIsConsolidated || finalIsCustomConsolidated) && !finalBudgetEntries?.length && !dataLoading) {
+    console.log('BudgetTracker - Affichage message aucune donnée consolidée');
     return (
       <div className="flex flex-col items-center justify-center p-8 text-gray-500">
         <div className="flex items-center justify-center w-16 h-16 mb-4 bg-purple-100 rounded-full">
@@ -176,6 +228,9 @@ const BudgetTracker = ({
           ) : (
             'Aucune donnée disponible pour cette vue consolidée'
           )}
+        </div>
+        <div className="mt-4 text-xs text-gray-400">
+          Debug: activeProjectId = {activeProjectId}, Entrées = {finalBudgetEntries?.length}
         </div>
       </div>
     );
@@ -202,6 +257,13 @@ const BudgetTracker = ({
     );
   }
 
+  console.log('BudgetTracker - Rendu final:', {
+    isConsolidated: finalIsConsolidated,
+    isCustomConsolidated: finalIsCustomConsolidated,
+    budgetEntriesCount: finalBudgetEntries?.length,
+    activeProject: activeProject?.name
+  });
+
   return (
     <>
       {isMobile ? (
@@ -212,8 +274,8 @@ const BudgetTracker = ({
           vatRegimes={vatRegimes}
           taxConfigs={taxConfigs}
           activeProjectId={activeProjectId}
-          isConsolidated={isConsolidated}
-          isCustomConsolidated={isCustomConsolidated}
+          isConsolidated={finalIsConsolidated}
+          isCustomConsolidated={finalIsCustomConsolidated}
           mobileMonthOffset={mobileMonthOffset}
           setMobileMonthOffset={setMobileMonthOffset}
           settings={settings}
@@ -229,8 +291,8 @@ const BudgetTracker = ({
           vatRegimes={vatRegimes}
           taxConfigs={taxConfigs}
           activeProjectId={activeProjectId}
-          isConsolidated={isConsolidated}
-          isCustomConsolidated={isCustomConsolidated}
+          isConsolidated={finalIsConsolidated}
+          isCustomConsolidated={finalIsCustomConsolidated}
           projects={projects}
           settings={settings}
           activeProject={activeProject}
@@ -242,8 +304,8 @@ const BudgetTracker = ({
           tableauMode={tableauMode}
           setTableauMode={setTableauMode}
           showTemporalToolbar={showTemporalToolbar}
-          showViewModeSwitcher={!isConsolidated && !isCustomConsolidated && showViewModeSwitcher}
-          showNewEntryButton={!isConsolidated && !isCustomConsolidated && showNewEntryButton}
+          showViewModeSwitcher={!finalIsConsolidated && !finalIsCustomConsolidated && showViewModeSwitcher}
+          showNewEntryButton={!finalIsConsolidated && !finalIsCustomConsolidated && showNewEntryButton}
           quickFilter={quickFilter}
           dataState={dataState}
           dataDispatch={dataDispatch}
@@ -256,8 +318,7 @@ const BudgetTracker = ({
         />
       )}
 
-      {/* Dialogue d'ajout/modification (seulement pour les projets normaux) */}
-      {!isConsolidated && !isCustomConsolidated && (
+      {!finalIsConsolidated && !finalIsCustomConsolidated && (
         <BudgetLineDialog
           open={isDialogOpen}
           onOpenChange={handleDialogClose}

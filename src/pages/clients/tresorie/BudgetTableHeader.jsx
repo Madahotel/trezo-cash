@@ -1,5 +1,8 @@
 import React, { useMemo } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, Plus, TableProperties, Filter, ChevronUp } from 'lucide-react';
+import {
+    ChevronDown, ChevronLeft, ChevronRight,
+    Plus, TableProperties, Filter
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const BudgetTableHeader = ({
@@ -8,10 +11,10 @@ const BudgetTableHeader = ({
     activeQuickSelect,
     tableauMode,
     setTableauMode,
-    showViewModeSwitcher,
-    showNewEntryButton,
-    isConsolidated,
-    isCustomConsolidated,
+    showViewModeSwitcher = true,
+    showNewEntryButton = true,
+    isConsolidated = false,
+    isCustomConsolidated = false,
     handlePeriodChange,
     handleQuickPeriodSelect,
     handleNewBudget,
@@ -93,10 +96,15 @@ const BudgetTableHeader = ({
         setIsPeriodMenuOpen(false);
     };
 
+    // Déterminer si on est en vue consolidée
+    const isConsolidatedView = isConsolidated || isCustomConsolidated;
+
     return (
         <div className="relative z-50 mb-6">
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                {/* Section gauche : Navigation temporelle et filtres */}
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                    {/* Navigation période */}
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => handlePeriodChange(-1)}
@@ -128,7 +136,9 @@ const BudgetTableHeader = ({
                         >
                             <Filter size={16} className="text-gray-600" />
                             <span>{selectedFrequencyLabel}</span>
-                            <ChevronDown className={`w-4 h-4 transition-transform ${isFrequencyFilterOpen ? 'rotate-180' : ''}`} />
+                            <ChevronDown
+                                className={`w-4 h-4 transition-transform ${isFrequencyFilterOpen ? 'rotate-180' : ''}`}
+                            />
                         </button>
                         <AnimatePresence>
                             {isFrequencyFilterOpen && (
@@ -140,16 +150,19 @@ const BudgetTableHeader = ({
                                     className="absolute left-0 z-50 w-56 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl top-full"
                                 >
                                     <div className="p-2 border-b border-gray-100">
-                                        <div className="text-xs font-semibold text-gray-500 uppercase">Filtrer par fréquence</div>
+                                        <div className="text-xs font-semibold text-gray-500 uppercase">
+                                            Filtrer par fréquence
+                                        </div>
                                     </div>
                                     <ul className="p-1 overflow-y-auto max-h-60">
                                         {frequencyOptions.map(option => (
                                             <li key={option.id}>
                                                 <button
                                                     onClick={() => handleFrequencySelect(option.id)}
-                                                    className={`w-full text-left px-3 py-2 text-sm rounded-md flex items-center justify-between ${frequencyFilter === option.id
-                                                        ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200'
-                                                        : 'text-gray-700 hover:bg-gray-50 border border-transparent'
+                                                    className={`w-full text-left px-3 py-2 text-sm rounded-md flex items-center justify-between 
+                                                        ${frequencyFilter === option.id
+                                                            ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200'
+                                                            : 'text-gray-700 hover:bg-gray-50 border border-transparent'
                                                         }`}
                                                 >
                                                     <span>{option.label}</span>
@@ -165,14 +178,16 @@ const BudgetTableHeader = ({
                         </AnimatePresence>
                     </div>
 
-                    {/* Menu période */}
+                    {/* Menu période rapide */}
                     <div className="relative" ref={periodMenuRef}>
                         <button
                             onClick={handlePeriodClick}
                             className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-gray-700 transition-colors bg-white border border-gray-300 rounded-lg shadow-sm hover:border-blue-500 hover:text-blue-600"
                         >
                             <span>{selectedPeriodLabel}</span>
-                            <ChevronDown className={`w-4 h-4 transition-transform ${isPeriodMenuOpen ? 'rotate-180' : ''}`} />
+                            <ChevronDown
+                                className={`w-4 h-4 transition-transform ${isPeriodMenuOpen ? 'rotate-180' : ''}`}
+                            />
                         </button>
                         <AnimatePresence>
                             {isPeriodMenuOpen && (
@@ -188,9 +203,10 @@ const BudgetTableHeader = ({
                                             <li key={option.id}>
                                                 <button
                                                     onClick={() => handlePeriodSelect(option.id)}
-                                                    className={`w-full text-left px-3 py-1.5 text-sm rounded-md ${activeQuickSelect === option.id
-                                                        ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200'
-                                                        : 'text-gray-700 hover:bg-gray-50 border border-transparent'
+                                                    className={`w-full text-left px-3 py-1.5 text-sm rounded-md 
+                                                        ${activeQuickSelect === option.id
+                                                            ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200'
+                                                            : 'text-gray-700 hover:bg-gray-50 border border-transparent'
                                                         }`}
                                                 >
                                                     {option.label}
@@ -203,29 +219,35 @@ const BudgetTableHeader = ({
                         </AnimatePresence>
                     </div>
                 </div>
-                <div className="flex items-center gap-6">
-                    {showViewModeSwitcher && (
-                        <div className="flex items-center gap-4">
-                            <button
-                                onClick={() => setTableauMode('edition')}
-                                className={`flex items-center gap-2 text-sm font-semibold transition-colors ${tableauMode === 'edition' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-800'}`}
-                            >
-                                <TableProperties size={16} />
-                                TCD
-                            </button>
-                        </div>
-                    )}
-                    {showNewEntryButton && (
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => setTableauMode('edition')}
+                        className={`flex items-center gap-2 text-sm font-semibold transition-colors 
+                            ${tableauMode === 'edition'
+                                ? 'text-blue-600'
+                                : 'text-gray-500 hover:text-gray-800'
+                            }`}
+                        title="Mode Tableau Croisé Dynamique"
+                    >
+                        <TableProperties size={16} />
+                        TCD
+                    </button>
+
+                    {(!isConsolidatedView || showNewEntryButton) && (
                         <button
                             onClick={handleNewBudget}
                             className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white transition-colors bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={isConsolidated || isCustomConsolidated}
-                            title={isConsolidated || isCustomConsolidated ? "Non disponible en vue consolidée" : "Ajouter une nouvelle entrée"}
+                            disabled={isConsolidatedView}
+                            title={isConsolidatedView
+                                ? "Non disponible en vue consolidée"
+                                : "Ajouter une nouvelle entrée"
+                            }
                         >
                             <Plus className="w-5 h-5" />
                             Nouvelle Entrée
                         </button>
                     )}
+
                 </div>
             </div>
         </div>
