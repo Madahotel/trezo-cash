@@ -1,3 +1,24 @@
+// Fonction pour formater les labels de l'axe X en responsive
+export const formatXAxisLabels = (
+  value,
+  index,
+  isMobile = false,
+  maxValue = 0,
+  settings = {}
+) => {
+  if (!isMobile) {
+    // En desktop, afficher toutes les valeurs normalement
+    return formatCurrency(value, settings);
+  }
+
+  // En mobile, n'afficher que 0 et la valeur max
+  if (value === 0 || Math.abs(value - maxValue) < 0.01) {
+    return formatCurrency(value, settings);
+  }
+
+  // Pour les autres valeurs, retourner chaîne vide
+  return '';
+};
 // Fonctions utilitaires
 export const formatCurrency = (amount, settings) => {
   return new Intl.NumberFormat('fr-FR', {
@@ -971,9 +992,14 @@ export const getCategoryChartOptions = ({
   analysisPeriodName,
   settings,
   visibleData,
+  isMobile = false, // Ajouter ce paramètre
 }) => {
   const { categories, budgetData, actualData, totalBudget, totalActual } =
     categoryAnalysisData;
+
+  // Calculer la valeur max pour l'axe X
+  const allValues = [...budgetData, ...actualData].filter((val) => val > 0);
+  const maxValue = allValues.length > 0 ? Math.max(...allValues) : 0;
 
   // Déterminer les couleurs selon le type d'analyse
   const chartColors =
@@ -1013,6 +1039,7 @@ export const getCategoryChartOptions = ({
           )} (${percentage.toFixed(0)}%)`;
         },
         color: chartColors.budgetLabel,
+        fontSize: isMobile ? 10 : 12, // Réduire la taille du texte en mobile
       },
     });
   }
@@ -1037,6 +1064,7 @@ export const getCategoryChartOptions = ({
           )} (${percentage.toFixed(0)}%)`;
         },
         color: chartColors.actualLabel,
+        fontSize: isMobile ? 10 : 12, // Réduire la taille du texte en mobile
       },
     });
   }
@@ -1047,7 +1075,11 @@ export const getCategoryChartOptions = ({
         text: 'Aucune donnée à analyser',
         left: 'center',
         top: 'center',
-        textStyle: { fontSize: 16, fontWeight: '600', color: '#475569' },
+        textStyle: {
+          fontSize: isMobile ? 14 : 16,
+          fontWeight: '600',
+          color: '#475569',
+        },
       },
       series: [],
     };
@@ -1057,10 +1089,16 @@ export const getCategoryChartOptions = ({
 
   return {
     title: {
-      text: `Analyse par Catégorie - ${chartTitle} - ${analysisPeriodName}`,
+      text: isMobile
+        ? `${chartTitle} - ${analysisPeriodName}`
+        : `Analyse par Catégorie - ${chartTitle} - ${analysisPeriodName}`,
       left: 'center',
       top: 0,
-      textStyle: { fontSize: 16, fontWeight: '600', color: '#475569' },
+      textStyle: {
+        fontSize: isMobile ? 14 : 16,
+        fontWeight: '600',
+        color: '#475569',
+      },
     },
     tooltip: {
       trigger: 'axis',
@@ -1085,20 +1123,45 @@ export const getCategoryChartOptions = ({
           });
         return tooltip;
       },
+      textStyle: {
+        fontSize: isMobile ? 12 : 14,
+      },
     },
-    legend: { show: false },
+    legend: {
+      show: false,
+    },
     grid: {
-      left: '3%',
-      right: '10%',
+      left: isMobile ? '15%' : '3%',
+      right: isMobile ? '15%' : '10%',
       bottom: '3%',
+      top: isMobile ? '15%' : '10%',
       containLabel: true,
     },
     xAxis: {
       type: 'value',
       axisLabel: {
-        formatter: (value) =>
-          formatCurrency(value, { ...settings, displayUnit: 'standard' }),
+        formatter: (value) => {
+          // Utiliser la fonction de formatage responsive
+          return formatXAxisLabels(value, null, isMobile, maxValue, settings);
+        },
+        fontSize: isMobile ? 10 : 12,
+        // Réduire le nombre de lignes de division en mobile
+        interval: isMobile
+          ? (value) => {
+              // N'afficher que le 0 et le max
+              return value === 0 || Math.abs(value - maxValue) < 0.01;
+            }
+          : 0,
       },
+      // Réduire le nombre de lignes de grille en mobile
+      splitLine: {
+        show: true,
+        lineStyle: {
+          type: isMobile ? 'dashed' : 'solid',
+          opacity: isMobile ? 0.3 : 0.5,
+        },
+      },
+      splitNumber: isMobile ? 3 : 5, // Moins de divisions en mobile
     },
     yAxis: {
       type: 'category',
@@ -1106,10 +1169,17 @@ export const getCategoryChartOptions = ({
       axisLabel: {
         interval: 0,
         rotate: 0,
+        fontSize: isMobile ? 10 : 12,
         formatter: (value) => {
-          // Tronquer les longues étiquettes
-          return value.length > 20 ? value.substring(0, 20) + '...' : value;
+          // Tronquer davantage en mobile
+          const maxLength = isMobile ? 15 : 20;
+          return value.length > maxLength
+            ? value.substring(0, maxLength - 3) + '...'
+            : value;
         },
+      },
+      axisTick: {
+        show: false,
       },
     },
     series: series,
@@ -1123,9 +1193,14 @@ export const getTierChartOptions = ({
   analysisPeriodName,
   settings,
   visibleData,
+  isMobile = false, // Ajouter ce paramètre
 }) => {
   const { tiers, budgetData, actualData, totalBudget, totalActual } =
     tierAnalysisData;
+
+  // Calculer la valeur max pour l'axe X
+  const allValues = [...budgetData, ...actualData].filter((val) => val > 0);
+  const maxValue = allValues.length > 0 ? Math.max(...allValues) : 0;
 
   // Déterminer les couleurs selon le type d'analyse
   const chartColors =
@@ -1165,6 +1240,7 @@ export const getTierChartOptions = ({
           )} (${percentage.toFixed(0)}%)`;
         },
         color: chartColors.budgetLabel,
+        fontSize: isMobile ? 10 : 12,
       },
     });
   }
@@ -1189,6 +1265,7 @@ export const getTierChartOptions = ({
           )} (${percentage.toFixed(0)}%)`;
         },
         color: chartColors.actualLabel,
+        fontSize: isMobile ? 10 : 12,
       },
     });
   }
@@ -1199,7 +1276,11 @@ export const getTierChartOptions = ({
         text: 'Aucune donnée à analyser',
         left: 'center',
         top: 'center',
-        textStyle: { fontSize: 16, fontWeight: '600', color: '#475569' },
+        textStyle: {
+          fontSize: isMobile ? 14 : 16,
+          fontWeight: '600',
+          color: '#475569',
+        },
       },
       series: [],
     };
@@ -1209,10 +1290,16 @@ export const getTierChartOptions = ({
 
   return {
     title: {
-      text: `Analyse par Tiers - ${chartTitle} - ${analysisPeriodName}`,
+      text: isMobile
+        ? `${chartTitle} - ${analysisPeriodName}`
+        : `Analyse par Tiers - ${chartTitle} - ${analysisPeriodName}`,
       left: 'center',
       top: 0,
-      textStyle: { fontSize: 16, fontWeight: '600', color: '#475569' },
+      textStyle: {
+        fontSize: isMobile ? 14 : 16,
+        fontWeight: '600',
+        color: '#475569',
+      },
     },
     tooltip: {
       trigger: 'axis',
@@ -1237,20 +1324,43 @@ export const getTierChartOptions = ({
           });
         return tooltip;
       },
+      textStyle: {
+        fontSize: isMobile ? 12 : 14,
+      },
     },
-    legend: { show: false },
+    legend: {
+      show: false,
+    },
     grid: {
-      left: '3%',
-      right: '10%',
+      left: isMobile ? '15%' : '3%',
+      right: isMobile ? '15%' : '10%',
       bottom: '3%',
+      top: isMobile ? '15%' : '10%',
       containLabel: true,
     },
     xAxis: {
       type: 'value',
       axisLabel: {
-        formatter: (value) =>
-          formatCurrency(value, { ...settings, displayUnit: 'standard' }),
+        formatter: (value) => {
+          // Utiliser la fonction de formatage responsive
+          return formatXAxisLabels(value, null, isMobile, maxValue, settings);
+        },
+        fontSize: isMobile ? 10 : 12,
+        interval: isMobile
+          ? (value) => {
+              // N'afficher que le 0 et le max
+              return value === 0 || Math.abs(value - maxValue) < 0.01;
+            }
+          : 0,
       },
+      splitLine: {
+        show: true,
+        lineStyle: {
+          type: isMobile ? 'dashed' : 'solid',
+          opacity: isMobile ? 0.3 : 0.5,
+        },
+      },
+      splitNumber: isMobile ? 3 : 5,
     },
     yAxis: {
       type: 'category',
@@ -1258,10 +1368,16 @@ export const getTierChartOptions = ({
       axisLabel: {
         interval: 0,
         rotate: 0,
+        fontSize: isMobile ? 10 : 12,
         formatter: (value) => {
-          // Tronquer les longues étiquettes
-          return value.length > 20 ? value.substring(0, 20) + '...' : value;
+          const maxLength = isMobile ? 15 : 20;
+          return value.length > maxLength
+            ? value.substring(0, maxLength - 3) + '...'
+            : value;
         },
+      },
+      axisTick: {
+        show: false,
       },
     },
     series: series,
@@ -1277,6 +1393,7 @@ export const getChartOptions = ({
   analysisPeriodName,
   settings,
   visibleData,
+  isMobile = false, // Ajouter ce paramètre
 }) => {
   if (analysisMode === 'tier') {
     return getTierChartOptions({
@@ -1285,6 +1402,7 @@ export const getChartOptions = ({
       analysisPeriodName,
       settings,
       visibleData,
+      isMobile, // Passer le paramètre
     });
   } else {
     // Par défaut, analyse par catégorie
@@ -1294,10 +1412,10 @@ export const getChartOptions = ({
       analysisPeriodName,
       settings,
       visibleData,
+      isMobile, // Passer le paramètre
     });
   }
 };
-
 // Options pour les menus
 export const quickPeriodOptions = [
   { id: 'month', label: 'Mois' },
