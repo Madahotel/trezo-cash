@@ -5,11 +5,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { apiGet } from '../../../components/context/actionsMethode';
 
 const CashflowView = ({ isFocusMode = false }) => {
-  const [periodOffset, setPeriodOffset] = useState(0);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [isYearMenuOpen, setIsYearMenuOpen] = useState(false);
+  const [viewMode, setViewMode] = useState('month'); // 'week', 'month', 'year'
   const yearMenuRef = useRef(null);
   const [data, setData] = useState(null);
+
+  // Obtenir la date actuelle
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth(); // 0-indexed (0 = janvier, 11 = décembre)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -65,12 +70,68 @@ const CashflowView = ({ isFocusMode = false }) => {
       'Déc',
     ];
 
-    return monthsShort.map((month, index) => ({
-      label: month,
-      fullLabel: `${month} ${selectedYear}`,
-      monthNumber: index + 1,
-    }));
-  }, [selectedYear]);
+    if (viewMode === 'week') {
+      // Vue hebdomadaire - 52 semaines
+      const weeks = [];
+      const startOfYear = new Date(selectedYear, 0, 1);
+      const endOfYear = new Date(selectedYear, 11, 31);
+
+      let currentWeekStart = new Date(startOfYear);
+      // Ajuster au lundi
+      const day = currentWeekStart.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      currentWeekStart.setDate(currentWeekStart.getDate() + diff);
+
+      let weekNumber = 1;
+      while (currentWeekStart <= endOfYear) {
+        const weekEnd = new Date(currentWeekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+
+        const isPast = weekEnd < currentDate;
+        weeks.push({
+          label: `S${weekNumber}`,
+          fullLabel: `Semaine ${weekNumber} ${selectedYear}`,
+          weekStart: new Date(currentWeekStart),
+          weekEnd: new Date(weekEnd),
+          isPastOrCurrent:
+            isPast ||
+            (currentDate >= currentWeekStart && currentDate <= weekEnd),
+          isFuture: currentWeekStart > currentDate,
+        });
+
+        currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+        weekNumber++;
+      }
+      return weeks;
+    } else if (viewMode === 'month') {
+      // Vue mensuelle - 12 mois
+      return monthsShort.map((month, index) => ({
+        label: month,
+        fullLabel: `${month} ${selectedYear}`,
+        monthNumber: index + 1,
+        isPastOrCurrent:
+          selectedYear < currentYear ||
+          (selectedYear === currentYear && index <= currentMonth),
+        isFuture:
+          selectedYear > currentYear ||
+          (selectedYear === currentYear && index > currentMonth),
+      }));
+    } else {
+      // Vue annuelle - 10 ans (5 avant, année courante, 4 après)
+      const years = [];
+      for (let i = -5; i <= 4; i++) {
+        const year = selectedYear + i;
+        years.push({
+          label: year.toString(),
+          fullLabel: year.toString(),
+          year: year,
+          isPastOrCurrent: year <= currentYear,
+          isFuture: year > currentYear,
+        });
+      }
+      return years;
+    }
+  }, [selectedYear, currentYear, currentMonth, currentDate, viewMode]);
 
   // Traitement des données de l'API
   const chartData = useMemo(() => {
@@ -80,57 +141,179 @@ const CashflowView = ({ isFocusMode = false }) => {
     if (!data || !data.balanceMovements) {
       return {
         labels,
-        inflows: Array(12).fill(0),
-        outflows: Array(12).fill(0),
-        differences: Array(12).fill(0),
+        inflows: Array(periods.length).fill(0),
+        outflows: Array(periods.length).fill(0),
+        differences: Array(periods.length).fill(0),
       };
     }
 
-    // Initialiser les tableaux pour chaque mois
-    const inflows = Array(12).fill(0);
-    const outflows = Array(12).fill(0);
+    // Initialiser les tableaux
+    const inflows = Array(periods.length).fill(0);
+    const outflows = Array(periods.length).fill(0);
 
-    // Parcourir les mouvements et les regrouper par mois
+    // Parcourir les mouvements et les regrouper selon la vue
     data.balanceMovements.forEach((movement) => {
       const date = new Date(movement.operation_date);
-      const year = date.getFullYear();
-      const month = date.getMonth(); // 0-11 (Jan = 0, Déc = 11)
       const amount = parseFloat(movement.operation_amount) || 0;
 
-      // Si le mouvement est dans l'année sélectionnée
-      if (year === selectedYear) {
+      let periodIndex = -1;
+
+      if (viewMode === 'week') {
+        // Trouver l'index de la semaine
+        periodIndex = periods.findIndex((p) => {
+          return date >= p.weekStart && date <= p.weekEnd;
+        });
+      } else if (viewMode === 'month') {
+        // Trouver l'index du mois
+        if (date.getFullYear() === selectedYear) {
+          periodIndex = date.getMonth();
+        }
+      } else {
+        // Vue annuelle - trouver l'index de l'année
+        periodIndex = periods.findIndex((p) => p.year === date.getFullYear());
+      }
+
+      if (periodIndex !== -1) {
         if (movement.movement_type_id === 1) {
           // Entrée (Crédit)
-          inflows[month] += amount;
+          inflows[periodIndex] += amount;
         } else if (movement.movement_type_id === 2) {
           // Sortie (Débit)
-          outflows[month] += amount;
+          outflows[periodIndex] += amount;
         }
       }
     });
 
-    // Calculer les différences (balance) pour chaque mois
-    const differences = inflows.map(
-      (inflow, index) => inflow - outflows[index]
+    // Calculer les différences (balance)
+    const differences = inflows.map((inflow, index) =>
+      Math.round(inflow - outflows[index])
     );
 
     return {
       labels,
       inflows: inflows.map((value) => Math.round(value)),
       outflows: outflows.map((value) => Math.round(value)),
-      differences: differences.map((value) => Math.round(value)),
+      differences,
     };
-  }, [data, periods, selectedYear]);
+  }, [data, periods, selectedYear, viewMode]);
 
   const getChartOptions = () => {
     const { labels, inflows, outflows, differences } = chartData;
+
+    // Déterminer l'index du mois courant pour l'année sélectionnée
+    let todayIndex = -1;
+
+    if (viewMode === 'week') {
+      todayIndex = periods.findIndex(
+        (p) => currentDate >= p.weekStart && currentDate <= p.weekEnd
+      );
+    } else if (viewMode === 'month') {
+      if (selectedYear === currentYear) {
+        todayIndex = currentMonth;
+      } else if (selectedYear < currentYear) {
+        todayIndex = 11;
+      } else {
+        todayIndex = -1;
+      }
+    } else {
+      // Vue annuelle
+      todayIndex = periods.findIndex((p) => p.year === currentYear);
+    }
+
+    // Fonction pour formater le label (masquer si 0)
+    const formatLabel = (value) => {
+      if (value === 0 || value === null || value === undefined) {
+        return ''; // Retourner une chaîne vide pour les valeurs 0
+      }
+      return formatCurrency(value);
+    };
+
+    // Créer les séries pour la balance avec style différent selon la période
+    const balanceSeries = {
+      name: 'Balance',
+      type: 'line',
+      data: differences,
+      smooth: 0.4, // Courbure modérée
+      symbol: 'diamond',
+      symbolSize: 8,
+      showSymbol: true,
+      lineStyle: {
+        width: 3,
+      },
+      itemStyle: {
+        color: '#3b82f6',
+        borderColor: '#ffffff',
+        borderWidth: 1,
+      },
+      label: {
+        show: true,
+        position: 'top',
+        formatter: (params) => formatLabel(params.value), // Utiliser formatLabel
+        fontSize: 10,
+        color: '#3b82f6',
+        fontWeight: 500,
+      },
+      z: 3,
+    };
+
+    // Définir les styles de ligne selon la période
+    if (todayIndex !== -1 && todayIndex < periods.length - 1) {
+      // Il y a des données passées et futures
+      balanceSeries.lineStyle = (params) => {
+        const index = params.dataIndex;
+        if (index <= todayIndex) {
+          return {
+            width: 3,
+            color: '#3b82f6',
+            type: 'solid',
+          };
+        } else {
+          return {
+            width: 3,
+            color: '#3b82f6',
+            type: 'dashed',
+            opacity: 0.8,
+          };
+        }
+      };
+
+      // Pour les symboles, masquer sur la partie tiretée
+      balanceSeries.showSymbol = true;
+      balanceSeries.symbol = (params) => {
+        const index = params.dataIndex;
+        if (index <= todayIndex) {
+          return 'diamond';
+        } else {
+          return 'none';
+        }
+      };
+    } else if (
+      todayIndex === periods.length - 1 ||
+      todayIndex > periods.length - 1
+    ) {
+      // Toutes les périodes sont passées
+      balanceSeries.lineStyle = {
+        width: 3,
+        color: '#3b82f6',
+        type: 'solid',
+      };
+    } else {
+      // Toutes les périodes sont futures
+      balanceSeries.lineStyle = {
+        width: 3,
+        color: '#3b82f6',
+        type: 'dashed',
+        opacity: 0.8,
+      };
+      balanceSeries.showSymbol = false;
+    }
 
     const seriesData = [
       {
         name: 'Entrées',
         type: 'line',
         data: inflows,
-        smooth: false,
+        smooth: 0.4, // Courbure pour les entrées
         symbol: 'circle',
         symbolSize: 6,
         showSymbol: true,
@@ -142,6 +325,14 @@ const CashflowView = ({ isFocusMode = false }) => {
           color: '#10b981',
           borderColor: '#ffffff',
           borderWidth: 1,
+        },
+        label: {
+          show: true,
+          position: 'top',
+          formatter: (params) => formatLabel(params.value), // Utiliser formatLabel
+          fontSize: 10,
+          color: '#10b981',
+          fontWeight: 500,
         },
         z: 1,
       },
@@ -149,7 +340,7 @@ const CashflowView = ({ isFocusMode = false }) => {
         name: 'Sorties',
         type: 'line',
         data: outflows,
-        smooth: false,
+        smooth: 0.4, // Courbure pour les sorties
         symbol: 'circle',
         symbolSize: 6,
         showSymbol: true,
@@ -162,27 +353,17 @@ const CashflowView = ({ isFocusMode = false }) => {
           borderColor: '#ffffff',
           borderWidth: 1,
         },
+        label: {
+          show: true,
+          position: 'top',
+          formatter: (params) => formatLabel(params.value), // Utiliser formatLabel
+          fontSize: 10,
+          color: '#ef4444',
+          fontWeight: 500,
+        },
         z: 2,
       },
-      {
-        name: 'Balance',
-        type: 'line',
-        data: differences,
-        smooth: false,
-        symbol: 'diamond',
-        symbolSize: 8,
-        showSymbol: true,
-        lineStyle: {
-          width: 3,
-          color: '#3b82f6',
-        },
-        itemStyle: {
-          color: '#3b82f6',
-          borderColor: '#ffffff',
-          borderWidth: 1,
-        },
-        z: 3,
-      },
+      balanceSeries,
     ];
 
     return {
@@ -206,8 +387,8 @@ const CashflowView = ({ isFocusMode = false }) => {
         padding: [8, 12],
         formatter: (params) => {
           const periodIndex = params[0].dataIndex;
-          const monthName = periods[periodIndex].fullLabel;
-          let html = `<div style="margin-bottom: 8px; font-weight: 500; color: #111827;">${monthName}</div>`;
+          const periodName = periods[periodIndex].fullLabel;
+          let html = `<div style="margin-bottom: 8px; font-weight: 500; color: #111827;">${periodName}</div>`;
 
           params.forEach((p) => {
             const value = formatCurrency(p.value);
@@ -218,11 +399,19 @@ const CashflowView = ({ isFocusMode = false }) => {
             };
             const color = colorMap[p.seriesName] || '#6b7280';
 
+            // Ajouter un indicateur si c'est une projection
+            const isProjection = periodIndex > todayIndex && todayIndex !== -1;
+
+            const seriesName =
+              isProjection && p.seriesName === 'Balance'
+                ? `${p.seriesName} (projection)`
+                : p.seriesName;
+
             html += `
               <div style="display: flex; justify-content: space-between; align-items: center; margin: 4px 0;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <div style="width: 8px; height: 8px; border-radius: 50%; background-color: ${color};"></div>
-                  <span style="color: #4b5563; font-size: 12px;">${p.seriesName}</span>
+                  <span style="color: #4b5563; font-size: 12px;">${seriesName}</span>
                 </div>
                 <span style="color: ${color}; font-weight: 500; font-size: 12px;">${value}</span>
               </div>
@@ -246,9 +435,9 @@ const CashflowView = ({ isFocusMode = false }) => {
       },
       grid: {
         left: '0%',
-        right: '0%',
+        right: '3%',
         bottom: '15%',
-        top: '5%',
+        top: '10%',
         containLabel: true,
       },
       xAxis: {
@@ -267,8 +456,10 @@ const CashflowView = ({ isFocusMode = false }) => {
           color: '#6b7280',
           fontSize: 11,
           margin: 8,
+          interval: 0,
+          rotate: 0,
         },
-        boundaryGap: true,
+        boundaryGap: false, // Changé pour meilleur rendu des courbes
         splitLine: {
           show: false,
         },
@@ -302,7 +493,6 @@ const CashflowView = ({ isFocusMode = false }) => {
       padding: [0, 10, 0, 10],
     };
   };
-
   // Options d'années (5 ans en arrière, année courante, 4 ans en avant)
   const yearOptions = Array.from({ length: 10 }, (_, i) => {
     const yearValue = new Date().getFullYear() - 5 + i;
@@ -320,11 +510,12 @@ const CashflowView = ({ isFocusMode = false }) => {
 
     const totalInflow = inflows.reduce((a, b) => a + b, 0);
     const totalOutflow = outflows.reduce((a, b) => a + b, 0);
+    const totalBalance = totalInflow - totalOutflow; // Ajouter cette ligne
 
     const avgInflow = totalInflow / monthsWithData;
     const avgOutflow = totalOutflow / monthsWithData;
 
-    // Trouver la dernière balance non-nulle
+    // Trouver la dernière balance non-nulle (jusqu'au mois courant pour l'année en cours)
     let lastBalance = 0;
     for (let i = differences.length - 1; i >= 0; i--) {
       if (inflows[i] !== 0 || outflows[i] !== 0) {
@@ -339,6 +530,7 @@ const CashflowView = ({ isFocusMode = false }) => {
       lastBalance,
       totalInflow,
       totalOutflow,
+      totalBalance, // Ajouter cette propriété
     };
   }, [chartData]);
 
@@ -353,24 +545,61 @@ const CashflowView = ({ isFocusMode = false }) => {
       {!isFocusMode && (
         <div className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handlePeriodChange(-1)}
-                className="p-1 hover:bg-gray-100 rounded transition-colors"
-                title="Année précédente"
-              >
-                <ChevronLeft size={16} className="text-gray-600" />
-              </button>
-              <span className="text-sm text-gray-700 min-w-[80px] text-center font-medium">
-                {selectedYear}
-              </span>
-              <button
-                onClick={() => handlePeriodChange(1)}
-                className="p-1 hover:bg-gray-100 rounded transition-colors"
-                title="Année suivante"
-              >
-                <ChevronRight size={16} className="text-gray-600" />
-              </button>
+            <div className="flex items-center gap-4">
+              {/* Navigation année */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handlePeriodChange(-1)}
+                  className="p-1 hover:bg-gray-100 rounded transition-colors"
+                  title="Année précédente"
+                >
+                  <ChevronLeft size={16} className="text-gray-600" />
+                </button>
+                <span className="text-sm text-gray-700 min-w-[80px] text-center font-medium">
+                  {selectedYear}
+                </span>
+                <button
+                  onClick={() => handlePeriodChange(1)}
+                  className="p-1 hover:bg-gray-100 rounded transition-colors"
+                  title="Année suivante"
+                >
+                  <ChevronRight size={16} className="text-gray-600" />
+                </button>
+              </div>
+
+              {/* Sélecteur de vue */}
+              <div className="flex items-center gap-1 bg-gray-100 rounded p-1">
+                <button
+                  onClick={() => setViewMode('week')}
+                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                    viewMode === 'week'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Semaine
+                </button>
+                <button
+                  onClick={() => setViewMode('month')}
+                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                    viewMode === 'month'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Mois
+                </button>
+                <button
+                  onClick={() => setViewMode('year')}
+                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                    viewMode === 'year'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Année
+                </button>
+              </div>
             </div>
 
             <div className="relative" ref={yearMenuRef}>
@@ -421,25 +650,31 @@ const CashflowView = ({ isFocusMode = false }) => {
           {/* Stats en ligne - design d'origine */}
           <div className="grid grid-cols-3 gap-4">
             <div className="bg-gray-50 rounded p-3">
-              <div className="text-xs text-gray-500 mb-1">Entrées moy.</div>
+              <div className="text-xs text-gray-500 mb-1">
+                Entrées {selectedYear}
+              </div>
               <div className="text-sm font-medium text-emerald-600">
-                {formatCurrency(stats.avgInflow)}
+                {formatCurrency(stats.totalInflow)}
               </div>
             </div>
             <div className="bg-gray-50 rounded p-3">
-              <div className="text-xs text-gray-500 mb-1">Sorties moy.</div>
+              <div className="text-xs text-gray-500 mb-1">
+                Sorties {selectedYear}
+              </div>
               <div className="text-sm font-medium text-rose-600">
-                {formatCurrency(stats.avgOutflow)}
+                {formatCurrency(stats.totalOutflow)}
               </div>
             </div>
             <div className="bg-gray-50 rounded p-3">
-              <div className="text-xs text-gray-500 mb-1">Balance</div>
+              <div className="text-xs text-gray-500 mb-1">
+                Balance {selectedYear}
+              </div>
               <div
                 className={`text-sm font-medium ${
-                  stats.lastBalance >= 0 ? 'text-blue-600' : 'text-rose-600'
+                  stats.totalBalance >= 0 ? 'text-blue-600' : 'text-rose-600'
                 }`}
               >
-                {formatCurrency(stats.lastBalance)}
+                {formatCurrency(stats.totalBalance)}
               </div>
             </div>
           </div>
