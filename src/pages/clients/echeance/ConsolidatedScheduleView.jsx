@@ -662,48 +662,6 @@ const ConsolidatedScheduleView = ({ consolidationId: propConsolidationId }) => {
           </div>
         </div>
 
-        {/* Résumé financier */}
-        {summary.totalTransactions > 0 && (
-          <div className="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
-              <div className="text-sm font-medium text-gray-500">Flux nets</div>
-              <div className={`text-xl md:text-2xl font-semibold flex items-center gap-2 ${
-                summary.netFlow >= 0 ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {summary.netFlow >= 0 ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
-                {summary.netFlow >= 0 ? '+' : ''}{summary.netFlow.toFixed(2)}€
-              </div>
-            </div>
-            
-            <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
-              <div className="text-sm font-medium text-gray-500">Revenus totaux</div>
-              <div className="flex items-center gap-2 text-xl font-semibold text-green-600 md:text-2xl">
-                <TrendingUp className="w-5 h-5" />
-                +{summary.totalReceivable.toFixed(2)}€
-              </div>
-            </div>
-            
-            <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
-              <div className="text-sm font-medium text-gray-500">Dépenses totales</div>
-              <div className="flex items-center gap-2 text-xl font-semibold text-red-600 md:text-2xl">
-                <TrendingDown className="w-5 h-5" />
-                -{summary.totalPayable.toFixed(2)}€
-              </div>
-            </div>
-            
-            <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
-              <div className="text-sm font-medium text-gray-500">Projets</div>
-              <div className="text-xl font-semibold text-purple-600 md:text-2xl">
-                {summary.projectCount}
-              </div>
-              <div className="mt-1 text-xs text-gray-500 truncate">
-                {summary.projects.slice(0, 2).join(', ')}
-                {summary.projects.length > 2 && '...'}
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Contrôles de navigation */}
         <div className="flex flex-col items-start justify-between gap-3 mb-4 sm:flex-row sm:items-center">
           <h2 className="text-lg font-medium text-gray-900">{headerLabel}</h2>

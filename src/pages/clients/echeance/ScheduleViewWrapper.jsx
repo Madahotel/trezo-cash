@@ -27,7 +27,6 @@ const ScheduleViewWrapper = () => {
       };
     }
     
-    // C'est un projet simple
     return {
       type: 'project',
       projectId: activeProject.id,
@@ -35,7 +34,6 @@ const ScheduleViewWrapper = () => {
     };
   }, [activeProject]);
 
-  // Si aucun projet n'est sélectionné
   if (!activeProject || displayMode.type === 'none') {
     return (
       <div className="flex items-center justify-center min-h-screen bg-white">
@@ -52,9 +50,7 @@ const ScheduleViewWrapper = () => {
     );
   }
 
-  // Vue consolidée
   if (displayMode.type === 'consolidated') {
-    // Si c'est "Mes projets consolidés" (pas de vue spécifique)
     if (!displayMode.consolidationId) {
       return (
         <div className="min-h-screen p-6 bg-white">
@@ -95,11 +91,9 @@ const ScheduleViewWrapper = () => {
       );
     }
     
-    // Vue consolidée spécifique
     return <ConsolidatedScheduleView consolidationId={displayMode.consolidationId} />;
   }
 
-  // Mode projet simple
   return <ScheduleView />;
 };
 
