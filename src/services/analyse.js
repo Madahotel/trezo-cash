@@ -1,3 +1,25 @@
+// Fonction pour formater les labels de l'axe X en responsive
+export const formatXAxisLabels = (
+  value,
+  index,
+  isMobile = false,
+  maxValue = 0,
+  settings = {}
+) => {
+  if (!isMobile) {
+    // En desktop, afficher toutes les valeurs normalement
+    return formatCurrency(value, settings);
+  }
+
+  // En mobile, n'afficher que 0 et la valeur max
+  if (value === 0 || Math.abs(value - maxValue) < 0.01) {
+    return formatCurrency(value, settings);
+  }
+
+  // Pour les autres valeurs, retourner chaîne vide
+  return '';
+};
+
 // Fonctions utilitaires
 export const formatCurrency = (amount, settings) => {
   return new Intl.NumberFormat('fr-FR', {
@@ -7,17 +29,22 @@ export const formatCurrency = (amount, settings) => {
 };
 
 // Fonction pour générer les transactions récurrentes à partir des budgets
-export const transformBudgetDataWithDates = (budgetData) => {
+export const transformBudgetDataWithDates = (
+  budgetData,
+  currentPeriod = null
+) => {
   const transactions = [];
 
   budgetData.forEach((budget) => {
     const frequencyId = budget.frequency_id;
     const type = budget.category_type_id == 2 ? 'receivable' : 'payable';
 
+    // Passer currentPeriod à generateDatesByFrequency
     const dates = generateDatesByFrequency(
       frequencyId,
       budget.start_date,
-      budget.end_date
+      budget.end_date,
+      currentPeriod // Ajouter ce paramètre
     );
 
     dates.forEach((date, occurrenceIndex) => {
@@ -66,7 +93,8 @@ export const transformBudgetDataWithDates = (budgetData) => {
 export const generateDatesByFrequency = (
   frequencyId,
   startDate,
-  endDate = null
+  endDate = null,
+  currentPeriod = null
 ) => {
   const dates = [];
 
@@ -95,17 +123,55 @@ export const generateDatesByFrequency = (
     return dates;
   }
 
-  // Si pas de date de fin, générer pour 2 ans
-  if (!endDate) {
-    const futureEnd = new Date(start);
-    futureEnd.setUTCFullYear(futureEnd.getUTCFullYear() + 2);
+  // Si pas de date de fin, utiliser la période d'analyse actuelle
+  if (!endDate && currentPeriod) {
+    // Calculer la plage de dates pour la période d'analyse actuelle
+    const { rangeStart, rangeEnd } = calculateDateRange(
+      null,
+      null,
+      currentPeriod
+    );
 
     let current = new Date(start);
+
+    // Ne générer que les dates jusqu'à la fin de la période d'analyse
+    const stopDate = new Date(rangeEnd);
+
+    // Ajouter des marges selon la fréquence pour s'assurer de capturer au moins une occurrence
+    if (frequencyId === 8) {
+      // Annuelle
+      stopDate.setUTCFullYear(stopDate.getUTCFullYear() + 1);
+    } else if (frequencyId === 7) {
+      // Semestrielle
+      stopDate.setUTCMonth(stopDate.getUTCMonth() + 6);
+    } else if (frequencyId === 6) {
+      // Trimestrielle
+      stopDate.setUTCMonth(stopDate.getUTCMonth() + 3);
+    } else if (frequencyId === 5) {
+      // Bimestrielle
+      stopDate.setUTCMonth(stopDate.getUTCMonth() + 2);
+    } else if (frequencyId === 4) {
+      // Hebdomadaire
+      stopDate.setUTCDate(stopDate.getUTCDate() + 7);
+    } else if (frequencyId === 3) {
+      // Mensuelle
+      stopDate.setUTCMonth(stopDate.getUTCMonth() + 1);
+    } else if (frequencyId === 2) {
+      // Quotidienne
+      stopDate.setUTCDate(stopDate.getUTCDate() + 1);
+    }
+
+    // Limiter les itérations pour éviter les boucles infinies
     let iteration = 0;
+    const maxIterations = 1000;
 
-    while (current <= futureEnd && iteration < 1000) {
-      dates.push(new Date(current));
+    while (current <= stopDate && iteration < maxIterations) {
+      // Ajouter la date seulement si elle est dans la période d'analyse
+      if (current >= rangeStart && current <= rangeEnd) {
+        dates.push(new Date(current));
+      }
 
+      // Passer à la prochaine occurrence selon la fréquence
       const next = new Date(current);
       switch (frequencyId) {
         case 2: // Quotidienne
@@ -117,8 +183,8 @@ export const generateDatesByFrequency = (
         case 4: // Hebdomadaire
           next.setUTCDate(next.getUTCDate() + 7);
           break;
-        case 5: // Bimensuelle
-          next.setUTCDate(next.getUTCDate() + 15);
+        case 5: // Bimestrielle
+          next.setUTCMonth(next.getUTCMonth() + 2);
           break;
         case 6: // Trimestrielle
           next.setUTCMonth(next.getUTCMonth() + 3);
@@ -129,15 +195,18 @@ export const generateDatesByFrequency = (
         case 8: // Annuelle
           next.setUTCFullYear(next.getUTCFullYear() + 1);
           break;
+        default:
+          return dates;
       }
 
       current = next;
       iteration++;
     }
+
     return dates;
   }
 
-  // Avec date de fin
+  // Avec date de fin (code existant)
   const end = parseDate(endDate);
   if (!end || isNaN(end.getTime())) {
     console.error('❌ Date de fin invalide:', endDate);
@@ -167,8 +236,8 @@ export const generateDatesByFrequency = (
       case 4: // Hebdomadaire
         next.setUTCDate(next.getUTCDate() + 7);
         break;
-      case 5: // Bimensuelle
-        next.setUTCDate(next.getUTCDate() + 15);
+      case 5: // Bimestrielle
+        next.setUTCMonth(next.getUTCMonth() + 2);
         break;
       case 6: // Trimestrielle
         next.setUTCMonth(next.getUTCMonth() + 3);
@@ -461,13 +530,20 @@ export const calculateDateRange = (
 };
 
 // Transformation des données API
-export const transformApiData = (apiData, defaultSettings) => {
+export const transformApiData = (
+  apiData,
+  defaultSettings,
+  currentPeriod = null
+) => {
   if (!apiData) return null;
 
   const { budgets, collections } = apiData;
 
   // Générer les transactions récurrentes à partir des budgets
-  const budgetTransactions = transformBudgetDataWithDates(budgets);
+  const budgetTransactions = transformBudgetDataWithDates(
+    budgets,
+    currentPeriod
+  );
 
   // Extraire les catégories uniques
   const categories = {
@@ -971,9 +1047,14 @@ export const getCategoryChartOptions = ({
   analysisPeriodName,
   settings,
   visibleData,
+  isMobile = false,
 }) => {
   const { categories, budgetData, actualData, totalBudget, totalActual } =
     categoryAnalysisData;
+
+  // Calculer la valeur max pour l'axe X
+  const allValues = [...budgetData, ...actualData].filter((val) => val > 0);
+  const maxValue = allValues.length > 0 ? Math.max(...allValues) : 0;
 
   // Déterminer les couleurs selon le type d'analyse
   const chartColors =
@@ -1013,6 +1094,7 @@ export const getCategoryChartOptions = ({
           )} (${percentage.toFixed(0)}%)`;
         },
         color: chartColors.budgetLabel,
+        fontSize: isMobile ? 10 : 12,
       },
     });
   }
@@ -1037,6 +1119,7 @@ export const getCategoryChartOptions = ({
           )} (${percentage.toFixed(0)}%)`;
         },
         color: chartColors.actualLabel,
+        fontSize: isMobile ? 10 : 12,
       },
     });
   }
@@ -1047,7 +1130,11 @@ export const getCategoryChartOptions = ({
         text: 'Aucune donnée à analyser',
         left: 'center',
         top: 'center',
-        textStyle: { fontSize: 16, fontWeight: '600', color: '#475569' },
+        textStyle: {
+          fontSize: isMobile ? 14 : 16,
+          fontWeight: '600',
+          color: '#475569',
+        },
       },
       series: [],
     };
@@ -1057,10 +1144,16 @@ export const getCategoryChartOptions = ({
 
   return {
     title: {
-      text: `Analyse par Catégorie - ${chartTitle} - ${analysisPeriodName}`,
+      text: isMobile
+        ? `${chartTitle} - ${analysisPeriodName}`
+        : `Analyse par Catégorie - ${chartTitle} - ${analysisPeriodName}`,
       left: 'center',
       top: 0,
-      textStyle: { fontSize: 16, fontWeight: '600', color: '#475569' },
+      textStyle: {
+        fontSize: isMobile ? 14 : 16,
+        fontWeight: '600',
+        color: '#475569',
+      },
     },
     tooltip: {
       trigger: 'axis',
@@ -1085,20 +1178,43 @@ export const getCategoryChartOptions = ({
           });
         return tooltip;
       },
+      textStyle: {
+        fontSize: isMobile ? 12 : 14,
+      },
     },
-    legend: { show: false },
+    legend: {
+      show: false,
+    },
     grid: {
-      left: '3%',
-      right: '10%',
+      left: isMobile ? '15%' : '3%',
+      right: isMobile ? '15%' : '10%',
       bottom: '3%',
+      top: isMobile ? '15%' : '10%',
       containLabel: true,
     },
     xAxis: {
       type: 'value',
       axisLabel: {
-        formatter: (value) =>
-          formatCurrency(value, { ...settings, displayUnit: 'standard' }),
+        formatter: (value) => {
+          // Utiliser la fonction de formatage responsive
+          return formatXAxisLabels(value, null, isMobile, maxValue, settings);
+        },
+        fontSize: isMobile ? 10 : 12,
+        interval: isMobile
+          ? (value) => {
+              // N'afficher que le 0 et le max
+              return value === 0 || Math.abs(value - maxValue) < 0.01;
+            }
+          : 0,
       },
+      splitLine: {
+        show: true,
+        lineStyle: {
+          type: isMobile ? 'dashed' : 'solid',
+          opacity: isMobile ? 0.3 : 0.5,
+        },
+      },
+      splitNumber: isMobile ? 3 : 5,
     },
     yAxis: {
       type: 'category',
@@ -1106,10 +1222,16 @@ export const getCategoryChartOptions = ({
       axisLabel: {
         interval: 0,
         rotate: 0,
+        fontSize: isMobile ? 10 : 12,
         formatter: (value) => {
-          // Tronquer les longues étiquettes
-          return value.length > 20 ? value.substring(0, 20) + '...' : value;
+          const maxLength = isMobile ? 15 : 20;
+          return value.length > maxLength
+            ? value.substring(0, maxLength - 3) + '...'
+            : value;
         },
+      },
+      axisTick: {
+        show: false,
       },
     },
     series: series,
@@ -1123,9 +1245,14 @@ export const getTierChartOptions = ({
   analysisPeriodName,
   settings,
   visibleData,
+  isMobile = false,
 }) => {
   const { tiers, budgetData, actualData, totalBudget, totalActual } =
     tierAnalysisData;
+
+  // Calculer la valeur max pour l'axe X
+  const allValues = [...budgetData, ...actualData].filter((val) => val > 0);
+  const maxValue = allValues.length > 0 ? Math.max(...allValues) : 0;
 
   // Déterminer les couleurs selon le type d'analyse
   const chartColors =
@@ -1165,6 +1292,7 @@ export const getTierChartOptions = ({
           )} (${percentage.toFixed(0)}%)`;
         },
         color: chartColors.budgetLabel,
+        fontSize: isMobile ? 10 : 12,
       },
     });
   }
@@ -1189,6 +1317,7 @@ export const getTierChartOptions = ({
           )} (${percentage.toFixed(0)}%)`;
         },
         color: chartColors.actualLabel,
+        fontSize: isMobile ? 10 : 12,
       },
     });
   }
@@ -1199,7 +1328,11 @@ export const getTierChartOptions = ({
         text: 'Aucune donnée à analyser',
         left: 'center',
         top: 'center',
-        textStyle: { fontSize: 16, fontWeight: '600', color: '#475569' },
+        textStyle: {
+          fontSize: isMobile ? 14 : 16,
+          fontWeight: '600',
+          color: '#475569',
+        },
       },
       series: [],
     };
@@ -1209,10 +1342,16 @@ export const getTierChartOptions = ({
 
   return {
     title: {
-      text: `Analyse par Tiers - ${chartTitle} - ${analysisPeriodName}`,
+      text: isMobile
+        ? `${chartTitle} - ${analysisPeriodName}`
+        : `Analyse par Tiers - ${chartTitle} - ${analysisPeriodName}`,
       left: 'center',
       top: 0,
-      textStyle: { fontSize: 16, fontWeight: '600', color: '#475569' },
+      textStyle: {
+        fontSize: isMobile ? 14 : 16,
+        fontWeight: '600',
+        color: '#475569',
+      },
     },
     tooltip: {
       trigger: 'axis',
@@ -1237,20 +1376,43 @@ export const getTierChartOptions = ({
           });
         return tooltip;
       },
+      textStyle: {
+        fontSize: isMobile ? 12 : 14,
+      },
     },
-    legend: { show: false },
+    legend: {
+      show: false,
+    },
     grid: {
-      left: '3%',
-      right: '10%',
+      left: isMobile ? '15%' : '3%',
+      right: isMobile ? '15%' : '10%',
       bottom: '3%',
+      top: isMobile ? '15%' : '10%',
       containLabel: true,
     },
     xAxis: {
       type: 'value',
       axisLabel: {
-        formatter: (value) =>
-          formatCurrency(value, { ...settings, displayUnit: 'standard' }),
+        formatter: (value) => {
+          // Utiliser la fonction de formatage responsive
+          return formatXAxisLabels(value, null, isMobile, maxValue, settings);
+        },
+        fontSize: isMobile ? 10 : 12,
+        interval: isMobile
+          ? (value) => {
+              // N'afficher que le 0 et le max
+              return value === 0 || Math.abs(value - maxValue) < 0.01;
+            }
+          : 0,
       },
+      splitLine: {
+        show: true,
+        lineStyle: {
+          type: isMobile ? 'dashed' : 'solid',
+          opacity: isMobile ? 0.3 : 0.5,
+        },
+      },
+      splitNumber: isMobile ? 3 : 5,
     },
     yAxis: {
       type: 'category',
@@ -1258,10 +1420,16 @@ export const getTierChartOptions = ({
       axisLabel: {
         interval: 0,
         rotate: 0,
+        fontSize: isMobile ? 10 : 12,
         formatter: (value) => {
-          // Tronquer les longues étiquettes
-          return value.length > 20 ? value.substring(0, 20) + '...' : value;
+          const maxLength = isMobile ? 15 : 20;
+          return value.length > maxLength
+            ? value.substring(0, maxLength - 3) + '...'
+            : value;
         },
+      },
+      axisTick: {
+        show: false,
       },
     },
     series: series,
@@ -1277,6 +1445,7 @@ export const getChartOptions = ({
   analysisPeriodName,
   settings,
   visibleData,
+  isMobile = false,
 }) => {
   if (analysisMode === 'tier') {
     return getTierChartOptions({
@@ -1285,6 +1454,7 @@ export const getChartOptions = ({
       analysisPeriodName,
       settings,
       visibleData,
+      isMobile,
     });
   } else {
     // Par défaut, analyse par catégorie
@@ -1294,6 +1464,7 @@ export const getChartOptions = ({
       analysisPeriodName,
       settings,
       visibleData,
+      isMobile,
     });
   }
 };

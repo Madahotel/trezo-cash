@@ -9,6 +9,8 @@ import {
   Folder,
   ChevronDown,
   User,
+  Menu,
+  X,
 } from 'lucide-react';
 import ReactECharts from 'echarts-for-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -34,10 +36,44 @@ import { useUI } from '../../../components/context/UIContext';
 
 // Composant pour les états vides
 const EmptyState = ({ icon: Icon, title, message }) => (
-  <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-    <Icon className="w-16 h-16 mb-4" />
-    <h3 className="text-lg font-semibold mb-2">{title}</h3>
-    <p className="text-sm">{message}</p>
+  <div className="flex flex-col items-center justify-center py-8 md:py-12 text-gray-500 px-4">
+    <Icon className="w-12 h-12 md:w-16 md:h-16 mb-3 md:mb-4" />
+    <h3 className="text-base md:text-lg font-semibold mb-1.5 md:mb-2 text-center">
+      {title}
+    </h3>
+    <p className="text-xs md:text-sm text-center">{message}</p>
+  </div>
+);
+
+// Composant mobile pour la navigation de période
+const MobilePeriodNavigation = ({
+  currentPeriod,
+  handlePeriodNavigation,
+  analysisPeriodName,
+}) => (
+  <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg mb-4">
+    <button
+      onClick={() => handlePeriodNavigation(-1)}
+      className="p-2 text-gray-500 hover:bg-gray-200 rounded-full transition-colors"
+      title="Période précédente"
+    >
+      <ChevronLeft size={20} />
+    </button>
+
+    <div className="flex flex-col items-center flex-1 mx-3">
+      <span className="text-xs text-gray-500 mb-1">Période actuelle</span>
+      <span className="text-sm font-semibold text-gray-700 text-center truncate max-w-full">
+        {analysisPeriodName}
+      </span>
+    </div>
+
+    <button
+      onClick={() => handlePeriodNavigation(1)}
+      className="p-2 text-gray-500 hover:bg-gray-200 rounded-full transition-colors"
+      title="Période suivante"
+    >
+      <ChevronRight size={20} />
+    </button>
   </div>
 );
 
@@ -73,11 +109,23 @@ const AnalyseView = ({
   const analysisTypeMenuRef = useRef(null);
   const [isAnalysisModeMenuOpen, setIsAnalysisModeMenuOpen] = useState(false);
   const analysisModeMenuRef = useRef(null);
+  const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
 
   // États pour les données API
   const [apiData, setApiData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  // Ajoutez un effet pour détecter le changement de taille
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Récupération des données depuis l'API
   const fetchData = async (projectId) => {
@@ -85,12 +133,7 @@ const AnalyseView = ({
       setLoading(true);
       setError(null);
       const response = await apiGet(`/analyse/project/${projectId}`);
-
-      if (response.status === 200) {
-        setApiData(response);
-      } else {
-        throw new Error('Erreur lors de la récupération des données');
-      }
+      setApiData(response);
     } catch (err) {
       console.error('Erreur fetchData:', err);
       setError(err.message);
@@ -112,10 +155,10 @@ const AnalyseView = ({
     language: 'fr',
   };
 
-  // Transformer les données API
+  // Transformer les données API - passer currentPeriod
   const transformedData = useMemo(() => {
-    return transformApiData(apiData, defaultSettings);
-  }, [apiData]);
+    return transformApiData(apiData, defaultSettings, currentPeriod);
+  }, [apiData, currentPeriod]);
 
   // Utiliser les données transformées
   const {
@@ -285,6 +328,7 @@ const AnalyseView = ({
       analysisPeriodName,
       settings,
       visibleData,
+      isMobile,
     });
   }, [
     analysisMode,
@@ -294,6 +338,7 @@ const AnalyseView = ({
     analysisPeriodName,
     settings,
     visibleData,
+    isMobile,
   ]);
 
   // Gestion du clic sur le graphique
@@ -334,7 +379,6 @@ const AnalyseView = ({
       }
     }
   };
-
   const onEvents = {
     click: onChartClick,
   };
@@ -357,13 +401,26 @@ const AnalyseView = ({
     } à analyser`;
   };
 
+  // Calcul de la hauteur du graphique
+  const calculateChartHeight = () => {
+    if (currentAnalysisData.data.categories) {
+      return Math.max(400, currentAnalysisData.data.categories.length * 60);
+    }
+    if (currentAnalysisData.data.tiers) {
+      return Math.max(400, currentAnalysisData.data.tiers.length * 60);
+    }
+    return 400;
+  };
+
   // Rendu du graphique avec gestion du loading et des erreurs
   const renderChart = () => {
     if (loading) {
       return (
-        <div className="flex flex-col items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="mt-4 text-gray-600">Chargement des données...</p>
+        <div className="flex flex-col items-center justify-center py-8 md:py-12 px-4">
+          <div className="animate-spin rounded-full h-10 w-10 md:h-12 md:w-12 border-b-2 border-blue-600"></div>
+          <p className="mt-3 md:mt-4 text-sm md:text-base text-gray-600">
+            Chargement des données...
+          </p>
         </div>
       );
     }
@@ -396,19 +453,19 @@ const AnalyseView = ({
     }
 
     return (
-      <ReactECharts
-        option={chartOptions}
-        style={{
-          height: `${Math.max(
-            500,
-            currentAnalysisData.data.categories
-              ? currentAnalysisData.data.categories.length * 80
-              : currentAnalysisData.data.tiers.length * 80
-          )}px`,
-          width: '100%',
-        }}
-        onEvents={onEvents}
-      />
+      <div className="w-full overflow-x-auto">
+        <div className="min-w-[300px]">
+          <ReactECharts
+            option={chartOptions}
+            style={{
+              height: `${calculateChartHeight()}px`,
+              width: '100%',
+              minWidth: '300px',
+            }}
+            onEvents={onEvents}
+          />
+        </div>
+      </div>
     );
   };
 
@@ -434,116 +491,53 @@ const AnalyseView = ({
   );
 
   return (
-    <div className={isFocusMode ? 'h-full flex flex-col' : 'p-6 max-w-full'}>
+    <div
+      className={isFocusMode ? 'h-full flex flex-col' : 'p-3 md:p-6 max-w-full'}
+    >
       {!isFocusMode && (
-        <div className="mb-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            {!rangeStartProp && (
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handlePeriodNavigation(-1)}
-                    className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors"
-                    title="Période précédente"
-                  >
-                    <ChevronLeft size={18} />
-                  </button>
-                  <span
-                    className="text-sm font-semibold text-gray-700 w-auto min-w-[9rem] text-center"
-                    title="Période sélectionnée"
-                  >
-                    {analysisPeriodName}
-                  </span>
-                  <button
-                    onClick={() => handlePeriodNavigation(1)}
-                    className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors"
-                    title="Période suivante"
-                  >
-                    <ChevronRight size={18} />
-                  </button>
-                </div>
+        <>
+          {/* Version mobile */}
+          <div className="lg:hidden mb-4">
+            <MobilePeriodNavigation
+              currentPeriod={currentPeriod}
+              handlePeriodNavigation={handlePeriodNavigation}
+              analysisPeriodName={analysisPeriodName}
+            />
 
-                <div className="h-8 w-px bg-gray-200 hidden md:block"></div>
-
-                <div className="relative" ref={periodMenuRef}>
-                  <button
-                    onClick={() => setIsPeriodMenuOpen((p) => !p)}
-                    className="flex items-center gap-2 px-3 h-9 rounded-md bg-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-300 transition-colors"
-                  >
-                    <span>{selectedPeriodLabel}</span>
-                    <ChevronDown
-                      className={`w-4 h-4 transition-transform ${
-                        isPeriodMenuOpen ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </button>
-                  <AnimatePresence>
-                    {isPeriodMenuOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                        className="absolute left-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border z-20"
-                      >
-                        <ul className="p-1">
-                          {quickPeriodOptions.map((option) => (
-                            <li key={option.id}>
-                              <button
-                                onClick={() => {
-                                  handlePeriodSelect(option.id);
-                                  setIsPeriodMenuOpen(false);
-                                }}
-                                className={`w-full text-left px-3 py-1.5 text-sm rounded-md ${
-                                  currentPeriod.type === option.id
-                                    ? 'bg-blue-50 text-blue-700 font-semibold'
-                                    : 'text-gray-700 hover:bg-gray-100'
-                                }`}
-                              >
-                                {option.label}
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-center gap-4">
-              <div className="relative" ref={analysisModeMenuRef}>
+            <div className="flex items-center justify-between mb-4">
+              <div
+                className="relative flex-1 max-w-[140px]"
+                ref={periodMenuRef}
+              >
                 <button
-                  onClick={() => setIsAnalysisModeMenuOpen((p) => !p)}
-                  className="flex items-center gap-2 px-3 h-9 rounded-md bg-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-300 transition-colors"
+                  onClick={() => setIsPeriodMenuOpen((p) => !p)}
+                  className="flex items-center justify-between w-full px-3 h-10 rounded-lg bg-gray-100 text-gray-700 font-semibold text-sm hover:bg-gray-200 transition-colors"
                 >
-                  <span>
-                    {selectedAnalysisModeOption?.label || 'Par catégorie'}
-                  </span>
+                  <span className="truncate">{selectedPeriodLabel}</span>
                   <ChevronDown
-                    className={`w-4 h-4 transition-transform ${
-                      isAnalysisModeMenuOpen ? 'rotate-180' : ''
+                    className={`w-4 h-4 flex-shrink-0 transition-transform ${
+                      isPeriodMenuOpen ? 'rotate-180' : ''
                     }`}
                   />
                 </button>
                 <AnimatePresence>
-                  {isAnalysisModeMenuOpen && (
+                  {isPeriodMenuOpen && (
                     <motion.div
                       initial={{ opacity: 0, scale: 0.95, y: -10 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                      className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border z-20"
+                      className="absolute left-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border z-20"
                     >
-                      <ul className="p-1">
-                        {analysisModeOptions.map((option) => (
+                      <ul className="p-1 max-h-60 overflow-y-auto">
+                        {quickPeriodOptions.map((option) => (
                           <li key={option.id}>
                             <button
                               onClick={() => {
-                                setAnalysisMode(option.id);
-                                setIsAnalysisModeMenuOpen(false);
+                                handlePeriodSelect(option.id);
+                                setIsPeriodMenuOpen(false);
                               }}
-                              className={`w-full text-left px-3 py-1.5 text-sm rounded-md ${
-                                analysisMode === option.id
+                              className={`w-full text-left px-3 py-2.5 text-sm rounded-md ${
+                                currentPeriod.type === option.id
                                   ? 'bg-blue-50 text-blue-700 font-semibold'
                                   : 'text-gray-700 hover:bg-gray-100'
                               }`}
@@ -558,94 +552,377 @@ const AnalyseView = ({
                 </AnimatePresence>
               </div>
 
-              <div className="relative" ref={analysisTypeMenuRef}>
-                <button
-                  onClick={() => setIsAnalysisTypeMenuOpen((p) => !p)}
-                  className="flex items-center gap-2 px-3 h-9 rounded-md bg-gray-200 font-semibold text-sm hover:bg-gray-300 transition-colors"
+              <button
+                onClick={() => setIsMobileFiltersOpen(true)}
+                className="ml-2 p-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              >
+                <Menu size={20} />
+              </button>
+            </div>
+
+            {/* Menu mobile des filtres */}
+            <AnimatePresence>
+              {isMobileFiltersOpen && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 bg-black bg-opacity-50 z-50 lg:hidden"
+                  onClick={() => setIsMobileFiltersOpen(false)}
                 >
-                  <SelectedIcon
-                    className={`w-4 h-4 ${
-                      selectedAnalysisTypeOption?.color || 'text-red-600'
-                    }`}
-                  />
-                  <span>{selectedAnalysisTypeOption?.label || 'Sorties'}</span>
-                  <ChevronDown
-                    className={`w-4 h-4 transition-transform ${
-                      isAnalysisTypeMenuOpen ? 'rotate-180' : ''
-                    }`}
-                  />
-                </button>
-                <AnimatePresence>
-                  {isAnalysisTypeMenuOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                      className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border z-20"
+                  <motion.div
+                    initial={{ x: '100%' }}
+                    animate={{ x: 0 }}
+                    exit={{ x: '100%' }}
+                    className="absolute right-0 top-0 h-full w-4/5 max-w-sm bg-white shadow-xl"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="p-4 border-b">
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-semibold">Filtres</h2>
+                        <button
+                          onClick={() => setIsMobileFiltersOpen(false)}
+                          className="p-2 hover:bg-gray-100 rounded-full"
+                        >
+                          <X size={20} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="p-4 space-y-6 overflow-y-auto max-h-[calc(100vh-120px)]">
+                      {/* Type d'analyse */}
+                      <div className="space-y-3">
+                        <h3 className="font-medium text-gray-700">
+                          Type d'analyse
+                        </h3>
+                        <div className="space-y-2">
+                          {analysisTypeOptions.map((option) => {
+                            const Icon =
+                              option.icon === 'TrendingDown'
+                                ? TrendingDown
+                                : TrendingUp;
+                            return (
+                              <button
+                                key={option.id}
+                                onClick={() => {
+                                  setLocalAnalysisType(option.id);
+                                  setIsMobileFiltersOpen(false);
+                                }}
+                                className={`w-full flex items-center gap-3 p-3 rounded-lg text-left ${
+                                  analysisType === option.id
+                                    ? 'bg-blue-50 border border-blue-200'
+                                    : 'bg-gray-50 hover:bg-gray-100'
+                                }`}
+                              >
+                                <Icon className={`w-5 h-5 ${option.color}`} />
+                                <span className="font-medium">
+                                  {option.label}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Mode d'analyse */}
+                      <div className="space-y-3">
+                        <h3 className="font-medium text-gray-700">
+                          Mode d'analyse
+                        </h3>
+                        <div className="space-y-2">
+                          {analysisModeOptions.map((option) => (
+                            <button
+                              key={option.id}
+                              onClick={() => {
+                                setAnalysisMode(option.id);
+                                setIsMobileFiltersOpen(false);
+                              }}
+                              className={`w-full p-3 rounded-lg text-left font-medium ${
+                                analysisMode === option.id
+                                  ? 'bg-blue-50 border border-blue-200'
+                                  : 'bg-gray-50 hover:bg-gray-100'
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Données visibles */}
+                      <div className="space-y-3">
+                        <h3 className="font-medium text-gray-700">
+                          Données à afficher
+                        </h3>
+                        <div className="flex flex-col gap-2">
+                          <button
+                            onClick={() =>
+                              setVisibleData((p) => ({
+                                ...p,
+                                budget: !p.budget,
+                              }))
+                            }
+                            className={`flex items-center justify-between p-3 rounded-lg ${
+                              visibleData.budget
+                                ? 'bg-blue-50 border border-blue-200'
+                                : 'bg-gray-50 hover:bg-gray-100'
+                            }`}
+                          >
+                            <span className="font-medium">Budget</span>
+                            <div
+                              className={`w-4 h-4 rounded border ${
+                                visibleData.budget
+                                  ? 'bg-blue-600 border-blue-600'
+                                  : 'border-gray-300'
+                              }`}
+                            />
+                          </button>
+                          <button
+                            onClick={() =>
+                              setVisibleData((p) => ({
+                                ...p,
+                                actual: !p.actual,
+                              }))
+                            }
+                            className={`flex items-center justify-between p-3 rounded-lg ${
+                              visibleData.actual
+                                ? 'bg-blue-50 border border-blue-200'
+                                : 'bg-gray-50 hover:bg-gray-100'
+                            }`}
+                          >
+                            <span className="font-medium">Réel</span>
+                            <div
+                              className={`w-4 h-4 rounded border ${
+                                visibleData.actual
+                                  ? 'bg-blue-600 border-blue-600'
+                                  : 'border-gray-300'
+                              }`}
+                            />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Version desktop */}
+          {/* Version desktop */}
+          <div className="hidden lg:block mb-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              {!rangeStartProp && (
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handlePeriodNavigation(-1)}
+                      className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors"
+                      title="Période précédente"
                     >
-                      <ul className="p-1">
-                        {analysisTypeOptions.map((option) => {
-                          const Icon =
-                            option.icon === 'TrendingDown'
-                              ? TrendingDown
-                              : TrendingUp;
-                          return (
+                      <ChevronLeft size={18} />
+                    </button>
+                    <span
+                      className="text-sm font-semibold text-gray-700 w-auto min-w-[9rem] text-center"
+                      title="Période sélectionnée"
+                    >
+                      {analysisPeriodName}
+                    </span>
+                    <button
+                      onClick={() => handlePeriodNavigation(1)}
+                      className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors"
+                      title="Période suivante"
+                    >
+                      <ChevronRight size={18} />
+                    </button>
+                  </div>
+
+                  <div className="h-8 w-px bg-gray-200"></div>
+
+                  <div className="relative" ref={periodMenuRef}>
+                    <button
+                      onClick={() => setIsPeriodMenuOpen((p) => !p)}
+                      className="flex items-center gap-2 px-3 h-9 rounded-md bg-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-300 transition-colors"
+                    >
+                      <span>{selectedPeriodLabel}</span>
+                      <ChevronDown
+                        className={`w-4 h-4 transition-transform ${
+                          isPeriodMenuOpen ? 'rotate-180' : ''
+                        }`}
+                      />
+                    </button>
+                    <AnimatePresence>
+                      {isPeriodMenuOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                          className="absolute left-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border z-20"
+                        >
+                          <ul className="p-1">
+                            {quickPeriodOptions.map((option) => (
+                              <li key={option.id}>
+                                <button
+                                  onClick={() => {
+                                    handlePeriodSelect(option.id);
+                                    setIsPeriodMenuOpen(false);
+                                  }}
+                                  className={`w-full text-left px-3 py-1.5 text-sm rounded-md ${
+                                    currentPeriod.type === option.id
+                                      ? 'bg-blue-50 text-blue-700 font-semibold'
+                                      : 'text-gray-700 hover:bg-gray-100'
+                                  }`}
+                                >
+                                  {option.label}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-4">
+                <div className="relative" ref={analysisModeMenuRef}>
+                  <button
+                    onClick={() => setIsAnalysisModeMenuOpen((p) => !p)}
+                    className="flex items-center gap-2 px-3 h-9 rounded-md bg-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-300 transition-colors"
+                  >
+                    <span>
+                      {selectedAnalysisModeOption?.label || 'Par catégorie'}
+                    </span>
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform ${
+                        isAnalysisModeMenuOpen ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+                  <AnimatePresence>
+                    {isAnalysisModeMenuOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                        className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border z-20"
+                      >
+                        <ul className="p-1">
+                          {analysisModeOptions.map((option) => (
                             <li key={option.id}>
                               <button
                                 onClick={() => {
-                                  setLocalAnalysisType(option.id);
-                                  setIsAnalysisTypeMenuOpen(false);
+                                  setAnalysisMode(option.id);
+                                  setIsAnalysisModeMenuOpen(false);
                                 }}
-                                className={`w-full text-left px-3 py-1.5 text-sm rounded-md flex items-center gap-2 ${
-                                  analysisType === option.id
+                                className={`w-full text-left px-3 py-1.5 text-sm rounded-md ${
+                                  analysisMode === option.id
                                     ? 'bg-blue-50 text-blue-700 font-semibold'
                                     : 'text-gray-700 hover:bg-gray-100'
                                 }`}
                               >
-                                <Icon className={`w-4 h-4 ${option.color}`} />
                                 {option.label}
                               </button>
                             </li>
-                          );
-                        })}
-                      </ul>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+                          ))}
+                        </ul>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
 
-              <div className="flex items-center gap-1 bg-gray-200 p-1 rounded-lg">
-                <button
-                  onClick={() =>
-                    setVisibleData((p) => ({ ...p, budget: !p.budget }))
-                  }
-                  className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-colors ${
-                    visibleData.budget
-                      ? 'bg-white shadow text-blue-600'
-                      : 'text-gray-600 hover:bg-gray-300'
-                  }`}
-                >
-                  Budget
-                </button>
-                <button
-                  onClick={() =>
-                    setVisibleData((p) => ({ ...p, actual: !p.actual }))
-                  }
-                  className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-colors ${
-                    visibleData.actual
-                      ? 'bg-white shadow text-blue-600'
-                      : 'text-gray-600 hover:bg-gray-300'
-                  }`}
-                >
-                  Réel
-                </button>
+                <div className="relative" ref={analysisTypeMenuRef}>
+                  <button
+                    onClick={() => setIsAnalysisTypeMenuOpen((p) => !p)}
+                    className="flex items-center gap-2 px-3 h-9 rounded-md bg-gray-200 font-semibold text-sm hover:bg-gray-300 transition-colors"
+                  >
+                    <SelectedIcon
+                      className={`w-4 h-4 ${
+                        selectedAnalysisTypeOption?.color || 'text-red-600'
+                      }`}
+                    />
+                    <span>
+                      {selectedAnalysisTypeOption?.label || 'Sorties'}
+                    </span>
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform ${
+                        isAnalysisTypeMenuOpen ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+                  <AnimatePresence>
+                    {isAnalysisTypeMenuOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                        className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border z-20"
+                      >
+                        <ul className="p-1">
+                          {analysisTypeOptions.map((option) => {
+                            const Icon =
+                              option.icon === 'TrendingDown'
+                                ? TrendingDown
+                                : TrendingUp;
+                            return (
+                              <li key={option.id}>
+                                <button
+                                  onClick={() => {
+                                    setLocalAnalysisType(option.id);
+                                    setIsAnalysisTypeMenuOpen(false);
+                                  }}
+                                  className={`w-full text-left px-3 py-1.5 text-sm rounded-md flex items-center gap-2 ${
+                                    analysisType === option.id
+                                      ? 'bg-blue-50 text-blue-700 font-semibold'
+                                      : 'text-gray-700 hover:bg-gray-100'
+                                  }`}
+                                >
+                                  <Icon className={`w-4 h-4 ${option.color}`} />
+                                  {option.label}
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                <div className="flex items-center gap-1 bg-gray-200 p-1 rounded-lg">
+                  <button
+                    onClick={() =>
+                      setVisibleData((p) => ({ ...p, budget: !p.budget }))
+                    }
+                    className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-colors ${
+                      visibleData.budget
+                        ? 'bg-white shadow text-blue-600'
+                        : 'text-gray-600 hover:bg-gray-300'
+                    }`}
+                  >
+                    Budget
+                  </button>
+                  <button
+                    onClick={() =>
+                      setVisibleData((p) => ({ ...p, actual: !p.actual }))
+                    }
+                    className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-colors ${
+                      visibleData.actual
+                        ? 'bg-white shadow text-blue-600'
+                        : 'text-gray-600 hover:bg-gray-300'
+                    }`}
+                  >
+                    Réel
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        </>
       )}
 
-      <div className="bg-white p-6 rounded-lg shadow">
+      <div className="bg-white p-4 md:p-6 rounded-lg shadow">
         {drillDownState.level > 0 && (
           <div className="mb-4">
             <button
@@ -659,10 +936,10 @@ const AnalyseView = ({
                   tierName: null,
                 })
               }
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200"
+              className="flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200"
             >
               <ArrowLeft className="w-4 h-4" />
-              Retour
+              <span className="hidden sm:inline">Retour</span>
             </button>
           </div>
         )}
@@ -671,18 +948,20 @@ const AnalyseView = ({
 
         {/* Section d'information des données */}
         {!loading && !error && (
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+          <div className="mt-4 md:mt-6 p-3 md:p-4 bg-gray-50 rounded-lg">
             <h3 className="text-sm font-semibold text-gray-700 mb-2">
-              Résumé de l'analyse pour {analysisPeriodName}:
+              Résumé pour {analysisPeriodName}:
             </h3>
 
             {currentAnalysisData.data.rawData &&
             currentAnalysisData.data.rawData.length > 0 ? (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-4">
                   <div className="p-3 bg-white rounded border">
-                    <h4 className="font-medium text-gray-600">Total Budget</h4>
-                    <p className="text-lg font-bold">
+                    <h4 className="font-medium text-gray-600 text-sm md:text-base">
+                      Total Budget
+                    </h4>
+                    <p className="text-base md:text-lg font-bold">
                       {formatCurrency(
                         currentAnalysisData.data.totalBudget,
                         settings
@@ -690,8 +969,10 @@ const AnalyseView = ({
                     </p>
                   </div>
                   <div className="p-3 bg-white rounded border">
-                    <h4 className="font-medium text-gray-600">Total Réel</h4>
-                    <p className="text-lg font-bold">
+                    <h4 className="font-medium text-gray-600 text-sm md:text-base">
+                      Total Réel
+                    </h4>
+                    <p className="text-base md:text-lg font-bold">
                       {formatCurrency(
                         currentAnalysisData.data.totalActual,
                         settings
@@ -699,9 +980,11 @@ const AnalyseView = ({
                     </p>
                   </div>
                   <div className="p-3 bg-white rounded border">
-                    <h4 className="font-medium text-gray-600">Différence</h4>
+                    <h4 className="font-medium text-gray-600 text-sm md:text-base">
+                      Différence
+                    </h4>
                     <p
-                      className={`text-lg font-bold ${
+                      className={`text-base md:text-lg font-bold ${
                         currentAnalysisData.data.totalActual <=
                         currentAnalysisData.data.totalBudget
                           ? 'text-green-600'
@@ -717,33 +1000,33 @@ const AnalyseView = ({
                   </div>
                 </div>
 
-                <div className="mt-4">
-                  <h4 className="font-medium text-gray-600 mb-2">
+                <div className="mt-3 md:mt-4">
+                  <h4 className="font-medium text-gray-600 mb-2 text-sm md:text-base">
                     {analysisMode === 'tier'
                       ? 'Détails par tiers:'
                       : 'Détails par catégorie:'}
                   </h4>
-                  <div className="space-y-2">
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
                     {currentAnalysisData.data.rawData?.map((item, index) => (
                       <div
                         key={index}
-                        className="flex justify-between items-center p-2 bg-white rounded border"
+                        className="flex flex-col sm:flex-row sm:justify-between sm:items-center p-2 md:p-3 bg-white rounded border gap-2"
                       >
                         <div className="flex flex-col">
-                          <span className="font-medium text-sm">
+                          <span className="font-medium text-sm truncate">
                             {item.name}
                           </span>
                           {analysisMode === 'tier' && item.email && (
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-gray-500 truncate">
                               {item.email}
                             </span>
                           )}
                         </div>
-                        <div className="flex gap-4">
-                          <span className="text-sm">
+                        <div className="flex flex-wrap gap-2 sm:gap-4">
+                          <span className="text-xs sm:text-sm">
                             Budget: {formatCurrency(item.budget, settings)}
                           </span>
-                          <span className="text-sm">
+                          <span className="text-xs sm:text-sm">
                             Réel: {formatCurrency(item.actual, settings)}
                           </span>
                         </div>
@@ -753,7 +1036,7 @@ const AnalyseView = ({
                 </div>
               </>
             ) : (
-              <div className="text-center py-4 text-gray-500">
+              <div className="text-center py-3 md:py-4 text-sm md:text-base text-gray-500">
                 Aucune donnée disponible pour cette période
               </div>
             )}
