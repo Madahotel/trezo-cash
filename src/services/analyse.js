@@ -19,6 +19,7 @@ export const formatXAxisLabels = (
   // Pour les autres valeurs, retourner chaîne vide
   return '';
 };
+
 // Fonctions utilitaires
 export const formatCurrency = (amount, settings) => {
   return new Intl.NumberFormat('fr-FR', {
@@ -28,17 +29,22 @@ export const formatCurrency = (amount, settings) => {
 };
 
 // Fonction pour générer les transactions récurrentes à partir des budgets
-export const transformBudgetDataWithDates = (budgetData) => {
+export const transformBudgetDataWithDates = (
+  budgetData,
+  currentPeriod = null
+) => {
   const transactions = [];
 
   budgetData.forEach((budget) => {
     const frequencyId = budget.frequency_id;
     const type = budget.category_type_id == 2 ? 'receivable' : 'payable';
 
+    // Passer currentPeriod à generateDatesByFrequency
     const dates = generateDatesByFrequency(
       frequencyId,
       budget.start_date,
-      budget.end_date
+      budget.end_date,
+      currentPeriod // Ajouter ce paramètre
     );
 
     dates.forEach((date, occurrenceIndex) => {
@@ -87,7 +93,8 @@ export const transformBudgetDataWithDates = (budgetData) => {
 export const generateDatesByFrequency = (
   frequencyId,
   startDate,
-  endDate = null
+  endDate = null,
+  currentPeriod = null
 ) => {
   const dates = [];
 
@@ -116,17 +123,55 @@ export const generateDatesByFrequency = (
     return dates;
   }
 
-  // Si pas de date de fin, générer pour 2 ans
-  if (!endDate) {
-    const futureEnd = new Date(start);
-    futureEnd.setUTCFullYear(futureEnd.getUTCFullYear() + 2);
+  // Si pas de date de fin, utiliser la période d'analyse actuelle
+  if (!endDate && currentPeriod) {
+    // Calculer la plage de dates pour la période d'analyse actuelle
+    const { rangeStart, rangeEnd } = calculateDateRange(
+      null,
+      null,
+      currentPeriod
+    );
 
     let current = new Date(start);
+
+    // Ne générer que les dates jusqu'à la fin de la période d'analyse
+    const stopDate = new Date(rangeEnd);
+
+    // Ajouter des marges selon la fréquence pour s'assurer de capturer au moins une occurrence
+    if (frequencyId === 8) {
+      // Annuelle
+      stopDate.setUTCFullYear(stopDate.getUTCFullYear() + 1);
+    } else if (frequencyId === 7) {
+      // Semestrielle
+      stopDate.setUTCMonth(stopDate.getUTCMonth() + 6);
+    } else if (frequencyId === 6) {
+      // Trimestrielle
+      stopDate.setUTCMonth(stopDate.getUTCMonth() + 3);
+    } else if (frequencyId === 5) {
+      // Bimestrielle
+      stopDate.setUTCMonth(stopDate.getUTCMonth() + 2);
+    } else if (frequencyId === 4) {
+      // Hebdomadaire
+      stopDate.setUTCDate(stopDate.getUTCDate() + 7);
+    } else if (frequencyId === 3) {
+      // Mensuelle
+      stopDate.setUTCMonth(stopDate.getUTCMonth() + 1);
+    } else if (frequencyId === 2) {
+      // Quotidienne
+      stopDate.setUTCDate(stopDate.getUTCDate() + 1);
+    }
+
+    // Limiter les itérations pour éviter les boucles infinies
     let iteration = 0;
+    const maxIterations = 1000;
 
-    while (current <= futureEnd && iteration < 1000) {
-      dates.push(new Date(current));
+    while (current <= stopDate && iteration < maxIterations) {
+      // Ajouter la date seulement si elle est dans la période d'analyse
+      if (current >= rangeStart && current <= rangeEnd) {
+        dates.push(new Date(current));
+      }
 
+      // Passer à la prochaine occurrence selon la fréquence
       const next = new Date(current);
       switch (frequencyId) {
         case 2: // Quotidienne
@@ -138,8 +183,8 @@ export const generateDatesByFrequency = (
         case 4: // Hebdomadaire
           next.setUTCDate(next.getUTCDate() + 7);
           break;
-        case 5: // Bimensuelle
-          next.setUTCDate(next.getUTCDate() + 15);
+        case 5: // Bimestrielle
+          next.setUTCMonth(next.getUTCMonth() + 2);
           break;
         case 6: // Trimestrielle
           next.setUTCMonth(next.getUTCMonth() + 3);
@@ -150,15 +195,18 @@ export const generateDatesByFrequency = (
         case 8: // Annuelle
           next.setUTCFullYear(next.getUTCFullYear() + 1);
           break;
+        default:
+          return dates;
       }
 
       current = next;
       iteration++;
     }
+
     return dates;
   }
 
-  // Avec date de fin
+  // Avec date de fin (code existant)
   const end = parseDate(endDate);
   if (!end || isNaN(end.getTime())) {
     console.error('❌ Date de fin invalide:', endDate);
@@ -188,8 +236,8 @@ export const generateDatesByFrequency = (
       case 4: // Hebdomadaire
         next.setUTCDate(next.getUTCDate() + 7);
         break;
-      case 5: // Bimensuelle
-        next.setUTCDate(next.getUTCDate() + 15);
+      case 5: // Bimestrielle
+        next.setUTCMonth(next.getUTCMonth() + 2);
         break;
       case 6: // Trimestrielle
         next.setUTCMonth(next.getUTCMonth() + 3);
@@ -482,13 +530,20 @@ export const calculateDateRange = (
 };
 
 // Transformation des données API
-export const transformApiData = (apiData, defaultSettings) => {
+export const transformApiData = (
+  apiData,
+  defaultSettings,
+  currentPeriod = null
+) => {
   if (!apiData) return null;
 
   const { budgets, collections } = apiData;
 
   // Générer les transactions récurrentes à partir des budgets
-  const budgetTransactions = transformBudgetDataWithDates(budgets);
+  const budgetTransactions = transformBudgetDataWithDates(
+    budgets,
+    currentPeriod
+  );
 
   // Extraire les catégories uniques
   const categories = {
@@ -992,7 +1047,7 @@ export const getCategoryChartOptions = ({
   analysisPeriodName,
   settings,
   visibleData,
-  isMobile = false, // Ajouter ce paramètre
+  isMobile = false,
 }) => {
   const { categories, budgetData, actualData, totalBudget, totalActual } =
     categoryAnalysisData;
@@ -1039,7 +1094,7 @@ export const getCategoryChartOptions = ({
           )} (${percentage.toFixed(0)}%)`;
         },
         color: chartColors.budgetLabel,
-        fontSize: isMobile ? 10 : 12, // Réduire la taille du texte en mobile
+        fontSize: isMobile ? 10 : 12,
       },
     });
   }
@@ -1064,7 +1119,7 @@ export const getCategoryChartOptions = ({
           )} (${percentage.toFixed(0)}%)`;
         },
         color: chartColors.actualLabel,
-        fontSize: isMobile ? 10 : 12, // Réduire la taille du texte en mobile
+        fontSize: isMobile ? 10 : 12,
       },
     });
   }
@@ -1145,7 +1200,6 @@ export const getCategoryChartOptions = ({
           return formatXAxisLabels(value, null, isMobile, maxValue, settings);
         },
         fontSize: isMobile ? 10 : 12,
-        // Réduire le nombre de lignes de division en mobile
         interval: isMobile
           ? (value) => {
               // N'afficher que le 0 et le max
@@ -1153,7 +1207,6 @@ export const getCategoryChartOptions = ({
             }
           : 0,
       },
-      // Réduire le nombre de lignes de grille en mobile
       splitLine: {
         show: true,
         lineStyle: {
@@ -1161,7 +1214,7 @@ export const getCategoryChartOptions = ({
           opacity: isMobile ? 0.3 : 0.5,
         },
       },
-      splitNumber: isMobile ? 3 : 5, // Moins de divisions en mobile
+      splitNumber: isMobile ? 3 : 5,
     },
     yAxis: {
       type: 'category',
@@ -1171,7 +1224,6 @@ export const getCategoryChartOptions = ({
         rotate: 0,
         fontSize: isMobile ? 10 : 12,
         formatter: (value) => {
-          // Tronquer davantage en mobile
           const maxLength = isMobile ? 15 : 20;
           return value.length > maxLength
             ? value.substring(0, maxLength - 3) + '...'
@@ -1193,7 +1245,7 @@ export const getTierChartOptions = ({
   analysisPeriodName,
   settings,
   visibleData,
-  isMobile = false, // Ajouter ce paramètre
+  isMobile = false,
 }) => {
   const { tiers, budgetData, actualData, totalBudget, totalActual } =
     tierAnalysisData;
@@ -1393,7 +1445,7 @@ export const getChartOptions = ({
   analysisPeriodName,
   settings,
   visibleData,
-  isMobile = false, // Ajouter ce paramètre
+  isMobile = false,
 }) => {
   if (analysisMode === 'tier') {
     return getTierChartOptions({
@@ -1402,7 +1454,7 @@ export const getChartOptions = ({
       analysisPeriodName,
       settings,
       visibleData,
-      isMobile, // Passer le paramètre
+      isMobile,
     });
   } else {
     // Par défaut, analyse par catégorie
@@ -1412,10 +1464,11 @@ export const getChartOptions = ({
       analysisPeriodName,
       settings,
       visibleData,
-      isMobile, // Passer le paramètre
+      isMobile,
     });
   }
 };
+
 // Options pour les menus
 export const quickPeriodOptions = [
   { id: 'month', label: 'Mois' },

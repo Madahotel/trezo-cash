@@ -155,10 +155,10 @@ const AnalyseView = ({
     language: 'fr',
   };
 
-  // Transformer les données API
+  // Transformer les données API - passer currentPeriod
   const transformedData = useMemo(() => {
-    return transformApiData(apiData, defaultSettings);
-  }, [apiData]);
+    return transformApiData(apiData, defaultSettings, currentPeriod);
+  }, [apiData, currentPeriod]);
 
   // Utiliser les données transformées
   const {
@@ -708,6 +708,7 @@ const AnalyseView = ({
             </AnimatePresence>
           </div>
 
+          {/* Version desktop */}
           {/* Version desktop */}
           <div className="hidden lg:block mb-6">
             <div className="flex flex-wrap items-center justify-between gap-4">

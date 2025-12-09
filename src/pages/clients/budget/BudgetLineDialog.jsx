@@ -306,7 +306,8 @@ const BudgetLineDialog = ({
           type: budget.budget_type_id?.toString() || '1',
           mainCategory: budget.category_id?.toString() || '',
           subcategory: budget.sub_category_id?.toString() || '',
-          amount: budget.budget_amount?.toString() || budget.amount?.toString() || '',
+          amount:
+            budget.budget_amount?.toString() || budget.amount?.toString() || '',
           currency: currency?.value || '1',
           frequency: budget.frequency_id?.toString() || '1',
           startDate: budget.start_date || '',
@@ -330,7 +331,6 @@ const BudgetLineDialog = ({
       } else {
         throw new Error(res.message || 'Données non trouvées');
       }
-
     } catch (error) {
       console.error("Erreur lors du chargement des données d'édition:", error);
       toast.error(`Erreur lors du chargement: ${error.message}`);
@@ -456,9 +456,9 @@ const BudgetLineDialog = ({
 
     setIsLoading(true);
     try {
-      let result;
+      let res;
       if (editLine) {
-        result = await apiUpdate(
+        res = await apiUpdate(
           `budget-projects/budgets/${editLine.id}/details/${editLine.budget_detail_id}`,
           apiData
         );
@@ -473,11 +473,11 @@ const BudgetLineDialog = ({
       setTimeout(() => {
         onOpenChange(false);
       }, 600);
-
     } catch (error) {
       console.error('Error saving budget:', error.response?.data || error);
       toast.error(
-        `Erreur lors de ${editLine ? 'la modification' : "l'ajout"
+        `Erreur lors de ${
+          editLine ? 'la modification' : "l'ajout"
         } de la ligne budgétaire: ${errorMessage}`
       );
     } finally {
