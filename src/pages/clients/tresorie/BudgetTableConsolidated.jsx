@@ -16,6 +16,8 @@ import {
     Lock,
     ChevronUp,
 } from 'lucide-react';
+import { useUI } from '../../../components/context/UIContext';
+import { useConsolidationDetails } from '../../../hooks/useConsolidationDetails'; // Importez votre hook
 import TransactionDetailDrawer from './TransactionDetailDrawer.jsx';
 import ResizableTh from './ResizableTh.jsx';
 import {
@@ -51,8 +53,8 @@ const BudgetTableConsolidated = (props) => {
         vatRegimes,
         taxConfigs,
         activeProjectId,
-        isConsolidated,
-        isCustomConsolidated,
+        isConsolidated: propsIsConsolidated,
+        isCustomConsolidated: propsIsCustomConsolidated,
         projects,
         settings,
         activeProject,
@@ -79,8 +81,78 @@ const BudgetTableConsolidated = (props) => {
         isPeriodMenuOpen,
         setIsPeriodMenuOpen,
         onRefresh,
-        consolidatedData,
+        consolidatedData: propsConsolidatedData,
     } = props;
+
+    // Utiliser le contexte UI pour déterminer la vue consolidée
+    const { uiState } = useUI();
+    const currentProject = uiState.activeProject;
+
+    // Extraire l'ID de consolidation depuis le projet actif
+    const consolidationId = useMemo(() => {
+        if (currentProject?.type === 'consolidated' && currentProject?.id) {
+            const idStr = String(currentProject.id);
+            if (idStr.startsWith('consolidated_view_')) {
+                return idStr.replace('consolidated_view_', '');
+            }
+        }
+        return null;
+    }, [currentProject]);
+
+    // Déterminer si c'est une vue consolidée
+    const isConsolidatedView = currentProject?.type === 'consolidated';
+    const isCustomConsolidated = !!consolidationId;
+
+    // Utiliser votre hook pour charger les données consolidées
+    const {
+        consolidatedViewData,
+        realBudgets,
+        loading: consolidationLoading,
+        error: consolidationError,
+        refetch: refetchConsolidation
+    } = useConsolidationDetails(consolidationId);
+
+    // Transformer les données du hook pour le tableau
+    const transformedConsolidatedData = useMemo(() => {
+        if (!isConsolidatedView || !consolidatedViewData?.hasData) {
+            return null;
+        }
+
+        // Structure pour la fonction consolidateEntries
+        return {
+            project_consolidateds: {
+                project_consolidated_items: {
+                    data: consolidatedViewData.budgetsByProject.flatMap(project =>
+                        project.budgets.map(budget => ({
+                            consolidation_id: consolidationId,
+                            project_id: project.projectId,
+                            project_name: project.projectName,
+                            budget_id: budget.id,
+                            category_name: budget.category,
+                            sub_category_name: budget.subCategory,
+                            third_party_name: budget.thirdParty || 'Non spécifié',
+                            budget_description: budget.description || '',
+                            budget_type_id: budget.typeId,
+                            budget_type_name: budget.type,
+                            frequency_name: budget.frequency,
+                            budget_forecast_amount: budget.amount?.toString() || '0',
+                            currency_code: budget.currency || 'EUR',
+                            budget_start_date: budget.startDate,
+                            budget_end_date: budget.endDate
+                        }))
+                    )
+                }
+            },
+            real_budgets: {
+                real_budget_items: {
+                    data: realBudgets || []
+                }
+            }
+        };
+    }, [isConsolidatedView, consolidatedViewData, realBudgets, consolidationId]);
+
+    // Utiliser les données transformées ou celles passées en props
+    const consolidatedData = isConsolidatedView ? transformedConsolidatedData : propsConsolidatedData;
 
     const [isRefreshing, setIsRefreshing] = useState(false);
     const { dataState: contextDataState } = useData();
@@ -151,73 +223,6 @@ const BudgetTableConsolidated = (props) => {
         setSubCategoryMenuOpen(null);
     };
 
-    // Transformation des données consolidées
-    const consolidatedEntries = useMemo(() => {
-
-        if (!consolidatedData?.budgetsByProject) {
-            return [];
-        }
-
-        const entries = consolidatedData.budgetsByProject.flatMap(project => {
-            console.log('📋 Processing project:', {
-                projectId: project.projectId,
-                projectName: project.projectName,
-                budgetsCount: project.budgets?.length || 0
-            });
-
-            return project.budgets.map(budget => {
-                console.log('📝 Processing budget:', {
-                    budgetId: budget.id,
-                    budgetAmount: budget.budgetAmount,
-                    realAmount: budget.realAmount,
-                    reste: budget.reste
-                });
-
-                return {
-                    id: budget.id,
-                    budget_id: budget.id,
-                    // ⭐ IMPORTANT: Gardez l'ID original si disponible
-                    original_budget_id: budget.originalBudgetId || budget.id,
-                    category: budget.category,
-                    subCategory: budget.subCategory,
-                    supplier: budget.thirdParty || 'Non spécifié',
-                    description: budget.description || '',
-                    projectId: project.projectId,
-                    projectName: project.projectName,
-                    type: budget.typeId === 2 ? 'entree' : 'sortie',
-                    budget_type_id: budget.typeId,
-                    budget_type_name: budget.type,
-                    frequency_name: budget.frequency || 'Ponctuel',
-                    frequency_id: getFrequencyId(budget.frequency),
-                    budgetAmount: budget.budgetAmount || 0,
-                    // ⭐ ICI: Si budget a déjà un realAmount, on l'utilise
-                    realAmount: budget.realAmount || 0,
-                    reste: budget.reste || 0,
-                    currency: budget.currency || 'EUR',
-                    budget_start_date: budget.startDate,
-                    budget_end_date: budget.endDate,
-                    hasAmount: budget.hasAmount,
-                    amount: budget.budgetAmount,
-                    start_date: budget.startDate,
-                    end_date: budget.endDate,
-                    frequency: budget.frequency,
-                    isProvision: false,
-                    is_vat_child: false,
-                    is_vat_payment: false,
-                    is_tax_payment: false,
-                    isOffBudget: false
-                };
-            });
-        });
-
-        console.log('✅ consolidatedEntries built:', {
-            totalEntries: entries.length,
-            sampleEntry: entries[0]
-        });
-
-        return entries;
-    }, [consolidatedData]);
-
     // Fonction utilitaire pour convertir le nom de fréquence en ID
     const getFrequencyId = (frequencyName) => {
         const frequencyMap = {
@@ -234,121 +239,197 @@ const BudgetTableConsolidated = (props) => {
         return frequencyMap[frequencyName] || '1';
     };
 
+    // Transformation des données consolidées
+    const consolidatedEntries = useMemo(() => {
+        if (!consolidatedData?.project_consolidateds?.project_consolidated_items?.data) {
+            console.log('📭 No consolidated data found');
+            return [];
+        }
+
+        const items = consolidatedData.project_consolidateds.project_consolidated_items.data;
+        console.log('📋 Processing consolidated items:', items.length);
+
+        // Préparer les données réelles par budget avec les dates
+        const realPaymentsByBudgetId = {};
+        if (consolidatedData?.real_budgets?.real_budget_items?.data) {
+            consolidatedData.real_budgets.real_budget_items.data.forEach(item => {
+                const budgetId = item.budget_id;
+                if (!realPaymentsByBudgetId[budgetId]) {
+                    realPaymentsByBudgetId[budgetId] = [];
+                }
+                realPaymentsByBudgetId[budgetId].push({
+                    collection_date: item.collection_date,
+                    collection_amount: parseFloat(item.collection_amount || 0)
+                });
+            });
+        }
+
+        const entries = items.map(budget => {
+            // Récupérer les paiements réels pour ce budget avec leurs dates
+            const realPayments = realPaymentsByBudgetId[budget.budget_id] || [];
+
+            // Calculer le total réel pour ce budget (pour information seulement)
+            let totalRealAmount = 0;
+            realPayments.forEach(payment => {
+                totalRealAmount += payment.collection_amount;
+            });
+
+            const entry = {
+                id: `consolidated_${budget.consolidation_id}_${budget.budget_id}`,
+                budget_id: budget.budget_id,
+                original_budget_id: budget.budget_id,
+                category: budget.category_name,
+                subCategory: budget.sub_category_name,
+                supplier: budget.third_party_name || 'Non spécifié',
+                description: budget.budget_description || '',
+                projectId: budget.project_id,
+                projectName: budget.project_name,
+                type: budget.budget_type_id === 2 ? 'entree' : 'sortie',
+                budget_type_id: budget.budget_type_id,
+                budget_type_name: budget.budget_type_name,
+                frequency_name: budget.frequency_name,
+                frequency_id: getFrequencyId(budget.frequency_name),
+                budgetAmount: parseFloat(budget.budget_forecast_amount || 0),
+                // ⭐ IMPORTANT: Ne pas utiliser realAmount pour les calculs par période
+                // totalRealAmount: totalRealAmount, // Optionnel: pour information
+                reste: parseFloat(budget.budget_forecast_amount || 0) - totalRealAmount,
+                currency: budget.currency_code || 'EUR',
+                budget_start_date: budget.budget_start_date,
+                budget_end_date: budget.budget_end_date,
+                hasAmount: true,
+                amount: parseFloat(budget.budget_forecast_amount || 0),
+                start_date: budget.budget_start_date,
+                end_date: budget.budget_end_date,
+                frequency: budget.frequency_name,
+                isProvision: false,
+                is_vat_child: false,
+                is_vat_payment: false,
+                is_tax_payment: false,
+                isOffBudget: false,
+                // ⭐ Stocker les paiements individuels avec leurs dates
+                realPayments: realPayments,
+                // Ajouter un flag pour indiquer qu'on a des paiements détaillés
+                hasDetailedPayments: realPayments.length > 0
+            };
+
+            console.log('📝 Built entry:', {
+                budgetId: entry.budget_id,
+                budgetAmount: entry.budgetAmount,
+                realPaymentsCount: entry.realPayments.length,
+                realPayments: entry.realPayments.map(p => ({
+                    date: p.collection_date,
+                    amount: p.collection_amount
+                }))
+            });
+
+            return entry;
+        });
+
+        console.log('✅ consolidatedEntries built:', {
+            totalEntries: entries.length,
+            entriesWithRealPayments: entries.filter(e => e.realPayments.length > 0).length
+        });
+
+        return entries;
+    }, [consolidatedData]);
+
     const processedBudgetEntries = useMemo(() => {
-        if ((isConsolidated || isCustomConsolidated) && consolidatedEntries.length > 0) {
+        if ((isConsolidatedView || isCustomConsolidated) && consolidatedEntries.length > 0) {
             return consolidatedEntries;
         }
         return finalBudgetEntries || [];
-    }, [consolidatedEntries, finalBudgetEntries, isConsolidated, isCustomConsolidated]);
+    }, [consolidatedEntries, finalBudgetEntries, isConsolidatedView, isCustomConsolidated]);
 
     const calculateConsolidatedActualAmount = useCallback((entry, period) => {
         console.log('🔍 DEBUG calculateConsolidatedActualAmount:', {
             entryId: entry.id,
             entryBudgetId: entry.budget_id,
-            entryType: entry.type,
             period: period.label,
-            hasConsolidatedData: !!consolidatedData,
-            consolidatedDataKeys: consolidatedData ? Object.keys(consolidatedData) : []
+            periodStart: period.startDate,
+            periodEnd: period.endDate,
+            entryRealAmount: entry.realAmount
         });
 
-        // 1. Si l'entrée a déjà un montant réel (depuis consolidatedData)
-        if (entry.realAmount !== undefined && entry.realAmount !== null) {
-            console.log('✅ Using entry.realAmount:', entry.realAmount);
-            return entry.realAmount;
-        }
+        // 1. Si l'entrée a des paiements réels (realPayments), les filtrer par période
+        if (entry.realPayments && Array.isArray(entry.realPayments)) {
+            let totalForPeriod = 0;
+            const periodStart = new Date(period.startDate);
+            const periodEnd = new Date(period.endDate);
 
-        // 2. Si consolidatedData existe, chercher dedans
-        if (consolidatedData) {
-            console.log('📊 consolidatedData structure:', {
-                real_budgets: consolidatedData.real_budgets,
-                actualsByProject: consolidatedData.actualsByProject,
-                budgetsByProject: consolidatedData.budgetsByProject
+            entry.realPayments.forEach(payment => {
+                if (payment.collection_date) {
+                    try {
+                        const paymentDate = new Date(payment.collection_date);
+
+                        // Vérifier si le paiement est dans la période
+                        if (paymentDate >= periodStart && paymentDate < periodEnd) {
+                            totalForPeriod += payment.collection_amount;
+                            console.log('💰 Payment in period:', {
+                                paymentDate: paymentDate,
+                                amount: payment.collection_amount,
+                                periodStart: periodStart,
+                                periodEnd: periodEnd,
+                                totalForPeriod: totalForPeriod
+                            });
+                        }
+                    } catch (error) {
+                        console.error('❌ Error parsing payment date:', payment.collection_date, error);
+                    }
+                }
             });
 
-            // Chercher dans real_budgets
-            if (consolidatedData.real_budgets?.real_budget_items?.data) {
-                const realBudgetItems = consolidatedData.real_budgets.real_budget_items.data;
-                console.log('🔎 Searching in real_budgets:', realBudgetItems);
-
-                let total = 0;
-                realBudgetItems.forEach(item => {
-                    console.log('📋 Checking item:', {
-                        itemBudgetId: item.budget_id,
-                        entryBudgetId: entry.budget_id,
-                        matches: item.budget_id === entry.budget_id,
-                        collectionDate: item.collection_date,
-                        period: period.label
-                    });
-
-                    // Essayez plusieurs façons de matcher
-                    const matches =
-                        item.budget_id === entry.budget_id ||
-                        item.budget_id === parseInt(entry.id) ||
-                        (entry.original_budget_id && item.budget_id === entry.original_budget_id);
-
-                    if (matches && item.collection_date) {
-                        const collectionDate = new Date(item.collection_date);
-                        if (collectionDate >= period.startDate &&
-                            collectionDate < period.endDate) {
-                            const amount = parseFloat(item.collection_amount || 0);
-                            total += amount;
-                            console.log('✅ Match found! Adding:', amount, 'Total:', total);
-                        }
-                    }
-                });
-
-                if (total > 0) {
-                    console.log('💰 Total from real_budgets:', total);
-                    return total;
-                }
+            if (totalForPeriod > 0) {
+                console.log('✅ Total from realPayments for period:', totalForPeriod);
+                return totalForPeriod;
             }
-
-            // Chercher dans actualsByProject
-            if (consolidatedData.actualsByProject) {
-                console.log('🔍 Searching in actualsByProject');
-                for (const projectData of consolidatedData.actualsByProject) {
-                    if (projectData.actuals) {
-                        for (const actual of projectData.actuals) {
-                            if (actual.budgetId === entry.budget_id ||
-                                actual.budgetId === entry.id) {
-                                let total = 0;
-                                const payments = actual.payments || [];
-                                for (const payment of payments) {
-                                    if (payment.paymentDate) {
-                                        const paymentDate = new Date(payment.paymentDate);
-                                        if (paymentDate >= period.startDate &&
-                                            paymentDate < period.endDate) {
-                                            total += parseFloat(payment.paidAmount || 0);
-                                        }
-                                    }
-                                }
-                                if (total > 0) {
-                                    console.log('💰 Total from actualsByProject:', total);
-                                    return total;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        } else {
-            console.log('⚠️ consolidatedData is undefined/null');
         }
 
-        // 3. Fallback: utiliser les transactions réelles standard
-        console.log('🔄 Falling back to calculateActualAmountForPeriod');
+        // 2. Chercher dans les données réelles globales (real_budgets)
+        if (consolidatedData?.real_budgets?.real_budget_items?.data) {
+            const realBudgetItems = consolidatedData.real_budgets.real_budget_items.data;
+            let totalForPeriod = 0;
+            const periodStart = new Date(period.startDate);
+            const periodEnd = new Date(period.endDate);
+
+            realBudgetItems.forEach((item) => {
+                // Vérifier si c'est le bon budget
+                const matchesBudget =
+                    item.budget_id === entry.budget_id ||
+                    item.budget_id === parseInt(entry.id) ||
+                    item.budget_id === parseInt(entry.original_budget_id);
+
+                if (matchesBudget && item.collection_date) {
+                    try {
+                        const paymentDate = new Date(item.collection_date);
+                        if (paymentDate >= periodStart && paymentDate < periodEnd) {
+                            totalForPeriod += parseFloat(item.collection_amount || 0);
+                        }
+                    } catch (error) {
+                        console.error('❌ Error parsing collection date:', item.collection_date, error);
+                    }
+                }
+            });
+
+            if (totalForPeriod > 0) {
+                console.log('✅ Total from real_budgets for period:', totalForPeriod);
+                return totalForPeriod;
+            }
+        }
+
+        // 3. Pour les budgets sans paiements réels, utiliser calculateActualAmountForPeriod
+        console.log('🔄 No real payments found for this period, using calculateActualAmountForPeriod');
+
         const fallbackResult = calculateActualAmountForPeriod(
             entry,
             finalActualTransactions || [],
             period.startDate,
             period.endDate,
-            null
+            entry.projectId
         );
 
         console.log('🔚 Fallback result:', fallbackResult);
         return fallbackResult;
     }, [consolidatedData, finalActualTransactions]);
-
 
     const periods = useMemo(() => {
         const today = getTodayInTimezone(settings.timezoneOffset);
@@ -910,7 +991,7 @@ const BudgetTableConsolidated = (props) => {
         safeTaxConfigs,
         activeProjectId,
         safePeriods,
-        true, // isConsolidated
+        isConsolidatedView, // Passer isConsolidatedView
         isCustomConsolidated,
         collectionData
     );
@@ -1087,34 +1168,258 @@ const BudgetTableConsolidated = (props) => {
                     : 'text-danger-600';
 
     const handleActualClick = (context) => {
-        const { period } = context;
-        let payments = [];
+        const { period, type, entry, mainCategory, source = 'entry', entryId } = context;
+        let transactions = [];
         let title = '';
-        if (context.entryId) {
-            const entry = filteredExpandedAndVatEntries.find(
-                (e) => e.id === context.entryId
-            );
-            payments = finalActualTransactions
-                .filter((t) => t.budgetId === context.entryId)
-                .flatMap((t) =>
-                    (t.payments || [])
-                        .filter(
-                            (p) =>
-                                new Date(p.paymentDate) >= period.startDate &&
-                                new Date(p.paymentDate) < period.endDate
-                        )
-                        .map((p) => ({ ...p, thirdParty: t.thirdParty, type: t.type }))
-                );
-            title = `Détails pour ${entry?.supplier || 'Entrée'}`;
-        } else if (context.mainCategory) {
-            title = `Détails pour ${context.mainCategory.name}`;
+
+        if (!period) {
+            console.error('No period provided!');
+            return;
         }
-        if (payments.length > 0)
-            setDrawerData({
-                isOpen: true,
-                transactions: payments,
-                title: `${title} - ${period.label}`,
-            });
+
+        // Récupérer le projet actif (pour les vues consolidées, c'est souvent un projet fictif)
+        const currentProject = activeProject || { name: 'Vue Consolidée' };
+        const projectName = currentProject?.name || 'Vue Consolidée';
+
+        switch (source) {
+            case 'entry':
+                const entry = context.entry || filteredExpandedAndVatEntries.find(e => e.id === entryId);
+                if (entry) {
+                    console.log('Entry click:', entry.supplier);
+
+                    // Pour les vues consolidées, chercher dans realPayments
+                    if (isConsolidatedView && entry.realPayments) {
+                        transactions = entry.realPayments
+                            .filter(p => {
+                                if (!p.collection_date) return false;
+                                try {
+                                    const paymentDate = new Date(p.collection_date);
+                                    return paymentDate >= period.startDate && paymentDate < period.endDate;
+                                } catch (error) {
+                                    return false;
+                                }
+                            })
+                            .map(p => ({
+                                id: `${entry.id}_${p.collection_date}`,
+                                paymentDate: p.collection_date,
+                                paidAmount: p.collection_amount || 0,
+                                thirdParty: entry.supplier || 'Non spécifié',
+                                type: entry.type === 'entree' ? 'receivable' : 'payable',
+                                entryName: entry.supplier || entry.description,
+                                category: entry.category || 'Non catégorisé',
+                                cashAccount: 'default',
+                                // Ajouter les informations du projet
+                                project_id: entry.projectId || activeProjectId,
+                                project_name: entry.projectName || projectName,
+                                projectName: entry.projectName || projectName,
+                                budget_id: entry.budget_id,
+                                frequency: entry.frequency_name || entry.frequency,
+                                currency: entry.currency || 'EUR'
+                            }));
+                    } else {
+                        // Pour les vues normales
+                        transactions = finalActualTransactions
+                            .filter((t) => t.budgetId === entry.id || t.budget_id === entry.budget_id)
+                            .flatMap((t) =>
+                                (t.payments || [])
+                                    .filter(
+                                        (p) => {
+                                            if (!p.paymentDate) return false;
+                                            try {
+                                                const paymentDate = new Date(p.paymentDate);
+                                                return paymentDate >= period.startDate && paymentDate < period.endDate;
+                                            } catch (error) {
+                                                return false;
+                                            }
+                                        }
+                                    )
+                                    .map((p) => ({
+                                        ...p,
+                                        id: p.id || `${t.id}_${p.paymentDate}`,
+                                        thirdParty: t.thirdParty || entry.supplier || 'Non spécifié',
+                                        type: t.type || (entry.type === 'entree' ? 'receivable' : 'payable'),
+                                        entryName: entry.supplier || entry.description,
+                                        category: entry.category || 'Non catégorisé',
+                                        cashAccount: t.cashAccount || 'default',
+                                        // Ajouter les informations du projet
+                                        project_id: entry.projectId || activeProjectId,
+                                        project_name: entry.projectName || projectName,
+                                        projectName: entry.projectName || projectName,
+                                        budget_id: entry.budget_id
+                                    }))
+                            );
+                    }
+
+                    title = `Détails pour ${entry.supplier || 'Entrée'}`;
+                }
+                break;
+
+            case 'mainCategory':
+                if (mainCategory) {
+                    // Collecter toutes les transactions de cette catégorie
+                    mainCategory.entries.forEach(entry => {
+                        const entryTransactions = finalActualTransactions
+                            .filter(t => t.budgetId === entry.id || t.budget_id === entry.budget_id)
+                            .flatMap(t =>
+                                (t.payments || [])
+                                    .filter(p => {
+                                        if (!p.paymentDate) return false;
+                                        try {
+                                            const paymentDate = new Date(p.paymentDate);
+                                            return paymentDate >= period.startDate && paymentDate < period.endDate;
+                                        } catch (error) {
+                                            return false;
+                                        }
+                                    })
+                                    .map(p => ({
+                                        ...p,
+                                        id: p.id || `${t.id}_${p.paymentDate}`,
+                                        thirdParty: t.thirdParty || entry.supplier || 'Non spécifié',
+                                        type: t.type || (entry.type === 'entree' ? 'receivable' : 'payable'),
+                                        entryName: entry.supplier || entry.description,
+                                        category: entry.category || 'Non catégorisé',
+                                        mainCategory: mainCategory.name,
+                                        cashAccount: t.cashAccount || 'default',
+                                        project_id: entry.projectId || activeProjectId,
+                                        project_name: entry.projectName || projectName,
+                                        projectName: entry.projectName || projectName
+                                    }))
+                            );
+                        transactions.push(...entryTransactions);
+                    });
+                    title = `Détails pour ${mainCategory.name}`;
+                }
+                break;
+
+            case 'totalEntrees':
+                // Collecter toutes les transactions d'entrées
+                const allEntrees = groupedData.entree || [];
+                allEntrees.forEach(mainCategory => {
+                    mainCategory.entries.forEach(entry => {
+                        const entryTransactions = finalActualTransactions
+                            .filter(t => t.budgetId === entry.id || t.budget_id === entry.budget_id)
+                            .flatMap(t =>
+                                (t.payments || [])
+                                    .filter(p => {
+                                        if (!p.paymentDate) return false;
+                                        try {
+                                            const paymentDate = new Date(p.paymentDate);
+                                            return paymentDate >= period.startDate && paymentDate < period.endDate;
+                                        } catch (error) {
+                                            return false;
+                                        }
+                                    })
+                                    .map(p => ({
+                                        ...p,
+                                        id: p.id || `${t.id}_${p.paymentDate}`,
+                                        thirdParty: t.thirdParty || entry.supplier || 'Non spécifié',
+                                        type: 'receivable',
+                                        entryName: entry.supplier || entry.description,
+                                        category: entry.category || 'Non catégorisé',
+                                        mainCategory: mainCategory.name,
+                                        flowType: 'entree',
+                                        cashAccount: t.cashAccount || 'default',
+                                        project_id: entry.projectId || activeProjectId,
+                                        project_name: entry.projectName || projectName,
+                                        projectName: entry.projectName || projectName
+                                    }))
+                            );
+                        transactions.push(...entryTransactions);
+                    });
+                });
+                title = 'Détails de toutes les entrées';
+                break;
+
+            case 'totalSorties':
+                // Collecter toutes les transactions de sorties
+                const allSorties = groupedData.sortie || [];
+                allSorties.forEach(mainCategory => {
+                    mainCategory.entries.forEach(entry => {
+                        const entryTransactions = finalActualTransactions
+                            .filter(t => t.budgetId === entry.id || t.budget_id === entry.budget_id)
+                            .flatMap(t =>
+                                (t.payments || [])
+                                    .filter(p => {
+                                        if (!p.paymentDate) return false;
+                                        try {
+                                            const paymentDate = new Date(p.paymentDate);
+                                            return paymentDate >= period.startDate && paymentDate < period.endDate;
+                                        } catch (error) {
+                                            return false;
+                                        }
+                                    })
+                                    .map(p => ({
+                                        ...p,
+                                        id: p.id || `${t.id}_${p.paymentDate}`,
+                                        thirdParty: t.thirdParty || entry.supplier || 'Non spécifié',
+                                        type: 'payable',
+                                        entryName: entry.supplier || entry.description,
+                                        category: entry.category || 'Non catégorisé',
+                                        mainCategory: mainCategory.name,
+                                        flowType: 'sortie',
+                                        cashAccount: t.cashAccount || 'default',
+                                        project_id: entry.projectId || activeProjectId,
+                                        project_name: entry.projectName || projectName,
+                                        projectName: entry.projectName || projectName
+                                    }))
+                            );
+                        transactions.push(...entryTransactions);
+                    });
+                });
+                title = 'Détails de toutes les sorties';
+                break;
+
+            case 'netFlow':
+                // Collecter toutes les transactions
+                const allCategories = [...(groupedData.entree || []), ...(groupedData.sortie || [])];
+                allCategories.forEach(mainCategory => {
+                    mainCategory.entries.forEach(entry => {
+                        const entryTransactions = finalActualTransactions
+                            .filter(t => t.budgetId === entry.id || t.budget_id === entry.budget_id)
+                            .flatMap(t =>
+                                (t.payments || [])
+                                    .filter(p => {
+                                        if (!p.paymentDate) return false;
+                                        try {
+                                            const paymentDate = new Date(p.paymentDate);
+                                            return paymentDate >= period.startDate && paymentDate < period.endDate;
+                                        } catch (error) {
+                                            return false;
+                                        }
+                                    })
+                                    .map(p => ({
+                                        ...p,
+                                        id: p.id || `${t.id}_${p.paymentDate}`,
+                                        thirdParty: t.thirdParty || entry.supplier || 'Non spécifié',
+                                        type: mainCategory.type === 'entree' ? 'receivable' : 'payable',
+                                        entryName: entry.supplier || entry.description,
+                                        category: entry.category || 'Non catégorisé',
+                                        mainCategory: mainCategory.name,
+                                        flowType: mainCategory.type,
+                                        cashAccount: t.cashAccount || 'default',
+                                        project_id: entry.projectId || activeProjectId,
+                                        project_name: entry.projectName || projectName,
+                                        projectName: entry.projectName || projectName
+                                    }))
+                            );
+                        transactions.push(...entryTransactions);
+                    });
+                });
+                title = 'Détails du flux de trésorerie';
+                break;
+        }
+
+        console.log('Final transactions to display:', transactions.length);
+
+        // Toujours ouvrir le drawer, même s'il n'y a pas de transactions
+        setDrawerData({
+            isOpen: true,
+            transactions: transactions,
+            title: `${title} - ${period.label}`,
+            period: period,
+            source: source,
+        });
+        console.log('Drawer opened with', transactions.length, 'transactions');
     };
 
     const handleCloseDrawer = () =>
@@ -1564,8 +1869,19 @@ const BudgetTableConsolidated = (props) => {
                                                                             {visibleColumns.actual && (
                                                                                 <div className="relative text-center group/subcell">
                                                                                     <button
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            if (actual !== 0) {
+                                                                                                handleActualClick({
+                                                                                                    type: 'entry',
+                                                                                                    period: period,
+                                                                                                    entryId: entry.id
+                                                                                                });
+                                                                                            }
+                                                                                        }}
                                                                                         disabled={actual === 0 && budget === 0}
-                                                                                        className="text-blue-600 hover:underline disabled:cursor-not-allowed disabled:text-gray-400"
+                                                                                        className={`text-blue-600 hover:underline disabled:cursor-not-allowed disabled:text-gray-400 ${actual > 0 ? 'cursor-pointer' : ''
+                                                                                            }`}
                                                                                     >
                                                                                         {formatCurrency(actual, currencySettings)}
                                                                                     </button>
@@ -1608,10 +1924,36 @@ const BudgetTableConsolidated = (props) => {
         );
     };
 
+    // Gestion du chargement pour les vues consolidées
+    if (isConsolidatedView && consolidationLoading) {
+        return (
+            <div className="flex items-center justify-center h-96">
+                <div className="text-center">
+                    <div className="w-12 h-12 mx-auto mb-4 border-b-2 border-purple-600 rounded-full animate-spin"></div>
+                    <p className="text-gray-600">Chargement des données consolidées...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (isConsolidatedView && consolidationError) {
+        return (
+            <div className="flex flex-col items-center justify-center h-96">
+                <div className="mb-4 text-red-500">Erreur: {consolidationError}</div>
+                <button
+                    onClick={refetchConsolidation}
+                    className="px-4 py-2 text-white bg-purple-600 rounded hover:bg-purple-700"
+                >
+                    Réessayer
+                </button>
+            </div>
+        );
+    }
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="text-lg">Chargement des données consolidées...</div>
+                <div className="text-lg">Chargement des données...</div>
             </div>
         );
     }
@@ -1650,8 +1992,10 @@ const BudgetTableConsolidated = (props) => {
 
     return (
         <>
+
             {true && (
-                <div className="relative z-50 mb-6">
+                <div className={`relative mb-6 transition-opacity duration-300 ${drawerData.isOpen ? 'opacity-50 pointer-events-none' : ''
+                    }`}>
                     <BudgetTableHeader
                         timeUnit={timeUnit}
                         periodOffset={periodOffset}
@@ -1660,7 +2004,7 @@ const BudgetTableConsolidated = (props) => {
                         setTableauMode={setTableauMode}
                         showViewModeSwitcher={showViewModeSwitcher}
                         showNewEntryButton={showNewEntryButton}
-                        isConsolidated={isConsolidated}
+                        isConsolidated={isConsolidatedView}
                         isCustomConsolidated={isCustomConsolidated}
                         handlePeriodChange={handlePeriodChange}
                         handleQuickPeriodSelect={handleQuickPeriodSelect}
@@ -1673,10 +2017,6 @@ const BudgetTableConsolidated = (props) => {
                         isFrequencyFilterOpen={isFrequencyFilterOpen}
                         setIsFrequencyFilterOpen={setIsFrequencyFilterOpen}
                         frequencyFilterRef={frequencyFilterRef}
-                        searchTerm={searchTerm}
-                        setSearchTerm={setSearchTerm}
-                        projectSearchTerm={projectSearchTerm}
-                        setProjectSearchTerm={setProjectSearchTerm}
                     />
                 </div>
             )}
@@ -1773,6 +2113,50 @@ const BudgetTableConsolidated = (props) => {
                                     </ResizableTh>
                                 )}
 
+                                {visibleColumns.project && (
+                                    <ResizableTh
+                                        id="project"
+                                        width={columnWidths.project}
+                                        onResize={handleResize}
+                                        className="sticky z-30 bg-gray-100"
+                                        style={{ left: `${projectColLeft}px` }}
+                                    >
+                                        {isProjectSearchOpen ? (
+                                            <div ref={projectSearchRef} className="flex items-center w-full gap-1">
+                                                <input
+                                                    type="text"
+                                                    value={projectSearchTerm}
+                                                    onChange={(e) => setProjectSearchTerm(e.target.value)}
+                                                    placeholder="Rechercher par projet..."
+                                                    className="w-full px-2 py-1 text-sm bg-white border rounded-md"
+                                                    autoFocus
+                                                    onClick={(e) => e.stopPropagation()}
+                                                />
+                                                <button
+                                                    onClick={() => {
+                                                        setProjectSearchTerm('');
+                                                    }}
+                                                    className="p-1 text-gray-500 hover:text-gray-800"
+                                                    title="Effacer"
+                                                >
+                                                    <XCircle size={16} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center justify-between w-full">
+                                                <span>Projet</span>
+                                                <button
+                                                    onClick={() => setIsProjectSearchOpen(true)}
+                                                    className="p-1 text-gray-500 hover:text-gray-800"
+                                                    title="Rechercher par projet"
+                                                >
+                                                    <Search size={14} />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </ResizableTh>
+                                )}
+
                                 <th
                                     className="border-b-2 bg-surface"
                                     style={{ width: `${separatorWidth}px` }}
@@ -1844,7 +2228,7 @@ const BudgetTableConsolidated = (props) => {
                                 >
                                     Trésorerie début de période
                                     <div className="mt-1 text-xs font-normal text-gray-500">
-                                        Trésorerie consolidée - Solde initial
+                                        {isConsolidatedView ? 'Trésorerie consolidée - Solde initial' : 'Solde initial'}
                                     </div>
                                 </td>
                                 <td
@@ -2095,7 +2479,11 @@ const BudgetTableConsolidated = (props) => {
                 onClose={handleCloseDrawer}
                 transactions={drawerData.transactions}
                 title={drawerData.title}
-                currency={activeProject?.currency}
+                currency={activeProject?.currency || 'EUR'}
+                period={drawerData.period}
+                dataState={dataState}
+                projects={projects}
+                activeProject={activeProject}
             />
         </>
     );

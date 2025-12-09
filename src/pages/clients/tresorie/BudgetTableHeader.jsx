@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import {
     ChevronDown, ChevronLeft, ChevronRight,
     Plus, TableProperties, Filter
@@ -96,11 +96,40 @@ const BudgetTableHeader = ({
         setIsPeriodMenuOpen(false);
     };
 
+    // Fermer les menus quand on clique en dehors
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (periodMenuRef.current && !periodMenuRef.current.contains(event.target)) {
+                setIsPeriodMenuOpen(false);
+            }
+            if (frequencyFilterRef.current && !frequencyFilterRef.current.contains(event.target)) {
+                setIsFrequencyFilterOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [periodMenuRef, frequencyFilterRef]);
+
+    // Empêcher le scroll quand un menu est ouvert
+    useEffect(() => {
+        if (isPeriodMenuOpen || isFrequencyFilterOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isPeriodMenuOpen, isFrequencyFilterOpen]);
+
     // Déterminer si on est en vue consolidée
     const isConsolidatedView = isConsolidated || isCustomConsolidated;
 
     return (
-        <div className="relative z-50 mb-6">
+        <div className="relative z-20">
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
                 {/* Section gauche : Navigation temporelle et filtres */}
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
@@ -142,38 +171,49 @@ const BudgetTableHeader = ({
                         </button>
                         <AnimatePresence>
                             {isFrequencyFilterOpen && (
-                                <motion.div
-                                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                                    exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                                    transition={{ duration: 0.15 }}
-                                    className="absolute left-0 z-50 w-56 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl top-full"
-                                >
-                                    <div className="p-2 border-b border-gray-100">
-                                        <div className="text-xs font-semibold text-gray-500 uppercase">
-                                            Filtrer par fréquence
+                                <>
+                                    {/* Overlay pour capturer les clics */}
+                                    <div
+                                        className="fixed inset-0 z-[9998] bg-transparent"
+                                        onClick={() => setIsFrequencyFilterOpen(false)}
+                                    />
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                                        exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                        transition={{ duration: 0.15 }}
+                                        className="absolute left-0 z-[9999] w-56 mt-2 bg-white border border-gray-200 rounded-lg shadow-2xl top-full"
+                                        style={{
+                                            willChange: 'transform, opacity',
+                                            transformOrigin: 'top left'
+                                        }}
+                                    >
+                                        <div className="p-2 border-b border-gray-100">
+                                            <div className="text-xs font-semibold text-gray-500 uppercase">
+                                                Filtrer par fréquence
+                                            </div>
                                         </div>
-                                    </div>
-                                    <ul className="p-1 overflow-y-auto max-h-60">
-                                        {frequencyOptions.map(option => (
-                                            <li key={option.id}>
-                                                <button
-                                                    onClick={() => handleFrequencySelect(option.id)}
-                                                    className={`w-full text-left px-3 py-2 text-sm rounded-md flex items-center justify-between 
-                                                        ${frequencyFilter === option.id
-                                                            ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200'
-                                                            : 'text-gray-700 hover:bg-gray-50 border border-transparent'
-                                                        }`}
-                                                >
-                                                    <span>{option.label}</span>
-                                                    {frequencyFilter === option.id && (
-                                                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                                                    )}
-                                                </button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </motion.div>
+                                        <ul className="p-1 overflow-y-auto max-h-60">
+                                            {frequencyOptions.map(option => (
+                                                <li key={option.id}>
+                                                    <button
+                                                        onClick={() => handleFrequencySelect(option.id)}
+                                                        className={`w-full text-left px-3 py-2 text-sm rounded-md flex items-center justify-between 
+                                                            ${frequencyFilter === option.id
+                                                                ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200'
+                                                                : 'text-gray-700 hover:bg-gray-50 border border-transparent'
+                                                            }`}
+                                                    >
+                                                        <span>{option.label}</span>
+                                                        {frequencyFilter === option.id && (
+                                                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                                        )}
+                                                    </button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </motion.div>
+                                </>
                             )}
                         </AnimatePresence>
                     </div>
@@ -191,30 +231,41 @@ const BudgetTableHeader = ({
                         </button>
                         <AnimatePresence>
                             {isPeriodMenuOpen && (
-                                <motion.div
-                                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                                    exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                                    transition={{ duration: 0.15 }}
-                                    className="absolute left-0 z-50 w-48 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl top-full"
-                                >
-                                    <ul className="p-1">
-                                        {quickPeriodOptions.map(option => (
-                                            <li key={option.id}>
-                                                <button
-                                                    onClick={() => handlePeriodSelect(option.id)}
-                                                    className={`w-full text-left px-3 py-1.5 text-sm rounded-md 
-                                                        ${activeQuickSelect === option.id
-                                                            ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200'
-                                                            : 'text-gray-700 hover:bg-gray-50 border border-transparent'
-                                                        }`}
-                                                >
-                                                    {option.label}
-                                                </button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </motion.div>
+                                <>
+                                    {/* Overlay pour capturer les clics */}
+                                    <div
+                                        className="fixed inset-0 z-[9998] bg-transparent"
+                                        onClick={() => setIsPeriodMenuOpen(false)}
+                                    />
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                                        exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                        transition={{ duration: 0.15 }}
+                                        className="absolute left-0 z-[9999] w-48 mt-2 bg-white border border-gray-200 rounded-lg shadow-2xl top-full"
+                                        style={{
+                                            willChange: 'transform, opacity',
+                                            transformOrigin: 'top left'
+                                        }}
+                                    >
+                                        <ul className="p-1">
+                                            {quickPeriodOptions.map(option => (
+                                                <li key={option.id}>
+                                                    <button
+                                                        onClick={() => handlePeriodSelect(option.id)}
+                                                        className={`w-full text-left px-3 py-1.5 text-sm rounded-md 
+                                                            ${activeQuickSelect === option.id
+                                                                ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200'
+                                                                : 'text-gray-700 hover:bg-gray-50 border border-transparent'
+                                                            }`}
+                                                    >
+                                                        {option.label}
+                                                    </button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </motion.div>
+                                </>
                             )}
                         </AnimatePresence>
                     </div>

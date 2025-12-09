@@ -104,8 +104,6 @@ const BudgetTracker = ({
         isConsolidated: true
       }];
     }
-
-    // Mode normal - projet individuel
     if (cashAccounts?.length > 0) {
       return cashAccounts;
     }
@@ -122,7 +120,26 @@ const BudgetTracker = ({
 
   const finalCategories = categories;
 
-  const visibleColumns = useMemo(() => visibleColumnsProp || { budget: true, actual: true, reste: false, description: true }, [visibleColumnsProp]);
+const visibleColumns = useMemo(() => {
+  if (visibleColumnsProp) {
+    return {
+      budget: true,
+      actual: true,
+      reste: false,
+      description: true,
+      project: true, 
+      ...visibleColumnsProp
+    };
+  }
+  
+  return { 
+    budget: true, 
+    actual: true, 
+    reste: false, 
+    description: true,
+    project: true 
+  };
+}, [visibleColumnsProp]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);

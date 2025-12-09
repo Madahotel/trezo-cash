@@ -256,60 +256,64 @@ const ProjectSwitcher = () => {
     return uiState.activeProject?.name || 'Sélectionner un projet';
   }, [activeProjectId, activeProjectType, uiState.activeProject?.name, safeConsolidations, allProjects]);
 
-  const handleSelect = useCallback((id) => {
-    try {
-      const idStr = String(id);
-      if (idStr === 'consolidated' || idStr.startsWith('consolidated_view_')) {
-        let consolidatedProject;
-        
-        if (idStr === 'consolidated') {
-          consolidatedProject = { 
-            id: idStr, 
-            name: 'Mes projets consolidés', 
-            type: 'consolidated' 
-          };
-        } else {
-          const foundConsolidation = safeConsolidations.find(c => 
-            c && `consolidated_view_${c.id}` === idStr
-          );
-          consolidatedProject = {
-            id: idStr,
-            name: foundConsolidation?.name || 'Vue consolidée',
-            type: 'consolidated'
-          };
-        }
-
-        uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: consolidatedProject });
-        saveProject(consolidatedProject);
-
-        if (idStr.startsWith('consolidated_view_')) {
-          const numericId = idStr.replace('consolidated_view_', '');
-          navigate(`/client/consolidations/${numericId}`);
-        } else {
-          navigate('/client/consolidations');
-        }
-      } else {
-        const selectedProject = allProjects.find(p => areIdsEqual(p.id, id));
-        if (selectedProject) {
-          const isArchived = ["1", 1, true, "true"].includes(
-            selectedProject?.is_archived ?? selectedProject?.isArchived ?? 0
-          );
-
-          uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: selectedProject });
-          saveProject(selectedProject);
-          if (isArchived) {
-            navigate('/client/projets/archives');
-          } else {
-            navigate('/client/dashboard');
-          }
-        }
-      }
+// ProjectSwitcher.jsx - MODIFIER la fonction handleSelect
+const handleSelect = useCallback((id) => {
+  try {
+    const idStr = String(id);
+    
+    // Récupérer l'URL actuelle pour savoir où on est
+    const currentPath = window.location.pathname;
+    
+    if (idStr === 'consolidated' || idStr.startsWith('consolidated_view_')) {
+      let consolidatedProject;
       
-      setIsListOpen(false);
-    } catch (error) {
-      console.error(' Erreur lors de la sélection:', error);
+      if (idStr === 'consolidated') {
+        consolidatedProject = { 
+          id: idStr, 
+          name: 'Mes projets consolidés', 
+          type: 'consolidated' 
+        };
+      } else {
+        const foundConsolidation = safeConsolidations.find(c => 
+          c && `consolidated_view_${c.id}` === idStr
+        );
+        consolidatedProject = {
+          id: idStr,
+          name: foundConsolidation?.name || 'Vue consolidée',
+          type: 'consolidated'
+        };
+      }
+
+      uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: consolidatedProject });
+      saveProject(consolidatedProject);
+
+      // NE PAS naviguer vers une autre URL !
+      // La page actuelle se mettra à jour automatiquement grâce au contexte
+      
+      // Seule exception : si on est sur une page qui n'existe pas pour les consolidations
+      // Mais pour l'échéancier, dashboard, etc., on reste sur la même page
+      
+    } else {
+      // Projet simple
+      const selectedProject = allProjects.find(p => areIdsEqual(p.id, id));
+      if (selectedProject) {
+        const isArchived = ["1", 1, true, "true"].includes(
+          selectedProject?.is_archived ?? selectedProject?.isArchived ?? 0
+        );
+
+        uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: selectedProject });
+        saveProject(selectedProject);
+        
+        // NE PAS naviguer non plus !
+        // On reste sur la même page
+      }
     }
-  }, [allProjects, uiDispatch, saveProject, safeConsolidations, navigate]);
+    
+    setIsListOpen(false);
+  } catch (error) {
+    console.error(' Erreur lors de la sélection:', error);
+  }
+}, [allProjects, uiDispatch, saveProject, safeConsolidations]); // Retirer "navigate" des dépendances
 
   const handleManualRefresh = useCallback(() => {
     refetchProjects();
@@ -357,7 +361,8 @@ const ProjectSwitcher = () => {
       </button>
 
       {isListOpen && (
-        <div className="absolute z-30 mt-2 bg-white border rounded-lg shadow-lg w-72">
+        <div className="absolute z-[9999] mt-2 bg-white border rounded-lg shadow-lg w-72">
+          
           <div className="p-1 overflow-y-auto max-h-80">
             <ul>
               <li>

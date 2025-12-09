@@ -4,23 +4,45 @@ import BudgetTableSimple from './BudgetTableSimple.jsx';
 
 const BudgetTableView = (props) => {
   const {
-    isConsolidated = false, // Ajouter une valeur par défaut
-    isCustomConsolidated = false, // Ajouter une valeur par défaut
+    isConsolidated = false,
+    isCustomConsolidated = false,
+    visibleColumns = { // Valeurs par défaut explicites
+      description: true,
+      project: true,
+      budget: true,
+      actual: true
+    },
     ...otherProps
   } = props;
-  console.log('HEADER RENDERED');
 
-
+  console.log('BudgetTableView - Props:', {
+    isConsolidated,
+    isCustomConsolidated,
+    visibleColumns,
+    hasVisibleColumns: !!visibleColumns
+  });
 
   // Déterminer si on affiche la version consolidée ou simple
   const shouldShowConsolidated = isConsolidated || isCustomConsolidated;
 
-  return useMemo(() => {
-    if (shouldShowConsolidated) {
-      return <BudgetTableConsolidated {...props} />;
+  // Créer un nouvel objet props avec les valeurs par défaut garanties
+  const enhancedProps = {
+    ...props,
+    visibleColumns: {
+      description: visibleColumns.description !== false,
+      project: visibleColumns.project !== false,
+      budget: visibleColumns.budget !== false,
+      actual: visibleColumns.actual !== false
     }
-    return <BudgetTableSimple {...props} />;
-  }, [shouldShowConsolidated, props]);
+  };
+
+  return useMemo(() => {
+    console.log('Rendering:', shouldShowConsolidated ? 'Consolidated' : 'Simple');
+    if (shouldShowConsolidated) {
+      return <BudgetTableConsolidated {...enhancedProps} />;
+    }
+    return <BudgetTableSimple {...enhancedProps} />;
+  }, [shouldShowConsolidated, enhancedProps]);
 };
 
 export default BudgetTableView;

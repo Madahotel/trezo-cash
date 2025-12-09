@@ -21,9 +21,9 @@ const TrezoPage = () => {
     const navigate = useNavigate();
     const { activeProjectId } = uiState;
 
-    const { 
-        activeProject, 
-        isConsolidated, 
+    const {
+        activeProject,
+        isConsolidated,
         isCustomConsolidated,
         budgetEntries,
         actualTransactions,
@@ -32,7 +32,7 @@ const TrezoPage = () => {
         error: dataError,
         consolidatedBudgetData
     } = useActiveProjectData(dataState, uiState);
-    
+
     const [quickFilter, setQuickFilter] = useState('all');
     const [showConsolidatedData, setShowConsolidatedData] = useState(false);
 
@@ -40,7 +40,7 @@ const TrezoPage = () => {
         // Lorsque nous sommes en vue consolidée, forcer l'affichage des données
         if (isConsolidated || isCustomConsolidated) {
             setShowConsolidatedData(true);
-            
+
             // Debug logging
             console.log('TrezoPage - Vue consolidée détectée:');
             console.log('- activeProjectId:', activeProjectId);
@@ -56,12 +56,12 @@ const TrezoPage = () => {
         ...defaultTrezoWidgetSettings,
         ...(activeProject?.dashboard_widgets || {})
     }), [activeProject]);
-    
+
     const handleValidation = () => {
         updateProjectOnboardingStep({ dataDispatch, uiDispatch }, { projectId: activeProjectId, step: 'flux' });
         navigate('/app/flux');
     };
-    
+
     const showValidationButton = activeProject && activeProject.onboarding_step === 'trezo';
 
     const filterOptions = [
@@ -79,12 +79,12 @@ const TrezoPage = () => {
     // Afficher un message spécial pour les vues consolidées
     if (isConsolidated || isCustomConsolidated) {
         console.log('Rendu de la vue consolidée dans TrezoPage');
-        
+
         // Debug: Vérifier si nous avons des données
         const hasBudgetData = budgetEntries && budgetEntries.length > 0;
-        const hasConsolidatedData = consolidatedBudgetData && 
-            (consolidatedBudgetData.budgetEntries?.length > 0 || 
-             consolidatedBudgetData.entries?.length > 0);
+        const hasConsolidatedData = consolidatedBudgetData &&
+            (consolidatedBudgetData.budgetEntries?.length > 0 ||
+                consolidatedBudgetData.entries?.length > 0);
 
         return (
             <div className="min-h-screen p-6 bg-white">
@@ -110,7 +110,7 @@ const TrezoPage = () => {
                             </div>
                         </div>
                     </div>
-                    
+
                     {/* Afficher les données consolidées */}
                     {dataLoading ? (
                         <div className="flex items-center justify-center p-8">
@@ -124,9 +124,9 @@ const TrezoPage = () => {
                             </div>
                         </div>
                     ) : (
-                        <BudgetTracker 
+                        <BudgetTracker
                             quickFilter={quickFilter}
-                            showTemporalToolbar={false} 
+                            showTemporalToolbar={false}
                             visibleColumns={{
                                 budget: true,
                                 actual: true,
@@ -138,6 +138,7 @@ const TrezoPage = () => {
                             consolidatedData={consolidatedBudgetData}
                             isConsolidated={isConsolidated}
                             isCustomConsolidated={isCustomConsolidated}
+
                         />
                     )}
                 </div>
@@ -155,9 +156,9 @@ const TrezoPage = () => {
                             if (opt.id === 'all' || widgetVisibility[visibilityKey]) {
                                 const Icon = opt.icon;
                                 return (
-                                    <button 
+                                    <button
                                         key={opt.id}
-                                        onClick={() => setQuickFilter(opt.id)} 
+                                        onClick={() => setQuickFilter(opt.id)}
                                         className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${quickFilter === opt.id ? opt.color : `bg-gray-100 text-gray-700 ${opt.hoverColor}`}`}
                                     >
                                         {Icon && <Icon size={14} />}
@@ -186,17 +187,21 @@ const TrezoPage = () => {
                         </button>
                     </div>
                 </div>
-                <BudgetTracker 
+                <BudgetTracker
                     quickFilter={quickFilter}
-                    showTemporalToolbar={widgetVisibility.trezo_toolbar && widgetVisibility.trezo_toolbar_temporal}
+                    showTemporalToolbar={false}
                     visibleColumns={{
-                        budget: widgetVisibility.trezo_col_budget,
-                        actual: widgetVisibility.trezo_col_actual,
-                        reste: widgetVisibility.trezo_col_reste,
-                        description: widgetVisibility.trezo_col_description,
+                        budget: true,
+                        actual: true,
+                        reste: false,
+                        description: true,
+                        project: true, 
                     }}
-                    showViewModeSwitcher={widgetVisibility.trezo_toolbar && widgetVisibility.trezo_toolbar_viewmode}
-                    showNewEntryButton={widgetVisibility.trezo_toolbar && widgetVisibility.trezo_toolbar_new_entry}
+                    showViewModeSwitcher={false}
+                    showNewEntryButton={false}
+                    consolidatedData={consolidatedBudgetData}
+                    isConsolidated={isConsolidated}
+                    isCustomConsolidated={isCustomConsolidated}
                 />
             </div>
         </>
