@@ -2,79 +2,107 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import axios from '../components/config/Axios';
 
 export const useActiveProjectData = (dataState, uiState, externalBudgetData = null) => {
-    const { allEntries = {}, allActuals = {}, allCashAccounts = {}, projects = [], consolidatedViews = [], settings } = dataState;
+    const { allEntries = {}, allActuals = {}, allCashAccounts = {}, projects = [], consolidatedViews = [], settings = {} } = dataState;
     const { activeProjectId, activeProject: uiActiveProject } = uiState;
 
     const [consolidatedBudgetData, setConsolidatedBudgetData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [consolidatedEntries, setConsolidatedEntries] = useState([]);
 
-    const fetchConsolidatedBudgetData = useCallback(async (consolidationId = null) => {
+    const fetchConsolidatedData = useCallback(async (consolidationId = null) => {
         setLoading(true);
         setError(null);
         try {
-            const response = await axios.get('/consolidations');
-            const items = response.data.project_consolidateds?.project_consolidated_items?.data || [];
-        
-            let filteredItems = items;
+            console.log('fetchConsolidatedData appelé avec consolidationId:', consolidationId);
+            
+            let endpoint = '/consolidations';
             if (consolidationId) {
-                filteredItems = items.filter(item => 
-                    item.consolidation_id === consolidationId
-                );
+                endpoint = `/consolidations/${consolidationId}`;
             }
             
-            const budgetData = {
-                entries: [], 
-                expenses: [], 
-                sumEntries: 0,
-                sumExpenses: 0,
-                sumForecast: 0,
-                budgetEntries: [] 
-            };
+            console.log('Appel API:', endpoint);
+            const response = await axios.get(endpoint);
+            console.log('Réponse API consolidations:', response.data);
             
-            filteredItems.forEach(item => {
-                if (item.budget_forecast_amount) {
-                    const amount = parseFloat(item.budget_forecast_amount);
-                    const entry = {
-                        id: item.budget_id,
-                        budget_detail_id: item.budget_id,
-                        sub_category_id: item.sub_category_id,
-                        sub_category_name: item.sub_category_name,
-                        category_id: item.category_id,
-                        category_name: item.category_name,
-                        third_party_id: item.user_third_party_id,
-                        third_party_name: `${item.third_party_firstname} ${item.third_party_name}`,
-                        budget_forecast_amount: amount,
-                        budget_type_id: item.budget_type_id,
-                        budget_type_name: item.budget_type_name,
-                        frequency_id: item.frequency_id,
-                        frequency_name: item.frequency_name,
-                        is_budget_duration_indefinite: item.is_budget_duration_indefinite,
-                        project_id: item.project_id,
-                        project_name: item.project_name,
-                        currency_id: item.currency_id,
-                        currency_code: item.currency_code,
-                        start_date: item.budget_start_date,
-                        end_date: item.budget_end_date
-                    };
-                    
-                    budgetData.budgetEntries.push(entry);
-                    
-                    if (item.budget_type_id === 2) { 
-                        budgetData.entries.push(entry);
-                        budgetData.sumEntries += amount;
-                    } else if (item.budget_type_id === 1) { 
-                        budgetData.expenses.push(entry);
-                        budgetData.sumExpenses += amount;
-                    }
-                }
+            let items = [];
+            
+            // Gestion des différents formats de réponse
+            if (response.data.project_consolidateds?.project_consolidated_items?.data) {
+                items = response.data.project_consolidateds.project_consolidated_items.data;
+            } else if (response.data.consolidation?.project_consolidateds?.project_consolidated_items?.data) {
+                items = response.data.consolidation.project_consolidateds.project_consolidated_items.data;
+            } else if (Array.isArray(response.data)) {
+                items = response.data;
+            }
+            
+            console.log('Items consolidés trouvés:', items.length);
+            
+            // Transformer les données au format attendu par BudgetTableView
+            const transformedEntries = items.map(item => {
+                const entryType = item.budget_type_name === 'Entré' || item.budget_type_id === 2 ? 'entree' : 'sortie';
+                
+                return {
+                    id: `consolidated_${item.budget_id}_${item.project_id}`,
+                    budget_id: item.budget_id,
+                    budget_detail_id: item.budget_id,
+                    project_id: item.project_id,
+                    project_name: item.project_name,
+                    supplier: `${item.third_party_firstname || ''} ${item.third_party_name || ''}`.trim() || 'Non spécifié',
+                    category: item.sub_category_name,
+                    category_name: item.category_name,
+                    budget_type_name: item.budget_type_name,
+                    type: entryType,
+                    amount: parseFloat(item.budget_forecast_amount) || 0,
+                    budget_amount: parseFloat(item.budget_forecast_amount) || 0,
+                    frequency_name: item.frequency_name,
+                    frequency: item.frequency_name,
+                    start_date: item.budget_start_date,
+                    end_date: item.budget_end_date,
+                    currency_code: item.currency_code,
+                    currency_name: item.currency_name,
+                    currency_symbol: item.currency_symbol,
+                    third_party_name: item.third_party_name,
+                    third_party_firstname: item.third_party_firstname,
+                    user_third_party_id: item.user_third_party_id,
+                    sub_category_id: item.sub_category_id,
+                    sub_category_name: item.sub_category_name,
+                    category_id: item.category_id,
+                    isProvision: false,
+                    isConsolidated: true,
+                    startDate: item.budget_start_date ? new Date(item.budget_start_date) : null,
+                    endDate: item.budget_end_date ? new Date(item.budget_end_date) : null,
+                    date: item.budget_start_date,
+                    budget_description: item.budget_description,
+                    description: item.budget_description
+                };
             });
             
-            budgetData.sumForecast = budgetData.sumEntries - budgetData.sumExpenses;
-            setConsolidatedBudgetData(budgetData);
+            console.log('Entries transformées:', transformedEntries.length);
+            
+            setConsolidatedEntries(transformedEntries);
+            
+            // Créer un objet de données consolidées structuré
+            const consolidatedData = {
+                budgetEntries: transformedEntries,
+                entries: transformedEntries.filter(e => e.type === 'entree'),
+                expenses: transformedEntries.filter(e => e.type === 'sortie'),
+                sumEntries: transformedEntries.filter(e => e.type === 'entree')
+                    .reduce((sum, e) => sum + (e.amount || 0), 0),
+                sumExpenses: transformedEntries.filter(e => e.type === 'sortie')
+                    .reduce((sum, e) => sum + (e.amount || 0), 0),
+                sumForecast: 0
+            };
+            
+            consolidatedData.sumForecast = consolidatedData.sumEntries - consolidatedData.sumExpenses;
+            
+            console.log('Données consolidées préparées:', consolidatedData);
+            setConsolidatedBudgetData(consolidatedData);
+            
         } catch (err) {
-            console.error('Erreur fetchConsolidatedBudgetData:', err);
-            setError('Erreur lors du chargement des données consolidées');
+            console.error('Erreur fetchConsolidatedData:', err);
+            console.error('Détails erreur:', err.response?.data || err.message);
+            setError(`Erreur lors du chargement des données consolidées: ${err.message}`);
         } finally {
             setLoading(false);
         }
@@ -85,30 +113,31 @@ export const useActiveProjectData = (dataState, uiState, externalBudgetData = nu
         const isConsolidated = activeProjectIdString === 'consolidated';
         const isCustomConsolidated = activeProjectIdString.startsWith('consolidated_view_');
         
+        console.log('useActiveProjectData useEffect:', {
+            activeProjectIdString,
+            isConsolidated,
+            isCustomConsolidated
+        });
+        
         if (isConsolidated || isCustomConsolidated) {
             const consolidationId = isCustomConsolidated 
                 ? parseInt(activeProjectIdString.replace('consolidated_view_', ''), 10)
                 : null;
-            fetchConsolidatedBudgetData(consolidationId);
+            
+            console.log('Chargement des données consolidées, ID:', consolidationId);
+            fetchConsolidatedData(consolidationId);
         } else {
             setConsolidatedBudgetData(null);
+            setConsolidatedEntries([]);
         }
-    }, [activeProjectId, fetchConsolidatedBudgetData]);
+    }, [activeProjectId, fetchConsolidatedData]);
 
     return useMemo(() => {
-        if (!settings) {
-            return { 
-                budgetEntries: [], 
-                actualTransactions: [], 
-                cashAccounts: [], 
-                activeProject: null, 
-                isConsolidated: false, 
-                isCustomConsolidated: false,
-                loading: false,
-                error: null,
-                consolidatedBudgetData: null
-            };
-        }
+        console.log('useActiveProjectData useMemo appelé avec:', {
+            activeProjectId,
+            isConsolidated: String(activeProjectId || '') === 'consolidated',
+            isCustomConsolidated: String(activeProjectId || '').startsWith('consolidated_view_')
+        });
         
         const activeProjectIdString = String(activeProjectId || '');
         const isConsolidated = activeProjectIdString === 'consolidated';
@@ -118,26 +147,28 @@ export const useActiveProjectData = (dataState, uiState, externalBudgetData = nu
         let actualTransactions = [];
         let cashAccounts = [];
         let activeProject = uiActiveProject;
-        let externalData = null;
 
+        // Déterminer le projet actif
         if (!activeProject) {
             if (isConsolidated) {
                 activeProject = {
                     id: 'consolidated',
                     name: 'Mes projets consolidés',
-                    currency: settings.currency,
-                    display_unit: settings.displayUnit,
-                    decimal_places: settings.decimalPlaces
+                    currency: settings.currency || 'EUR',
+                    display_unit: settings.displayUnit || 'euro',
+                    decimal_places: settings.decimalPlaces || 2,
+                    isConsolidated: true
                 };
             } else if (isCustomConsolidated) {
                 const viewId = activeProjectIdString.replace('consolidated_view_', '');
-                const view = consolidatedViews.find(v => v.id === viewId);
+                const view = consolidatedViews.find(v => String(v.id) === viewId);
                 activeProject = {
                     id: activeProjectIdString,
                     name: view?.name || 'Vue Inconnue',
-                    currency: settings.currency,
-                    display_unit: settings.displayUnit,
-                    decimal_places: settings.decimalPlaces
+                    currency: settings.currency || 'EUR',
+                    display_unit: settings.displayUnit || 'euro',
+                    decimal_places: settings.decimalPlaces || 2,
+                    isConsolidated: true
                 };
             } else {
                 activeProject = projects.find(p =>
@@ -147,14 +178,27 @@ export const useActiveProjectData = (dataState, uiState, externalBudgetData = nu
             }
         }
 
+        // Gérer les données selon le type de vue
         if (isConsolidated || isCustomConsolidated) {
-            externalData = consolidatedBudgetData;
-            budgetEntries = consolidatedBudgetData?.budgetEntries || [];
+            console.log('Mode consolidé - Utilisation des données consolidées');
+            budgetEntries = consolidatedEntries;
             actualTransactions = [];
             cashAccounts = [];
+            
+            if (activeProjectId) {
+                cashAccounts = [{
+                    id: `consolidated_account_${activeProjectId}`,
+                    name: 'Trésorerie Consolidée',
+                    initialBalance: 0,
+                    currentBalance: 0,
+                    initialBalanceDate: new Date().toISOString().split('T')[0],
+                    projectId: activeProjectId,
+                    isConsolidated: true
+                }];
+            }
         } else {
+            // Mode projet normal
             if (externalBudgetData && externalBudgetData.entries) {
-                externalData = externalBudgetData;
                 budgetEntries = externalBudgetData.entries || [];
                 actualTransactions = externalBudgetData.actualTransactions || [];
                 cashAccounts = externalBudgetData.cashAccounts || [];
@@ -166,6 +210,13 @@ export const useActiveProjectData = (dataState, uiState, externalBudgetData = nu
             }
         }
 
+        console.log('useActiveProjectData retourne:', {
+            budgetEntriesCount: budgetEntries.length,
+            isConsolidated,
+            isCustomConsolidated,
+            activeProjectName: activeProject?.name
+        });
+
         return {
             budgetEntries,
             actualTransactions,
@@ -175,7 +226,7 @@ export const useActiveProjectData = (dataState, uiState, externalBudgetData = nu
             isCustomConsolidated,
             loading,
             error,
-            consolidatedBudgetData: externalData,
+            consolidatedBudgetData,
             refetch: () => {
                 const activeProjectIdString = String(activeProjectId || '');
                 const isConsolidated = activeProjectIdString === 'consolidated';
@@ -185,7 +236,7 @@ export const useActiveProjectData = (dataState, uiState, externalBudgetData = nu
                     const consolidationId = isCustomConsolidated 
                         ? parseInt(activeProjectIdString.replace('consolidated_view_', ''), 10)
                         : null;
-                    fetchConsolidatedBudgetData(consolidationId);
+                    fetchConsolidatedData(consolidationId);
                 }
             }
         };
@@ -200,6 +251,7 @@ export const useActiveProjectData = (dataState, uiState, externalBudgetData = nu
         settings,
         externalBudgetData,
         consolidatedBudgetData,
+        consolidatedEntries,
         loading,
         error
     ]);

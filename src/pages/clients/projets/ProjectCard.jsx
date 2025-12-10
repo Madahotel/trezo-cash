@@ -83,8 +83,8 @@ const ProjectCard = ({
             const data = await apiGet(`/budget-projects/${project.id}`);
 
             setProjectBudget({
-                sumEntries: data.sumEntries || 0,
-                sumExpenses: data.sumExpenses || 0,
+                sumEntries: data.sums?.revenus || 0,
+                sumExpenses: data.sums?.depenses || 0,
                 sumForecast: data.sumForecast || 0
             });
         } catch (err) {

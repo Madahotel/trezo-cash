@@ -1,7 +1,6 @@
 import ProjetLayoutClient from '../layouts/clients/projet/ProjetLayoutAdmin';
 import DashboardView from '../pages/clients/dashboard/DashboardView';
 import CashflowView from '../pages/clients/flux/CashflowView';
-import ScheduleView from '../pages/clients/echeance/ScheduleView';
 import ProjetClient from '../pages/clients/projets/ProjetClient';
 import ScenarioView from '../pages/clients/scenario/ScenarioView';
 import BudgetTracker from '../pages/clients/tresorie/BudgetTracker';
@@ -37,11 +36,12 @@ import AmbassadorGate from '../pages/clients/ambassador/AmbassadorGate';
 import PaymentHistoryPage from '../pages/clients/ambassador/PaymentHistoryPage';
 import ProgramInfoPage from '../pages/clients/ambassador/ProgramInfoPage';
 import BecomeAmbassadorPage from '../pages/clients/ambassador/BecomeAmbassadorPage';
-import ConsolidatedViewPage from '../pages/clients/consolidate/ConsolidatedViewPage';
 import ConsolidationDetailsPage from '../pages/clients/consolidate/ConsolidationDetailsPage';
 import ConsolidatedAllViewPage from '../pages/clients/consolidate/ConsolidatedViewPage';
 import AnalyseView from '../pages/clients/analyse/AnalyseView';
 import TVATable from '../pages/clients/tva/TVATable';
+import ScheduleViewWrapper from '../pages/clients/echeance/ScheduleViewWrapper';
+import AnalyseViewWrapper from '../pages/clients/analyse/AnalyseViewWrapper';
 const ClientRoute = {
   path: '/client',
   element: (
@@ -59,8 +59,8 @@ const ClientRoute = {
     { path: 'budget', element: <BudgetPage /> },
     { path: 'scenarios', element: <ScenarioView /> },
     { path: 'flux', element: <CashflowView /> },
-    { path: 'echeancier', element: <ScheduleView /> },
-    { path: 'analyse', element: <AnalyseView /> },
+    { path: 'echeancier', element: <ScheduleViewWrapper /> },
+    { path: 'analyse', element: <AnalyseViewWrapper /> },
     { path: 'templates', element: <MyTemplatesPage /> },
     { path: 'parametres-projet', element: <ProjectSettingsPage /> },
     { path: 'provisions', element: <ProvisionsPage /> },
@@ -77,11 +77,11 @@ const ClientRoute = {
     { path: 'onboarding', element: <OnboardingView /> },
     { path: 'consolidations/:id', element: <ConsolidationDetailsPage /> },
     { path: 'consolidations', element: <ConsolidatedAllViewPage /> },
-    
+
     { path: 'tableau-tva', element: <TVATable /> },
     // { path: "parrainage", element: <AmbassadorPage /> },
     // { path: "parrainage/refferals", element: <ReferralsPage /> },
-    
+
     {
       path: 'parrainage',
       element: <AmbassadorGate />, // 🔹 Vérifie le statut

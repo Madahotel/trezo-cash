@@ -5,6 +5,7 @@ import {
   ChevronDown,
   Calendar,
   RefreshCw,
+  Layers,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CollectionModal } from './collection-modal';
@@ -115,7 +116,7 @@ const DayCell = ({
             : 'bg-gray-50/30'
         } transition-colors duration-150 relative group`}
       >
-        <div className="flex justify-between items-start mb-1">
+        <div className="flex items-start justify-between mb-1">
           <span
             className={`text-sm font-medium ${
               isCurrentMonth
@@ -130,14 +131,14 @@ const DayCell = ({
         </div>
 
         <div
-          className="flex-grow flex flex-col justify-center space-y-1"
+          className="flex flex-col justify-center flex-grow space-y-1"
           ref={dropdownRef}
         >
           {transactions.length > 0 && (
             <div className="relative">
               <button
                 onClick={handleCellClick}
-                className="w-full text-center space-y-1 hover:bg-white/60 rounded-lg transition-colors p-1"
+                className="w-full p-1 space-y-1 text-center transition-colors rounded-lg hover:bg-white/60"
               >
                 {totalReceivable > 0 && (
                   <div className="text-xs font-semibold text-green-600">
@@ -158,10 +159,10 @@ const DayCell = ({
                     initial={{ opacity: 0, scale: 0.95, y: -5 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: -5 }}
-                    className="absolute left-1/2 transform -translate-x-1/2 top-full mt-1 w-64 bg-white rounded-lg border border-gray-200 z-20"
+                    className="absolute z-20 w-64 mt-1 transform -translate-x-1/2 bg-white border border-gray-200 rounded-lg left-1/2 top-full"
                   >
                     <div className="p-3 border-b border-gray-100">
-                      <h3 className="font-semibold text-gray-900 text-sm">
+                      <h3 className="text-sm font-semibold text-gray-900">
                         {day.toLocaleDateString('fr-FR', {
                           weekday: 'long',
                           day: 'numeric',
@@ -170,7 +171,7 @@ const DayCell = ({
                       </h3>
                     </div>
 
-                    <div className="max-h-64 overflow-y-auto">
+                    <div className="overflow-y-auto max-h-64">
                       {transactions.map((tx, index) => (
                         <div
                           key={`${tx.id}-${index}`}
@@ -181,9 +182,9 @@ const DayCell = ({
                           }`}
                           onClick={(e) => handleTransactionClick(e, tx)}
                         >
-                          <div className="flex justify-between items-start">
+                          <div className="flex items-start justify-between">
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium text-gray-900 text-sm truncate">
+                              <p className="text-sm font-medium text-gray-900 truncate">
                                 {tx.subCategory}
                               </p>
                               <p className="text-xs text-gray-500 mt-0.5">
@@ -224,6 +225,7 @@ const DayCell = ({
 
 // Composant principal ScheduleView
 const ScheduleView = () => {
+  const { uiState } = useUI();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState('month');
   const [isViewModeMenuOpen, setIsViewModeMenuOpen] = useState(false);
@@ -231,10 +233,24 @@ const ScheduleView = () => {
   const [budgetData, setBudgetData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const { uiState } = useUI();
-  const projectId = uiState.activeProject?.id;
+  const [hasValidProject, setHasValidProject] = useState(false);
 
+  const activeProject = uiState.activeProject;
   const todayKey = getTodayKey();
+
+  // Vérifier si le projet actif est un projet simple (pas une consolidation)
+  useEffect(() => {
+    if (!activeProject) {
+      setHasValidProject(false);
+      return;
+    }
+
+    const activeId = String(activeProject.id || '');
+    // C'est un projet simple si ce n'est pas "consolidated" et ne commence pas par "consolidated_view_"
+    const isSimpleProject = activeId !== 'consolidated' && !activeId.startsWith('consolidated_view_');
+    
+    setHasValidProject(isSimpleProject);
+  }, [activeProject]);
 
   // Gestion du clic en dehors du menu
   useEffect(() => {
@@ -348,40 +364,59 @@ const ScheduleView = () => {
 
   // Chargement des données
   const fetchData = async (showRefresh = false) => {
-    if (projectId) {
-      try {
-        if (showRefresh) {
-          setRefreshing(true);
-        } else {
-          setLoading(true);
-        }
+    if (!activeProject || !hasValidProject) {
+      return;
+    }
 
-        const res = await apiGet(`/schedules/budgets/project/${projectId}`);
-
-        if (res.status === 200) {
-          // Les données reçues contiennent déjà toutes les transactions avec leurs dates générées
-          setBudgetData(res.budget);
-        }
-      } catch (error) {
-        console.error('Erreur lors du chargement des données:', error);
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
+    try {
+      if (showRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
       }
+
+      const res = await apiGet(`/schedules/budgets/project/${activeProject.id}`);
+
+      if (res.status === 200) {
+        // Les données reçues contiennent déjà toutes les transactions avec leurs dates générées
+        setBudgetData(res.budget);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des données:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
   };
 
   useEffect(() => {
     fetchData();
-  }, [projectId]);
+  }, [activeProject, hasValidProject]);
 
   const daysOfWeek = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
+  // Si ce n'est pas un projet simple, on ne devrait pas être dans ce composant
+  if (!hasValidProject) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-white">
+        <div className="text-center">
+          <div className="mb-4 text-gray-400">📅</div>
+          <h3 className="mb-2 text-lg font-semibold text-gray-900">
+            Projet non valide
+          </h3>
+          <p className="text-gray-600">
+            Cette vue est réservée aux projets simples. Pour les vues consolidées, utilisez le sélecteur.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-screen bg-white">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="w-12 h-12 mx-auto mb-4 border-b-2 border-blue-600 rounded-full animate-spin"></div>
           <p className="text-gray-600">Chargement du calendrier...</p>
         </div>
       </div>
@@ -389,16 +424,19 @@ const ScheduleView = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white p-6">
+    <div className="min-h-screen p-6 bg-white">
       <div className="mx-auto">
         {/* En-tête épuré */}
         <div className="mb-6">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h1 className="text-2xl font-semibold text-gray-900">
                 Calendrier Financier
               </h1>
-              <p className="text-gray-600 mt-1">
+              <p className="mt-1 text-gray-600">
+                Projet : {activeProject?.name || 'Sans nom'}
+              </p>
+              <p className="text-sm text-gray-500">
                 Aujourd'hui :{' '}
                 {new Date().toLocaleDateString('fr-FR', {
                   weekday: 'long',
@@ -413,7 +451,7 @@ const ScheduleView = () => {
               <button
                 onClick={() => fetchData(true)}
                 disabled={refreshing}
-                className="p-2 text-gray-500 hover:text-gray-700 rounded-lg transition-colors"
+                className="p-2 text-gray-500 transition-colors rounded-lg hover:text-gray-700"
                 title="Rafraîchir"
               >
                 <RefreshCw
@@ -424,7 +462,7 @@ const ScheduleView = () => {
               <div className="relative" ref={viewModeMenuRef}>
                 <button
                   onClick={() => setIsViewModeMenuOpen((p) => !p)}
-                  className="flex items-center gap-2 px-3 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 text-gray-700 transition-colors bg-gray-100 rounded-lg hover:bg-gray-200"
                 >
                   <Calendar className="w-4 h-4" />
                   <span className="text-sm">
@@ -443,7 +481,7 @@ const ScheduleView = () => {
                       initial={{ opacity: 0, scale: 0.95, y: -5 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.95, y: -5 }}
-                      className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg border border-gray-200 z-10"
+                      className="absolute right-0 z-10 w-40 mt-1 bg-white border border-gray-200 rounded-lg top-full"
                     >
                       <div className="py-1">
                         <button
@@ -516,7 +554,7 @@ const ScheduleView = () => {
             {daysOfWeek.map((day) => (
               <div
                 key={day}
-                className="py-2 text-center text-xs font-medium text-gray-500"
+                className="py-2 text-xs font-medium text-center text-gray-500"
               >
                 {day}
               </div>
@@ -545,7 +583,7 @@ const ScheduleView = () => {
         </div>
 
         {/* Légende simple */}
-        <div className="mt-4 flex justify-center">
+        <div className="flex justify-center mt-4">
           <div className="flex items-center gap-6 text-sm text-gray-600">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>

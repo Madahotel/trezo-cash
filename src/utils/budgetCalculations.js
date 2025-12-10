@@ -655,20 +655,28 @@ export const calculateEntryAmountForPeriod = (entry, startDate, endDate) => {
   const freqLower = frequency.toLowerCase();
 
   // CORRECTION: Pour "Monsuel" (mensuel), toujours retourner le montant
-  if (freqLower === 'monsuel' || freqLower === 'mensuel') {
+  if (freqLower === "monsuel" || freqLower === "mensuel") {
     return amount;
   }
 
   // CORRECTION: Pour les autres fréquences récurrentes, retourner le montant
-  if (freqLower === 'hebdomadaire' || freqLower === 'bimestriel' ||
-      freqLower === 'trimestriel' || freqLower === 'semestriel' ||
-      freqLower === 'annuel') {
+  if (
+    freqLower === "hebdomadaire" ||
+    freqLower === "bimestriel" ||
+    freqLower === "trimestriel" ||
+    freqLower === "semestriel" ||
+    freqLower === "annuel"
+  ) {
     return amount;
   }
 
   // Pour ponctuel, vérifier si la date est dans la période
-  if (freqLower === 'ponctuel' || freqLower === 'ponctuelle') {
-    const entryDate = entry.date ? new Date(entry.date) : (entry.start_date ? new Date(entry.start_date) : null);
+  if (freqLower === "ponctuel" || freqLower === "ponctuelle") {
+    const entryDate = entry.date
+      ? new Date(entry.date)
+      : entry.start_date
+      ? new Date(entry.start_date)
+      : null;
     if (!entryDate) {
       return amount;
     }
@@ -683,53 +691,162 @@ export const calculateEntryAmountForPeriod = (entry, startDate, endDate) => {
 };
 
 // NOUVELLE FONCTION: calculateActualAmountForPeriod avec priorité real_budget
-export const calculateActualAmountForPeriod = (entry, actualTransactions, startDate, endDate, realBudgetData = null) => {
+export const calculateActualAmountForPeriod = (
+  entry,
+  actualTransactions,
+  startDate,
+  endDate,
+  realBudgetData = null
+) => {
   if (!entry) return 0;
+
+  console.log("📊 calculateActualAmountForPeriod:", {
+    entryId: entry.id,
+    entryBudgetId: entry.budget_id,
+    period: `${startDate.toISOString().split("T")[0]} - ${
+      endDate.toISOString().split("T")[0]
+    }`,
+    hasRealBudgetData: !!realBudgetData?.real_budget_items?.data,
+    realBudgetCount: realBudgetData?.real_budget_items?.data?.length || 0,
+  });
 
   // PRIORITÉ 1: Données real_budget API
   if (realBudgetData?.real_budget_items?.data) {
-    const realBudgetsForEntry = realBudgetData.real_budget_items.data.filter(rb => {
-      const matchesBudget = rb.budget_id === entry.budget_id;
+    const periodStart = new Date(startDate);
+    periodStart.setHours(0, 0, 0, 0);
 
-      let matchesDate = false;
+    const periodEnd = new Date(endDate);
+    periodEnd.setHours(23, 59, 59, 999);
+
+    let totalAmount = 0;
+    let foundPayments = [];
+
+    realBudgetData.real_budget_items.data.forEach((rb) => {
+      // ⭐ IMPORTANT: Comparer les IDs de budget
+      const matchesBudget =
+        rb.budget_id === entry.budget_id ||
+        rb.budget_id === parseInt(entry.id) ||
+        rb.budget_id === parseInt(entry.original_budget_id);
+
+      if (!matchesBudget) return;
+
       if (rb.collection_date) {
         try {
           const collectionDate = new Date(rb.collection_date);
           collectionDate.setHours(0, 0, 0, 0);
 
-          const periodStart = new Date(startDate);
-          periodStart.setHours(0, 0, 0, 0);
+          const isInPeriod =
+            collectionDate >= periodStart && collectionDate <= periodEnd;
 
-          const periodEnd = new Date(endDate);
-          periodEnd.setHours(23, 59, 59, 999);
-
-          matchesDate = collectionDate >= periodStart && collectionDate <= periodEnd;
+          if (isInPeriod) {
+            const amount = parseFloat(rb.collection_amount) || 0;
+            totalAmount += amount;
+            foundPayments.push({
+              date: rb.collection_date,
+              amount: amount,
+              budget_id: rb.budget_id,
+            });
+          }
         } catch (error) {
-          console.error('Erreur de parsing date:', error);
+          console.error(
+            "❌ Erreur de parsing date:",
+            rb.collection_date,
+            error
+          );
         }
       }
-
-      const isMatch = matchesBudget && matchesDate;
-      return isMatch;
     });
 
-    if (realBudgetsForEntry.length > 0) {
-      const totalAmount = realBudgetsForEntry.reduce((sum, rb) => {
-        const amount = parseFloat(rb.collection_amount) || 0;
-        return sum + amount;
-      }, 0);
-
+    if (foundPayments.length > 0) {
+      console.log("✅ Found real budget payments:", {
+        totalAmount: totalAmount,
+        payments: foundPayments,
+        periodStart: periodStart.toISOString(),
+        periodEnd: periodEnd.toISOString(),
+      });
       return totalAmount;
     }
   }
 
-  // PRIORITÉ 2: Utiliser getActualAmountForPeriod du budgetCalculations
-  return getActualAmountForPeriod(entry, actualTransactions, startDate, endDate);
+  // PRIORITÉ 2: Vérifier si l'entrée a déjà realPayments (cas des vues consolidées)
+  if (
+    entry.realPayments &&
+    Array.isArray(entry.realPayments) &&
+    entry.realPayments.length > 0
+  ) {
+    const periodStart = new Date(startDate);
+    periodStart.setHours(0, 0, 0, 0);
+
+    const periodEnd = new Date(endDate);
+    periodEnd.setHours(23, 59, 59, 999);
+
+    let totalAmount = 0;
+    let foundPayments = [];
+
+    entry.realPayments.forEach((payment) => {
+      if (payment.collection_date) {
+        try {
+          const collectionDate = new Date(payment.collection_date);
+          collectionDate.setHours(0, 0, 0, 0);
+
+          const isInPeriod =
+            collectionDate >= periodStart && collectionDate <= periodEnd;
+
+          if (isInPeriod) {
+            totalAmount += payment.collection_amount || 0;
+            foundPayments.push({
+              date: payment.collection_date,
+              amount: payment.collection_amount,
+            });
+          }
+        } catch (error) {
+          console.error(
+            "❌ Erreur de parsing payment date:",
+            payment.collection_date,
+            error
+          );
+        }
+      }
+    });
+
+    if (foundPayments.length > 0) {
+      console.log("✅ Found payments in entry.realPayments:", {
+        totalAmount: totalAmount,
+        payments: foundPayments,
+      });
+      return totalAmount;
+    }
+  }
+
+  // PRIORITÉ 3: Utiliser getActualAmountForPeriod du budgetCalculations
+  console.log("🔄 Falling back to getActualAmountForPeriod");
+  const fallbackResult = getActualAmountForPeriod(
+    entry,
+    actualTransactions,
+    startDate,
+    endDate
+  );
+  console.log("🔚 Fallback result:", fallbackResult);
+
+  return fallbackResult;
 };
 
 // NOUVELLE FONCTION: Calcul des positions de trésorerie
-export const calculatePeriodPositions = (periods, cashAccounts, groupedData, expandedAndVatEntries, finalActualTransactions, hasOffBudgetRevenues, hasOffBudgetExpenses) => {
-  if (!periods || periods.length === 0 || !cashAccounts || cashAccounts.length === 0) {
+export const calculatePeriodPositions = (
+  periods,
+  cashAccounts,
+  groupedData,
+  expandedAndVatEntries,
+  finalActualTransactions,
+  hasOffBudgetRevenues,
+  hasOffBudgetExpenses
+) => {
+  if (
+    !periods ||
+    periods.length === 0 ||
+    !cashAccounts ||
+    cashAccounts.length === 0
+  ) {
     return periods?.map(() => ({ initial: 0, final: 0, netCashFlow: 0 })) || [];
   }
 
@@ -747,7 +864,7 @@ export const calculatePeriodPositions = (periods, cashAccounts, groupedData, exp
     const revenueTotals = calculateGeneralTotals(
       groupedData.entree || [],
       period,
-      'entree',
+      "entree",
       expandedAndVatEntries,
       finalActualTransactions,
       hasOffBudgetRevenues,
@@ -757,7 +874,7 @@ export const calculatePeriodPositions = (periods, cashAccounts, groupedData, exp
     const expenseTotals = calculateGeneralTotals(
       groupedData.sortie || [],
       period,
-      'sortie',
+      "sortie",
       expandedAndVatEntries,
       finalActualTransactions,
       hasOffBudgetRevenues,
@@ -765,7 +882,8 @@ export const calculatePeriodPositions = (periods, cashAccounts, groupedData, exp
     );
 
     // CORRECTION: Flux de trésorerie = Entrées réelles - Sorties réelles
-    const netCashFlow = (revenueTotals.actual || 0) - (expenseTotals.actual || 0);
+    const netCashFlow =
+      (revenueTotals.actual || 0) - (expenseTotals.actual || 0);
 
     const initialBalance = runningBalance;
     const finalBalance = initialBalance + netCashFlow;
@@ -775,7 +893,7 @@ export const calculatePeriodPositions = (periods, cashAccounts, groupedData, exp
     positions.push({
       initial: initialBalance,
       final: finalBalance,
-      netCashFlow: netCashFlow
+      netCashFlow: netCashFlow,
     });
   }
 
@@ -784,13 +902,20 @@ export const calculatePeriodPositions = (periods, cashAccounts, groupedData, exp
 
 // Fonction helper pour la description
 export const getEntryDescription = (entry) => {
-  return entry.description ||
-      entry.budget_description ||
-      entry.amount_type_description ||
-      'Aucune description disponible';
+  return (
+    entry.description ||
+    entry.budget_description ||
+    entry.amount_type_description ||
+    "Aucune description disponible"
+  );
 };
 
-export const getTotalsForPeriod = (entries, periodStart, periodEnd, actualTransactions = []) => {
+export const getTotalsForPeriod = (
+  entries,
+  periodStart,
+  periodEnd,
+  actualTransactions = []
+) => {
   if (!entries || !Array.isArray(entries)) {
     return { totalEntree: 0, totalSortie: 0 };
   }
