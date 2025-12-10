@@ -42,7 +42,7 @@ const ConsolidatedAllViewPage = () => {
   }, [stats]);
 
   const handleBack = () => {
-    navigate('/client/dashboard');
+    navigate('/client/projets');
   };
 
   const handleRefresh = async () => {
@@ -132,14 +132,6 @@ const ConsolidatedAllViewPage = () => {
             >
               Actualiser
             </button>
-            {process.env.NODE_ENV === 'development' && (
-              <button
-                onClick={() => setShowDebug(!showDebug)}
-                className="px-3 py-2 text-xs text-yellow-700 bg-yellow-100 border border-yellow-300 rounded-lg hover:bg-yellow-200"
-              >
-                {showDebug ? 'Cacher Debug' : 'Debug'}
-              </button>
-            )}
           </div>
         </div>
         

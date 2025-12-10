@@ -50,9 +50,9 @@ const ProjectTypeStep = ({ projectTypes, loadingTypes, setProjectTypes, setLoadi
   if (loadingTypes) {
     return (
       <div className="text-center">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">Quel type de projet souhaitez-vous créer ?</h2>
-        <div className="flex justify-center items-center py-12">
-          <Loader className="w-8 h-8 animate-spin text-blue-600" />
+        <h2 className="mb-6 text-2xl font-bold text-gray-800">Quel type de projet souhaitez-vous créer ?</h2>
+        <div className="flex items-center justify-center py-12">
+          <Loader className="w-8 h-8 text-blue-600 animate-spin" />
           <span className="ml-3 text-gray-600">Chargement des types de projet...</span>
         </div>
       </div>
@@ -61,9 +61,9 @@ const ProjectTypeStep = ({ projectTypes, loadingTypes, setProjectTypes, setLoadi
 
   return (
     <div className="text-center">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Quel type de projet souhaitez-vous créer ? </h2>
+      <h2 className="mb-6 text-2xl font-bold text-gray-800">Quel type de projet souhaitez-vous créer ? </h2>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+      <div className="grid max-w-4xl grid-cols-1 gap-6 mx-auto md:grid-cols-3">
         {projectTypes.map((projectType) => (
           <ProjectTypeCard
             key={projectType.id}

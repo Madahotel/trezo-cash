@@ -41,6 +41,7 @@ import ConsolidatedAllViewPage from '../pages/clients/consolidate/ConsolidatedVi
 import AnalyseView from '../pages/clients/analyse/AnalyseView';
 import TVATable from '../pages/clients/tva/TVATable';
 import ScheduleViewWrapper from '../pages/clients/echeance/ScheduleViewWrapper';
+import AnalyseViewWrapper from '../pages/clients/analyse/AnalyseViewWrapper';
 const ClientRoute = {
   path: '/client',
   element: (
@@ -58,8 +59,8 @@ const ClientRoute = {
     { path: 'budget', element: <BudgetPage /> },
     { path: 'scenarios', element: <ScenarioView /> },
     { path: 'flux', element: <CashflowView /> },
-  { path: 'echeancier', element: <ScheduleViewWrapper /> },
-    { path: 'analyse', element: <AnalyseView /> },
+    { path: 'echeancier', element: <ScheduleViewWrapper /> },
+    { path: 'analyse', element: <AnalyseViewWrapper /> },
     { path: 'templates', element: <MyTemplatesPage /> },
     { path: 'parametres-projet', element: <ProjectSettingsPage /> },
     { path: 'provisions', element: <ProvisionsPage /> },
