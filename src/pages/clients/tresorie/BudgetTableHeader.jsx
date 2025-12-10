@@ -26,6 +26,7 @@ const BudgetTableHeader = ({
     isFrequencyFilterOpen,
     setIsFrequencyFilterOpen,
     frequencyFilterRef,
+    effectiveTimeUnit,
 }) => {
     const timeUnitLabels = {
         day: 'Jour',
@@ -38,18 +39,18 @@ const BudgetTableHeader = ({
         annually: 'Année',
     };
 
-    const frequencyOptions = [
-        { id: 'all', label: 'Toutes les fréquences' },
-        { id: '1', label: 'Ponctuel' },
-        { id: '2', label: 'Journalier' },
-        { id: '3', label: 'Mensuel' },
-        { id: '4', label: 'Trimestriel' },
-        { id: '5', label: 'Annuel' },
-        { id: '6', label: 'Hebdomadaire' },
-        { id: '7', label: 'Bimestriel' },
-        { id: '8', label: 'Semestriel' },
-        { id: '9', label: 'Paiement irrégulier' },
-    ];
+const frequencyOptions = [
+    { id: 'all', label: 'Toutes les fréquences' },
+    { id: '1', label: 'Ponctuel' },
+    { id: '2', label: 'Journalier' },
+    { id: '3', label: 'Mensuel' },
+    { id: '4', label: 'Hebdomadaire' }, // Corrigé: 4 = Hebdomadaire
+    { id: '5', label: 'Bimestriel' },   // Corrigé: 5 = Bimestriel
+    { id: '6', label: 'Trimestriel' },  // Corrigé: 6 = Trimestriel
+    { id: '7', label: 'Semestriel' },   // Corrigé: 7 = Semestriel
+    { id: '8', label: 'Annuel' },       // Corrigé: 8 = Annuel
+    { id: '9', label: 'Paiement irrégulier' },
+];
 
     const quickPeriodOptions = [
         { id: 'today', label: 'Jour' },
@@ -62,12 +63,12 @@ const BudgetTableHeader = ({
         { id: 'long_term', label: 'LT (10a)' },
     ];
 
-    const periodLabel = useMemo(() => {
-        if (periodOffset === 0) return 'Actuel';
-        const label = timeUnitLabels[timeUnit] || 'Période';
-        const plural = Math.abs(periodOffset) > 1 ? 's' : '';
-        return `${periodOffset > 0 ? '+' : ''}${periodOffset} ${label}${plural}`;
-    }, [periodOffset, timeUnit, timeUnitLabels]);
+const periodLabel = useMemo(() => {
+    if (periodOffset === 0) return 'Actuel';
+    const label = timeUnitLabels[effectiveTimeUnit] || timeUnitLabels[timeUnit] || 'Période';
+    const plural = Math.abs(periodOffset) > 1 ? 's' : '';
+    return `${periodOffset > 0 ? '+' : ''}${periodOffset} ${label}${plural}`;
+}, [periodOffset, timeUnit, effectiveTimeUnit, timeUnitLabels]);
 
     const selectedPeriodLabel = quickPeriodOptions.find(opt => opt.id === activeQuickSelect)?.label || 'Période';
     const selectedFrequencyLabel = frequencyOptions.find(opt => opt.id === frequencyFilter)?.label || 'Fréquence';
@@ -271,6 +272,16 @@ const BudgetTableHeader = ({
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
+                    {/* Indicateur d'affichage actuel */}
+                    <div className="px-3 py-1 text-sm text-gray-600 bg-gray-100 rounded-lg">
+                        Affichage : {timeUnitLabels[effectiveTimeUnit] || timeUnitLabels[timeUnit] || 'Période'}
+                        {frequencyFilter !== 'all' && (
+                            <span className="ml-2 text-blue-600">
+                                (Filtré par {selectedFrequencyLabel.toLowerCase()})
+                            </span>
+                        )}
+                    </div>
+
                     <button
                         onClick={() => setTableauMode('edition')}
                         className={`flex items-center gap-2 text-sm font-semibold transition-colors 
