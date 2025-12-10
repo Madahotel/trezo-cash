@@ -46,6 +46,135 @@ const criticalityConfig = {
     discretionary: { label: 'Discrétionnaire', color: 'bg-blue-500' },
 };
 
+// Configuration complète des fréquences
+const frequencyDisplayConfig = {
+    '1': { // Ponctuel
+        timeUnit: 'week',
+        horizonLength: 12,
+        label: 'Par semaine (date précise)'
+    },
+    '2': { // Journalier
+        timeUnit: 'day',
+        horizonLength: 30,
+        label: 'Par jour'
+    },
+    '3': { // Mensuel
+        timeUnit: '4weeks',   // ATO NO OVAINA
+        horizonLength: 6,     // 6 mois = 6 * 4 semaines
+        label: 'Par 4 semaines (équivalent mois)'
+    },
+    '4': { // Hebdomadaire
+        timeUnit: 'week',
+        horizonLength: 12,
+        label: 'Par semaine'
+    },
+    '5': { // Bimestriel
+        timeUnit: 'month',
+        horizonLength: 6,
+        label: 'Par mois (groupé par bimestre)'
+    },
+    '6': { // Trimestriel
+        timeUnit: 'quarterly',
+        horizonLength: 4,
+        label: 'Par trimestre'
+    },
+    '7': { // Semestriel
+        timeUnit: 'semiannually',
+        horizonLength: 2,
+       label: 'Par semestre'
+    },
+    '8': { // Annuel
+        timeUnit: 'annually',
+        horizonLength: 3,
+        label: 'Par année'
+    },
+    '9': { // Paiement irrégulier
+        timeUnit: 'month',
+        horizonLength: 6,
+        label: 'Par mois (paiements variables)'
+    },
+    'all': {
+        timeUnit: 'month',
+        horizonLength: 6,
+        label: 'Mixte (selon fréquence)'
+    }
+};
+
+// Nouvelle fonction utilitaire pour calculer les paiements mensuels dans une vue hebdomadaire
+const calculateMonthlyEntryForWeeklyPeriod = (entry, periodStart, periodEnd, periodIndex, periods) => {
+    const entryDate = new Date(entry.start_date || entry.date || entry.startDate);
+    const paymentDay = entryDate.getDate();
+    
+    // Obtenir l'année et le mois du début de la période
+    const periodStartDate = new Date(periodStart);
+    const periodYear = periodStartDate.getFullYear();
+    const periodMonth = periodStartDate.getMonth();
+    
+    // Calculer la date théorique du paiement pour ce mois
+    const paymentDate = new Date(periodYear, periodMonth, paymentDay);
+    
+    // Ajuster pour le dernier jour du mois si le jour de paiement est supérieur au dernier jour du mois
+    const lastDayOfMonth = new Date(periodYear, periodMonth + 1, 0).getDate();
+    const actualPaymentDay = Math.min(paymentDay, lastDayOfMonth);
+    
+    // Créer la date de paiement réelle
+    const actualPaymentDate = new Date(periodYear, periodMonth, actualPaymentDay);
+    
+    // Pour le débogage
+    console.log('🔍 calculateMonthlyEntryForWeeklyPeriod:', {
+        entryId: entry.id,
+        entrySupplier: entry.supplier,
+        frequency: entry.frequency_name,
+        periodIndex,
+        periodStart: periodStartDate.toISOString().split('T')[0],
+        periodEnd: new Date(periodEnd).toISOString().split('T')[0],
+        paymentDay,
+        lastDayOfMonth,
+        actualPaymentDay,
+        paymentDate: actualPaymentDate.toISOString().split('T')[0],
+        isInPeriod: actualPaymentDate >= periodStart && actualPaymentDate < periodEnd
+    });
+    
+    // Vérifier si la date de paiement est dans cette semaine
+    if (actualPaymentDate >= periodStart && actualPaymentDate < periodEnd) {
+        return entry.amount || entry.budget_amount || 0;
+    }
+    
+    return 0;
+};
+
+// Fonction pour déterminer si un paiement mensuel doit être affiché dans une période donnée
+const shouldShowMonthlyPayment = (entry, periodStart, periodEnd, periodIndex) => {
+    if (entry.frequency_id !== 3) return false; // Seulement pour les mensuels
+    
+    const entryDate = new Date(entry.start_date || entry.date || entry.startDate);
+    const paymentDay = entryDate.getDate();
+    
+    // Obtenir l'année et le mois du début de la période
+    const periodStartDate = new Date(periodStart);
+    const periodYear = periodStartDate.getFullYear();
+    const periodMonth = periodStartDate.getMonth();
+    
+    // Calculer le nombre de mois depuis la date de début de l'entrée
+    const entryYear = entryDate.getFullYear();
+    const entryMonth = entryDate.getMonth();
+    
+    const monthsDiff = (periodYear - entryYear) * 12 + (periodMonth - entryMonth);
+    
+    // Si c'est un mois futur (différence négative), ne pas afficher
+    if (monthsDiff < 0) return false;
+    
+    // Vérifier si l'entrée a une date de fin et si on est après
+    if (entry.end_date) {
+        const endDate = new Date(entry.end_date);
+        const paymentDate = new Date(periodYear, periodMonth, Math.min(paymentDay, new Date(periodYear, periodMonth + 1, 0).getDate()));
+        if (paymentDate > endDate) return false;
+    }
+    
+    // Pour les entrées avec durée indéfinie ou durée non encore atteinte
+    return true;
+};
+
 // Composant pour projets simples
 const BudgetTableSimple = (props) => {
     const {
@@ -142,58 +271,40 @@ const BudgetTableSimple = (props) => {
     );
 
     const effectiveTimeUnit = useMemo(() => {
-        // Si aucun filtre de fréquence n'est sélectionné, utiliser l'unité de temps normale
-        if (frequencyFilter === 'all') {
-            return timeUnit;
+        console.log('🔍 Debug effectiveTimeUnit:', {
+            frequencyFilter,
+            timeUnit,
+            config: frequencyDisplayConfig[frequencyFilter]
+        });
+
+        // RÈGLE SPÉCIALE : Si filtre Mensuel, TOUJOURS afficher par mois
+        if (frequencyFilter === '3') {
+            return 'month';
         }
 
-        // Pour certaines fréquences, adapter l'unité d'affichage
-        switch (frequencyFilter) {
-            case '2': // Journalier
-                // Pour du journalier, afficher par jour
-                return 'day';
-            case '4': // Hebdomadaire
-                // Pour du hebdomadaire, afficher par semaine
-                return 'week';
-            case '3': // Mensuel
-                // Pour du mensuel, afficher par mois (ou garder timeUnit si c'est déjà mensuel)
-                return timeUnit === 'month' ? 'month' : 'week'; // Fallback sur semaine si besoin
-            case '1': // Ponctuel
-                // Pour ponctuel, afficher par semaine pour mieux voir la date
-                return 'week';
-            case '9': // Paiement irrégulier
-                // Pour irrégulier, afficher par mois
-                return 'month';
-            default:
-                // Pour les autres fréquences (bimestriel, trimestriel, etc.)
-                // Garder l'unité de temps sélectionnée par l'utilisateur
-                return timeUnit;
+        // Si on a une configuration pour ce filtre
+        if (frequencyDisplayConfig[frequencyFilter]) {
+            const config = frequencyDisplayConfig[frequencyFilter];
+            
+            // Pour 'all', utiliser le timeUnit du contexte ou 'month' par défaut
+            if (frequencyFilter === 'all') {
+                return timeUnit || config.timeUnit;
+            }
+            
+            return config.timeUnit;
         }
+
+        // Fallback
+        return timeUnit || 'month';
     }, [frequencyFilter, timeUnit]);
 
     const effectiveHorizonLength = useMemo(() => {
-        switch (frequencyFilter) {
-            case '2': // Journalier - afficher 30 jours
-                return 30;
-            case '4': // Hebdomadaire - afficher 12 semaines
-                return 12;
-            case '3': // Mensuel - afficher 12 mois
-                return 12;
-            case '5': // Bimestriel - afficher 6 bimestres (1 an)
-                return 6;
-            case '6': // Trimestriel - afficher 4 trimestres (1 an)
-                return 4;
-            case '7': // Semestriel - afficher 2 semestres (1 an)
-                return 2;
-            case '8': // Annuel - afficher 5 ans
-                return 5;
-            case '1': // Ponctuel - afficher 12 semaines
-            case '9': // Paiement irrégulier - afficher 12 mois
-                return 12;
-            default: // Toutes fréquences
-                return horizonLength;
+        if (frequencyDisplayConfig[frequencyFilter]) {
+            return frequencyDisplayConfig[frequencyFilter].horizonLength;
         }
+        return horizonLength || 6;
     }, [frequencyFilter, horizonLength]);
+
     const closeAllMenus = () => {
         setSubCategoryMenuOpen(null);
     };
@@ -399,48 +510,56 @@ const BudgetTableSimple = (props) => {
     const periods = useMemo(() => {
         const todayDate = getTodayInTimezone(settings.timezoneOffset);
         let baseDate;
-        switch (effectiveTimeUnit) {
-            case 'day':
-                baseDate = new Date(todayDate);
-                baseDate.setHours(0, 0, 0, 0);
-                break;
-            case 'week':
-                baseDate = getStartOfWeek(todayDate);
-                break;
-            case 'fortnightly':
-                const day = todayDate.getDate();
-                baseDate = new Date(
-                    todayDate.getFullYear(),
-                    todayDate.getMonth(),
-                    day <= 15 ? 1 : 16
-                );
-                break;
-            case 'month':
-                baseDate = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
-                break;
-            case 'bimonthly':
-                const bimonthStartMonth = Math.floor(todayDate.getMonth() / 2) * 2;
-                baseDate = new Date(todayDate.getFullYear(), bimonthStartMonth, 1);
-                break;
-            case 'quarterly':
-                const quarterStartMonth = Math.floor(todayDate.getMonth() / 3) * 3;
-                baseDate = new Date(todayDate.getFullYear(), quarterStartMonth, 1);
-                break;
-            case 'semiannually':
-                const semiAnnualStartMonth = Math.floor(todayDate.getMonth() / 6) * 6;
-                baseDate = new Date(todayDate.getFullYear(), semiAnnualStartMonth, 1);
-                break;
-            case 'annually':
-                baseDate = new Date(todayDate.getFullYear(), 0, 1);
-                break;
-            default:
-                baseDate = getStartOfWeek(todayDate);
+
+        // Pour le filtre journalier, commencer à aujourd'hui
+        if (frequencyFilter === '2') {
+            baseDate = new Date(todayDate);
+            baseDate.setHours(0, 0, 0, 0);
+        } else {
+            switch (effectiveTimeUnit) {
+                case 'day':
+                    baseDate = new Date(todayDate);
+                    baseDate.setHours(0, 0, 0, 0);
+                    break;
+                case 'week':
+                    baseDate = getStartOfWeek(todayDate);
+                    break;
+                case 'fortnightly':
+                    const day = todayDate.getDate();
+                    baseDate = new Date(
+                        todayDate.getFullYear(),
+                        todayDate.getMonth(),
+                        day <= 15 ? 1 : 16
+                    );
+                    break;
+                case 'month':
+                    baseDate = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
+                    break;
+                case 'bimonthly':
+                    const bimonthStartMonth = Math.floor(todayDate.getMonth() / 2) * 2;
+                    baseDate = new Date(todayDate.getFullYear(), bimonthStartMonth, 1);
+                    break;
+                case 'quarterly':
+                    const quarterStartMonth = Math.floor(todayDate.getMonth() / 3) * 3;
+                    baseDate = new Date(todayDate.getFullYear(), quarterStartMonth, 1);
+                    break;
+                case 'semiannually':
+                    const semiAnnualStartMonth = Math.floor(todayDate.getMonth() / 6) * 6;
+                    baseDate = new Date(todayDate.getFullYear(), semiAnnualStartMonth, 1);
+                    break;
+                case 'annually':
+                    baseDate = new Date(todayDate.getFullYear(), 0, 1);
+                    break;
+                default:
+                    baseDate = getStartOfWeek(todayDate);
+            }
         }
 
         const periodList = [];
         for (let i = 0; i < effectiveHorizonLength; i++) {
             const periodIndex = i + periodOffset;
             const periodStart = new Date(baseDate);
+
             switch (effectiveTimeUnit) {
                 case 'day':
                     periodStart.setDate(periodStart.getDate() + periodIndex);
@@ -541,10 +660,23 @@ const BudgetTableSimple = (props) => {
                     });
                     break;
                 case 'week':
-                    label = `S ${periodStart.toLocaleDateString('fr-FR', {
-                        day: '2-digit',
-                        month: '2-digit',
-                    })}`;
+                    // Format amélioré pour les semaines
+                    const weekStartDate = periodStart.getDate();
+                    const weekStartMonth = periodStart.getMonth() + 1;
+                    const weekEnd = new Date(periodEnd);
+                    weekEnd.setDate(weekEnd.getDate() - 1); // Retirer 1 jour pour avoir la date de fin réelle
+                    const weekEndDate = weekEnd.getDate();
+                    const weekEndMonth = weekEnd.getMonth() + 1;
+                    
+                    // Si la semaine est dans le même mois
+                    if (weekStartMonth === weekEndMonth) {
+                        // Calculer la quinzaine ou la semaine du mois
+                        const weekOfMonth = Math.ceil(weekStartDate / 7);
+                        label = `S${weekOfMonth} ${weekStartDate}-${weekEndDate}/${String(weekStartMonth).padStart(2, '0')}`;
+                    } else {
+                        // Si la semaine traverse deux mois
+                        label = `S ${weekStartDate}/${String(weekStartMonth).padStart(2, '0')}-${weekEndDate}/${String(weekEndMonth).padStart(2, '0')}`;
+                    }
                     break;
                 case 'fortnightly':
                     const fortnightNum = periodStart.getDate() === 1 ? '1' : '2';
@@ -580,6 +712,7 @@ const BudgetTableSimple = (props) => {
         effectiveHorizonLength,
         periodOffset,
         settings.timezoneOffset,
+        frequencyFilter,
     ]);
 
     const effectiveCashAccounts = useMemo(() => {
@@ -795,92 +928,39 @@ const BudgetTableSimple = (props) => {
                     activeQuickSelect: 'today',
                 };
                 break;
-            case 'week': {
-                const dayOfWeek = todayDate.getDay();
-                const offsetToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            case 'week':
                 payload = {
-                    timeUnit: 'day',
-                    horizonLength: 7,
-                    periodOffset: offsetToMonday,
+                    timeUnit: 'week',
+                    horizonLength: 1,
+                    periodOffset: 0,
                     activeQuickSelect: 'week',
                 };
                 break;
-            }
-            case 'month': {
-                const year = todayDate.getFullYear();
-                const month = todayDate.getMonth();
-                const firstDayOfMonth = new Date(year, month, 1);
-                const lastDayOfMonth = new Date(year, month + 1, 0);
-
-                const startOfWeekOfFirstDay = getStartOfWeek(firstDayOfMonth);
-                const startOfWeekOfLastDay = getStartOfWeek(lastDayOfMonth);
-
-                const horizon =
-                    Math.round(
-                        (startOfWeekOfLastDay - startOfWeekOfFirstDay) /
-                        (1000 * 60 * 60 * 24 * 7)
-                    ) + 1;
-
-                const startOfCurrentWeek = getStartOfWeek(todayDate);
-                const offsetInTime = startOfWeekOfFirstDay - startOfCurrentWeek;
-                const offsetInWeeks = Math.round(
-                    offsetInTime / (1000 * 60 * 60 * 24 * 7)
-                );
-
+            case 'month':
                 payload = {
-                    timeUnit: 'week',
-                    horizonLength: horizon,
-                    periodOffset: offsetInWeeks,
+                    timeUnit: 'month',
+                    horizonLength: 1,
+                    periodOffset: 0,
                     activeQuickSelect: 'month',
                 };
                 break;
-            }
-            case 'quarter': {
-                const currentQuarterStartMonth = Math.floor(todayDate.getMonth() / 3) * 3;
-                const firstDayOfQuarter = new Date(
-                    todayDate.getFullYear(),
-                    currentQuarterStartMonth,
-                    1
-                );
-                const currentFortnightStart = new Date(
-                    todayDate.getFullYear(),
-                    todayDate.getMonth(),
-                    todayDate.getDate() <= 15 ? 1 : 16
-                );
-                const targetFortnightStart = new Date(
-                    firstDayOfQuarter.getFullYear(),
-                    firstDayOfQuarter.getMonth(),
-                    1
-                );
-                const monthsDiff =
-                    (currentFortnightStart.getFullYear() -
-                        targetFortnightStart.getFullYear()) *
-                    12 +
-                    (currentFortnightStart.getMonth() - targetFortnightStart.getMonth());
-                let fortnightOffset = -monthsDiff * 2;
-                if (currentFortnightStart.getDate() > 15) {
-                    fortnightOffset -= 1;
-                }
+            case 'quarter':
                 payload = {
-                    timeUnit: 'fortnightly',
-                    horizonLength: 6,
-                    periodOffset: fortnightOffset,
+                    timeUnit: 'quarterly',
+                    horizonLength: 1,
+                    periodOffset: 0,
                     activeQuickSelect: 'quarter',
                 };
                 break;
-            }
-            case 'year': {
-                const currentMonth = todayDate.getMonth();
-                const offsetToJanuary = -currentMonth;
+            case 'year':
                 payload = {
-                    timeUnit: 'month',
-                    horizonLength: 12,
-                    periodOffset: offsetToJanuary,
+                    timeUnit: 'annually',
+                    horizonLength: 1,
+                    periodOffset: 0,
                     activeQuickSelect: 'year',
                 };
                 break;
-            }
-            case 'short_term': {
+            case 'short_term':
                 payload = {
                     timeUnit: 'annually',
                     horizonLength: 3,
@@ -888,8 +968,7 @@ const BudgetTableSimple = (props) => {
                     activeQuickSelect: 'short_term',
                 };
                 break;
-            }
-            case 'medium_term': {
+            case 'medium_term':
                 payload = {
                     timeUnit: 'annually',
                     horizonLength: 5,
@@ -897,8 +976,7 @@ const BudgetTableSimple = (props) => {
                     activeQuickSelect: 'medium_term',
                 };
                 break;
-            }
-            case 'long_term': {
+            case 'long_term':
                 payload = {
                     timeUnit: 'annually',
                     horizonLength: 10,
@@ -906,7 +984,6 @@ const BudgetTableSimple = (props) => {
                     activeQuickSelect: 'long_term',
                 };
                 break;
-            }
             default:
                 return;
         }
@@ -1812,6 +1889,36 @@ const BudgetTableSimple = (props) => {
         periods.length * (periodColumnWidth + separatorWidth);
     const totalCols = 4 + periods.length * 2;
 
+    // Fonction pour calculer le budget d'une entrée pour une période donnée
+    const calculateEntryBudgetForPeriod = (entry, periodStart, periodEnd, periodIndex) => {
+        // Si l'entrée est mensuelle et que l'affichage est en semaines
+        if (entry.frequency_id === 3 && effectiveTimeUnit === 'week') {
+            console.log('📅 Calcul mensuel pour affichage hebdomadaire:', {
+                entryId: entry.id,
+                supplier: entry.supplier,
+                periodIndex,
+                periodStart: periodStart.toISOString().split('T')[0],
+                periodEnd: periodEnd.toISOString().split('T')[0]
+            });
+            
+            // Utiliser la nouvelle fonction pour les mensuels en vue hebdomadaire
+            return calculateMonthlyEntryForWeeklyPeriod(
+                entry, 
+                periodStart, 
+                periodEnd, 
+                periodIndex,
+                periods
+            );
+        }
+        
+        // Pour toutes les autres fréquences, utiliser la fonction existante
+        return calculateEntryAmountForPeriod(
+            entry,
+            periodStart,
+            periodEnd
+        );
+    };
+
     const renderBudgetRows = (type) => {
         const isEntree = type === 'entree';
         const mainCategories = groupedData[type] || [];
@@ -2170,11 +2277,14 @@ const BudgetTableSimple = (props) => {
                                                     )}
                                                     <td className="bg-surface"></td>
                                                     {periods.map((period, periodIndex) => {
-                                                        const budget = calculateEntryAmountForPeriod(
+                                                        // Utiliser la nouvelle fonction pour calculer le budget
+                                                        const budget = calculateEntryBudgetForPeriod(
                                                             entry,
                                                             period.startDate,
-                                                            period.endDate
+                                                            period.endDate,
+                                                            periodIndex
                                                         );
+                                                        
                                                         const actual = calculateActualAmountForPeriod(
                                                             entry,
                                                             finalActualTransactions,
@@ -2353,7 +2463,7 @@ const BudgetTableSimple = (props) => {
                 <div className={`relative mb-6 transition-opacity duration-300 ${drawerData.isOpen ? 'opacity-50 pointer-events-none' : ''
                     }`}>
                     <BudgetTableHeader
-                        timeUnit={effectiveTimeUnit}
+                        timeUnit={timeUnit}
                         periodOffset={periodOffset}
                         activeQuickSelect={activeQuickSelect}
                         tableauMode={tableauMode}

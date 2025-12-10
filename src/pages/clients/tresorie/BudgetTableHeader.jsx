@@ -39,38 +39,26 @@ const BudgetTableHeader = ({
         annually: 'Année',
     };
 
-const frequencyOptions = [
-    { id: 'all', label: 'Toutes les fréquences' },
-    { id: '1', label: 'Ponctuel' },
-    { id: '2', label: 'Journalier' },
-    { id: '3', label: 'Mensuel' },
-    { id: '4', label: 'Hebdomadaire' }, // Corrigé: 4 = Hebdomadaire
-    { id: '5', label: 'Bimestriel' },   // Corrigé: 5 = Bimestriel
-    { id: '6', label: 'Trimestriel' },  // Corrigé: 6 = Trimestriel
-    { id: '7', label: 'Semestriel' },   // Corrigé: 7 = Semestriel
-    { id: '8', label: 'Annuel' },       // Corrigé: 8 = Annuel
-    { id: '9', label: 'Paiement irrégulier' },
-];
-
-    const quickPeriodOptions = [
-        { id: 'today', label: 'Jour' },
-        { id: 'week', label: 'Semaine' },
-        { id: 'month', label: 'Mois' },
-        { id: 'quarter', label: 'Trimestre' },
-        { id: 'year', label: 'Année' },
-        { id: 'short_term', label: 'CT (3a)' },
-        { id: 'medium_term', label: 'MT (5a)' },
-        { id: 'long_term', label: 'LT (10a)' },
+    const frequencyOptions = [
+        { id: 'all', label: 'Toutes les fréquences' },
+        { id: '1', label: 'Ponctuel' },
+        { id: '2', label: 'Journalier' },
+        { id: '3', label: 'Mensuel' },
+        { id: '4', label: 'Hebdomadaire' },
+        { id: '5', label: 'Bimestriel' },
+        { id: '6', label: 'Trimestriel' },
+        { id: '7', label: 'Semestriel' },
+        { id: '8', label: 'Annuel' },
+        { id: '9', label: 'Paiement irrégulier' },
     ];
 
-const periodLabel = useMemo(() => {
-    if (periodOffset === 0) return 'Actuel';
-    const label = timeUnitLabels[effectiveTimeUnit] || timeUnitLabels[timeUnit] || 'Période';
-    const plural = Math.abs(periodOffset) > 1 ? 's' : '';
-    return `${periodOffset > 0 ? '+' : ''}${periodOffset} ${label}${plural}`;
-}, [periodOffset, timeUnit, effectiveTimeUnit, timeUnitLabels]);
+    const periodLabel = useMemo(() => {
+        if (periodOffset === 0) return 'Actuel';
+        const label = timeUnitLabels[effectiveTimeUnit] || timeUnitLabels[timeUnit] || 'Période';
+        const plural = Math.abs(periodOffset) > 1 ? 's' : '';
+        return `${periodOffset > 0 ? '+' : ''}${periodOffset} ${label}${plural}`;
+    }, [periodOffset, timeUnit, effectiveTimeUnit, timeUnitLabels]);
 
-    const selectedPeriodLabel = quickPeriodOptions.find(opt => opt.id === activeQuickSelect)?.label || 'Période';
     const selectedFrequencyLabel = frequencyOptions.find(opt => opt.id === frequencyFilter)?.label || 'Fréquence';
 
     const handleFrequencyClick = () => {
@@ -90,11 +78,6 @@ const periodLabel = useMemo(() => {
     const handleFrequencySelect = (optionId) => {
         setFrequencyFilter(optionId);
         setIsFrequencyFilterOpen(false);
-    };
-
-    const handlePeriodSelect = (optionId) => {
-        handleQuickPeriodSelect(optionId);
-        setIsPeriodMenuOpen(false);
     };
 
     // Fermer les menus quand on clique en dehors
@@ -209,58 +192,6 @@ const periodLabel = useMemo(() => {
                                                         {frequencyFilter === option.id && (
                                                             <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                                                         )}
-                                                    </button>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </motion.div>
-                                </>
-                            )}
-                        </AnimatePresence>
-                    </div>
-
-                    {/* Menu période rapide */}
-                    <div className="relative" ref={periodMenuRef}>
-                        <button
-                            onClick={handlePeriodClick}
-                            className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-gray-700 transition-colors bg-white border border-gray-300 rounded-lg shadow-sm hover:border-blue-500 hover:text-blue-600"
-                        >
-                            <span>{selectedPeriodLabel}</span>
-                            <ChevronDown
-                                className={`w-4 h-4 transition-transform ${isPeriodMenuOpen ? 'rotate-180' : ''}`}
-                            />
-                        </button>
-                        <AnimatePresence>
-                            {isPeriodMenuOpen && (
-                                <>
-                                    {/* Overlay pour capturer les clics */}
-                                    <div
-                                        className="fixed inset-0 z-[9998] bg-transparent"
-                                        onClick={() => setIsPeriodMenuOpen(false)}
-                                    />
-                                    <motion.div
-                                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                                        exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                                        transition={{ duration: 0.15 }}
-                                        className="absolute left-0 z-[9999] w-48 mt-2 bg-white border border-gray-200 rounded-lg shadow-2xl top-full"
-                                        style={{
-                                            willChange: 'transform, opacity',
-                                            transformOrigin: 'top left'
-                                        }}
-                                    >
-                                        <ul className="p-1">
-                                            {quickPeriodOptions.map(option => (
-                                                <li key={option.id}>
-                                                    <button
-                                                        onClick={() => handlePeriodSelect(option.id)}
-                                                        className={`w-full text-left px-3 py-1.5 text-sm rounded-md 
-                                                            ${activeQuickSelect === option.id
-                                                                ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200'
-                                                                : 'text-gray-700 hover:bg-gray-50 border border-transparent'
-                                                            }`}
-                                                    >
-                                                        {option.label}
                                                     </button>
                                                 </li>
                                             ))}
