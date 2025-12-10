@@ -196,6 +196,7 @@ const CashflowView = ({ isFocusMode = false }) => {
       differences,
     };
   }, [data, periods, selectedYear, viewMode]);
+  console.log(chartData);
 
   const getChartOptions = () => {
     const { labels, inflows, outflows, differences } = chartData;
@@ -650,25 +651,19 @@ const CashflowView = ({ isFocusMode = false }) => {
           {/* Stats en ligne - design d'origine */}
           <div className="grid grid-cols-3 gap-4">
             <div className="bg-gray-50 rounded p-3">
-              <div className="text-xs text-gray-500 mb-1">
-                Entrées {selectedYear}
-              </div>
+              <div className="text-xs text-gray-500 mb-1">Entrées</div>
               <div className="text-sm font-medium text-emerald-600">
                 {formatCurrency(stats.totalInflow)}
               </div>
             </div>
             <div className="bg-gray-50 rounded p-3">
-              <div className="text-xs text-gray-500 mb-1">
-                Sorties {selectedYear}
-              </div>
+              <div className="text-xs text-gray-500 mb-1">Sorties</div>
               <div className="text-sm font-medium text-rose-600">
                 {formatCurrency(stats.totalOutflow)}
               </div>
             </div>
             <div className="bg-gray-50 rounded p-3">
-              <div className="text-xs text-gray-500 mb-1">
-                Balance {selectedYear}
-              </div>
+              <div className="text-xs text-gray-500 mb-1">Balance</div>
               <div
                 className={`text-sm font-medium ${
                   stats.totalBalance >= 0 ? 'text-blue-600' : 'text-rose-600'
