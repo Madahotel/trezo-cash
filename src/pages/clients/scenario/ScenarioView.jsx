@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   Plus,
   Edit,
@@ -12,55 +12,55 @@ import {
   List,
   ChevronDown,
   MoreVertical,
-} from 'lucide-react';
-import ReactECharts from 'echarts-for-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import ScenarioEntriesDrawer from './ScenarioEntriesDrawer';
-import BudgetModal from '../../../components/modal/ScenarioBudgetModal';
-import EmptyState from '../../../components/emptystate/EmptyState';
-import ScenarioModal from '../../../components/modal/ScenarioModal';
-import ConfirmationModal from '../../../components/modal/ConfirmationModal';
-import { formatCurrency } from '../../../utils/formatting';
+} from "lucide-react";
+import ReactECharts from "echarts-for-react";
+import { motion, AnimatePresence } from "framer-motion";
+import ScenarioEntriesDrawer from "./ScenarioEntriesDrawer";
+import BudgetModal from "../../../components/modal/ScenarioBudgetModal";
+import EmptyState from "../../../components/emptystate/EmptyState";
+import ScenarioModal from "../../../components/modal/ScenarioModal";
+import ConfirmationModal from "../../../components/modal/ConfirmationModal";
+import { formatCurrency } from "../../../utils/formatting";
 
 // Couleurs des scénarios
 const colorMap = {
-  '#8b5cf6': {
-    bg: 'bg-violet-50',
-    text: 'text-violet-800',
-    button: 'bg-violet-200 hover:bg-violet-300',
-    line: '#8b5cf6',
+  "#8b5cf6": {
+    bg: "bg-violet-50",
+    text: "text-violet-800",
+    button: "bg-violet-200 hover:bg-violet-300",
+    line: "#8b5cf6",
   },
-  '#f97316': {
-    bg: 'bg-orange-50',
-    text: 'text-orange-800',
-    button: 'bg-orange-200 hover:bg-orange-300',
-    line: '#f97316',
+  "#f97316": {
+    bg: "bg-orange-50",
+    text: "text-orange-800",
+    button: "bg-orange-200 hover:bg-orange-300",
+    line: "#f97316",
   },
-  '#d946ef': {
-    bg: 'bg-fuchsia-50',
-    text: 'text-fuchsia-800',
-    button: 'bg-fuchsia-200 hover:bg-fuchsia-300',
-    line: '#d946ef',
+  "#d946ef": {
+    bg: "bg-fuchsia-50",
+    text: "text-fuchsia-800",
+    button: "bg-fuchsia-200 hover:bg-fuchsia-300",
+    line: "#d946ef",
   },
 };
-const defaultColors = colorMap['#8b5cf6'];
+const defaultColors = colorMap["#8b5cf6"];
 
 // Données de test
 const testScenarios = [
   {
-    id: '1',
-    name: 'Scénario 1',
-    displayName: 'Scénario 1',
-    description: 'Description 1',
-    color: '#8b5cf6',
+    id: "1",
+    name: "Scénario 1",
+    displayName: "Scénario 1",
+    description: "Description 1",
+    color: "#8b5cf6",
     isVisible: true,
   },
   {
-    id: '2',
-    name: 'Scénario 2',
-    displayName: 'Scénario 2',
-    description: 'Description 2',
-    color: '#f97316',
+    id: "2",
+    name: "Scénario 2",
+    displayName: "Scénario 2",
+    description: "Description 2",
+    color: "#f97316",
     isVisible: true,
   },
 ];
@@ -73,7 +73,7 @@ const generateRandomData = (length, base = 1000, variance = 500) => {
 };
 
 // Périodes (axe X)
-const testPeriods = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
+const testPeriods = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"];
 
 // Solde de base (ligne principale)
 const testBaseBalance = generateRandomData(testPeriods.length, 1500, 400);
@@ -81,21 +81,21 @@ const testBaseBalance = generateRandomData(testPeriods.length, 1500, 400);
 // Scénarios simulés
 const testScenarioBalance = [
   {
-    id: '1',
-    name: 'Scénario Optimiste',
-    color: '#8b5cf6',
+    id: "1",
+    name: "Scénario Optimiste",
+    color: "#8b5cf6",
     data: generateRandomData(testPeriods.length, 1700, 500),
   },
   {
-    id: '2',
-    name: 'Scénario Pessimiste',
-    color: '#f97316',
+    id: "2",
+    name: "Scénario Pessimiste",
+    color: "#f97316",
     data: generateRandomData(testPeriods.length, 1300, 500),
   },
   {
-    id: '3',
-    name: 'Scénario Réaliste',
-    color: '#d946ef',
+    id: "3",
+    name: "Scénario Réaliste",
+    color: "#d946ef",
     data: generateRandomData(testPeriods.length, 1500, 500),
   },
 ];
@@ -110,9 +110,9 @@ const ScenarioView = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(null);
 
   const quickPeriodOptions = [
-    { id: '1m', label: '1 Mois' },
-    { id: '3m', label: '3 Mois' },
-    { id: '6m', label: '6 Mois' },
+    { id: "1m", label: "1 Mois" },
+    { id: "3m", label: "3 Mois" },
+    { id: "6m", label: "6 Mois" },
   ];
 
   // État responsive
@@ -124,9 +124,9 @@ const ScenarioView = () => {
     };
 
     checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
+    window.addEventListener("resize", checkScreenSize);
 
-    return () => window.removeEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener("resize", checkScreenSize);
   }, []);
 
   // Gestion modale / drawer
@@ -155,12 +155,12 @@ const ScenarioView = () => {
   const handleDeleteEntry = (entryId) => alert(`Supprimer entrée ${entryId}`);
 
   const [selectedPeriodLabel, setSelectedPeriodLabel] = useState(
-    quickPeriodOptions[0]?.label || 'Période'
+    quickPeriodOptions[0]?.label || "Période"
   );
   const [activeQuickSelect, setActiveQuickSelect] = useState(
     quickPeriodOptions[0]?.id || null
   );
-  const [periodLabel, setPeriodLabel] = useState('Période Actuelle');
+  const [periodLabel, setPeriodLabel] = useState("Période Actuelle");
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false);
 
   const periodMenuRef = useRef(null);
@@ -183,8 +183,8 @@ const ScenarioView = () => {
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const [currentPeriods, setCurrentPeriods] = useState(testPeriods);
@@ -200,9 +200,9 @@ const ScenarioView = () => {
     setActiveQuickSelect(id);
 
     let length;
-    if (id === '1m') length = 1;
-    else if (id === '3m') length = 3;
-    else if (id === '6m') length = 6;
+    if (id === "1m") length = 1;
+    else if (id === "3m") length = 3;
+    else if (id === "6m") length = 6;
 
     setCurrentPeriods(testPeriods.slice(0, length));
     setCurrentBaseData(testBaseBalance.slice(0, length));
@@ -233,7 +233,7 @@ const ScenarioView = () => {
     );
 
     setPeriodLabel(
-      direction === -1 ? 'Période Précédente' : 'Période Suivante'
+      direction === -1 ? "Période Précédente" : "Période Suivante"
     );
   };
 
@@ -251,16 +251,16 @@ const ScenarioView = () => {
       labels: currentPeriods,
       series: [
         {
-          name: 'Solde de base',
-          type: 'line',
+          name: "Solde de base",
+          type: "line",
           data: currentBaseData,
           smooth: true,
           lineStyle: { width: 3 },
-          itemStyle: { color: '#3b82f6' },
+          itemStyle: { color: "#3b82f6" },
         },
         ...currentScenarioData.map((sc) => ({
           name: sc.name,
-          type: 'line',
+          type: "line",
           data: sc.data,
           smooth: true,
           lineStyle: { width: 2, color: sc.color },
@@ -276,10 +276,10 @@ const ScenarioView = () => {
     if (!chartData || chartData.series.length === 0) {
       return {
         title: {
-          text: 'Aucune donnée à afficher',
-          subtext: 'Sélectionnez un projet individuel pour voir les scénarios.',
-          left: 'center',
-          top: 'center',
+          text: "Aucune donnée à afficher",
+          subtext: "Sélectionnez un projet individuel pour voir les scénarios.",
+          left: "center",
+          top: "center",
         },
       };
     }
@@ -291,9 +291,9 @@ const ScenarioView = () => {
     if (allDataPoints.length === 0) {
       return {
         title: {
-          text: 'Aucune donnée numérique à afficher',
-          left: 'center',
-          top: 'center',
+          text: "Aucune donnée numérique à afficher",
+          left: "center",
+          top: "center",
         },
       };
     }
@@ -307,26 +307,26 @@ const ScenarioView = () => {
 
     return {
       tooltip: {
-        trigger: 'axis',
+        trigger: "axis",
         confine: true,
       },
       legend: {
         data: chartData.series.map((s) => s.name),
         bottom: 0,
-        type: 'scroll',
+        type: "scroll",
         textStyle: {
           fontSize: isMobile ? 10 : 12,
         },
       },
       grid: {
-        left: isMobile ? '8%' : '3%',
-        right: isMobile ? '8%' : '4%',
-        bottom: isMobile ? '20%' : '15%',
-        top: isMobile ? '5%' : '3%',
+        left: isMobile ? "8%" : "3%",
+        right: isMobile ? "8%" : "4%",
+        bottom: isMobile ? "20%" : "15%",
+        top: isMobile ? "5%" : "3%",
         containLabel: true,
       },
       xAxis: {
-        type: 'category',
+        type: "category",
         data: chartData.labels,
         boundaryGap: false,
         axisLabel: {
@@ -334,7 +334,7 @@ const ScenarioView = () => {
         },
       },
       yAxis: {
-        type: 'value',
+        type: "value",
         axisLabel: {
           formatter: (value) => formatCurrency(value, settings),
           fontSize: isMobile ? 10 : 12,
@@ -411,7 +411,7 @@ const ScenarioView = () => {
                       </button>
                       <button
                         onClick={() =>
-                          handleEditEntry({ id: 1, name: 'Entrée test' })
+                          handleEditEntry({ id: 1, name: "Entrée test" })
                         }
                         className="p-2 text-blue-600 hover:text-blue-800"
                         title="Modifier"
@@ -486,7 +486,7 @@ const ScenarioView = () => {
                                     onClick={() => {
                                       handleEditEntry({
                                         id: 1,
-                                        name: 'Entrée test',
+                                        name: "Entrée test",
                                       });
                                       setMobileMenuOpen(null);
                                     }}
@@ -586,7 +586,7 @@ const ScenarioView = () => {
                   <span>{selectedPeriodLabel}</span>
                   <ChevronDown
                     className={`w-3 h-3 md:w-4 md:h-4 transition-transform ${
-                      isPeriodMenuOpen ? 'rotate-180' : ''
+                      isPeriodMenuOpen ? "rotate-180" : ""
                     }`}
                   />
                 </button>
@@ -609,8 +609,8 @@ const ScenarioView = () => {
                               }}
                               className={`w-full text-left px-3 py-1.5 text-xs md:text-sm rounded-md ${
                                 activeQuickSelect === option.id
-                                  ? 'bg-blue-50 text-blue-700 font-semibold'
-                                  : 'text-gray-700 hover:bg-gray-100'
+                                  ? "bg-blue-50 text-blue-700 font-semibold"
+                                  : "text-gray-700 hover:bg-gray-100"
                               }`}
                             >
                               {option.label}
@@ -631,8 +631,8 @@ const ScenarioView = () => {
               <ReactECharts
                 option={getChartOptions()}
                 style={{
-                  height: isMobile ? '350px' : '500px',
-                  width: '100%',
+                  height: isMobile ? "350px" : "500px",
+                  width: "100%",
                 }}
                 notMerge={true}
                 lazyUpdate={true}
@@ -647,7 +647,7 @@ const ScenarioView = () => {
             isOpen={isBudgetModalOpen}
             onClose={handleCloseBudgetModal}
             onSave={(data) => {
-              console.log('Save', data);
+              console.log("Save", data);
               handleCloseBudgetModal();
             }}
             editingData={editingEntry}
