@@ -1,6 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useUI } from '../../../components/context/UIContext';
-import { Plus, TrendingUp, TrendingDown, Target, Filter } from 'lucide-react';
+import {
+  Plus,
+  TrendingUp,
+  TrendingDown,
+  Target,
+  Filter,
+  ChevronDown,
+  Calendar,
+} from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import BudgetLineDialog from './BudgetLineDialog';
@@ -12,21 +20,22 @@ import { apiDelete, apiGet } from '../../../components/context/actionsMethode';
 import toast from 'react-hot-toast';
 import { useData } from '../../../components/context/DataContext';
 import { useActiveProjectData } from '../../../hooks/useActiveProjectData';
+import { calculateYearlyTotals } from '../../../services/budget';
 
 const BudgetPage = () => {
   const { uiState } = useUI();
   const { dataState } = useData();
   const activeProjectId = uiState.activeProject?.id;
-  
-  const { 
-    budgetEntries, 
-    activeProject, 
-    isConsolidated, 
+
+  const {
+    budgetEntries,
+    activeProject,
+    isConsolidated,
     isCustomConsolidated,
     loading: dataLoading,
     error: dataError,
     consolidatedBudgetData,
-    refetch: refetchConsolidatedData
+    refetch: refetchConsolidatedData,
   } = useActiveProjectData(dataState, uiState);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -45,6 +54,23 @@ const BudgetPage = () => {
   const [error, setError] = useState(null);
   const currentRequestId = useRef(0);
 
+  // Nouvel état pour l'année sélectionnée
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
+  const generateYearList = () => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+
+    // Ajouter les années de 2020 à l'année actuelle + 5
+    for (let year = 2020; year <= currentYear + 5; year++) {
+      years.push(year);
+    }
+
+    return years;
+  };
+
+  const availableYears = generateYearList();
+
   const fetchBudgetData = async (retryCount = 0) => {
     if (isConsolidated || isCustomConsolidated) {
       if (consolidatedBudgetData) {
@@ -54,7 +80,7 @@ const BudgetPage = () => {
           sumEntries: consolidatedBudgetData.sumEntries,
           sumExpenses: consolidatedBudgetData.sumExpenses,
           sumForecast: consolidatedBudgetData.sumForecast,
-          budgetEntries: consolidatedBudgetData.budgetEntries
+          budgetEntries: consolidatedBudgetData.budgetEntries,
         });
       }
       setLoadingState({
@@ -145,7 +171,12 @@ const BudgetPage = () => {
         initial: false,
       });
     }
-  }, [activeProjectId, isConsolidated, isCustomConsolidated, consolidatedBudgetData]);
+  }, [
+    activeProjectId,
+    isConsolidated,
+    isCustomConsolidated,
+    consolidatedBudgetData,
+  ]);
 
   const handleBudgetUpdated = async () => {
     if (isConsolidated || isCustomConsolidated) {
@@ -157,7 +188,7 @@ const BudgetPage = () => {
 
   const handleEdit = (item, type) => {
     if (isConsolidated || isCustomConsolidated) {
-      toast.error('L\'édition n\'est pas disponible en vue consolidée');
+      toast.error("L'édition n'est pas disponible en vue consolidée");
       return;
     }
     setEditingLine(item);
@@ -166,7 +197,7 @@ const BudgetPage = () => {
 
   const handleDelete = (item, type) => {
     if (isConsolidated || isCustomConsolidated) {
-      toast.error('La suppression n\'est pas disponible en vue consolidée');
+      toast.error("La suppression n'est pas disponible en vue consolidée");
       return;
     }
     setSelectedLine(item);
@@ -208,12 +239,23 @@ const BudgetPage = () => {
 
   const handleAddNewLine = () => {
     if (isConsolidated || isCustomConsolidated) {
-      toast.error('L\'ajout n\'est pas disponible en vue consolidée');
+      toast.error("L'ajout n'est pas disponible en vue consolidée");
       return;
     }
     setEditingLine(null);
     setIsDialogOpen(true);
   };
+
+  // Fonction pour calculer les totaux filtrés par année
+  const getFilteredTotals = () => {
+    if (!budget || isConsolidated || isCustomConsolidated) {
+      return { revenus: 0, depenses: 0, balance: 0 };
+    }
+
+    return calculateYearlyTotals(budget, selectedYear);
+  };
+
+  const filteredTotals = getFilteredTotals();
 
   const LoadingCard = () => (
     <Card className="border-0 animate-pulse bg-gradient-to-br from-gray-50 to-gray-100/50">
@@ -231,6 +273,51 @@ const BudgetPage = () => {
   );
 
   if (isConsolidated || isCustomConsolidated) {
+    // Pour la vue consolidée, filtrer aussi par année
+    const filterConsolidatedData = () => {
+      if (!consolidatedBudgetData)
+        return { sumEntries: 0, sumExpenses: 0, sumForecast: 0 };
+
+      const filterItemByYear = (item) => {
+        if (!item.start_date) return false;
+
+        const startYear = new Date(item.start_date).getFullYear();
+        const endYear = item.end_date
+          ? new Date(item.end_date).getFullYear()
+          : null;
+        const isIndefinite = item.is_budget_duration_indefinite;
+
+        if (startYear === selectedYear) return true;
+        if (isIndefinite && startYear <= selectedYear) return true;
+        if (endYear && startYear <= selectedYear && selectedYear <= endYear)
+          return true;
+
+        return false;
+      };
+
+      const filteredEntries = (consolidatedBudgetData.entries || [])
+        .filter(filterItemByYear)
+        .reduce(
+          (sum, item) => sum + parseFloat(item.budget_forecast_amount || 0),
+          0
+        );
+
+      const filteredExpenses = (consolidatedBudgetData.expenses || [])
+        .filter(filterItemByYear)
+        .reduce(
+          (sum, item) => sum + parseFloat(item.budget_forecast_amount || 0),
+          0
+        );
+
+      return {
+        sumEntries: filteredEntries,
+        sumExpenses: filteredExpenses,
+        sumForecast: filteredEntries - filteredExpenses,
+      };
+    };
+
+    const consolidatedTotals = filterConsolidatedData();
+
     return (
       <div className="min-h-screen p-6 bg-white">
         <div className="">
@@ -254,7 +341,7 @@ const BudgetPage = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="grid gap-6 mt-6 md:grid-cols-3">
             {loadingState.summary ? (
               <>
@@ -271,11 +358,14 @@ const BudgetPage = () => {
                       <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                       Revenus totaux
                     </CardTitle>
+                    <p className="text-xs text-gray-500">
+                      Année {selectedYear}
+                    </p>
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-center justify-between">
                       <div className="text-3xl font-bold text-green-700">
-                        {formatCurrency(budget.sumEntries || 0)}
+                        {formatCurrency(consolidatedTotals.sumEntries || 0)}
                       </div>
                       <div className="flex items-center justify-center w-12 h-12 bg-green-100 rounded-xl">
                         <TrendingUp className="w-6 h-6 text-green-600" />
@@ -294,11 +384,14 @@ const BudgetPage = () => {
                       <div className="w-2 h-2 bg-red-500 rounded-full"></div>
                       Dépenses totales
                     </CardTitle>
+                    <p className="text-xs text-gray-500">
+                      Année {selectedYear}
+                    </p>
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-center justify-between">
                       <div className="text-3xl font-bold text-red-700">
-                        {formatCurrency(budget.sumExpenses || 0)}
+                        {formatCurrency(consolidatedTotals.sumExpenses || 0)}
                       </div>
                       <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-xl">
                         <TrendingDown className="w-6 h-6 text-red-600" />
@@ -317,11 +410,20 @@ const BudgetPage = () => {
                       <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
                       Solde consolidé
                     </CardTitle>
+                    <p className="text-xs text-gray-500">
+                      Année {selectedYear}
+                    </p>
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-center justify-between">
-                      <div className={`text-3xl font-bold ${(budget.sumForecast || 0) >= 0 ? 'text-purple-700' : 'text-red-700'}`}>
-                        {formatCurrency(budget.sumForecast || 0)}
+                      <div
+                        className={`text-3xl font-bold ${
+                          (consolidatedTotals.sumForecast || 0) >= 0
+                            ? 'text-purple-700'
+                            : 'text-red-700'
+                        }`}
+                      >
+                        {formatCurrency(consolidatedTotals.sumForecast || 0)}
                       </div>
                       <div className="flex items-center justify-center w-12 h-12 bg-purple-100 rounded-xl">
                         <Target className="w-6 h-6 text-purple-600" />
@@ -363,7 +465,28 @@ const BudgetPage = () => {
                       Détails des budgets consolidés
                     </h2>
                     <p className="text-gray-600">
-                      {budget.budgetEntries?.length || 0} lignes de budget au total
+                      {budget.budgetEntries?.filter((item) => {
+                        if (!item.start_date) return false;
+                        const startYear = new Date(
+                          item.start_date
+                        ).getFullYear();
+                        const endYear = item.end_date
+                          ? new Date(item.end_date).getFullYear()
+                          : null;
+                        const isIndefinite = item.is_budget_duration_indefinite;
+
+                        if (startYear === selectedYear) return true;
+                        if (isIndefinite && startYear <= selectedYear)
+                          return true;
+                        if (
+                          endYear &&
+                          startYear <= selectedYear &&
+                          selectedYear <= endYear
+                        )
+                          return true;
+                        return false;
+                      }).length || 0}{' '}
+                      lignes de budget pour l'année {selectedYear}
                     </p>
                   </div>
                   <BudgetTable
@@ -371,7 +494,9 @@ const BudgetPage = () => {
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                     loading={loadingState.table}
-                    isReadOnly={true} 
+                    isReadOnly={true}
+                    year={selectedYear}
+                    onYearChange={setSelectedYear} // Passer la fonction pour changer l'année
                   />
                 </div>
               )}
@@ -412,7 +537,6 @@ const BudgetPage = () => {
       </div>
     );
   }
-  // console.log(loadingState);
 
   return (
     <div className="min-h-screen p-6 bg-white">
@@ -471,7 +595,7 @@ const BudgetPage = () => {
         />
 
         {/* Summary Cards avec design moderne */}
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-6 mt-6 md:grid-cols-3">
           {loadingState.summary ? (
             <>
               <LoadingCard />
@@ -485,18 +609,21 @@ const BudgetPage = () => {
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-gray-600 uppercase">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    Revenus prévus
+                    Revenus {selectedYear}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between">
                     <div className="text-3xl font-bold text-green-700">
-                      {formatCurrency(budget?.sums?.revenus) || '0'}
+                      {formatCurrency(filteredTotals.revenus)}
                     </div>
                     <div className="flex items-center justify-center w-12 h-12 bg-green-100 rounded-xl">
                       <TrendingUp className="w-6 h-6 text-green-600" />
                     </div>
                   </div>
+                  <p className="mt-2 text-sm text-gray-500">
+                    Pour l'année {selectedYear}
+                  </p>
                 </CardContent>
               </Card>
 
@@ -505,18 +632,21 @@ const BudgetPage = () => {
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-gray-600 uppercase">
                     <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                    Dépenses prévues
+                    Dépenses {selectedYear}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between">
                     <div className="text-3xl font-bold text-red-700">
-                      {formatCurrency(budget?.sums?.depenses) || '0'}
+                      {formatCurrency(filteredTotals.depenses)}
                     </div>
                     <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-xl">
                       <TrendingDown className="w-6 h-6 text-red-600" />
                     </div>
                   </div>
+                  <p className="mt-2 text-sm text-gray-500">
+                    Pour l'année {selectedYear}
+                  </p>
                 </CardContent>
               </Card>
 
@@ -525,18 +655,27 @@ const BudgetPage = () => {
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-gray-600 uppercase">
                     <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    Balance
+                    Balance {selectedYear}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between">
-                    <div className="text-3xl font-bold text-blue-700">
-                      {formatCurrency(budget?.sums?.balance) || '0'}
+                    <div
+                      className={`text-3xl font-bold ${
+                        filteredTotals.balance >= 0
+                          ? 'text-blue-700'
+                          : 'text-red-700'
+                      }`}
+                    >
+                      {formatCurrency(filteredTotals.balance)}
                     </div>
                     <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-xl">
                       <Target className="w-6 h-6 text-blue-600" />
                     </div>
                   </div>
+                  <p className="mt-2 text-sm text-gray-500">
+                    Pour l'année {selectedYear}
+                  </p>
                 </CardContent>
               </Card>
             </>
@@ -576,6 +715,8 @@ const BudgetPage = () => {
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 loading={loadingState.table}
+                year={selectedYear} // Passer l'année sélectionnée au tableau
+                onYearChange={setSelectedYear} // Passer la fonction pour changer l'année
               />
             )}
           </div>
