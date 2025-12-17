@@ -48,15 +48,9 @@ const BudgetTableHeader = ({
     focusType = 'net',
     onFocusChange,
 }) => {
-    // Debug: voir ce qui est passé en props
-    useEffect(() => {
-        console.log('DEBUG - timeRange:', timeRange);
-        console.log('DEBUG - timeView:', timeView);
-        console.log('DEBUG - focusType:', focusType);
-    }, [timeRange, timeView, focusType]);
+
 
     const periodOptions = useMemo(() => [
-        { id: 'P1D', label: 'Jour', range: 'P1D', granularity: GRANULARITY.DAY, description: 'Affichage par jour' },
         { id: 'P1W', label: 'Semaine', range: 'P7D', granularity: GRANULARITY.WEEK, description: '7 jours (affichage par jour)' },
         { id: 'P1M', label: 'Mois', range: 'P1M', granularity: GRANULARITY.MONTH, description: '1 mois (affichage par semaine)' },
         { id: 'P2M', label: 'Bimestre', range: 'P2M', granularity: GRANULARITY.BIMESTER, description: '2 mois (affichage par semaine)' },

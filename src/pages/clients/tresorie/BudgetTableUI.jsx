@@ -73,17 +73,14 @@ const BudgetTableUI = ({
         const periodStartDate = new Date(periodStart);
         const periodEndDate = new Date(periodEnd);
 
-        // CORRECTION: Ajuster les heures pour la comparaison
         periodStartDate.setHours(0, 0, 0, 0);
         periodEndDate.setHours(23, 59, 59, 999);
         effectiveStartDate.setHours(0, 0, 0, 0);
 
-        // Vérifier si la date de début est dans la période
-        if (effectiveStartDate >= periodStartDate && effectiveStartDate <= periodEndDate) {
-            return true;
-        }
+        const entryEnd = effectiveStartDate;
 
-        // Récupérer l'ID de fréquence correctement
+        if (entryEnd < periodStartDate) return false;
+
         let frequencyId;
         if (typeof entryFrequency === 'object') {
             frequencyId = entryFrequency.id ? entryFrequency.id.toString() :
@@ -92,148 +89,25 @@ const BudgetTableUI = ({
             frequencyId = entryFrequency ? entryFrequency.toString() : null;
         }
 
-        // Si pas de fréquence spécifique, vérifier seulement la date de début
-        if (!frequencyId && typeof entryFrequency !== 'string') {
+        const isOneTime = frequencyId === "1" || entryFrequency === "Ponctuel" || entryFrequency === "ponctuel";
+
+        if (isOneTime) {
             return effectiveStartDate >= periodStartDate && effectiveStartDate <= periodEndDate;
         }
 
-        // Fréquence ponctuelle: seulement à la date de début
-        if (frequencyId === "1" || entryFrequency === "Ponctuel" || entryFrequency === "ponctuel") {
-            return false; // Déjà vérifié ci-dessus
+        if (effectiveStartDate <= periodEndDate) {
+            return true;
         }
 
-        // Fréquence mensuelle: vérifier selon le jour du mois
-        if (frequencyId === "3" || entryFrequency === "Mensuel" || entryFrequency === "mensuel") {
-            const entryDayOfMonth = effectiveStartDate.getDate();
-            const entryMonth = effectiveStartDate.getMonth();
-            const entryYear = effectiveStartDate.getFullYear();
-
-            const periodDay = periodStartDate.getDate();
-            const periodMonth = periodStartDate.getMonth();
-            const periodYear = periodStartDate.getFullYear();
-
-            // Pour la vue semaine, vérifier si c'est le même jour
-            if (timeView === 'week') {
-                return effectiveStartDate.getDate() === periodDay &&
-                    effectiveStartDate.getMonth() === periodMonth &&
-                    effectiveStartDate.getFullYear() === periodYear;
-            }
-
-            // Pour la vue mois, vérifier si le jour correspond
-            if (timeView === 'month') {
-                // Vérifier si c'est le même mois et année
-                if (periodMonth === entryMonth && periodYear === entryYear) {
-                    // Vérifier si le jour est dans cette période (semaine)
-                    return effectiveStartDate >= periodStartDate && effectiveStartDate <= periodEndDate;
-                }
-                return false;
-            }
-
-            // Pour les autres vues, vérifier récurrence mensuelle
-            let currentDate = new Date(effectiveStartDate);
-            while (currentDate <= periodEndDate) {
-                if (currentDate >= periodStartDate && currentDate <= periodEndDate) {
-                    return true;
-                }
-                currentDate.setMonth(currentDate.getMonth() + 1);
-            }
-            return false;
-        }
-
-        // Fréquence hebdomadaire: vérifier chaque semaine
-        if (frequencyId === "4" || entryFrequency === "Hebdomadaire" || entryFrequency === "hebdomadaire") {
-            let currentDate = new Date(effectiveStartDate);
-            while (currentDate <= periodEndDate) {
-                // Pour la vue semaine (affichage par jour), vérifier jour par jour
-                if (timeView === 'week') {
-                    if (currentDate.getDate() === periodStartDate.getDate() &&
-                        currentDate.getMonth() === periodStartDate.getMonth() &&
-                        currentDate.getFullYear() === periodStartDate.getFullYear()) {
-                        return true;
-                    }
-                } else {
-                    // Pour les autres vues, vérifier si la date tombe dans la période
-                    if (currentDate >= periodStartDate && currentDate <= periodEndDate) {
-                        return true;
-                    }
-                }
-                currentDate.setDate(currentDate.getDate() + 7);
-            }
-            return false;
-        }
-
-        // Fréquence trimestrielle
-        if (frequencyId === "6" || entryFrequency === "Trimestriel" || entryFrequency === "trimestriel") {
-            let currentDate = new Date(effectiveStartDate);
-            while (currentDate <= periodEndDate) {
-                if (currentDate >= periodStartDate && currentDate <= periodEndDate) {
-                    return true;
-                }
-                currentDate.setMonth(currentDate.getMonth() + 3);
-            }
-            return false;
-        }
-
-        // Fréquence semestrielle
-        if (frequencyId === "7" || entryFrequency === "Semestriel" || entryFrequency === "semestriel") {
-            let currentDate = new Date(effectiveStartDate);
-            while (currentDate <= periodEndDate) {
-                if (currentDate >= periodStartDate && currentDate <= periodEndDate) {
-                    return true;
-                }
-                currentDate.setMonth(currentDate.getMonth() + 6);
-            }
-            return false;
-        }
-
-        // Fréquence annuelle
-        if (frequencyId === "8" || entryFrequency === "Annuel" || entryFrequency === "annuel") {
-            let currentDate = new Date(effectiveStartDate);
-            while (currentDate <= periodEndDate) {
-                if (currentDate >= periodStartDate && currentDate <= periodEndDate) {
-                    return true;
-                }
-                currentDate.setFullYear(currentDate.getFullYear() + 1);
-            }
-            return false;
-        }
-
-        // Pour les autres cas (journalier, etc.)
-        return effectiveStartDate >= periodStartDate && effectiveStartDate <= periodEndDate;
+        return false;
     }, [projectStartDate, timeView]);
 
-    // Fonction pour vérifier si une entry doit être affichée selon le focus
-    const shouldDisplayEntryByFocus = React.useCallback((entryType) => {
-        if (focusType === 'entree') {
-            return entryType === 'entree';
-        } else if (focusType === 'sortie') {
-            return entryType === 'sortie';
-        } else {
-            return true; // Net: afficher tout
-        }
-    }, [focusType]);
-
-    // Calcul des totaux globaux par type
-    const calculateTotalByType = React.useCallback((type) => {
-        const mainCategories = groupedData[type] || [];
-        let totalBudget = 0;
-        let totalActual = 0;
-
-        mainCategories.forEach(mainCategory => {
-            mainCategory.entries?.forEach(entry => {
-                periods.forEach((period, periodIndex) => {
-                    if (shouldDisplayForPeriod(entry.startDate, period.startDate, period.endDate, entry.frequency)) {
-                        const budget = calculateEntryBudgetForPeriod(entry, period.startDate, period.endDate, periodIndex, period);
-                        const actual = calculateActualAmountForPeriod(entry, finalActualTransactions, period.startDate, period.endDate, realBudgetData);
-                        totalBudget += budget;
-                        totalActual += actual;
-                    }
-                });
-            });
-        });
-
-        return { totalBudget, totalActual, totalReste: totalBudget - totalActual };
-    }, [groupedData, periods, calculateEntryBudgetForPeriod, calculateActualAmountForPeriod, finalActualTransactions, realBudgetData, shouldDisplayForPeriod]);
+    // Calculer le solde initial total
+    const totalInitialBalance = React.useMemo(() => {
+        return effectiveCashAccounts.reduce((sum, account) => {
+            return sum + parseFloat(account.initial_amount || account.initialBalance || 0);
+        }, 0);
+    }, [effectiveCashAccounts]);
 
     // Calcul des totaux par période pour une catégorie spécifique
     const calculateCategoryTotalsByPeriod = React.useCallback((type, periodIndex) => {
@@ -258,15 +132,6 @@ const BudgetTableUI = ({
         return { periodBudget, periodActual, periodReste: periodBudget - periodActual };
     }, [groupedData, periods, calculateEntryBudgetForPeriod, calculateActualAmountForPeriod, finalActualTransactions, realBudgetData, shouldDisplayForPeriod]);
 
-    // Totaux globaux
-    const totalEntrees = React.useMemo(() => calculateTotalByType('entree'), [calculateTotalByType]);
-    const totalSorties = React.useMemo(() => calculateTotalByType('sortie'), [calculateTotalByType]);
-    const totalNet = {
-        totalBudget: totalEntrees.totalBudget - totalSorties.totalBudget,
-        totalActual: totalEntrees.totalActual - totalSorties.totalActual,
-        totalReste: totalEntrees.totalReste - totalSorties.totalReste
-    };
-
     // Fonction pour obtenir les totaux selon le focus
     const getFocusedTotals = React.useCallback((periodIndex) => {
         if (focusType === 'entree') {
@@ -284,15 +149,117 @@ const BudgetTableUI = ({
         }
     }, [focusType, calculateCategoryTotalsByPeriod]);
 
+    // ✅ CORRECTION: Calculer TOUS les soldes initiaux en une seule passe (pas de dépendance circulaire)
+    const calculateAllInitialBalances = React.useMemo(() => {
+        const initialBalances = [];
+        
+        for (let i = 0; i < periods.length; i++) {
+            if (i === 0) {
+                initialBalances[i] = totalInitialBalance;
+            } else {
+                // Pour calculer le solde initial de la période i, 
+                // on a besoin du solde final de la période i-1
+                // Mais on évite la dépendance circulaire en calculant tout séquentiellement
+                
+                // 1. Récupérer le solde initial de la période précédente
+                const previousInitial = initialBalances[i - 1];
+                
+                // 2. Calculer les flux pour la période précédente
+                const previousFocusedTotals = getFocusedTotals(i - 1);
+                
+                // 3. Solde initial actuel = solde initial précédent + flux réel précédent
+                initialBalances[i] = previousInitial + previousFocusedTotals.periodActual;
+            }
+        }
+        
+        return initialBalances;
+    }, [periods.length, totalInitialBalance, getFocusedTotals]);
+
+    // ✅ CORRECTION: Fonction simple pour le solde initial (utilise le tableau pré-calculé)
+    const calculateInitialBalance = React.useCallback((periodIndex) => {
+        return calculateAllInitialBalances[periodIndex] || totalInitialBalance;
+    }, [calculateAllInitialBalances, totalInitialBalance]);
+
+    // ✅ CORRECTION: Fonction simple pour le solde final (pas de dépendance circulaire)
+    const calculateFinalCash = React.useCallback((periodIndex) => {
+        const initialBalance = calculateAllInitialBalances[periodIndex] || totalInitialBalance;
+        const focusedTotals = getFocusedTotals(periodIndex);
+        
+        const actualFinal = initialBalance + focusedTotals.periodActual;
+        const budgetFinal = initialBalance + focusedTotals.periodBudget;
+        const reste = focusedTotals.periodBudget - focusedTotals.periodActual;
+
+        return {
+            budget: budgetFinal,
+            actual: actualFinal,
+            reste: reste,
+            netFlowBudget: focusedTotals.periodBudget,
+            netFlowActual: focusedTotals.periodActual,
+            initialBalance: initialBalance
+        };
+    }, [calculateAllInitialBalances, totalInitialBalance, getFocusedTotals]);
+
+    // ✅ CORRECTION: Fonction pour calculer le tableau de flux complet (sans dépendance circulaire)
+    const calculateCashFlowReport = React.useMemo(() => {
+        const report = [];
+        
+        // Calculer d'abord tous les soldes initiaux
+        const initialBalances = calculateAllInitialBalances;
+        
+        periods.forEach((period, index) => {
+            // 1. Solde initial (déjà calculé)
+            const beginningBalance = initialBalances[index] || totalInitialBalance;
+            
+            // 2. Totaux par catégorie
+            const entreesTotals = calculateCategoryTotalsByPeriod('entree', index);
+            const sortiesTotals = calculateCategoryTotalsByPeriod('sortie', index);
+            
+            // 3. Flux net
+            const netBudget = entreesTotals.periodBudget - sortiesTotals.periodBudget;
+            const netActual = entreesTotals.periodActual - sortiesTotals.periodActual;
+            
+            // 4. Solde final
+            const endingBalanceBudget = beginningBalance + netBudget;
+            const endingBalanceActual = beginningBalance + netActual;
+            
+            report.push({
+                period,
+                beginningBalance,
+                entrees: {
+                    budget: entreesTotals.periodBudget,
+                    actual: entreesTotals.periodActual,
+                    reste: entreesTotals.periodReste
+                },
+                sorties: {
+                    budget: sortiesTotals.periodBudget,
+                    actual: sortiesTotals.periodActual,
+                    reste: sortiesTotals.periodReste
+                },
+                netFlow: {
+                    budget: netBudget,
+                    actual: netActual,
+                    reste: netBudget - netActual
+                },
+                endingBalance: {
+                    budget: endingBalanceBudget,
+                    actual: endingBalanceActual
+                },
+                periodIndex: index
+            });
+        });
+        
+        return report;
+    }, [periods, calculateAllInitialBalances, totalInitialBalance, calculateCategoryTotalsByPeriod]);
+
     const renderBudgetRows = (type) => {
         const isEntree = type === 'entree';
 
-        // Vérifier si ce type doit être affiché selon le focus
         if (!shouldDisplayEntryByFocus(type === 'entree' ? 'entree' : 'sortie')) {
             return null;
         }
 
         const mainCategories = groupedData[type] || [];
+
         const isCollapsed = type === 'entree' ? isEntreesCollapsed : isSortiesCollapsed;
         const toggleMainCollapse = type === 'entree' ? () => setIsEntreesCollapsed((p) => !p) : () => setIsSortiesCollapsed((p) => !p);
         const Icon = type === 'entree' ? TrendingUp : TrendingDown;
@@ -306,7 +273,7 @@ const BudgetTableUI = ({
                         <div className="flex items-center gap-2 font-bold">
                             <ChevronDown className={`w-4 h-4 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
                             <Icon className={`w-4 h-4 ${colorClass}`} />
-                            {isEntree ? 'Total Entrées par Catégorie' : 'Total Sorties par Catégorie'}
+                            {isEntree ? 'Total Entrées' : 'Total Sorties'}
                         </div>
                     </td>
                     <td className="sticky z-20 px-4 py-1 bg-gray-200" style={{ left: `${supplierColLeft}px`, width: columnWidths.supplier }}></td>
@@ -330,7 +297,7 @@ const BudgetTableUI = ({
                                                     <CommentButton
                                                         rowId={rowId}
                                                         columnId={`${columnIdBase}_budget`}
-                                                        rowName={`Total ${isEntree ? 'Entrées' : 'Sorties'} par Catégorie`}
+                                                        rowName={`Total ${isEntree ? 'Entrées' : 'Sorties'}`}
                                                         columnName={`${period.label} (Prév.)`}
                                                     />
                                                 </div>
@@ -353,7 +320,7 @@ const BudgetTableUI = ({
                                                     <CommentButton
                                                         rowId={rowId}
                                                         columnId={`${columnIdBase}_actual`}
-                                                        rowName={`Total ${isEntree ? 'Entrées' : 'Sorties'} par Catégorie`}
+                                                        rowName={`Total ${isEntree ? 'Entrées' : 'Sorties'}`}
                                                         columnName={`${period.label} (Réel)`}
                                                     />
                                                 </div>
@@ -363,7 +330,7 @@ const BudgetTableUI = ({
                                                 <CommentButton
                                                     rowId={rowId}
                                                     columnId={`${columnIdBase}_reste`}
-                                                    rowName={`Total ${isEntree ? 'Entrées' : 'Sorties'} par Catégorie`}
+                                                    rowName={`Total ${isEntree ? 'Entrées' : 'Sorties'}`}
                                                     columnName={`${period.label} (Reste)`}
                                                 />
                                             </div>
@@ -385,11 +352,9 @@ const BudgetTableUI = ({
                             {/* LIGNE DE LA CATÉGORIE AVEC TOTAUX */}
                             <tr onClick={() => toggleCollapse(mainCategory.id)} className="text-gray-700 bg-gray-100 cursor-pointer hover:bg-gray-200">
                                 <td className="sticky left-0 z-20 px-4 py-1 bg-gray-100" style={{ width: columnWidths.category }}>
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2 text-xs font-semibold">
-                                            <ChevronDown className={`w-4 h-4 transition-transform ${isMainCollapsed ? '-rotate-90' : ''}`} />
-                                            {mainCategory.name}
-                                        </div>
+                                    <div className="flex items-center gap-2 text-xs font-semibold">
+                                        <ChevronDown className={`w-4 h-4 transition-transform ${isMainCollapsed ? '-rotate-90' : ''}`} />
+                                        {mainCategory.name}
                                     </div>
                                 </td>
                                 <td className="sticky z-20 px-4 py-1 bg-gray-100" style={{ left: `${supplierColLeft}px`, width: columnWidths.supplier }}></td>
@@ -398,7 +363,6 @@ const BudgetTableUI = ({
                                 )}
                                 <td className="bg-surface"></td>
                                 {periods.map((period, periodIndex) => {
-                                    // Filtrer les entries qui doivent s'afficher pour cette période
                                     const filteredEntries = mainCategory.entries?.filter(entry =>
                                         shouldDisplayForPeriod(entry.startDate, period.startDate, period.endDate, entry.frequency)
                                     ) || [];
@@ -467,7 +431,6 @@ const BudgetTableUI = ({
 
                             {/* ENTRIES DE LA CATÉGORIE */}
                             {!isMainCollapsed && mainCategory.entries && mainCategory.entries.map((entry) => {
-                                // Vérifier si cette entry doit être affichée dans au moins une période
                                 const hasVisiblePeriods = periods.some(period =>
                                     shouldDisplayForPeriod(entry.startDate, period.startDate, period.endDate, entry.frequency)
                                 );
@@ -499,7 +462,6 @@ const BudgetTableUI = ({
                                         criticalityConfig={criticalityConfig}
                                         realBudgetData={realBudgetData}
                                         finalActualTransactions={finalActualTransactions}
-                                        // Passer la fonction shouldDisplayForPeriod au BudgetTableRow
                                         shouldDisplayForPeriod={(periodStart, periodEnd) =>
                                             shouldDisplayForPeriod(entry.startDate, periodStart, periodEnd, entry.frequency)
                                         }
@@ -512,6 +474,17 @@ const BudgetTableUI = ({
             </>
         );
     };
+
+    // Fonction pour vérifier si une entry doit être affichée selon le focus
+    const shouldDisplayEntryByFocus = React.useCallback((entryType) => {
+        if (focusType === 'entree') {
+            return entryType === 'entree';
+        } else if (focusType === 'sortie') {
+            return entryType === 'sortie';
+        } else {
+            return true;
+        }
+    }, [focusType]);
 
     return (
         <div className={`relative mb-6 transition-opacity duration-300 ${drawerData.isOpen ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -598,14 +571,14 @@ const BudgetTableUI = ({
                                                 className={`px-2 py-2 text-center font-medium border-b-2 ${isPast ? 'bg-gray-50' : 'bg-surface'} ${isNegativeFlow && !isPast ? 'bg-red-50' : ''} ${isTodayPeriod ? 'bg-blue-50 border-blue-200' : ''}`}
                                                 style={{ minWidth: `${periodColumnWidth}px` }}
                                             >
-                                                <div className={`text-base mb-1 ${isTodayPeriod ? 'text-blue-700 font-semibold' : isNegativeFlow && !isPast ? 'text-red-700' : 'text-gray-600'}`}>
+                                                <div className={`text-base mb-1 ${isTodayPeriod ? 'text-blue-700 font-semibold' : isNegativeFlow && !isPast ? 'text-red-700' : 'text-text-primary'}`}>
                                                     {period.label}
                                                     {isTodayPeriod && (
                                                         <span className="ml-1 text-xs font-normal text-blue-500">(Aujourd'hui)</span>
                                                     )}
                                                 </div>
                                                 {numVisibleCols > 0 && (
-                                                    <div className="flex justify-around gap-2 text-xs font-medium text-gray-600">
+                                                    <div className="flex justify-around gap-2 text-xs font-medium text-text-secondary">
                                                         {visibleColumns.budget && <div className="flex-1">Prév.</div>}
                                                         {visibleColumns.actual && <div className="flex-1">Réel</div>}
                                                         <div className="flex-1">Reste</div>
@@ -620,25 +593,82 @@ const BudgetTableUI = ({
                         </thead>
                         <tbody>
                             {/* TRÉSORERIE DÉBUT DE PÉRIODE */}
-                            <tr className="text-gray-800 bg-gray-200">
-                                <td className="sticky left-0 z-20 px-4 py-2 font-bold bg-gray-200" style={{ width: columnWidths.category }}>
-                                    Trésorerie début de période
+                            <tr className="bg-gray-200 border-t-2 border-gray-300">
+                                <td
+                                    className="sticky left-0 z-20 px-4 py-2 font-bold bg-gray-200 text-text-primary"
+                                    style={{ width: columnWidths.category }}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <Lock className="w-4 h-4" />
+                                        Trésorerie début de période
+                                    </div>
                                     <div className="mt-1 text-xs font-normal text-gray-500">
-                                        {effectiveCashAccounts.length} compte(s) - Solde initial
+                                        {effectiveCashAccounts.length} compte(s) – Solde initial: {formatCurrency(totalInitialBalance, currencySettings)}
                                     </div>
                                 </td>
-                                <td className="sticky z-20 px-4 py-2 bg-gray-200" style={{ left: `${supplierColLeft}px`, width: columnWidths.supplier }}></td>
+
+                                <td
+                                    className="sticky z-20 px-4 py-2 bg-gray-200"
+                                    style={{ left: `${supplierColLeft}px`, width: columnWidths.supplier }}
+                                ></td>
+
                                 {visibleColumns.description && (
-                                    <td className="sticky z-20 px-4 py-2 bg-gray-200" style={{ left: `${descriptionColLeft}px`, width: columnWidths.description }}></td>
+                                    <td
+                                        className="sticky z-20 px-4 py-2 bg-gray-200"
+                                        style={{ left: `${descriptionColLeft}px`, width: columnWidths.description }}
+                                    ></td>
                                 )}
-                                <td className="bg-surface"></td>
-                                {periods.map((_, periodIndex) => {
-                                    const position = periodPositions[periodIndex];
-                                    const initialAmount = position?.initial || 0;
+
+                                <td className="bg-surface" style={{ width: `${separatorWidth}px` }}></td>
+
+                                {periods.map((period, periodIndex) => {
+                                    const initialBalance = calculateInitialBalance(periodIndex);
+                                    const columnIdBase = period.startDate.toISOString();
+                                    const rowId = 'initial_cash';
+
                                     return (
                                         <React.Fragment key={periodIndex}>
-                                            <td className="px-2 py-2 font-normal text-center" colSpan={numVisibleCols}>
-                                                {formatCurrency(initialAmount, currencySettings)}
+                                            <td className="px-1 py-2" style={periodCellStyle}>
+                                                {numVisibleCols > 0 && (
+                                                    <div className="grid grid-cols-3 gap-1 text-sm">
+                                                        {visibleColumns.budget && (
+                                                            <div className={`relative font-bold text-center text-text-primary group/subcell`}>
+                                                                {formatCurrency(initialBalance, currencySettings)}
+                                                                <CommentButton
+                                                                    rowId={rowId}
+                                                                    columnId={`${columnIdBase}_budget`}
+                                                                    rowName="Trésorerie début de période"
+                                                                    columnName={`${period.label} (Prév.)`}
+                                                                    tooltip={`Solde initial de la période ${period.label}`}
+                                                                />
+                                                            </div>
+                                                        )}
+
+                                                        {visibleColumns.actual && (
+                                                            <div className={`relative font-bold text-center text-text-primary group/subcell`}>
+                                                                {formatCurrency(initialBalance, currencySettings)}
+                                                                <CommentButton
+                                                                    rowId={rowId}
+                                                                    columnId={`${columnIdBase}_actual`}
+                                                                    rowName="Trésorerie début de période"
+                                                                    columnName={`${period.label} (Réel)`}
+                                                                    tooltip={`Solde initial réel pour la période ${period.label}`}
+                                                                />
+                                                            </div>
+                                                        )}
+
+                                                        <div className={`relative font-bold text-center ${getResteColor(0, true)}`}>
+                                                            {formatCurrency(0, currencySettings)}
+                                                            <CommentButton
+                                                                rowId={rowId}
+                                                                columnId={`${columnIdBase}_reste`}
+                                                                rowName="Trésorerie début de période"
+                                                                columnName={`${period.label} (Reste)`}
+                                                                tooltip="Pour le solde initial, le budget et le réel sont identiques"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="bg-surface"></td>
                                         </React.Fragment>
@@ -658,25 +688,31 @@ const BudgetTableUI = ({
 
                             <tr className="bg-surface"><td colSpan={totalCols} className="py-2"></td></tr>
 
-                            {/* LIGNE DU FLUX DE TRÉSORERIE (PAR PÉRIODE) (selon focus) */}
-                            <tr className="border-t-2 border-b-2 border-indigo-200 bg-indigo-50">
-                                <td className="sticky left-0 z-20 px-4 py-2 font-bold text-indigo-900 bg-indigo-50" style={{ width: columnWidths.category }}>
+                            {/* FLUX DE TRÉSORERIE (NET) */}
+                            <tr className="bg-gray-200 border-t-2 border-gray-300">
+                                <td className="sticky left-0 z-20 px-4 py-2 font-bold bg-gray-200 text-text-primary" style={{ width: columnWidths.category }}>
                                     <div className="flex items-center gap-2">
                                         <ArrowRightLeft className="w-4 h-4" />
-                                        {focusType === 'entree' ? 'Total Entrées Global' :
-                                            focusType === 'sortie' ? 'Total Sorties Global' :
-                                                'Flux de trésorerie (par période)'}
+                                        Flux de trésorerie
+                                    </div>
+                                    <div className="mt-1 text-xs font-normal text-gray-500">
+                                        Entrées - Sorties
                                     </div>
                                 </td>
-                                <td className="sticky z-20 px-4 py-2 bg-indigo-50" style={{ left: `${supplierColLeft}px`, width: columnWidths.supplier }}></td>
+                                <td className="sticky z-20 px-4 py-2 bg-gray-200" style={{ left: `${supplierColLeft}px`, width: columnWidths.supplier }}></td>
                                 {visibleColumns.description && (
-                                    <td className="sticky z-20 px-4 py-2 bg-indigo-50" style={{ left: `${descriptionColLeft}px`, width: columnWidths.description }}></td>
+                                    <td className="sticky z-20 px-4 py-2 bg-gray-200" style={{ left: `${descriptionColLeft}px`, width: columnWidths.description }}></td>
                                 )}
                                 <td className="bg-surface" style={{ width: `${separatorWidth}px` }}></td>
                                 {periods.map((period, periodIndex) => {
-                                    const totals = getFocusedTotals(periodIndex);
+                                    const entreesTotals = calculateCategoryTotalsByPeriod('entree', periodIndex);
+                                    const sortiesTotals = calculateCategoryTotalsByPeriod('sortie', periodIndex);
+                                    const netBudget = entreesTotals.periodBudget - sortiesTotals.periodBudget;
+                                    const netActual = entreesTotals.periodActual - sortiesTotals.periodActual;
+                                    const netReste = netBudget - netActual;
+
                                     const columnIdBase = period.startDate.toISOString();
-                                    const rowId = `global_${focusType}_total`;
+                                    const rowId = 'net_flow';
 
                                     return (
                                         <React.Fragment key={periodIndex}>
@@ -684,52 +720,49 @@ const BudgetTableUI = ({
                                                 {numVisibleCols > 0 && (
                                                     <div className="grid grid-cols-3 gap-1 text-sm">
                                                         {visibleColumns.budget && (
-                                                            <div className={`relative font-bold text-center ${totals.periodBudget < 0 && focusType === 'net' ? 'text-red-700' : 'text-indigo-700'} group/subcell`}>
-                                                                {formatCurrency(totals.periodBudget, currencySettings)}
+                                                            <div className={`relative font-bold text-center ${netBudget < 0 ? 'text-red-600' : 'text-text-primary'} group/subcell`}>
+                                                                {formatCurrency(netBudget, currencySettings)}
                                                                 <CommentButton
                                                                     rowId={rowId}
                                                                     columnId={`${columnIdBase}_budget`}
-                                                                    rowName={focusType === 'entree' ? 'Total Entrées Global' :
-                                                                        focusType === 'sortie' ? 'Total Sorties Global' :
-                                                                            'Flux de trésorerie (par période)'}
+                                                                    rowName="Flux de trésorerie"
                                                                     columnName={`${period.label} (Prév.)`}
+                                                                    tooltip={`Flux net prévisionnel: ${formatCurrency(netBudget, currencySettings)}`}
                                                                 />
                                                             </div>
                                                         )}
                                                         {visibleColumns.actual && (
-                                                            <div className="relative font-bold text-center text-indigo-700 group/subcell">
+                                                            <div className="relative font-bold text-center text-text-primary group/subcell">
                                                                 <button
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         e.preventDefault();
-                                                                        if (totals.periodActual !== 0) {
-                                                                            handleActualClick({ type: focusType, period, source: 'globalTotal' });
+                                                                        if (netActual !== 0) {
+                                                                            handleActualClick({ type: 'net', period, source: 'globalTotal' });
                                                                         }
                                                                     }}
-                                                                    disabled={totals.periodActual === 0}
+                                                                    disabled={netActual === 0}
                                                                     className="hover:underline disabled:cursor-not-allowed disabled:opacity-60"
                                                                 >
-                                                                    {formatCurrency(totals.periodActual, currencySettings)}
+                                                                    {formatCurrency(netActual, currencySettings)}
                                                                 </button>
                                                                 <CommentButton
                                                                     rowId={rowId}
                                                                     columnId={`${columnIdBase}_actual`}
-                                                                    rowName={focusType === 'entree' ? 'Total Entrées Global' :
-                                                                        focusType === 'sortie' ? 'Total Sorties Global' :
-                                                                            'Flux de trésorerie (par période)'}
+                                                                    rowName="Flux de trésorerie"
                                                                     columnName={`${period.label} (Réel)`}
+                                                                    tooltip={`Flux net réel: ${formatCurrency(netActual, currencySettings)}`}
                                                                 />
                                                             </div>
                                                         )}
-                                                        <div className={`relative font-bold text-center ${getResteColor(totals.periodReste, focusType !== 'sortie')}`}>
-                                                            {formatCurrency(totals.periodReste, currencySettings)}
+                                                        <div className={`relative font-bold text-center ${getResteColor(netReste, true)}`}>
+                                                            {formatCurrency(netReste, currencySettings)}
                                                             <CommentButton
                                                                 rowId={rowId}
                                                                 columnId={`${columnIdBase}_reste`}
-                                                                rowName={focusType === 'entree' ? 'Total Entrées Global' :
-                                                                    focusType === 'sortie' ? 'Total Sorties Global' :
-                                                                        'Flux de trésorerie (par période)'}
+                                                                rowName="Flux de trésorerie"
                                                                 columnName={`${period.label} (Reste)`}
+                                                                tooltip={`Différence prévu/réel: ${formatCurrency(netReste, currencySettings)}`}
                                                             />
                                                         </div>
                                                     </div>
@@ -741,25 +774,86 @@ const BudgetTableUI = ({
                                 })}
                             </tr>
 
-
                             {/* TRÉSORERIE FIN DE PÉRIODE */}
-                            <tr className="text-gray-900 bg-gray-300">
-                                <td className="sticky left-0 z-20 px-4 py-2 font-bold bg-gray-300" style={{ width: columnWidths.category }}>
-                                    Trésorerie fin de période
-                                    <div className="mt-1 text-xs font-normal text-gray-600">Solde initial + Flux net</div>
+                            <tr className="bg-gray-300 border-t-2 border-gray-400">
+                                <td
+                                    className="sticky left-0 z-20 px-4 py-2 font-bold bg-gray-300 text-text-primary"
+                                    style={{ width: columnWidths.category }}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <ArrowRightLeft className="w-4 h-4" />
+                                        Trésorerie fin de période
+                                    </div>
+                                    <div className="mt-1 text-xs font-normal text-gray-600">
+                                        Solde initial + Flux net
+                                    </div>
                                 </td>
-                                <td className="sticky z-20 px-4 py-2 bg-gray-300" style={{ left: `${supplierColLeft}px`, width: columnWidths.supplier }}></td>
+
+                                <td
+                                    className="sticky z-20 px-4 py-2 bg-gray-300"
+                                    style={{ left: `${supplierColLeft}px`, width: columnWidths.supplier }}
+                                ></td>
+
                                 {visibleColumns.description && (
-                                    <td className="sticky z-20 px-4 py-2 bg-gray-300" style={{ left: `${descriptionColLeft}px`, width: columnWidths.description }}></td>
+                                    <td
+                                        className="sticky z-20 px-4 py-2 bg-gray-300"
+                                        style={{ left: `${descriptionColLeft}px`, width: columnWidths.description }}
+                                    ></td>
                                 )}
-                                <td className="bg-surface"></td>
-                                {periods.map((_, periodIndex) => {
-                                    const position = periodPositions[periodIndex];
-                                    const finalAmount = position?.final || 0;
+
+                                <td className="bg-surface" style={{ width: `${separatorWidth}px` }}></td>
+
+                                {periods.map((period, periodIndex) => {
+                                    const finalCash = calculateFinalCash(periodIndex);
+                                    const columnIdBase = period.startDate.toISOString();
+                                    const rowId = 'final_cash';
+
+                                    // Créer un tooltip explicatif
+                                    const tooltipText = `Calcul: ${formatCurrency(finalCash.initialBalance || 0, currencySettings)} (solde initial) + ${formatCurrency(finalCash.netFlowActual || 0, currencySettings)} (flux net) = ${formatCurrency(finalCash.actual, currencySettings)}`;
+
                                     return (
                                         <React.Fragment key={periodIndex}>
-                                            <td className="px-2 py-2 font-normal text-center" colSpan={numVisibleCols}>
-                                                {formatCurrency(finalAmount, currencySettings)}
+                                            <td className="px-1 py-2" style={periodCellStyle}>
+                                                {numVisibleCols > 0 && (
+                                                    <div className="grid grid-cols-3 gap-1 text-sm">
+                                                        {visibleColumns.budget && (
+                                                            <div className={`relative font-bold text-center ${finalCash.budget < 0 ? 'text-red-700' : 'text-text-primary'} group/subcell`}>
+                                                                {formatCurrency(finalCash.budget, currencySettings)}
+                                                                <CommentButton
+                                                                    rowId={rowId}
+                                                                    columnId={`${columnIdBase}_budget`}
+                                                                    rowName="Trésorerie fin de période"
+                                                                    columnName={`${period.label} (Prév.)`}
+                                                                    tooltip={tooltipText}
+                                                                />
+                                                            </div>
+                                                        )}
+
+                                                        {visibleColumns.actual && (
+                                                            <div className={`relative font-bold text-center ${finalCash.actual < 0 ? 'text-red-700' : 'text-text-primary'} group/subcell`}>
+                                                                {formatCurrency(finalCash.actual, currencySettings)}
+                                                                <CommentButton
+                                                                    rowId={rowId}
+                                                                    columnId={`${columnIdBase}_actual`}
+                                                                    rowName="Trésorerie fin de période"
+                                                                    columnName={`${period.label} (Réel)`}
+                                                                    tooltip={tooltipText}
+                                                                />
+                                                            </div>
+                                                        )}
+
+                                                        <div className={`relative font-bold text-center ${getResteColor(finalCash.reste, true)}`}>
+                                                            {formatCurrency(finalCash.reste, currencySettings)}
+                                                            <CommentButton
+                                                                rowId={rowId}
+                                                                columnId={`${columnIdBase}_reste`}
+                                                                rowName="Trésorerie fin de période"
+                                                                columnName={`${period.label} (Reste)`}
+                                                                tooltip="Différence entre le budget prévu et le réel"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="bg-surface"></td>
                                         </React.Fragment>

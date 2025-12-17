@@ -111,7 +111,7 @@ const BudgetTableSimple = (props) => {
     const [isTierSearchOpen, setIsTierSearchOpen] = useState(false);
     const [frequencyFilter, setFrequencyFilter] = useState('all');
     const [isFrequencyFilterOpen, setIsFrequencyFilterOpen] = useState(false);
-    const [timeView, setTimeView] = useState('month');
+    const [timeView, setTimeView] = useState('trimester');
     const [monthDisplayMode, setMonthDisplayMode] = useState('byMonth');
     const [showTotals, setShowTotals] = useState(true);
 
@@ -130,9 +130,9 @@ const BudgetTableSimple = (props) => {
     // Context et hooks
     const { dataState: contextDataState } = useData();
     const { realBudgetData, loading: realBudgetLoading } = useRealBudgetData(activeProjectId);
-    
-    const today = useMemo(() => 
-        getTodayInTimezone(settings?.timezoneOffset || 0), 
+
+    const today = useMemo(() =>
+        getTodayInTimezone(settings?.timezoneOffset || 0),
         [settings?.timezoneOffset]
     );
 
@@ -149,14 +149,14 @@ const BudgetTableSimple = (props) => {
         if (finalCashAccounts?.length > 0) {
             return finalCashAccounts;
         }
-        
+
         if (contextDataState.allCashAccounts && activeProjectId) {
             const projectAccounts = contextDataState.allCashAccounts[activeProjectId];
             if (projectAccounts?.length > 0) {
                 return projectAccounts;
             }
         }
-        
+
         if (activeProjectId && activeProjectId !== 'null') {
             return [{
                 id: `default-account-${activeProjectId}`,
@@ -167,7 +167,7 @@ const BudgetTableSimple = (props) => {
                 projectId: activeProjectId,
             }];
         }
-        
+
         return [{
             id: 'default-account-demo',
             name: 'Compte Principal',
@@ -181,7 +181,7 @@ const BudgetTableSimple = (props) => {
         if (!date) return false;
         const todayDate = new Date(today);
         const compareDate = new Date(date);
-        
+
         return compareDate.getDate() === todayDate.getDate() &&
             compareDate.getMonth() === todayDate.getMonth() &&
             compareDate.getFullYear() === todayDate.getFullYear();
@@ -190,7 +190,7 @@ const BudgetTableSimple = (props) => {
     // Fetch des données
     const fetchProjectData = useCallback(async (projectId, frequencyId = null, forceRefresh = false) => {
         if (!projectId) return;
-        
+
         if (forceRefresh) {
             setLoading(true);
             setError(null);
@@ -204,14 +204,18 @@ const BudgetTableSimple = (props) => {
             if (forceRefresh) {
                 params._t = Date.now();
             }
-            
+
             const response = await axios.get(`/trezo-tables/projects/${projectId}`, { params });
             const data = response.data;
-            
+
             if (data?.budgets) {
                 const hasBudgetItems = data.budgets.budget_items?.length > 0;
                 if (hasBudgetItems) {
                     setProjectData(data);
+                    // Stocker aussi les comptes bancaires séparément
+                    if (data.bank_accounts?.bank_account_items) {
+                        console.log('Bank accounts from API:', data.bank_accounts.bank_account_items);
+                    }
                 } else {
                     setProjectData({ budgets: { budget_items: [] } });
                 }
@@ -225,6 +229,23 @@ const BudgetTableSimple = (props) => {
             setLoading(false);
         }
     }, []);
+    const [bankAccounts, setBankAccounts] = useState([]);
+
+    // Mettez à jour quand projectData change
+    useEffect(() => {
+        if (projectData?.bank_accounts?.bank_account_items) {
+            setBankAccounts(projectData.bank_accounts.bank_account_items);
+        }
+    }, [projectData]);
+
+    // Utilisez bankAccounts au lieu de effectiveCashAccounts
+    const displayBankAccounts = useMemo(() => {
+        // Priorité: 1. API, 2. finalCashAccounts, 3. contexte, 4. défaut
+        if (bankAccounts.length > 0) {
+            return bankAccounts;
+        }
+        return effectiveCashAccounts; // fallback
+    }, [bankAccounts, effectiveCashAccounts]);
 
     useEffect(() => {
         if (activeProjectId) {
@@ -256,15 +277,15 @@ const BudgetTableSimple = (props) => {
             uiDispatch({ type: 'SET_PERIOD_OFFSET', payload: 0 });
             return;
         }
-        
+
         let offsetIncrement = direction;
         uiDispatch({ type: 'SET_PERIOD_OFFSET', payload: periodOffset + offsetIncrement });
     }, [uiDispatch, periodOffset, timeView]);
 
     const handleTimeViewSelect = useCallback((newTimeView, selectedTimeRange = null) => {
         let horizon = 1;
-        
-        switch(newTimeView) {
+
+        switch (newTimeView) {
             case 'year3':
                 horizon = 3;
                 break;
@@ -277,22 +298,22 @@ const BudgetTableSimple = (props) => {
             default:
                 horizon = 1;
         }
-        
+
         setTimeView(newTimeView);
-        
+
         // Mettre à jour timeRange si fourni
         if (selectedTimeRange) {
             console.log('TimeRange sélectionné:', selectedTimeRange);
             // Si vous avez besoin de stocker timeRange séparément
             // Vous pourriez vouloir ajouter un état pour timeRange ici
         }
-        
+
         uiDispatch({ type: 'SET_PERIOD_OFFSET', payload: 0 });
     }, [uiDispatch]);
 
     const getNavigationLabel = useCallback((direction) => {
         if (direction === 'today') return "Aujourd'hui";
-        
+
         const labels = {
             day: { '-1': 'Jour précédent', '1': 'Jour suivant' },
             week: { '-1': 'Semaine précédente', '1': 'Semaine suivante' },
@@ -305,7 +326,7 @@ const BudgetTableSimple = (props) => {
             year5: { '-1': 'Période précédente', '1': 'Période suivante' },
             year7: { '-1': 'Période précédente', '1': 'Période suivante' },
         };
-        
+
         return labels[timeView]?.[direction] || (direction === -1 ? 'Précédent' : 'Suivant');
     }, [timeView]);
 
@@ -370,7 +391,7 @@ const BudgetTableSimple = (props) => {
         if (!topEl || !mainEl) return;
 
         let isSyncing = false;
-        
+
         const syncScroll = (source, target) => {
             if (!isSyncing) {
                 isSyncing = true;
@@ -384,7 +405,7 @@ const BudgetTableSimple = (props) => {
 
         topEl.addEventListener('scroll', handleTopScroll);
         mainEl.addEventListener('scroll', handleMainScroll);
-        
+
         return () => {
             topEl.removeEventListener('scroll', handleTopScroll);
             mainEl.removeEventListener('scroll', handleMainScroll);
@@ -401,7 +422,7 @@ const BudgetTableSimple = (props) => {
                 setIsTierSearchOpen(false);
             }
         };
-        
+
         document.addEventListener('mousedown', handleClickOutside);
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
@@ -433,9 +454,9 @@ const BudgetTableSimple = (props) => {
 
     if (tableauMode === 'lecture') {
         return (
-            <LectureView 
+            <LectureView
                 entries={finalBudgetEntries || []}
-                periods={[]} 
+                periods={[]}
                 settings={currencySettings}
                 actuals={finalActualTransactions || []}
                 isConsolidated={isConsolidated || isCustomConsolidated}
@@ -450,10 +471,10 @@ const BudgetTableSimple = (props) => {
         <>
             <BudgetTableHeader
                 timeView={timeView}
-                timeRange={timeRange} 
+                timeRange={timeRange}
                 handleTimeNavigation={handlePeriodChange}
                 handleTimeViewSelect={handleTimeViewSelect}
-                handleNewBudget={() => {}} 
+                handleNewBudget={() => { }}
                 showTotals={showTotals}
                 setShowTotals={setShowTotals}
                 frequencyFilter={frequencyFilter}
@@ -506,7 +527,7 @@ const BudgetTableSimple = (props) => {
                         finalActualTransactions={finalActualTransactions}
                         hasOffBudgetRevenues={dataState.hasOffBudgetRevenues}
                         hasOffBudgetExpenses={dataState.hasOffBudgetExpenses}
-                        effectiveCashAccounts={effectiveCashAccounts}
+                        collectionData={realBudgetData}
                         periodPositions={dataState.periodPositions}
                         isTierSearchOpen={isTierSearchOpen}
                         setIsTierSearchOpen={setIsTierSearchOpen}
@@ -537,6 +558,8 @@ const BudgetTableSimple = (props) => {
                         getFrequencyTitle={dataState.getFrequencyTitle}
                         getResteColor={dataState.getResteColor}
                         formatCurrency={formatCurrency}
+                        effectiveCashAccounts={displayBankAccounts} // ← CORRIGÉ
+
                     />
                 )}
             </BudgetDataManager>
