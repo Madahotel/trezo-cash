@@ -21,6 +21,13 @@ import EmptyState from "../../../components/emptystate/EmptyState";
 import ScenarioModal from "../../../components/modal/ScenarioModal";
 import ConfirmationModal from "../../../components/modal/ConfirmationModal";
 import { formatCurrency } from "../../../utils/formatting";
+import BudgetLineDialog from "../budget/BudgetLineDialog";
+import {
+  apiDelete,
+  apiGet,
+  apiPost,
+  apiUpdate,
+} from "../../../components/context/actionsMethode";
 
 // Couleurs des scénarios
 const colorMap = {
@@ -108,12 +115,68 @@ const ScenarioView = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedScenario, setSelectedScenario] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(null);
+  const [activeScenario, setActiveScenario] = useState(null);
+  const [editingScenario, setEditingScenario] = useState(null);
+
+  const [scenarios, setScenarios] = useState([]);
+
+  const fetchScenario = async () => {
+    try {
+      const res = await apiGet("/scenarios");
+      console.log(res);
+
+      setScenarios(res.scenarios.scenario_items);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  useEffect(() => {
+    fetchScenario();
+  }, []);
 
   const quickPeriodOptions = [
     { id: "1m", label: "1 Mois" },
     { id: "3m", label: "3 Mois" },
     { id: "6m", label: "6 Mois" },
   ];
+
+  const handleSaveScenario = async (data) => {
+    try {
+      const res = await apiPost("/scenarios", data);
+
+      if (res) {
+        await fetchScenario();
+        setScenarioModalOpen(false);
+        console.log("Scenario enregistré !");
+      }
+    } catch (error) {
+      console.log("Erreur lors de l'enregistrement : ", error);
+    }
+  };
+
+  const handleUpdateScenario = async (scenarioId, data) => {
+    try {
+      const res = await apiUpdate(`/scenarios/${scenarioId}`, data);
+      console.log(res);
+      if (res) {
+        await fetchScenario();
+        setScenarioModalOpen(false);
+        console.log("Scenario enregistré !");
+      }
+    } catch (error) {
+      console.log("Erreur lors de l'enregistrement : ", error);
+    }
+  };
+
+  const handleAddScenario = async () => {
+    setEditingScenario(null);
+    try {
+      setScenarioModalOpen(true);
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
   // État responsive
   const [isMobile, setIsMobile] = useState(false);
@@ -132,6 +195,8 @@ const ScenarioView = () => {
   // Gestion modale / drawer
   const handleOpenScenarioModal = (entry = null) => {
     setEditingEntry(entry);
+    setActiveScenario(entry);
+
     setIsBudgetModalOpen(true);
   };
 
@@ -150,9 +215,28 @@ const ScenarioView = () => {
     setIsDrawerOpen(false);
   };
 
-  const handleAddEntry = () => handleOpenScenarioModal();
-  const handleEditEntry = (entry) => handleOpenScenarioModal(entry);
-  const handleDeleteEntry = (entryId) => alert(`Supprimer entrée ${entryId}`);
+  const handleAddEntry = (entry) => handleOpenScenarioModal(entry);
+  const handleEditEntry = async (scenarioId) => {
+    setScenarioModalOpen(true);
+    try {
+      const res = await apiGet(`/scenarios/${scenarioId}`);
+      console.log(res);
+
+      setEditingScenario(res.scenario);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+  const handleDeleteEntry = async (entryId) => {
+    try {
+      const res = await apiDelete(`/scenarios/${entryId}`);
+      if (res.status === 200) {
+        await fetchScenario();
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
   const [selectedPeriodLabel, setSelectedPeriodLabel] = useState(
     quickPeriodOptions[0]?.label || "Période"
@@ -356,7 +440,7 @@ const ScenarioView = () => {
               Vos Scénarios
             </h2>
             <button
-              onClick={() => setScenarioModalOpen(true)}
+              onClick={() => handleAddScenario()}
               className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 md:px-4 md:py-2 rounded-lg font-medium flex items-center gap-2 transition-colors text-sm md:text-base"
             >
               <Plus className="w-4 h-4 md:w-5 md:h-5" />
@@ -366,8 +450,8 @@ const ScenarioView = () => {
           </div>
 
           <div className="space-y-3">
-            {testScenarios.length > 0 ? (
-              testScenarios.map((scenario) => {
+            {scenarios?.length > 0 ? (
+              scenarios?.map((scenario) => {
                 const colors = colorMap[scenario.color] || defaultColors;
                 return (
                   <div
@@ -378,7 +462,7 @@ const ScenarioView = () => {
                       <h3
                         className={`font-bold text-sm md:text-base ${colors.text}`}
                       >
-                        {scenario.displayName}
+                        {scenario.name}
                       </h3>
                       <p className={`text-xs md:text-sm ${colors.text}`}>
                         {scenario.description}
@@ -387,13 +471,13 @@ const ScenarioView = () => {
 
                     {/* Version Desktop */}
                     <div className="hidden sm:flex items-center gap-2">
-                      <button
-                        onClick={() => handleOpenDrawer(scenario)}
+                      {/* <button
+                        onClick={() => handleOpenDrawer(scenario.id)}
                         className="p-2 text-gray-500 hover:text-gray-800"
                         title="Voir le détail"
                       >
                         <Eye className="w-4 h-4" />
-                      </button>
+                      </button> */}
                       <button
                         onClick={() => handleOpenDrawer(scenario)}
                         className="p-2 text-sm rounded-md flex items-center gap-1 bg-gray-200 text-gray-700 hover:bg-gray-300"
@@ -403,16 +487,14 @@ const ScenarioView = () => {
                         <span>Gérer les écritures</span>
                       </button>
                       <button
-                        onClick={() => handleAddEntry()}
+                        onClick={() => handleAddEntry(scenario.id)}
                         className={`p-2 text-sm rounded-md flex items-center gap-1 ${colors.button} ${colors.text}`}
                       >
                         <Plus className="w-4 h-4" />
                         Ajouter une entrée
                       </button>
                       <button
-                        onClick={() =>
-                          handleEditEntry({ id: 1, name: "Entrée test" })
-                        }
+                        onClick={() => handleEditEntry(scenario.id)}
                         className="p-2 text-blue-600 hover:text-blue-800"
                         title="Modifier"
                       >
@@ -426,7 +508,7 @@ const ScenarioView = () => {
                         <Archive className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDeleteEntry(1)}
+                        onClick={() => handleDeleteEntry(scenario.id)}
                         className="p-2 text-red-600 hover:text-red-800"
                         title="Supprimer"
                       >
@@ -511,7 +593,7 @@ const ScenarioView = () => {
                                 <li>
                                   <button
                                     onClick={() => {
-                                      handleDeleteEntry(1);
+                                      handleDeleteEntry(scenario.id);
                                       setMobileMenuOpen(null);
                                     }}
                                     className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md flex items-center gap-2"
@@ -643,14 +725,10 @@ const ScenarioView = () => {
 
         {/* Modales */}
         {isBudgetModalOpen && (
-          <BudgetModal
-            isOpen={isBudgetModalOpen}
-            onClose={handleCloseBudgetModal}
-            onSave={(data) => {
-              console.log("Save", data);
-              handleCloseBudgetModal();
-            }}
-            editingData={editingEntry}
+          <BudgetLineDialog
+            open={isBudgetModalOpen}
+            onOpenChange={handleCloseBudgetModal}
+            projectId={activeScenario}
           />
         )}
 
@@ -659,6 +737,7 @@ const ScenarioView = () => {
             isOpen={isDrawerOpen}
             setOpenScenario={() => setIsBudgetModalOpen(true)}
             onClose={handleCloseDrawer}
+            scenario={selectedScenario}
           />
         )}
 
@@ -666,6 +745,9 @@ const ScenarioView = () => {
           <ScenarioModal
             isOpen={scenarioModalOpen}
             onClose={() => setScenarioModalOpen(false)}
+            onSave={handleSaveScenario}
+            onUpdate={handleUpdateScenario}
+            scenario={editingScenario}
           />
         )}
 

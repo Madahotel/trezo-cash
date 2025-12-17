@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { X, Save, Layers } from "lucide-react";
 
-const ScenarioModal = ({ isOpen, onClose, onSave, scenario }) => {
+const ScenarioModal = ({ isOpen, onClose, onSave, onUpdate, scenario }) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (scenario) {
@@ -11,15 +12,28 @@ const ScenarioModal = ({ isOpen, onClose, onSave, scenario }) => {
       setDescription(scenario.description);
     } else {
       setName("");
-      setDescription("");
+      setIsLoading(false);
     }
   }, [scenario]);
 
+  const handleSave = () => {
+    if (!name.trim()) return;
+    onSave({
+      name,
+      description,
+    });
+  };
+
+  const handleUpdate = () => {
+    onUpdate(scenario.id, { name, description });
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (name.trim()) {
-      onSave({ name, description });
-      onClose();
+    if (scenario) {
+      handleUpdate();
+    } else {
+      handleSave();
     }
   };
 
@@ -28,18 +42,25 @@ const ScenarioModal = ({ isOpen, onClose, onSave, scenario }) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <Layers className="w-5 h-5 text-purple-600" />
-            {scenario ? "Modifier le scénario" : "Nouveau Scénario"}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
+        {isLoading ? (
+          <div> coucou </div>
+        ) : (
+          <div>
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Layers className="w-5 h-5 text-purple-600" />
+                {scenario ? "Modifier le scénario" : "Nouveau Scénario"}
+              </h2>
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">

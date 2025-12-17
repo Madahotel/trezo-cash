@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
-import { Button } from './ui/button';
-import AdvancedOptions from './AdvancedOptions';
-import BasicInfoSection from './BasicInfoSection';
-import QuickAddThirdPartyModal from './QuickAddThirdPartyModal';
-import { apiService } from '../../../utils/ApiService';
-import toast from 'react-hot-toast';
+import React, { useState, useEffect } from "react";
+import { X } from "lucide-react";
+import { Button } from "./ui/button";
+import AdvancedOptions from "./AdvancedOptions";
+import BasicInfoSection from "./BasicInfoSection";
+import QuickAddThirdPartyModal from "./QuickAddThirdPartyModal";
+import { apiService } from "../../../utils/ApiService";
+import toast from "react-hot-toast";
 import {
   apiGet,
   apiPost,
   apiUpdate,
-} from '../../../components/context/actionsMethode';
+} from "../../../components/context/actionsMethode";
 
 const BudgetLineDialog = ({
   open,
@@ -27,11 +27,11 @@ const BudgetLineDialog = ({
   const [isCreatingThirdParty, setIsCreatingThirdParty] = useState(false);
   const [showThirdPartyModal, setShowThirdPartyModal] = useState(false);
   const [newThirdPartyData, setNewThirdPartyData] = useState({
-    name: '',
-    firstname: '',
-    email: '',
-    phone_number: '',
-    user_type_id: '',
+    name: "",
+    firstname: "",
+    email: "",
+    phone_number: "",
+    user_type_id: "",
   });
 
   const {
@@ -46,26 +46,26 @@ const BudgetLineDialog = ({
   } = data || {};
 
   const [formData, setFormData] = useState({
-    type: '1',
-    mainCategory: '',
-    subcategory: '',
-    amount: '',
-    currency: '1',
-    frequency: '1',
-    startDate: '',
-    endDate: '',
+    type: "1",
+    mainCategory: "",
+    subcategory: "",
+    amount: "",
+    currency: "1",
+    frequency: "1",
+    startDate: "",
+    endDate: "",
     isIndefinite: false,
-    description: '',
+    description: "",
     thirdParty: null,
   });
 
-  const [amountType, setAmountType] = useState('ttc');
+  const [amountType, setAmountType] = useState("ttc");
   const [vatRateId, setVatRateId] = useState(null);
   const [isProvision, setIsProvision] = useState(false);
-  const [numProvisions, setNumProvisions] = useState('');
+  const [numProvisions, setNumProvisions] = useState("");
   const [provisionDetails, setProvisionDetails] = useState({
-    finalPaymentDate: '',
-    provisionAccountId: '',
+    finalPaymentDate: "",
+    provisionAccountId: "",
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -79,7 +79,7 @@ const BudgetLineDialog = ({
   }));
 
   const defaultCurrency =
-    currencies.find((curr) => curr.code === 'EUR') || currencies[0];
+    currencies.find((curr) => curr.code === "EUR") || currencies[0];
 
   const frequencies = listFrequencies.map((freq) => ({
     value: freq.id?.toString() || `freq-${freq.name}`,
@@ -99,7 +99,7 @@ const BudgetLineDialog = ({
 
     return thirdParties.map((thirdParty) => {
       // Déterminer le nom à afficher
-      let displayName = '';
+      let displayName = "";
       if (thirdParty.firstname && thirdParty.name) {
         displayName = `${thirdParty.firstname} ${thirdParty.name}`;
       } else if (thirdParty.name) {
@@ -109,11 +109,11 @@ const BudgetLineDialog = ({
       } else if (thirdParty.email) {
         displayName = thirdParty.email;
       } else {
-        displayName = 'Tiers sans nom';
+        displayName = "Tiers sans nom";
       }
 
       // Déterminer l'ID
-      let id = '';
+      let id = "";
       if (thirdParty.id) {
         id = thirdParty.id.toString();
       } else if (thirdParty.user_id) {
@@ -125,7 +125,7 @@ const BudgetLineDialog = ({
       return {
         value: id,
         label: displayName.trim(),
-        email: thirdParty.email || '',
+        email: thirdParty.email || "",
         originalData: thirdParty, // Conserver les données originales
       };
     });
@@ -139,17 +139,17 @@ const BudgetLineDialog = ({
         user_type_id: parseInt(thirdPartyData.user_type_id),
       };
 
-      const response = await apiService.post('/users/third-parties', payload);
+      const response = await apiService.post("/users/third-parties", payload);
 
       if (response.status === 200) {
         await new Promise((resolve) => setTimeout(resolve, 500));
         await fetchOptions();
         return response.data || { success: true, message: response.message };
       } else {
-        throw new Error(response.message || 'Erreur serveur');
+        throw new Error(response.message || "Erreur serveur");
       }
     } catch (error) {
-      console.error('❌ Erreur création tiers:', error);
+      console.error("❌ Erreur création tiers:", error);
       throw error;
     } finally {
       setIsCreatingThirdParty(false);
@@ -158,41 +158,41 @@ const BudgetLineDialog = ({
 
   const handleAddNewThirdParty = async () => {
     if (!newThirdPartyData.name.trim()) {
-      toast.error('Le nom du tiers est obligatoire');
+      toast.error("Le nom du tiers est obligatoire");
       return;
     }
 
     if (!newThirdPartyData.user_type_id) {
-      toast.error('Veuillez sélectionner un type de tiers');
+      toast.error("Veuillez sélectionner un type de tiers");
       return;
     }
 
     if (newThirdPartyData.email && !isValidEmail(newThirdPartyData.email)) {
-      toast.error('Veuillez saisir une adresse email valide');
+      toast.error("Veuillez saisir une adresse email valide");
       return;
     }
 
     const thirdPartyData = {
       name: newThirdPartyData.name.trim(),
-      firstname: newThirdPartyData.firstname?.trim() || '',
+      firstname: newThirdPartyData.firstname?.trim() || "",
       email: newThirdPartyData.email?.trim() || null,
-      phone_number: newThirdPartyData.phone_number?.trim() || '',
+      phone_number: newThirdPartyData.phone_number?.trim() || "",
       user_type_id: newThirdPartyData.user_type_id,
-      password: 'password123',
+      password: "password123",
     };
 
     try {
       const result = await createThirdParty(thirdPartyData);
       if (result) {
         setNewThirdPartyData({
-          name: '',
-          firstname: '',
-          email: '',
-          phone_number: '',
-          user_type_id: '',
+          name: "",
+          firstname: "",
+          email: "",
+          phone_number: "",
+          user_type_id: "",
         });
         setShowThirdPartyModal(false);
-        toast.success('Tiers créé avec succès !');
+        toast.success("Tiers créé avec succès !");
       }
     } catch (error) {
       toast.error(`Erreur lors de la création du tiers: ${error.message}`);
@@ -213,7 +213,7 @@ const BudgetLineDialog = ({
     );
     const rate = selectedVatRate ? parseFloat(selectedVatRate.rate) / 100 : 0;
 
-    if (amountType === 'ht') {
+    if (amountType === "ht") {
       const ht = amount;
       const vat = ht * rate;
       const ttc = ht + vat;
@@ -228,7 +228,7 @@ const BudgetLineDialog = ({
 
   const amounts = calculatedAmounts();
   const showProvisionButton =
-    formData.type === '1' && ['3', '4', '5', '6'].includes(formData.frequency);
+    formData.type === "1" && ["3", "4", "5", "6"].includes(formData.frequency);
 
   const fetchOptions = async () => {
     try {
@@ -260,8 +260,8 @@ const BudgetLineDialog = ({
         listThirdParty: transformedThirdParties,
       });
     } catch (error) {
-      console.error('❌ Erreur chargement options:', error);
-      toast.error('Erreur lors du chargement des options');
+      console.error("❌ Erreur chargement options:", error);
+      toast.error("Erreur lors du chargement des options");
     } finally {
       setIsLoadingData(false);
     }
@@ -275,7 +275,7 @@ const BudgetLineDialog = ({
       const budgetId = entry.budget_id || entry.id;
 
       if (!budgetId) {
-        throw new Error('ID du budget non trouvé');
+        throw new Error("ID du budget non trouvé");
       }
 
       const res = await apiGet(`/budget-projects/budgets/${budgetId}`);
@@ -289,12 +289,12 @@ const BudgetLineDialog = ({
           thirdPartyOption = {
             value: budget.user_third_party_id?.toString(),
             label:
-              `${budget.user_third_party_firstname || ''} ${
-                budget.user_third_party_name || ''
+              `${budget.user_third_party_firstname || ""} ${
+                budget.user_third_party_name || ""
               }`.trim() ||
               budget.user_third_party_email ||
-              'Tiers',
-            email: budget.user_third_party_email || '',
+              "Tiers",
+            email: budget.user_third_party_email || "",
           };
         }
 
@@ -303,17 +303,17 @@ const BudgetLineDialog = ({
         );
 
         setFormData({
-          type: budget.budget_type_id?.toString() || '1',
-          mainCategory: budget.category_id?.toString() || '',
-          subcategory: budget.sub_category_id?.toString() || '',
+          type: budget.budget_type_id?.toString() || "1",
+          mainCategory: budget.category_id?.toString() || "",
+          subcategory: budget.sub_category_id?.toString() || "",
           amount:
-            budget.budget_amount?.toString() || budget.amount?.toString() || '',
-          currency: currency?.value || '1',
-          frequency: budget.frequency_id?.toString() || '1',
-          startDate: budget.start_date || '',
-          endDate: budget.end_date || '',
+            budget.budget_amount?.toString() || budget.amount?.toString() || "",
+          currency: currency?.value || "1",
+          frequency: budget.frequency_id?.toString() || "1",
+          startDate: budget.start_date || "",
+          endDate: budget.end_date || "",
           isIndefinite: budget.is_duration_indefinite || false,
-          description: budget.description || budget.budget_description || '',
+          description: budget.description || budget.budget_description || "",
           thirdParty: thirdPartyOption,
         });
 
@@ -322,14 +322,14 @@ const BudgetLineDialog = ({
 
         if (budget.is_provision) {
           setIsProvision(true);
-          setNumProvisions(budget.num_provisions?.toString() || '');
+          setNumProvisions(budget.num_provisions?.toString() || "");
           setProvisionDetails({
-            finalPaymentDate: budget.final_payment_date || '',
-            provisionAccountId: budget.provision_account_id?.toString() || '',
+            finalPaymentDate: budget.final_payment_date || "",
+            provisionAccountId: budget.provision_account_id?.toString() || "",
           });
         }
       } else {
-        throw new Error(res.message || 'Données non trouvées');
+        throw new Error(res.message || "Données non trouvées");
       }
     } catch (error) {
       console.error("Erreur lors du chargement des données d'édition:", error);
@@ -355,30 +355,30 @@ const BudgetLineDialog = ({
   useEffect(() => {
     if (open && !editLine) {
       setFormData({
-        type: '1',
-        mainCategory: '',
-        subcategory: '',
-        amount: '',
-        currency: '1',
-        frequency: '1',
-        startDate: '',
-        endDate: '',
+        type: "1",
+        mainCategory: "",
+        subcategory: "",
+        amount: "",
+        currency: "1",
+        frequency: "1",
+        startDate: "",
+        endDate: "",
         isIndefinite: false,
-        description: '',
+        description: "",
         thirdParty: null,
       });
-      setAmountType('ttc');
+      setAmountType("ttc");
       setVatRateId(null);
       setIsProvision(false);
-      setNumProvisions('');
-      setProvisionDetails({ finalPaymentDate: '', provisionAccountId: '' });
+      setNumProvisions("");
+      setProvisionDetails({ finalPaymentDate: "", provisionAccountId: "" });
       setEditData(null);
       setNewThirdPartyData({
-        name: '',
-        firstname: '',
-        email: '',
-        phone_number: '',
-        user_type_id: '',
+        name: "",
+        firstname: "",
+        email: "",
+        phone_number: "",
+        user_type_id: "",
       });
     }
   }, [open, editLine]);
@@ -387,14 +387,14 @@ const BudgetLineDialog = ({
   const handleChange = (field, value) => {
     setFormData((prev) => {
       const newData = { ...prev, [field]: value };
-      if (field === 'type') {
-        newData.mainCategory = '';
-        newData.subcategory = '';
+      if (field === "type") {
+        newData.mainCategory = "";
+        newData.subcategory = "";
         // NE PAS EFFACER le tiers quand on change le type
         // newData.thirdParty = null;
       }
-      if (field === 'mainCategory') {
-        newData.subcategory = '';
+      if (field === "mainCategory") {
+        newData.subcategory = "";
       }
       return newData;
     });
@@ -411,13 +411,13 @@ const BudgetLineDialog = ({
       !formData.startDate ||
       !formData.thirdParty // Tiers maintenant toujours obligatoire pour tous les types
     ) {
-      toast.error('Veuillez remplir tous les champs obligatoires');
+      toast.error("Veuillez remplir tous les champs obligatoires");
       return;
     }
 
     const amount = parseFloat(formData.amount);
     if (isNaN(amount) || amount <= 0) {
-      toast.error('Veuillez saisir un montant valide');
+      toast.error("Veuillez saisir un montant valide");
       return;
     }
 
@@ -433,7 +433,7 @@ const BudgetLineDialog = ({
       frequency_id: parseInt(formData.frequency),
       budget_type_id: parseInt(formData.type),
       end_date: formData.isIndefinite ? null : formData.endDate,
-      description: formData.description || '',
+      description: formData.description || "",
       amount_type_id: 1,
     };
 
@@ -474,10 +474,10 @@ const BudgetLineDialog = ({
         onOpenChange(false);
       }, 600);
     } catch (error) {
-      console.error('Error saving budget:', error.response?.data || error);
+      console.error("Error saving budget:", error.response?.data || error);
       toast.error(
         `Erreur lors de ${
-          editLine ? 'la modification' : "l'ajout"
+          editLine ? "la modification" : "l'ajout"
         } de la ligne budgétaire: ${errorMessage}`
       );
     } finally {
@@ -491,7 +491,7 @@ const BudgetLineDialog = ({
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Escape') {
+    if (e.key === "Escape") {
       onOpenChange(false);
     }
   };
@@ -522,13 +522,13 @@ const BudgetLineDialog = ({
                   className="text-xl font-semibold text-gray-900"
                 >
                   {editLine
-                    ? 'Modifier la ligne budgétaire'
-                    : 'Ajouter une ligne budgétaire'}
+                    ? "Modifier la ligne budgétaire"
+                    : "Ajouter une ligne budgétaire"}
                 </h2>
                 <p className="text-sm text-gray-600">
                   {editLine
-                    ? 'Modifiez les détails de votre ligne de revenu ou de dépense'
-                    : 'Créez une nouvelle ligne de revenu ou de dépense pour votre budget'}
+                    ? "Modifiez les détails de votre ligne de revenu ou de dépense"
+                    : "Créez une nouvelle ligne de revenu ou de dépense pour votre budget"}
                 </p>
               </div>
               <Button
@@ -551,8 +551,8 @@ const BudgetLineDialog = ({
                     <div className="w-10 h-10 border-b-2 border-blue-600 rounded-full animate-spin"></div>
                     <span className="text-sm text-gray-600">
                       {editLine && isLoadingEditData
-                        ? 'Chargement des données...'
-                        : 'Chargement des options...'}
+                        ? "Chargement des données..."
+                        : "Chargement des options..."}
                     </span>
                   </div>
                 </div>
@@ -560,7 +560,7 @@ const BudgetLineDialog = ({
                 <div className="space-y-6">
                   <BasicInfoSection
                     onDescriptionChange={(value) =>
-                      handleChange('description', value)
+                      handleChange("description", value)
                     }
                     formData={formData}
                     onFormChange={handleChange}
@@ -611,12 +611,12 @@ const BudgetLineDialog = ({
                 {isLoading ? (
                   <>
                     <div className="w-4 h-4 mr-2 border-b-2 border-white rounded-full animate-spin"></div>
-                    {editLine ? 'Modification...' : 'Ajout...'}
+                    {editLine ? "Modification..." : "Ajout..."}
                   </>
                 ) : editLine ? (
-                  'Modifier'
+                  "Modifier"
                 ) : (
-                  'Ajouter'
+                  "Ajouter"
                 )}
               </Button>
             </div>
