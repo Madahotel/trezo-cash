@@ -104,9 +104,32 @@ const BudgetTableUI = ({
 
     // Calculer le solde initial total
     const totalInitialBalance = React.useMemo(() => {
-        return effectiveCashAccounts.reduce((sum, account) => {
-            return sum + parseFloat(account.initial_amount || account.initialBalance || 0);
+        if (!effectiveCashAccounts || effectiveCashAccounts.length === 0) {
+            console.log('🔍 DEBUG: Aucun compte de trésorerie trouvé');
+            return 0;
+        }
+
+        const total = effectiveCashAccounts.reduce((sum, account) => {
+            const initialAmount = parseFloat(account.initial_amount || account.initialBalance || 0);
+            if (initialAmount === 10000) {
+                if (account.is_configured === false || account.has_initial_balance === false) {
+                    console.log('🔄 Compte non configuré - on ignore les 10000€');
+                    return sum;
+                }
+            }
+
+            return sum + (isNaN(initialAmount) ? 0 : initialAmount);
         }, 0);
+
+        if (isNaN(total)) {
+            return 0;
+        }
+        if (total === 10000 && effectiveCashAccounts.every(acc => !acc.is_active || !acc.is_configured)) {
+            console.log('🔄 Correction: Aucun compte actif avec solde réel - retourne 0');
+            return 0;
+        }
+
+        return total;
     }, [effectiveCashAccounts]);
 
     // Calcul des totaux par période pour une catégorie spécifique
@@ -149,107 +172,106 @@ const BudgetTableUI = ({
         }
     }, [focusType, calculateCategoryTotalsByPeriod]);
 
-    // ✅ CORRECTION: Calculer TOUS les soldes initiaux en une seule passe (pas de dépendance circulaire)
+    // ✅ CORRECTION: Calculer TOUS les soldes initiaux avec propagation
     const calculateAllInitialBalances = React.useMemo(() => {
-        const initialBalances = [];
+        console.log('📊 DEBUG calculateAllInitialBalances - totalInitialBalance:', totalInitialBalance);
         
-        for (let i = 0; i < periods.length; i++) {
-            if (i === 0) {
-                initialBalances[i] = totalInitialBalance;
-            } else {
-                // Pour calculer le solde initial de la période i, 
-                // on a besoin du solde final de la période i-1
-                // Mais on évite la dépendance circulaire en calculant tout séquentiellement
-                
-                // 1. Récupérer le solde initial de la période précédente
-                const previousInitial = initialBalances[i - 1];
-                
-                // 2. Calculer les flux pour la période précédente
-                const previousFocusedTotals = getFocusedTotals(i - 1);
-                
-                // 3. Solde initial actuel = solde initial précédent + flux réel précédent
-                initialBalances[i] = previousInitial + previousFocusedTotals.periodActual;
-            }
+        if (!periods || periods.length === 0) {
+            return [];
+        }
+
+        const initialBalances = new Array(periods.length).fill(0);
+        
+        // Premier solde initial = totalInitialBalance
+        initialBalances[0] = totalInitialBalance || 0;
+        
+        // Pour chaque période suivante, calculer le solde initial
+        for (let i = 1; i < periods.length; i++) {
+            // 1. Calculer les totaux pour la période précédente
+            const entreesPrev = calculateCategoryTotalsByPeriod('entree', i - 1);
+            const sortiesPrev = calculateCategoryTotalsByPeriod('sortie', i - 1);
+            
+            // 2. Flux net réel de la période précédente
+            const netFlowPrev = entreesPrev.periodActual - sortiesPrev.periodActual;
+            
+            // 3. Solde initial actuel = solde initial précédent + flux net réel précédent
+            initialBalances[i] = initialBalances[i - 1] + netFlowPrev;
         }
         
+        console.log('📊 DEBUG initialBalances calculés:', initialBalances);
         return initialBalances;
-    }, [periods.length, totalInitialBalance, getFocusedTotals]);
+    }, [periods, totalInitialBalance, calculateCategoryTotalsByPeriod]);
 
-    // ✅ CORRECTION: Fonction simple pour le solde initial (utilise le tableau pré-calculé)
+    // ✅ CORRECTION: Fonction pour le solde initial
     const calculateInitialBalance = React.useCallback((periodIndex) => {
-        return calculateAllInitialBalances[periodIndex] || totalInitialBalance;
+        if (!calculateAllInitialBalances || calculateAllInitialBalances.length === 0) {
+            return periodIndex === 0 ? (totalInitialBalance || 0) : 0;
+        }
+        return calculateAllInitialBalances[periodIndex] || 0;
     }, [calculateAllInitialBalances, totalInitialBalance]);
 
-    // ✅ CORRECTION: Fonction simple pour le solde final (pas de dépendance circulaire)
-    const calculateFinalCash = React.useCallback((periodIndex) => {
-        const initialBalance = calculateAllInitialBalances[periodIndex] || totalInitialBalance;
-        const focusedTotals = getFocusedTotals(periodIndex);
+    // ✅ CORRECTION: Fonction pour calculer le flux net
+    const calculateNetFlow = React.useCallback((periodIndex) => {
+        const entreesTotals = calculateCategoryTotalsByPeriod('entree', periodIndex);
+        const sortiesTotals = calculateCategoryTotalsByPeriod('sortie', periodIndex);
         
-        const actualFinal = initialBalance + focusedTotals.periodActual;
-        const budgetFinal = initialBalance + focusedTotals.periodBudget;
-        const reste = focusedTotals.periodBudget - focusedTotals.periodActual;
+        const netBudget = entreesTotals.periodBudget - sortiesTotals.periodBudget;
+        const netActual = entreesTotals.periodActual - sortiesTotals.periodActual;
+        const netReste = netBudget - netActual;
+        
+        return {
+            budget: netBudget,
+            actual: netActual,
+            reste: netReste
+        };
+    }, [calculateCategoryTotalsByPeriod]);
+
+    // ✅ CORRECTION: Fonction pour le solde final
+    const calculateFinalCash = React.useCallback((periodIndex) => {
+        // Récupérer le solde initial pour cette période
+        const initialBalance = calculateAllInitialBalances[periodIndex] || 
+                              (periodIndex === 0 ? totalInitialBalance : 0) || 0;
+        
+        // Calculer les flux nets pour cette période
+        const entreesTotals = calculateCategoryTotalsByPeriod('entree', periodIndex);
+        const sortiesTotals = calculateCategoryTotalsByPeriod('sortie', periodIndex);
+        
+        const netFlowBudget = entreesTotals.periodBudget - sortiesTotals.periodBudget;
+        const netFlowActual = entreesTotals.periodActual - sortiesTotals.periodActual;
+        
+        // Calculer les soldes finaux
+        const actualFinal = initialBalance + netFlowActual;
+        const budgetFinal = initialBalance + netFlowBudget;
+        const reste = netFlowBudget - netFlowActual;
+
+        console.log(`💰 DEBUG Période ${periodIndex} (${periods[periodIndex]?.label}):`, {
+            initialBalance,
+            entrees: entreesTotals.periodActual,
+            sorties: sortiesTotals.periodActual,
+            netFlowActual,
+            actualFinal
+        });
 
         return {
             budget: budgetFinal,
             actual: actualFinal,
             reste: reste,
-            netFlowBudget: focusedTotals.periodBudget,
-            netFlowActual: focusedTotals.periodActual,
+            netFlowBudget: netFlowBudget,
+            netFlowActual: netFlowActual,
             initialBalance: initialBalance
         };
-    }, [calculateAllInitialBalances, totalInitialBalance, getFocusedTotals]);
+    }, [calculateAllInitialBalances, totalInitialBalance, calculateCategoryTotalsByPeriod, periods]);
 
-    // ✅ CORRECTION: Fonction pour calculer le tableau de flux complet (sans dépendance circulaire)
-    const calculateCashFlowReport = React.useMemo(() => {
-        const report = [];
-        
-        // Calculer d'abord tous les soldes initiaux
-        const initialBalances = calculateAllInitialBalances;
-        
-        periods.forEach((period, index) => {
-            // 1. Solde initial (déjà calculé)
-            const beginningBalance = initialBalances[index] || totalInitialBalance;
-            
-            // 2. Totaux par catégorie
-            const entreesTotals = calculateCategoryTotalsByPeriod('entree', index);
-            const sortiesTotals = calculateCategoryTotalsByPeriod('sortie', index);
-            
-            // 3. Flux net
-            const netBudget = entreesTotals.periodBudget - sortiesTotals.periodBudget;
-            const netActual = entreesTotals.periodActual - sortiesTotals.periodActual;
-            
-            // 4. Solde final
-            const endingBalanceBudget = beginningBalance + netBudget;
-            const endingBalanceActual = beginningBalance + netActual;
-            
-            report.push({
-                period,
-                beginningBalance,
-                entrees: {
-                    budget: entreesTotals.periodBudget,
-                    actual: entreesTotals.periodActual,
-                    reste: entreesTotals.periodReste
-                },
-                sorties: {
-                    budget: sortiesTotals.periodBudget,
-                    actual: sortiesTotals.periodActual,
-                    reste: sortiesTotals.periodReste
-                },
-                netFlow: {
-                    budget: netBudget,
-                    actual: netActual,
-                    reste: netBudget - netActual
-                },
-                endingBalance: {
-                    budget: endingBalanceBudget,
-                    actual: endingBalanceActual
-                },
-                periodIndex: index
-            });
-        });
-        
-        return report;
-    }, [periods, calculateAllInitialBalances, totalInitialBalance, calculateCategoryTotalsByPeriod]);
+    // Fonction pour vérifier si une entry doit être affichée selon le focus
+    const shouldDisplayEntryByFocus = React.useCallback((entryType) => {
+        if (focusType === 'entree') {
+            return entryType === 'entree';
+        } else if (focusType === 'sortie') {
+            return entryType === 'sortie';
+        } else {
+            return true;
+        }
+    }, [focusType]);
 
     const renderBudgetRows = (type) => {
         const isEntree = type === 'entree';
@@ -475,17 +497,6 @@ const BudgetTableUI = ({
         );
     };
 
-    // Fonction pour vérifier si une entry doit être affichée selon le focus
-    const shouldDisplayEntryByFocus = React.useCallback((entryType) => {
-        if (focusType === 'entree') {
-            return entryType === 'entree';
-        } else if (focusType === 'sortie') {
-            return entryType === 'sortie';
-        } else {
-            return true;
-        }
-    }, [focusType]);
-
     return (
         <div className={`relative mb-6 transition-opacity duration-300 ${drawerData.isOpen ? 'opacity-50 pointer-events-none' : ''}`}>
             <div className="relative z-10 overflow-hidden rounded-lg shadow-lg bg-surface">
@@ -620,7 +631,6 @@ const BudgetTableUI = ({
                                 )}
 
                                 <td className="bg-surface" style={{ width: `${separatorWidth}px` }}></td>
-
                                 {periods.map((period, periodIndex) => {
                                     const initialBalance = calculateInitialBalance(periodIndex);
                                     const columnIdBase = period.startDate.toISOString();
@@ -705,12 +715,7 @@ const BudgetTableUI = ({
                                 )}
                                 <td className="bg-surface" style={{ width: `${separatorWidth}px` }}></td>
                                 {periods.map((period, periodIndex) => {
-                                    const entreesTotals = calculateCategoryTotalsByPeriod('entree', periodIndex);
-                                    const sortiesTotals = calculateCategoryTotalsByPeriod('sortie', periodIndex);
-                                    const netBudget = entreesTotals.periodBudget - sortiesTotals.periodBudget;
-                                    const netActual = entreesTotals.periodActual - sortiesTotals.periodActual;
-                                    const netReste = netBudget - netActual;
-
+                                    const netFlow = calculateNetFlow(periodIndex);
                                     const columnIdBase = period.startDate.toISOString();
                                     const rowId = 'net_flow';
 
@@ -720,14 +725,14 @@ const BudgetTableUI = ({
                                                 {numVisibleCols > 0 && (
                                                     <div className="grid grid-cols-3 gap-1 text-sm">
                                                         {visibleColumns.budget && (
-                                                            <div className={`relative font-bold text-center ${netBudget < 0 ? 'text-red-600' : 'text-text-primary'} group/subcell`}>
-                                                                {formatCurrency(netBudget, currencySettings)}
+                                                            <div className={`relative font-bold text-center ${netFlow.budget < 0 ? 'text-red-600' : 'text-text-primary'} group/subcell`}>
+                                                                {formatCurrency(netFlow.budget, currencySettings)}
                                                                 <CommentButton
                                                                     rowId={rowId}
                                                                     columnId={`${columnIdBase}_budget`}
                                                                     rowName="Flux de trésorerie"
                                                                     columnName={`${period.label} (Prév.)`}
-                                                                    tooltip={`Flux net prévisionnel: ${formatCurrency(netBudget, currencySettings)}`}
+                                                                    tooltip={`Flux net prévisionnel: ${formatCurrency(netFlow.budget, currencySettings)}`}
                                                                 />
                                                             </div>
                                                         )}
@@ -737,32 +742,32 @@ const BudgetTableUI = ({
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         e.preventDefault();
-                                                                        if (netActual !== 0) {
+                                                                        if (netFlow.actual !== 0) {
                                                                             handleActualClick({ type: 'net', period, source: 'globalTotal' });
                                                                         }
                                                                     }}
-                                                                    disabled={netActual === 0}
+                                                                    disabled={netFlow.actual === 0}
                                                                     className="hover:underline disabled:cursor-not-allowed disabled:opacity-60"
                                                                 >
-                                                                    {formatCurrency(netActual, currencySettings)}
+                                                                    {formatCurrency(netFlow.actual, currencySettings)}
                                                                 </button>
                                                                 <CommentButton
                                                                     rowId={rowId}
                                                                     columnId={`${columnIdBase}_actual`}
                                                                     rowName="Flux de trésorerie"
                                                                     columnName={`${period.label} (Réel)`}
-                                                                    tooltip={`Flux net réel: ${formatCurrency(netActual, currencySettings)}`}
+                                                                    tooltip={`Flux net réel: ${formatCurrency(netFlow.actual, currencySettings)}`}
                                                                 />
                                                             </div>
                                                         )}
-                                                        <div className={`relative font-bold text-center ${getResteColor(netReste, true)}`}>
-                                                            {formatCurrency(netReste, currencySettings)}
+                                                        <div className={`relative font-bold text-center ${getResteColor(netFlow.reste, true)}`}>
+                                                            {formatCurrency(netFlow.reste, currencySettings)}
                                                             <CommentButton
                                                                 rowId={rowId}
                                                                 columnId={`${columnIdBase}_reste`}
                                                                 rowName="Flux de trésorerie"
                                                                 columnName={`${period.label} (Reste)`}
-                                                                tooltip={`Différence prévu/réel: ${formatCurrency(netReste, currencySettings)}`}
+                                                                tooltip={`Différence prévu/réel: ${formatCurrency(netFlow.reste, currencySettings)}`}
                                                             />
                                                         </div>
                                                     </div>

@@ -125,7 +125,7 @@ const calculateQuarterPeriods = (baseDate, count) => {
     // Trouver le trimestre courant
     const currentMonth = currentDate.getMonth();
     const currentQuarter = Math.floor(currentMonth / 3); // 0=T1, 1=T2, 2=T3, 3=T4
-    
+
     // Commencer au début du trimestre courant
     const startMonth = currentQuarter * 3;
     let quarterStart = new Date(currentDate.getFullYear(), startMonth, 1);
@@ -379,7 +379,7 @@ const BudgetDataManager = ({
     periodOffset,
     today,
     isDateToday,
-    children,effectiveCashAccounts = [],
+    children, effectiveCashAccounts = [],
 }) => {
     const periods = useMemo(() => {
         try {
@@ -806,7 +806,6 @@ const BudgetDataManager = ({
         },
         [filteredExpandedAndVatEntries, isRowVisibleInPeriods]
     );
-
 // Calcul des positions de trésorerie avec vérifications
 const calculatePeriodPositions = useCallback((
     periods,
@@ -818,25 +817,54 @@ const calculatePeriodPositions = useCallback((
     hasOffBudgetExpenses
 ) => {
     try {
-        if (!periods || periods.length === 0 || !cashAccounts || cashAccounts.length === 0) {
+        console.log('🔍 DEBUG calculatePeriodPositions - cashAccounts:', cashAccounts);
+        
+        if (!periods || periods.length === 0) {
             return periods?.map(() => ({
                 initial: 0,
                 final: 0,
                 netCashFlow: 0,
                 totalEntrees: 0,
                 totalSorties: 0,
-                // Ajouter pour faciliter le debug
                 budgetNetFlow: 0,
                 actualNetFlow: 0,
             })) || [];
         }
 
-        // 1. Calculer le solde initial total de tous les comptes
-        const totalInitialBalance = cashAccounts.reduce((sum, account) => {
-            return sum + (account?.initialBalance || account.initial_amount || 0);
-        }, 0);
+        // 1. Calculer le solde initial total de tous les comptes avec vérification stricte
+        const totalInitialBalance = cashAccounts?.reduce((sum, account) => {
+            if (!account) return sum;
+            
+            // Vérifier explicitement si c'est 0 ou une valeur valide
+            const initialBalance = parseFloat(account.initialBalance || account.initial_amount || 0);
+            
+            // Si c'est NaN ou une valeur non numérique, retourner 0
+            if (isNaN(initialBalance)) {
+                console.warn('⚠️ Valeur initiale invalide pour le compte:', account);
+                return sum;
+            }
+            
+            // Si c'est 10000, vérifier si c'est intentionnel ou une valeur par défaut
+            if (initialBalance === 10000) {
+                console.warn('⚠️ Valeur initiale suspecte (10000) pour le compte:', account);
+                // Si l'utilisateur n'a pas configuré de solde, supposer 0
+                if (!account.is_configured || account.has_initial_balance === false) {
+                    return sum; // Ne pas ajouter les 10000€
+                }
+            }
+            
+            return sum + initialBalance;
+        }, 0) || 0;
 
-        console.log('🔢 Solde initial total:', totalInitialBalance);
+        console.log('🔢 Solde initial total calculé:', totalInitialBalance);
+
+        // Si le total est toujours 10000 et il n'y a pas de comptes configurés, mettre à 0
+        if (totalInitialBalance === 10000 && (!cashAccounts || cashAccounts.length === 0 || cashAccounts.every(acc => !acc.is_configured))) {
+            console.log('🔄 Correction: Pas de solde initial réel, on utilise 0');
+            runningBalance = 0;
+        } else {
+            runningBalance = totalInitialBalance;
+        }
 
         const positions = [];
         let runningBalance = totalInitialBalance;
@@ -875,14 +903,8 @@ const calculatePeriodPositions = useCallback((
             const actualNetFlow = actualEntrees - actualSorties;
 
             // 4. Calculer la trésorerie fin de période
-            // Trésorerie fin (Budget) = Trésorerie début + Flux net (Budget)
-            // Trésorerie fin (Réel) = Trésorerie début + Flux net (Réel)
             const initialBalance = runningBalance;
-            
-            // Pour le calcul du runningBalance, on utilise les flux réels
             const finalBalance = initialBalance + actualNetFlow;
-            
-            // Mais on stocke aussi les versions budget pour l'affichage
             const finalBalanceBudget = initialBalance + budgetNetFlow;
 
             // Mettre à jour le solde pour la période suivante
@@ -890,8 +912,8 @@ const calculatePeriodPositions = useCallback((
 
             positions.push({
                 initial: initialBalance,
-                final: finalBalance, // Version réelle pour la continuité
-                finalBudget: finalBalanceBudget, // Version budget pour affichage
+                final: finalBalance,
+                finalBudget: finalBalanceBudget,
                 netCashFlow: actualNetFlow,
                 netCashFlowBudget: budgetNetFlow,
                 totalEntrees: actualEntrees,
@@ -900,7 +922,6 @@ const calculatePeriodPositions = useCallback((
                 totalSortiesBudget: budgetSorties,
                 budgetNetFlow: budgetNetFlow,
                 actualNetFlow: actualNetFlow,
-                // Pour le debug
                 periodInfo: period.label,
                 periodStart: period.startDate,
                 periodEnd: period.endDate,
@@ -924,11 +945,11 @@ const calculatePeriodPositions = useCallback((
 
     const periodPositions = useMemo(() => {
         console.log('Calcul des positions avec:', {
-        periodsCount: periods.length,
-        cashAccountsCount: effectiveCashAccounts?.length || 0,
-        cashAccounts: effectiveCashAccounts,
-        totalInitialBalance: effectiveCashAccounts?.reduce((sum, acc) => sum + (acc.initialBalance || 0), 0) || 0
-    });
+            periodsCount: periods.length,
+            cashAccountsCount: effectiveCashAccounts?.length || 0,
+            cashAccounts: effectiveCashAccounts,
+            totalInitialBalance: effectiveCashAccounts?.reduce((sum, acc) => sum + (acc.initialBalance || 0), 0) || 0
+        });
         try {
             return calculatePeriodPositions(
                 periods,
@@ -990,15 +1011,15 @@ const calculatePeriodPositions = useCallback((
             if (isMonthly) {
                 // Pour toutes les vues (trimestre, semestre, année, etc.), 
                 // on doit calculer le montant mensuel qui tombe dans la période
-                
+
                 // Si la période est plus longue qu'un mois (trimestre, semestre, année)
-                if (timeView === 'trimester' || timeView === 'semester' || timeView === 'year' || 
+                if (timeView === 'trimester' || timeView === 'semester' || timeView === 'year' ||
                     timeView === 'year3' || timeView === 'year5' || timeView === 'year7') {
-                    
+
                     // Calculer combien de mois complets sont dans la période
                     let totalAmount = 0;
                     let currentMonth = new Date(effectiveStartDate);
-                    
+
                     // Avancer mois par mois jusqu'à la fin de la période
                     while (currentMonth <= periodEnd) {
                         // Vérifier si ce mois est dans la période
@@ -1007,11 +1028,11 @@ const calculatePeriodPositions = useCallback((
                             const monthStart = new Date(currentMonth);
                             monthStart.setDate(1);
                             monthStart.setHours(0, 0, 0, 0);
-                            
+
                             const monthEnd = new Date(monthStart);
                             monthEnd.setMonth(monthEnd.getMonth() + 1);
                             monthEnd.setMilliseconds(-1);
-                            
+
                             // Si le mois est entièrement dans la période, ajouter le montant
                             if (monthStart >= periodStart && monthEnd <= periodEnd) {
                                 totalAmount += amount;
@@ -1020,10 +1041,10 @@ const calculatePeriodPositions = useCallback((
                         // Passer au mois suivant
                         currentMonth.setMonth(currentMonth.getMonth() + 1);
                     }
-                    
+
                     return totalAmount;
                 }
-                
+
                 // Pour les vues plus courtes (jour, semaine, mois), utiliser la logique existante
                 const entryDayOfMonth = effectiveStartDate.getDate();
                 const entryMonth = effectiveStartDate.getMonth();
@@ -1057,13 +1078,13 @@ const calculatePeriodPositions = useCallback((
 
             // CAS 3: FRÉQUENCE HEBDOMADAIRE - Doit fonctionner pour toutes les vues
             if (isWeekly) {
-                if (timeView === 'trimester' || timeView === 'semester' || timeView === 'year' || 
+                if (timeView === 'trimester' || timeView === 'semester' || timeView === 'year' ||
                     timeView === 'year3' || timeView === 'year5' || timeView === 'year7') {
-                    
+
                     // Pour les vues longues terme, calculer toutes les semaines dans la période
                     let totalAmount = 0;
                     let currentWeek = new Date(effectiveStartDate);
-                    
+
                     // Avancer semaine par semaine
                     while (currentWeek <= periodEnd) {
                         if (currentWeek >= periodStart && currentWeek <= periodEnd) {
@@ -1071,7 +1092,7 @@ const calculatePeriodPositions = useCallback((
                             const weekEnd = new Date(currentWeek);
                             weekEnd.setDate(weekEnd.getDate() + 6);
                             weekEnd.setHours(23, 59, 59, 999);
-                            
+
                             if (weekEnd <= periodEnd) {
                                 totalAmount += amount;
                             }
@@ -1079,10 +1100,10 @@ const calculatePeriodPositions = useCallback((
                         // Passer à la semaine suivante
                         currentWeek.setDate(currentWeek.getDate() + 7);
                     }
-                    
+
                     return totalAmount;
                 }
-                
+
                 // Logique existante pour les vues courtes
                 const weeksSinceStart = Math.floor((periodStart - effectiveStartDate) / (7 * 24 * 60 * 60 * 1000));
                 if (weeksSinceStart >= 0 && weeksSinceStart % 1 === 0) {
@@ -1094,9 +1115,9 @@ const calculatePeriodPositions = useCallback((
             // CAS 4: FRÉQUENCE TRIMESTRIELLE
             if (isQuarterly) {
                 // Même logique pour les vues longues terme
-                if (timeView === 'trimester' || timeView === 'semester' || timeView === 'year' || 
+                if (timeView === 'trimester' || timeView === 'semester' || timeView === 'year' ||
                     timeView === 'year3' || timeView === 'year5' || timeView === 'year7') {
-                    
+
                     // Vérifier si un paiement trimestriel tombe dans la période
                     let currentDate = new Date(effectiveStartDate);
                     while (currentDate <= periodEnd) {
@@ -1108,7 +1129,7 @@ const calculatePeriodPositions = useCallback((
                     }
                     return 0;
                 }
-                
+
                 const entryDate = effectiveStartDate;
                 const monthsSinceStart = (periodStart.getFullYear() - entryDate.getFullYear()) * 12 +
                     (periodStart.getMonth() - entryDate.getMonth());
@@ -1126,9 +1147,9 @@ const calculatePeriodPositions = useCallback((
             // CAS 5: FRÉQUENCE SEMESTRIELLE
             if (isSemiannual) {
                 // Même logique pour les vues longues terme
-                if (timeView === 'trimester' || timeView === 'semester' || timeView === 'year' || 
+                if (timeView === 'trimester' || timeView === 'semester' || timeView === 'year' ||
                     timeView === 'year3' || timeView === 'year5' || timeView === 'year7') {
-                    
+
                     let currentDate = new Date(effectiveStartDate);
                     while (currentDate <= periodEnd) {
                         if (currentDate >= periodStart && currentDate <= periodEnd) {
@@ -1138,7 +1159,7 @@ const calculatePeriodPositions = useCallback((
                     }
                     return 0;
                 }
-                
+
                 const entryDate = effectiveStartDate;
                 const monthsSinceStart = (periodStart.getFullYear() - entryDate.getFullYear()) * 12 +
                     (periodStart.getMonth() - entryDate.getMonth());
@@ -1156,9 +1177,9 @@ const calculatePeriodPositions = useCallback((
             // CAS 6: FRÉQUENCE ANNUELLE
             if (isAnnual) {
                 // Même logique pour les vues longues terme
-                if (timeView === 'trimester' || timeView === 'semester' || timeView === 'year' || 
+                if (timeView === 'trimester' || timeView === 'semester' || timeView === 'year' ||
                     timeView === 'year3' || timeView === 'year5' || timeView === 'year7') {
-                    
+
                     let currentDate = new Date(effectiveStartDate);
                     while (currentDate <= periodEnd) {
                         if (currentDate >= periodStart && currentDate <= periodEnd) {
@@ -1168,7 +1189,7 @@ const calculatePeriodPositions = useCallback((
                     }
                     return 0;
                 }
-                
+
                 const entryDate = effectiveStartDate;
                 const periodDate = new Date(periodStart);
 

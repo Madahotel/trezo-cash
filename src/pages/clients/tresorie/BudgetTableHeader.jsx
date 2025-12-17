@@ -82,10 +82,10 @@ const BudgetTableHeader = ({
     // Fonction utilitaire pour trouver la période
     const findCurrentPeriod = () => {
         if (!timeRange) return null;
-        
+
         // Normaliser timeRange (enlever les espaces, standardiser la casse)
         const normalizedTimeRange = timeRange.toString().trim().toLowerCase();
-        
+
         // Recherche avec différentes stratégies
         for (const option of periodOptions) {
             // Vérifier si timeRange correspond à l'ID (ex: 'P1D')
@@ -93,19 +93,19 @@ const BudgetTableHeader = ({
                 console.log('Found by ID:', option.id);
                 return option;
             }
-            
+
             // Vérifier si timeRange correspond au range (ex: 'P1D')
             if (normalizedTimeRange === option.range.toLowerCase()) {
                 console.log('Found by range:', option.range);
                 return option;
             }
-            
+
             // Vérifier si timeRange correspond au granularity (ex: 'day')
             if (normalizedTimeRange === option.granularity.toLowerCase()) {
                 console.log('Found by granularity:', option.granularity);
                 return option;
             }
-            
+
             // Vérifier les correspondances spécifiques
             if (normalizedTimeRange === 'day' && option.range === 'P1D') return option;
             if (normalizedTimeRange === 'week' && option.range === 'P7D') return option;
@@ -118,7 +118,7 @@ const BudgetTableHeader = ({
             if (normalizedTimeRange === 'year5' && option.range === 'P5Y') return option;
             if (normalizedTimeRange === 'year7' && option.range === 'P7Y') return option;
         }
-        
+
         console.log('No period found for timeRange:', normalizedTimeRange);
         return null;
     };
@@ -167,11 +167,11 @@ const BudgetTableHeader = ({
     // Fonction pour vérifier si une option est sélectionnée
     const isPeriodSelected = (opt) => {
         if (!timeRange || !currentPeriod) return false;
-        
+
         // Compare l'option avec la période courante
-        return opt.id === currentPeriod.id || 
-               opt.range === currentPeriod.range || 
-               opt.granularity === currentPeriod.granularity;
+        return opt.id === currentPeriod.id ||
+            opt.range === currentPeriod.range ||
+            opt.granularity === currentPeriod.granularity;
     };
 
     useEffect(() => {
@@ -242,35 +242,6 @@ const BudgetTableHeader = ({
                             )}
                         </AnimatePresence>
                     </div>
-
-                    {/* FOCUS TYPE SELECTOR */}
-                    <div className="flex items-center gap-1 p-1 ml-2 border rounded-lg bg-gray-50">
-                        <button
-                            onClick={() => onFocusChange && onFocusChange('entree')}
-                            className={`flex items-center gap-1 px-3 py-1.5 rounded-md transition-colors ${focusType === 'entree' ? 'bg-green-100 text-green-700 border border-green-300' : 'hover:bg-gray-100'}`}
-                            title="Focus sur les Entrées"
-                        >
-                            <TrendingUp size={14} />
-                            <span className="text-sm">Entrées</span>
-                        </button>
-                        <button
-                            onClick={() => onFocusChange && onFocusChange('sortie')}
-                            className={`flex items-center gap-1 px-3 py-1.5 rounded-md transition-colors ${focusType === 'sortie' ? 'bg-red-100 text-red-700 border border-red-300' : 'hover:bg-gray-100'}`}
-                            title="Focus sur les Sorties"
-                        >
-                            <TrendingDown size={14} />
-                            <span className="text-sm">Sorties</span>
-                        </button>
-                        <button
-                            onClick={() => onFocusChange && onFocusChange('net')}
-                            className={`flex items-center gap-1 px-3 py-1.5 rounded-md transition-colors ${focusType === 'net' ? 'bg-blue-100 text-blue-700 border border-blue-300' : 'hover:bg-gray-100'}`}
-                            title="Focus sur le Net"
-                        >
-                            <ArrowRightLeft size={14} />
-                            <span className="text-sm">Net</span>
-                        </button>
-                    </div>
-
                     {/* VIEW MODE SWITCHER */}
                     {showViewModeSwitcher && (
                         <div className="flex items-center gap-2 ml-2">
@@ -325,27 +296,7 @@ const BudgetTableHeader = ({
                     </AnimatePresence>
                 </div>
 
-                {/* ACTIONS */}
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => setShowTotals(v => !v)}
-                        className={`flex items-center gap-2 px-4 py-2 border rounded-lg ${showTotals ? 'bg-blue-50 border-blue-200' : ''}`}>
-                        {showTotals ? <Eye size={14} /> : <EyeOff size={14} />}
-                        Totaux
-                    </button>
-
-                    {showNewEntryButton && !isConsolidated && !isCustomConsolidated && (
-                        <button
-                            onClick={handleNewBudget}
-                            className="flex items-center gap-2 px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700">
-                            <Plus size={16} />
-                            Nouveau budget
-                        </button>
-                    )}
-                </div>
             </div>
-
-            {/* INFO */}
             <div className="px-4 py-2 mt-3 text-xs border border-blue-100 rounded-lg bg-blue-50">
                 <strong>Mode d'affichage :</strong> {currentPeriod ? currentPeriod.description : 'Non sélectionné'}
                 {tableauMode === 'lecture' && ' | Mode Lecture'}
