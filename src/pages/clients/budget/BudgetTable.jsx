@@ -8,11 +8,14 @@ import {
   Edit,
   Trash2,
   Eye,
+  ChevronLeft,
+  ChevronUp,
 } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatCurrency } from '../../../utils/formatters';
 import BudgetDetailModal from './BudgetDetailModal';
+import { filterDataByYear } from '../../../services/budget';
 
 const formatShortDate = (dateString) => {
   if (!dateString) return '';
@@ -32,7 +35,7 @@ const SubCategoryRow = ({
   isSubMenuOpen,
   onSubCategoryMenuToggle,
   menuRefs,
-  isReadOnly = false
+  isReadOnly = false,
 }) => {
   const menuPosition = isSubMenuOpen
     ? getMenuPosition(menuRefs.current[item.id])
@@ -72,7 +75,8 @@ const SubCategoryRow = ({
           <div className="flex items-center gap-1 text-sm text-gray-600">
             <Calendar className="w-3 h-3" />
             {formatShortDate(item.start_date)}
-            {item.is_duration_indefinite || item.is_budget_duration_indefinite ? (
+            {item.is_duration_indefinite ||
+            item.is_budget_duration_indefinite ? (
               <span> → ∞</span>
             ) : item.end_date ? (
               <span> → {formatShortDate(item.end_date)}</span>
@@ -135,15 +139,18 @@ const SubCategoryMenu = ({
         position: 'fixed',
         [menuPosition === 'top' ? 'bottom' : 'top']:
           menuPosition === 'top'
-            ? `${window.innerHeight -
-            menuRefs.current[item.id]?.getBoundingClientRect().top +
-            8
-            }px`
-            : `${menuRefs.current[item.id]?.getBoundingClientRect().bottom + 8
-            }px`,
-        right: `${window.innerWidth -
+            ? `${
+                window.innerHeight -
+                menuRefs.current[item.id]?.getBoundingClientRect().top +
+                8
+              }px`
+            : `${
+                menuRefs.current[item.id]?.getBoundingClientRect().bottom + 8
+              }px`,
+        right: `${
+          window.innerWidth -
           menuRefs.current[item.id]?.getBoundingClientRect().right
-          }px`,
+        }px`,
       }}
     >
       <div className="p-1">
@@ -182,69 +189,72 @@ const BudgetTable = ({
   onEdit,
   onDelete,
   loading = false,
-  isReadOnly = false
+  isReadOnly = false,
+  year,
+  onYearChange, // Nouvelle prop pour changer l'année depuis le parent
 }) => {
   const [activeTab, setActiveTab] = useState('revenus');
   const [expandedRow, setExpandedRow] = useState(null);
   const [subCategoryMenuOpen, setSubCategoryMenuOpen] = useState(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedSubCategory, setSelectedSubCategory] = useState(null);
+  const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false);
   const menuRefs = useRef({});
+  const yearDropdownRef = useRef(null);
+
+  // Générer la liste des années disponibles
+  const generateYearList = () => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+
+    // Ajouter les années de 2020 à l'année actuelle + 5
+    for (let year = 2020; year <= currentYear + 5; year++) {
+      years.push(year);
+    }
+
+    return years;
+  };
+
+  const availableYears = generateYearList();
+
+  // Fermer le dropdown quand on clique à l'extérieur
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        yearDropdownRef.current &&
+        !yearDropdownRef.current.contains(event.target)
+      ) {
+        setIsYearDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Fonction pour filtrer les données par année - CORRIGÉE
+
+  const filteredBudgetData = filterDataByYear(budgetData, year);
+  console.log(filteredBudgetData);
 
   const getGroupedData = () => {
-    if (!budgetData || loading) return [];
-    if (budgetData.budgetEntries) {
-      const consolidatedEntries = budgetData.budgetEntries || [];
-      const categoryMap = new Map();
-      consolidatedEntries.forEach(item => {
-        const categoryId = item.category_id;
-        if (!categoryMap.has(categoryId)) {
-          categoryMap.set(categoryId, {
-            id: categoryId,
-            categoryName: item.category_name,
-            items: []
-          });
-        }
-        const category = categoryMap.get(categoryId);
-        category.items.push({
-          id: item.id,
-          sub_category_name: item.sub_category_name,
-          amount: item.budget_forecast_amount,
-          start_date: item.start_date,
-          end_date: item.end_date,
-          is_budget_duration_indefinite: item.is_budget_duration_indefinite,
-          frequency_name: item.frequency_name,
-          budget_type_id: item.budget_type_id,
-          ...item
-        });
-      });
+    if (!filteredBudgetData || loading) return [];
 
-      return Array.from(categoryMap.values()).map(category => {
-        const totalAmount = category.items.reduce(
-          (sum, item) => sum + parseFloat(item.amount || 0),
-          0
-        );
-
-        return {
-          ...category,
-          amount: totalAmount,
-          subcategoryName: `${category.items.length} sous-catégorie${category.items.length > 1 ? 's' : ''
-            }`
-        };
-      });
+    // Si structure consolidée
+    if (filteredBudgetData.categories) {
+      return filteredBudgetData.categories;
     }
 
     // Structure normale
     let data;
     if (activeTab === 'revenus') {
-      const entries = budgetData?.entries || {};
+      const entries = filteredBudgetData?.entries || {};
       const categories = entries?.entry_items?.category_names || [];
-      const items = entries?.entry_items?.sub_categories || [];
 
       data = categories.map((category) => {
-        const categoryItems = items.filter(
-          (item) => item.category_id === category.category_id
-        );
+        const categoryItems = category.items || [];
         const totalAmount = categoryItems.reduce(
           (sum, item) => sum + parseFloat(item.amount || 0),
           0
@@ -253,21 +263,19 @@ const BudgetTable = ({
         return {
           id: category.category_id,
           categoryName: category.category_name,
-          subcategoryName: `${categoryItems.length} sous-catégorie${categoryItems.length > 1 ? 's' : ''
-            }`,
+          subcategoryName: `${categoryItems.length} sous-catégorie${
+            categoryItems.length > 1 ? 's' : ''
+          }`,
           amount: totalAmount,
           items: categoryItems,
         };
       });
     } else {
-      const exits = budgetData?.exits || {};
+      const exits = filteredBudgetData?.exits || {};
       const categories = exits?.exit_items?.category_names || [];
-      const items = exits?.exit_items?.sub_categories || [];
 
       data = categories.map((category) => {
-        const categoryItems = items.filter(
-          (item) => item.category_id === category.category_id
-        );
+        const categoryItems = category.items || [];
         const totalAmount = categoryItems.reduce(
           (sum, item) => sum + parseFloat(item.amount || 0),
           0
@@ -276,8 +284,9 @@ const BudgetTable = ({
         return {
           id: category.category_id,
           categoryName: category.category_name,
-          subcategoryName: `${categoryItems.length} sous-catégorie${categoryItems.length > 1 ? 's' : ''
-            }`,
+          subcategoryName: `${categoryItems.length} sous-catégorie${
+            categoryItems.length > 1 ? 's' : ''
+          }`,
           amount: totalAmount,
           items: categoryItems,
         };
@@ -329,6 +338,13 @@ const BudgetTable = ({
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     setExpandedRow(null);
+  };
+
+  const handleYearChange = (selectedYear) => {
+    if (onYearChange) {
+      onYearChange(selectedYear);
+    }
+    setIsYearDropdownOpen(false);
   };
 
   useEffect(() => {
@@ -406,23 +422,74 @@ const BudgetTable = ({
 
   return (
     <div className="p-6 bg-white border border-gray-200 rounded-xl">
-      {/* En-tête */}
-      <div className="flex items-center justify-between mb-6">
+      {/* En-tête avec l'année */}
+      <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">
-            {isReadOnly ? 'Détail du budget consolidé' : 'Détail du budget'}
-          </h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-semibold text-gray-900">
+              {isReadOnly ? 'Détail du budget consolidé' : 'Détail du budget'}
+            </h2>
+            {year && (
+              <span className="px-3 py-1 text-sm font-medium text-blue-700 bg-blue-100 rounded-full">
+                Année {year}
+              </span>
+            )}
+          </div>
           <p className="mt-1 text-sm text-gray-500">
             {isReadOnly
               ? 'Visualisation des budgets consolidés'
               : 'Gestion de vos revenus et dépenses'}
+            {year && ` pour l'année ${year}`}
           </p>
         </div>
         {!isReadOnly && (
-          <button className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 transition-all duration-200 border border-gray-300 rounded-lg hover:border-gray-400 hover:bg-gray-50">
-            <Filter className="w-4 h-4 mr-2" />
-            <span>Filtrer</span>
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Sélecteur d'année */}
+            <div className="relative" ref={yearDropdownRef}>
+              <button
+                onClick={() => setIsYearDropdownOpen(!isYearDropdownOpen)}
+                className="flex items-center justify-between gap-2 px-3 py-2 text-sm font-medium text-gray-700 transition-all duration-200 bg-white border border-gray-300 rounded-lg hover:border-gray-400 hover:bg-gray-50 min-w-[130px]"
+              >
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-3.5 h-3.5 text-gray-500" />
+                  <span>Année {year}</span>
+                </div>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-gray-500 transition-transform ${
+                    isYearDropdownOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              {isYearDropdownOpen && (
+                <div className="absolute right-0 z-50 w-full mt-1 overflow-hidden bg-white border border-gray-200 rounded-lg shadow-lg top-full min-w-[130px]">
+                  <div className="py-1 max-h-60 overflow-y-auto">
+                    {availableYears.map((availableYear) => (
+                      <button
+                        key={availableYear}
+                        onClick={() => handleYearChange(availableYear)}
+                        className={`flex items-center justify-between w-full px-3 py-2 text-sm text-left transition-colors hover:bg-gray-50 ${
+                          availableYear === year
+                            ? 'bg-blue-50 text-blue-600 font-medium'
+                            : 'text-gray-700'
+                        }`}
+                      >
+                        <span>Année {availableYear}</span>
+                        {availableYear === year && (
+                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 transition-all duration-200 border border-gray-300 rounded-lg hover:border-gray-400 hover:bg-gray-50">
+              <Filter className="w-4 h-4 mr-2" />
+              <span>Filtrer</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -430,22 +497,24 @@ const BudgetTable = ({
       {!isReadOnly && (
         <div className="flex p-1 mb-4 space-x-1 bg-gray-100 rounded-lg">
           <button
-            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 ${activeTab === 'revenus'
+            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 ${
+              activeTab === 'revenus'
                 ? 'bg-white text-gray-900 border border-gray-200 shadow-sm'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
-              }`}
+            }`}
             onClick={() => handleTabChange('revenus')}
           >
-            Revenus ({budgetData?.entries?.entry_count || 0})
+            Revenus ({filteredBudgetData?.entries?.entry_count || 0})
           </button>
           <button
-            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 ${activeTab === 'depenses'
+            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 ${
+              activeTab === 'depenses'
                 ? 'bg-white text-gray-900 border border-gray-200 shadow-sm'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
-              }`}
+            }`}
             onClick={() => handleTabChange('depenses')}
           >
-            Dépenses ({budgetData?.exits?.exit_count || 0})
+            Dépenses ({filteredBudgetData?.exits?.exit_count || 0})
           </button>
         </div>
       )}
@@ -604,8 +673,12 @@ const BudgetTable = ({
                       {isReadOnly
                         ? 'Aucun budget consolidé trouvé'
                         : activeTab === 'revenus'
-                          ? 'Aucun revenu trouvé'
-                          : 'Aucune dépense trouvée'}
+                        ? year
+                          ? `Aucun revenu trouvé pour l'année ${year}`
+                          : 'Aucun revenu trouvé'
+                        : year
+                        ? `Aucune dépense trouvée pour l'année ${year}`
+                        : 'Aucune dépense trouvée'}
                     </div>
                   </div>
                 </td>

@@ -17,14 +17,14 @@ export const formatXAxisLabels = (
   }
 
   // Pour les autres valeurs, retourner chaîne vide
-  return "";
+  return '';
 };
 
 // Fonctions utilitaires
 export const formatCurrency = (amount, settings) => {
-  return new Intl.NumberFormat("fr-FR", {
-    style: "currency",
-    currency: settings?.currency || "EUR",
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: settings?.currency || 'EUR',
   }).format(amount || 0);
 };
 
@@ -35,20 +35,25 @@ export const transformBudgetDataWithDates = (
 ) => {
   const transactions = [];
 
+  // Calculer la plage de dates pour la période actuelle
+  const periodRange = currentPeriod
+    ? calculateDateRange(null, null, currentPeriod)
+    : null;
+
   budgetData.forEach((budget) => {
     const frequencyId = budget.frequency_id;
-    const type = budget.category_type_id == 2 ? "receivable" : "payable";
+    const type = budget.category_type_id == 2 ? 'receivable' : 'payable';
 
-    // Passer currentPeriod à generateDatesByFrequency
+    // Générer les dates selon la fréquence et la période
     const dates = generateDatesByFrequency(
       frequencyId,
       budget.start_date,
       budget.end_date,
-      currentPeriod // Ajouter ce paramètre
+      currentPeriod
     );
 
     dates.forEach((date, occurrenceIndex) => {
-      const dateKey = date.toISOString().split("T")[0];
+      const dateKey = date.toISOString().split('T')[0];
 
       const uniqueId = `budget-${budget.budget_id}-${dateKey}-${occurrenceIndex}`;
 
@@ -89,7 +94,6 @@ export const transformBudgetDataWithDates = (
   return transactions;
 };
 
-// Fonction pour générer les dates selon la fréquence
 export const generateDatesByFrequency = (
   frequencyId,
   startDate,
@@ -98,17 +102,12 @@ export const generateDatesByFrequency = (
 ) => {
   const dates = [];
 
-  // Fonction pour parser correctement les dates
   const parseDate = (dateStr) => {
     if (!dateStr) return null;
-
-    // Prendre seulement la partie date (avant l'espace si présent)
-    const datePart = dateStr.split(" ")[0];
+    const datePart = dateStr.split(' ')[0];
     const [year, month, day] = datePart
-      .split("-")
+      .split('-')
       .map((num) => parseInt(num, 10));
-
-    // Créer la date en UTC pour éviter les problèmes de fuseau horaire
     return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
   };
 
@@ -117,142 +116,206 @@ export const generateDatesByFrequency = (
     return dates;
   }
 
-  // Cas des fréquences sans répétition (ponctuel)
-  if (frequencyId === 1 || frequencyId === 9) {
-    dates.push(start);
-    return dates;
-  }
-
-  // Si pas de date de fin, utiliser la période d'analyse actuelle
-  if (!endDate && currentPeriod) {
-    // Calculer la plage de dates pour la période d'analyse actuelle
-    const { rangeStart, rangeEnd } = calculateDateRange(
-      null,
-      null,
-      currentPeriod
+  // Calculer la période d'analyse
+  let periodStart, periodEnd;
+  if (currentPeriod) {
+    const dateRange = calculateDateRange(null, null, currentPeriod);
+    periodStart = dateRange.rangeStart;
+    periodEnd = dateRange.rangeEnd;
+  } else {
+    const now = new Date();
+    periodStart = new Date(Date.UTC(now.getUTCFullYear(), 0, 1, 0, 0, 0, 0));
+    periodEnd = new Date(
+      Date.UTC(now.getUTCFullYear(), 11, 31, 23, 59, 59, 999)
     );
+  }
 
-    let current = new Date(start);
+  // S'assurer que ce sont des dates UTC
+  periodStart = new Date(
+    Date.UTC(
+      periodStart.getUTCFullYear(),
+      periodStart.getUTCMonth(),
+      periodStart.getUTCDate(),
+      0,
+      0,
+      0,
+      0
+    )
+  );
 
-    // Ne générer que les dates jusqu'à la fin de la période d'analyse
-    const stopDate = new Date(rangeEnd);
+  periodEnd = new Date(
+    Date.UTC(
+      periodEnd.getUTCFullYear(),
+      periodEnd.getUTCMonth(),
+      periodEnd.getUTCDate(),
+      23,
+      59,
+      59,
+      999
+    )
+  );
 
-    // Ajouter des marges selon la fréquence pour s'assurer de capturer au moins une occurrence
-    if (frequencyId === 8) {
-      // Annuelle
-      stopDate.setUTCFullYear(stopDate.getUTCFullYear() + 1);
-    } else if (frequencyId === 7) {
-      // Semestrielle
-      stopDate.setUTCMonth(stopDate.getUTCMonth() + 6);
-    } else if (frequencyId === 6) {
-      // Trimestrielle
-      stopDate.setUTCMonth(stopDate.getUTCMonth() + 3);
-    } else if (frequencyId === 5) {
-      // Bimestrielle
-      stopDate.setUTCMonth(stopDate.getUTCMonth() + 2);
-    } else if (frequencyId === 4) {
-      // Hebdomadaire
-      stopDate.setUTCDate(stopDate.getUTCDate() + 7);
-    } else if (frequencyId === 3) {
-      // Mensuelle
-      stopDate.setUTCMonth(stopDate.getUTCMonth() + 1);
-    } else if (frequencyId === 2) {
-      // Quotidienne
-      stopDate.setUTCDate(stopDate.getUTCDate() + 1);
+  // Cas des fréquences ponctuelles
+  if (frequencyId === 1 || frequencyId === 9) {
+    if (start >= periodStart && start <= periodEnd) {
+      dates.push(new Date(start));
+    }
+    return dates;
+  }
+
+  // Fonction utilitaire pour ajouter des mois en gérant les jours limites
+  const addMonthsUTC = (date, months) => {
+    const result = new Date(date);
+    const dayOfMonth = result.getUTCDate();
+    result.setUTCMonth(result.getUTCMonth() + months);
+
+    // Ajustement pour les cas où le jour n'existe pas dans le nouveau mois
+    const expectedDay = result.getUTCDate();
+    if (expectedDay !== dayOfMonth) {
+      // On revient au dernier jour du mois précédent
+      result.setUTCDate(0);
     }
 
-    // Limiter les itérations pour éviter les boucles infinies
-    let iteration = 0;
-    const maxIterations = 1000;
+    return result;
+  };
 
-    while (current <= stopDate && iteration < maxIterations) {
-      // Ajouter la date seulement si elle est dans la période d'analyse
-      if (current >= rangeStart && current <= rangeEnd) {
-        dates.push(new Date(current));
-      }
+  // Fonction pour trouver la prochaine occurrence à partir d'une date de référence
+  const getNextOccurrence = (refDate, firstOccurrenceDate) => {
+    const dayOfMonth = firstOccurrenceDate.getUTCDate();
+    let nextDate = new Date(refDate);
 
-      // Passer à la prochaine occurrence selon la fréquence
-      const next = new Date(current);
-      switch (frequencyId) {
-        case 2: // Quotidienne
-          next.setUTCDate(next.getUTCDate() + 1);
-          break;
-        case 3: // Mensuelle
-          next.setUTCMonth(next.getUTCMonth() + 1);
-          break;
-        case 4: // Hebdomadaire
-          next.setUTCDate(next.getUTCDate() + 7);
-          break;
-        case 5: // Bimestrielle
-          next.setUTCMonth(next.getUTCMonth() + 2);
-          break;
-        case 6: // Trimestrielle
-          next.setUTCMonth(next.getUTCMonth() + 3);
-          break;
-        case 7: // Semestrielle
-          next.setUTCMonth(next.getUTCMonth() + 6);
-          break;
-        case 8: // Annuelle
-          next.setUTCFullYear(next.getUTCFullYear() + 1);
-          break;
-        default:
-          return dates;
-      }
+    // Déterminer l'intervalle en mois selon la fréquence
+    let monthIncrement = 0;
+    let weekIncrement = 0;
 
-      current = next;
-      iteration++;
+    switch (frequencyId) {
+      case 2: // Quotidienne
+        return new Date(refDate.setUTCDate(refDate.getUTCDate() + 1));
+      case 3: // Mensuelle
+        monthIncrement = 1;
+        break;
+      case 4: // Hebdomadaire
+        weekIncrement = 7;
+        break;
+      case 5: // Bimestrielle
+        monthIncrement = 2;
+        break;
+      case 6: // Trimestrielle
+        monthIncrement = 3;
+        break;
+      case 7: // Semestrielle
+        monthIncrement = 6;
+        break;
+      case 8: // Annuelle
+        monthIncrement = 12;
+        break;
+      default:
+        return refDate;
     }
 
-    return dates;
+    if (weekIncrement > 0) {
+      // Pour hebdomadaire
+      nextDate.setUTCDate(nextDate.getUTCDate() + weekIncrement);
+      return nextDate;
+    } else {
+      // Pour les fréquences mensuelles et supérieures
+      nextDate = addMonthsUTC(refDate, monthIncrement);
+
+      // S'assurer qu'on garde le même jour du mois (avec ajustement si nécessaire)
+      const tempDate = new Date(nextDate);
+      tempDate.setUTCDate(dayOfMonth);
+
+      // Si le jour n'existe pas dans ce mois, on prend le dernier jour
+      if (tempDate.getUTCMonth() !== nextDate.getUTCMonth()) {
+        tempDate.setUTCDate(0); // Dernier jour du mois précédent
+      }
+
+      return tempDate;
+    }
+  };
+
+  // Déterminer la première occurrence dans la période
+  let currentDate = new Date(start);
+
+  // Si start_date est avant la période, trouver la première occurrence dans la période
+  if (currentDate < periodStart) {
+    // Pour les fréquences quotidiennes
+    if (frequencyId === 2) {
+      currentDate = new Date(periodStart);
+    }
+    // Pour les fréquences hebdomadaires
+    else if (frequencyId === 4) {
+      const daysDiff = Math.ceil(
+        (periodStart - currentDate) / (1000 * 60 * 60 * 24)
+      );
+      const weeksDiff = Math.ceil(daysDiff / 7);
+      currentDate.setUTCDate(currentDate.getUTCDate() + weeksDiff * 7);
+    }
+    // Pour les fréquences mensuelles et supérieures
+    else if (frequencyId >= 3 && frequencyId <= 8) {
+      // Trouver combien d'occurrences sont passées depuis start_date jusqu'à periodStart
+      let tempDate = new Date(start);
+      let iterations = 0;
+      const maxIterations = 1000;
+
+      while (tempDate < periodStart && iterations < maxIterations) {
+        tempDate = getNextOccurrence(tempDate, start);
+        iterations++;
+
+        // Si on dépasse periodStart, on a trouvé la première occurrence dans la période
+        if (tempDate >= periodStart) {
+          currentDate = tempDate;
+          break;
+        }
+      }
+
+      // Si on n'a pas trouvé, prendre periodStart ajusté au jour du mois
+      if (currentDate < periodStart) {
+        currentDate = new Date(periodStart);
+        const dayOfMonth = start.getUTCDate();
+        currentDate.setUTCDate(dayOfMonth);
+
+        // Si le jour n'existe pas dans ce mois, prendre le dernier jour
+        if (
+          currentDate < periodStart ||
+          currentDate.getUTCMonth() !== periodStart.getUTCMonth()
+        ) {
+          currentDate = new Date(
+            periodStart.getUTCFullYear(),
+            periodStart.getUTCMonth() + 1,
+            0
+          );
+        }
+      }
+    }
   }
 
-  // Avec date de fin (code existant)
-  const end = parseDate(endDate);
-  if (!end || isNaN(end.getTime())) {
-    console.error("❌ Date de fin invalide:", endDate);
-    return dates;
+  // S'assurer que currentDate est dans la période
+  if (currentDate < periodStart) {
+    currentDate = new Date(periodStart);
   }
 
-  if (start > end) {
-    console.error("❌ Erreur: start_date > end_date");
-    return dates;
+  // Déterminer la date de fin
+  let generationEnd = new Date(periodEnd);
+  if (endDate) {
+    const end = parseDate(endDate);
+    if (end && !isNaN(end.getTime()) && end < periodEnd) {
+      generationEnd = end;
+    }
   }
 
-  let current = new Date(start);
+  // Générer les occurrences
   let iteration = 0;
   const maxIterations = 10000;
 
-  while (current <= end && iteration < maxIterations) {
-    dates.push(new Date(current));
-
-    const next = new Date(current);
-    switch (frequencyId) {
-      case 2: // Quotidienne
-        next.setUTCDate(next.getUTCDate() + 1);
-        break;
-      case 3: // Mensuelle
-        next.setUTCMonth(next.getUTCMonth() + 1);
-        break;
-      case 4: // Hebdomadaire
-        next.setUTCDate(next.getUTCDate() + 7);
-        break;
-      case 5: // Bimestrielle
-        next.setUTCMonth(next.getUTCMonth() + 2);
-        break;
-      case 6: // Trimestrielle
-        next.setUTCMonth(next.getUTCMonth() + 3);
-        break;
-      case 7: // Semestrielle
-        next.setUTCMonth(next.getUTCMonth() + 6);
-        break;
-      case 8: // Annuelle
-        next.setUTCFullYear(next.getUTCFullYear() + 1);
-        break;
-      default:
-        return dates;
+  while (currentDate <= generationEnd && iteration < maxIterations) {
+    // Vérifier que la date est dans la plage
+    if (currentDate >= periodStart && currentDate <= generationEnd) {
+      dates.push(new Date(currentDate));
     }
 
-    current = next;
+    // Passer à la prochaine occurrence
+    currentDate = getNextOccurrence(currentDate, start);
     iteration++;
   }
 
@@ -266,7 +329,7 @@ export const getInitialPeriod = () => {
   const currentYear = now.getFullYear();
 
   return {
-    type: "month",
+    type: 'month',
     year: currentYear,
     month: currentMonth,
     quarter: Math.floor(currentMonth / 3) + 1,
@@ -279,7 +342,7 @@ export const handlePeriodChange = (currentPeriod, direction) => {
   const prev = currentPeriod;
 
   switch (prev.type) {
-    case "month":
+    case 'month':
       let newMonth = prev.month + direction;
       let newYear = prev.year;
 
@@ -300,7 +363,7 @@ export const handlePeriodChange = (currentPeriod, direction) => {
         bimester: Math.floor(newMonth / 2) + 1,
       };
 
-    case "bimester":
+    case 'bimester':
       let newBimester = prev.bimester + direction;
       let newYearB = prev.year;
 
@@ -317,7 +380,7 @@ export const handlePeriodChange = (currentPeriod, direction) => {
 
       return {
         ...prev,
-        type: "bimester",
+        type: 'bimester',
         year: newYearB,
         bimester: newBimester,
         month: newMonthB,
@@ -325,7 +388,7 @@ export const handlePeriodChange = (currentPeriod, direction) => {
         semester: Math.floor(newMonthB / 6) + 1,
       };
 
-    case "quarter":
+    case 'quarter':
       let newQuarter = prev.quarter + direction;
       let newYearQ = prev.year;
 
@@ -342,7 +405,7 @@ export const handlePeriodChange = (currentPeriod, direction) => {
 
       return {
         ...prev,
-        type: "quarter",
+        type: 'quarter',
         year: newYearQ,
         quarter: newQuarter,
         month: newMonthQ,
@@ -350,7 +413,7 @@ export const handlePeriodChange = (currentPeriod, direction) => {
         bimester: Math.floor(newMonthQ / 2) + 1,
       };
 
-    case "semester":
+    case 'semester':
       let newSemester = prev.semester + direction;
       let newYearS = prev.year;
 
@@ -367,7 +430,7 @@ export const handlePeriodChange = (currentPeriod, direction) => {
 
       return {
         ...prev,
-        type: "semester",
+        type: 'semester',
         year: newYearS,
         semester: newSemester,
         month: newMonthS,
@@ -375,7 +438,7 @@ export const handlePeriodChange = (currentPeriod, direction) => {
         bimester: Math.floor(newMonthS / 2) + 1,
       };
 
-    case "year":
+    case 'year':
       return {
         ...prev,
         year: prev.year + direction,
@@ -435,27 +498,27 @@ export const calculateDateRange = (
     const start = new Date(rangeStartProp);
     const end = new Date(rangeEndProp);
 
-    let periodName = "";
+    let periodName = '';
     if (
       start.getMonth() === end.getMonth() &&
       start.getFullYear() === end.getFullYear()
     ) {
       // C'est un mois
-      periodName = start.toLocaleString("fr-FR", {
-        month: "long",
-        year: "numeric",
+      periodName = start.toLocaleString('fr-FR', {
+        month: 'long',
+        year: 'numeric',
       });
     } else {
       // Période personnalisée
-      const startStr = start.toLocaleString("fr-FR", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
+      const startStr = start.toLocaleString('fr-FR', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
       });
-      const endStr = end.toLocaleString("fr-FR", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
+      const endStr = end.toLocaleString('fr-FR', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
       });
       periodName = `${startStr} - ${endStr}`;
     }
@@ -471,54 +534,69 @@ export const calculateDateRange = (
   let startDate, endDate, periodName;
   const { type, year, month, quarter, semester, bimester } = currentPeriod;
 
+  // **CORRECTION : Utiliser UTC pour éviter les problèmes de fuseau horaire**
   switch (type) {
-    case "month":
-      startDate = new Date(year, month, 1);
-      endDate = new Date(year, month + 1, 0, 23, 59, 59, 999);
-      periodName = startDate.toLocaleString("fr-FR", {
-        month: "long",
-        year: "numeric",
+    case 'month':
+      // Mois : du 1er au dernier jour du mois EN UTC
+      startDate = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0)); // 1er jour du mois à 00:00:00 UTC
+      endDate = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999)); // Dernier jour du mois à 23:59:59.999 UTC
+
+      // Pour le nom de la période, utiliser la date locale
+      const localStart = new Date(year, month, 1);
+      periodName = localStart.toLocaleString('fr-FR', {
+        month: 'long',
+        year: 'numeric',
       });
       break;
 
-    case "bimester":
+    case 'bimester':
+      // Bimestre : du 1er jour du premier mois au dernier jour du deuxième mois EN UTC
       const bimStartMonth = (bimester - 1) * 2;
-      startDate = new Date(year, bimStartMonth, 1);
-      endDate = new Date(year, bimStartMonth + 2, 0, 23, 59, 59, 999);
-      const bimMonth1 = startDate.toLocaleString("fr-FR", { month: "short" });
+      startDate = new Date(Date.UTC(year, bimStartMonth, 1, 0, 0, 0, 0));
+      endDate = new Date(Date.UTC(year, bimStartMonth + 2, 0, 23, 59, 59, 999));
+
+      // Pour le nom
+      const localBimStart = new Date(year, bimStartMonth, 1);
+      const bimMonth1 = localBimStart.toLocaleString('fr-FR', {
+        month: 'short',
+      });
       const bimMonth2 = new Date(year, bimStartMonth + 1, 1).toLocaleString(
-        "fr-FR",
-        { month: "short" }
+        'fr-FR',
+        { month: 'short' }
       );
       periodName = `Bimestre ${bimester} (${bimMonth1}-${bimMonth2}) ${year}`;
       break;
 
-    case "quarter":
+    case 'quarter':
+      // Trimestre : du 1er jour du premier mois au dernier jour du troisième mois EN UTC
       const qStartMonth = (quarter - 1) * 3;
-      startDate = new Date(year, qStartMonth, 1);
-      endDate = new Date(year, qStartMonth + 3, 0, 23, 59, 59, 999);
+      startDate = new Date(Date.UTC(year, qStartMonth, 1, 0, 0, 0, 0));
+      endDate = new Date(Date.UTC(year, qStartMonth + 3, 0, 23, 59, 59, 999));
       periodName = `Trimestre ${quarter} ${year}`;
       break;
 
-    case "semester":
+    case 'semester':
+      // Semestre : du 1er jour du premier mois au dernier jour du sixième mois EN UTC
       const sStartMonth = (semester - 1) * 6;
-      startDate = new Date(year, sStartMonth, 1);
-      endDate = new Date(year, sStartMonth + 6, 0, 23, 59, 59, 999);
+      startDate = new Date(Date.UTC(year, sStartMonth, 1, 0, 0, 0, 0));
+      endDate = new Date(Date.UTC(year, sStartMonth + 6, 0, 23, 59, 59, 999));
       periodName = `Semestre ${semester} ${year}`;
       break;
 
-    case "year":
-      startDate = new Date(year, 0, 1);
-      endDate = new Date(year, 11, 31, 23, 59, 59, 999);
+    case 'year':
+      // Année : du 1er janvier au 31 décembre EN UTC
+      startDate = new Date(Date.UTC(year, 0, 1, 0, 0, 0, 0));
+      endDate = new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999));
       periodName = `Année ${year}`;
       break;
 
     default: // 'month'
-      startDate = new Date(year, month, 1);
-      endDate = new Date(year, month + 1, 0, 23, 59, 59, 999);
-      periodName = startDate.toLocaleString("fr-FR", {
-        month: "long",
-        year: "numeric",
+      startDate = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
+      endDate = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999));
+      const defaultLocalStart = new Date(year, month, 1);
+      periodName = defaultLocalStart.toLocaleString('fr-FR', {
+        month: 'long',
+        year: 'numeric',
       });
   }
 
@@ -528,7 +606,6 @@ export const calculateDateRange = (
     analysisPeriodName: periodName,
   };
 };
-
 // Transformation des données API
 export const transformApiData = (
   apiData,
@@ -626,7 +703,7 @@ export const transformApiData = (
 
       // Déterminer le type basé sur category_type_id
       const type =
-        relatedBudget.category_type_id === 2 ? "receivable" : "payable";
+        relatedBudget.category_type_id === 2 ? 'receivable' : 'payable';
 
       // Créer le nom du tiers
       const thirdPartyName = relatedBudget.third_party_firstname
@@ -667,7 +744,7 @@ export const transformApiData = (
       projectsMap[projectId] = {
         id: projectId,
         name: budget.project_name,
-        isArchived: budget.entity_status_name !== "active",
+        isArchived: budget.entity_status_name !== 'active',
       };
     }
   });
@@ -717,7 +794,7 @@ export const filterProjectData = ({
     if (isConsolidated) {
       relevant = budgetTransactions;
     } else if (isCustomConsolidated) {
-      const viewId = activeProjectId.replace("consolidated_view_", "");
+      const viewId = activeProjectId.replace('consolidated_view_', '');
       const view = consolidatedViews.find((v) => v.id === viewId);
       if (!view || !view.project_ids) return [];
       // Filtrer par projets de la vue consolidée
@@ -735,9 +812,9 @@ export const filterProjectData = ({
     return relevant.filter((transaction) => {
       // Vérifier le type
       const isCorrectType =
-        analysisType === "expense"
-          ? transaction.type === "payable"
-          : transaction.type === "receivable";
+        analysisType === 'expense'
+          ? transaction.type === 'payable'
+          : transaction.type === 'receivable';
 
       if (!isCorrectType) return false;
 
@@ -755,7 +832,7 @@ export const filterProjectData = ({
     if (isConsolidated) {
       relevant = Object.values(allActuals).flat();
     } else if (isCustomConsolidated) {
-      const viewId = activeProjectId.replace("consolidated_view_", "");
+      const viewId = activeProjectId.replace('consolidated_view_', '');
       const view = consolidatedViews.find((v) => v.id === viewId);
       if (!view || !view.project_ids) return [];
       relevant = view.project_ids.flatMap(
@@ -769,9 +846,9 @@ export const filterProjectData = ({
     return relevant.filter((actual) => {
       // Vérifier le type selon l'analyse
       const isCorrectType =
-        analysisType === "expense"
-          ? actual.type === "payable"
-          : actual.type === "receivable";
+        analysisType === 'expense'
+          ? actual.type === 'payable'
+          : actual.type === 'receivable';
 
       if (!isCorrectType) return false;
 
@@ -834,7 +911,7 @@ export const calculateBudgetByTier = (transactions, rangeStart, rangeEnd) => {
   const tierTotals = {};
 
   transactions.forEach((transaction) => {
-    const tierName = transaction.thirdParty || "Non spécifié";
+    const tierName = transaction.thirdParty || 'Non spécifié';
     if (!tierTotals[tierName]) {
       tierTotals[tierName] = 0;
     }
@@ -848,7 +925,7 @@ export const calculateActualByTier = (actuals, rangeStart, rangeEnd) => {
   const tierTotals = {};
 
   actuals.forEach((actual) => {
-    const tierName = actual.thirdParty || "Non spécifié";
+    const tierName = actual.thirdParty || 'Non spécifié';
     if (!tierTotals[tierName]) {
       tierTotals[tierName] = 0;
     }
@@ -889,7 +966,7 @@ export const getCategoryAnalysisData = ({
   }
 
   const mainCategories =
-    analysisType === "expense" ? categories.expense : categories.revenue;
+    analysisType === 'expense' ? categories.expense : categories.revenue;
 
   if (!mainCategories || mainCategories.length === 0) {
     return {
@@ -972,7 +1049,7 @@ export const getTierAnalysisData = ({
     };
   }
 
-  const tierList = analysisType === "expense" ? tiers.expense : tiers.revenue;
+  const tierList = analysisType === 'expense' ? tiers.expense : tiers.revenue;
 
   // Calculer les totaux par tiers
   const budgetByTier = calculateBudgetByTier(
@@ -1005,7 +1082,7 @@ export const getTierAnalysisData = ({
 
     // Convertir en tableau d'objets
     Array.from(allTiers).forEach((tierName) => {
-      tierList.push({ name: tierName, email: "" });
+      tierList.push({ name: tierName, email: '' });
     });
   }
 
@@ -1066,18 +1143,18 @@ export const getCategoryChartOptions = ({
 
   // Déterminer les couleurs selon le type d'analyse
   const chartColors =
-    analysisType === "expense"
+    analysisType === 'expense'
       ? {
-          budget: "#fca5a5", // rouge clair pour budget dépense
-          actual: "#ef4444", // rouge vif pour réel dépense
-          budgetLabel: "#b91c1c",
-          actualLabel: "#7f1d1d",
+          budget: '#fca5a5', // rouge clair pour budget dépense
+          actual: '#ef4444', // rouge vif pour réel dépense
+          budgetLabel: '#b91c1c',
+          actualLabel: '#7f1d1d',
         }
       : {
-          budget: "#6ee7b7", // vert clair pour budget revenue
-          actual: "#10b981", // vert vif pour réel revenue
-          budgetLabel: "#047857",
-          actualLabel: "#065f46",
+          budget: '#6ee7b7', // vert clair pour budget revenue
+          actual: '#10b981', // vert vif pour réel revenue
+          budgetLabel: '#047857',
+          actualLabel: '#065f46',
         };
 
   const series = [];
@@ -1085,15 +1162,15 @@ export const getCategoryChartOptions = ({
   if (visibleData.budget && totalBudget > 0) {
     series.push({
       name: `Budget: ${formatCurrency(totalBudget, settings)}`,
-      type: "bar",
+      type: 'bar',
       data: budgetData,
       itemStyle: { color: chartColors.budget, borderRadius: [0, 5, 5, 0] },
-      emphasis: { focus: "series" },
+      emphasis: { focus: 'series' },
       label: {
         show: true,
-        position: "right",
+        position: 'right',
         formatter: (params) => {
-          if (params.value <= 0) return "";
+          if (params.value <= 0) return '';
           const percentage =
             totalBudget > 0 ? (params.value / totalBudget) * 100 : 0;
           return `${formatCurrency(
@@ -1110,15 +1187,15 @@ export const getCategoryChartOptions = ({
   if (visibleData.actual && totalActual > 0) {
     series.push({
       name: `Réel: ${formatCurrency(totalActual, settings)}`,
-      type: "bar",
+      type: 'bar',
       data: actualData,
       itemStyle: { color: chartColors.actual, borderRadius: [0, 5, 5, 0] },
-      emphasis: { focus: "series" },
+      emphasis: { focus: 'series' },
       label: {
         show: true,
-        position: "right",
+        position: 'right',
         formatter: (params) => {
-          if (params.value <= 0) return "";
+          if (params.value <= 0) return '';
           const percentage =
             totalActual > 0 ? (params.value / totalActual) * 100 : 0;
           return `${formatCurrency(
@@ -1135,37 +1212,37 @@ export const getCategoryChartOptions = ({
   if (series.length === 0) {
     return {
       title: {
-        text: "Aucune donnée à analyser",
-        left: "center",
-        top: "center",
+        text: 'Aucune donnée à analyser',
+        left: 'center',
+        top: 'center',
         textStyle: {
           fontSize: isMobile ? 14 : 16,
-          fontWeight: "600",
-          color: "#475569",
+          fontWeight: '600',
+          color: '#475569',
         },
       },
       series: [],
     };
   }
 
-  const chartTitle = analysisType === "expense" ? "Dépenses" : "Revenus";
+  const chartTitle = analysisType === 'expense' ? 'Dépenses' : 'Revenus';
 
   return {
     title: {
       text: isMobile
         ? `${chartTitle} - ${analysisPeriodName}`
         : `Analyse par Catégorie - ${chartTitle} - ${analysisPeriodName}`,
-      left: "center",
+      left: 'center',
       top: 0,
       textStyle: {
         fontSize: isMobile ? 14 : 16,
-        fontWeight: "600",
-        color: "#475569",
+        fontWeight: '600',
+        color: '#475569',
       },
     },
     tooltip: {
-      trigger: "axis",
-      axisPointer: { type: "shadow" },
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
       formatter: (params) => {
         let tooltip = `<strong>${params[0].name}</strong><br/>`;
         params
@@ -1173,12 +1250,12 @@ export const getCategoryChartOptions = ({
           .reverse()
           .forEach((param) => {
             const seriesName = param.seriesName;
-            const total = seriesName.startsWith("Budget")
+            const total = seriesName.startsWith('Budget')
               ? totalBudget
               : totalActual;
             const percentage = total > 0 ? (param.value / total) * 100 : 0;
             tooltip += `${param.marker} ${
-              seriesName.split(":")[0]
+              seriesName.split(':')[0]
             }: <strong>${formatCurrency(
               param.value,
               settings
@@ -1194,14 +1271,14 @@ export const getCategoryChartOptions = ({
       show: false,
     },
     grid: {
-      left: isMobile ? "15%" : "3%",
-      right: isMobile ? "15%" : "10%",
-      bottom: "3%",
-      top: isMobile ? "15%" : "10%",
+      left: isMobile ? '15%' : '3%',
+      right: isMobile ? '15%' : '10%',
+      bottom: '3%',
+      top: isMobile ? '15%' : '10%',
       containLabel: true,
     },
     xAxis: {
-      type: "value",
+      type: 'value',
       axisLabel: {
         formatter: (value) => {
           // Utiliser la fonction de formatage responsive
@@ -1218,14 +1295,14 @@ export const getCategoryChartOptions = ({
       splitLine: {
         show: true,
         lineStyle: {
-          type: isMobile ? "dashed" : "solid",
+          type: isMobile ? 'dashed' : 'solid',
           opacity: isMobile ? 0.3 : 0.5,
         },
       },
       splitNumber: isMobile ? 3 : 5,
     },
     yAxis: {
-      type: "category",
+      type: 'category',
       data: categories,
       axisLabel: {
         interval: 0,
@@ -1234,7 +1311,7 @@ export const getCategoryChartOptions = ({
         formatter: (value) => {
           const maxLength = isMobile ? 15 : 20;
           return value.length > maxLength
-            ? value.substring(0, maxLength - 3) + "..."
+            ? value.substring(0, maxLength - 3) + '...'
             : value;
         },
       },
@@ -1264,18 +1341,18 @@ export const getTierChartOptions = ({
 
   // Déterminer les couleurs selon le type d'analyse
   const chartColors =
-    analysisType === "expense"
+    analysisType === 'expense'
       ? {
-          budget: "#fca5a5", // rouge clair pour budget dépense
-          actual: "#ef4444", // rouge vif pour réel dépense
-          budgetLabel: "#b91c1c",
-          actualLabel: "#7f1d1d",
+          budget: '#fca5a5', // rouge clair pour budget dépense
+          actual: '#ef4444', // rouge vif pour réel dépense
+          budgetLabel: '#b91c1c',
+          actualLabel: '#7f1d1d',
         }
       : {
-          budget: "#6ee7b7", // vert clair pour budget revenue
-          actual: "#10b981", // vert vif pour réel revenue
-          budgetLabel: "#047857",
-          actualLabel: "#065f46",
+          budget: '#6ee7b7', // vert clair pour budget revenue
+          actual: '#10b981', // vert vif pour réel revenue
+          budgetLabel: '#047857',
+          actualLabel: '#065f46',
         };
 
   const series = [];
@@ -1283,15 +1360,15 @@ export const getTierChartOptions = ({
   if (visibleData.budget && totalBudget > 0) {
     series.push({
       name: `Budget: ${formatCurrency(totalBudget, settings)}`,
-      type: "bar",
+      type: 'bar',
       data: budgetData,
       itemStyle: { color: chartColors.budget, borderRadius: [0, 5, 5, 0] },
-      emphasis: { focus: "series" },
+      emphasis: { focus: 'series' },
       label: {
         show: true,
-        position: "right",
+        position: 'right',
         formatter: (params) => {
-          if (params.value <= 0) return "";
+          if (params.value <= 0) return '';
           const percentage =
             totalBudget > 0 ? (params.value / totalBudget) * 100 : 0;
           return `${formatCurrency(
@@ -1308,15 +1385,15 @@ export const getTierChartOptions = ({
   if (visibleData.actual && totalActual > 0) {
     series.push({
       name: `Réel: ${formatCurrency(totalActual, settings)}`,
-      type: "bar",
+      type: 'bar',
       data: actualData,
       itemStyle: { color: chartColors.actual, borderRadius: [0, 5, 5, 0] },
-      emphasis: { focus: "series" },
+      emphasis: { focus: 'series' },
       label: {
         show: true,
-        position: "right",
+        position: 'right',
         formatter: (params) => {
-          if (params.value <= 0) return "";
+          if (params.value <= 0) return '';
           const percentage =
             totalActual > 0 ? (params.value / totalActual) * 100 : 0;
           return `${formatCurrency(
@@ -1333,37 +1410,37 @@ export const getTierChartOptions = ({
   if (series.length === 0) {
     return {
       title: {
-        text: "Aucune donnée à analyser",
-        left: "center",
-        top: "center",
+        text: 'Aucune donnée à analyser',
+        left: 'center',
+        top: 'center',
         textStyle: {
           fontSize: isMobile ? 14 : 16,
-          fontWeight: "600",
-          color: "#475569",
+          fontWeight: '600',
+          color: '#475569',
         },
       },
       series: [],
     };
   }
 
-  const chartTitle = analysisType === "expense" ? "Dépenses" : "Revenus";
+  const chartTitle = analysisType === 'expense' ? 'Dépenses' : 'Revenus';
 
   return {
     title: {
       text: isMobile
         ? `${chartTitle} - ${analysisPeriodName}`
         : `Analyse par Tiers - ${chartTitle} - ${analysisPeriodName}`,
-      left: "center",
+      left: 'center',
       top: 0,
       textStyle: {
         fontSize: isMobile ? 14 : 16,
-        fontWeight: "600",
-        color: "#475569",
+        fontWeight: '600',
+        color: '#475569',
       },
     },
     tooltip: {
-      trigger: "axis",
-      axisPointer: { type: "shadow" },
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
       formatter: (params) => {
         let tooltip = `<strong>${params[0].name}</strong><br/>`;
         params
@@ -1371,12 +1448,12 @@ export const getTierChartOptions = ({
           .reverse()
           .forEach((param) => {
             const seriesName = param.seriesName;
-            const total = seriesName.startsWith("Budget")
+            const total = seriesName.startsWith('Budget')
               ? totalBudget
               : totalActual;
             const percentage = total > 0 ? (param.value / total) * 100 : 0;
             tooltip += `${param.marker} ${
-              seriesName.split(":")[0]
+              seriesName.split(':')[0]
             }: <strong>${formatCurrency(
               param.value,
               settings
@@ -1392,14 +1469,14 @@ export const getTierChartOptions = ({
       show: false,
     },
     grid: {
-      left: isMobile ? "15%" : "3%",
-      right: isMobile ? "15%" : "10%",
-      bottom: "3%",
-      top: isMobile ? "15%" : "10%",
+      left: isMobile ? '15%' : '3%',
+      right: isMobile ? '15%' : '10%',
+      bottom: '3%',
+      top: isMobile ? '15%' : '10%',
       containLabel: true,
     },
     xAxis: {
-      type: "value",
+      type: 'value',
       axisLabel: {
         formatter: (value) => {
           // Utiliser la fonction de formatage responsive
@@ -1416,14 +1493,14 @@ export const getTierChartOptions = ({
       splitLine: {
         show: true,
         lineStyle: {
-          type: isMobile ? "dashed" : "solid",
+          type: isMobile ? 'dashed' : 'solid',
           opacity: isMobile ? 0.3 : 0.5,
         },
       },
       splitNumber: isMobile ? 3 : 5,
     },
     yAxis: {
-      type: "category",
+      type: 'category',
       data: tiers,
       axisLabel: {
         interval: 0,
@@ -1432,7 +1509,7 @@ export const getTierChartOptions = ({
         formatter: (value) => {
           const maxLength = isMobile ? 15 : 20;
           return value.length > maxLength
-            ? value.substring(0, maxLength - 3) + "..."
+            ? value.substring(0, maxLength - 3) + '...'
             : value;
         },
       },
@@ -1455,7 +1532,7 @@ export const getChartOptions = ({
   visibleData,
   isMobile = false,
 }) => {
-  if (analysisMode === "tier") {
+  if (analysisMode === 'tier') {
     return getTierChartOptions({
       tierAnalysisData,
       analysisType,
@@ -1479,25 +1556,25 @@ export const getChartOptions = ({
 
 // Options pour les menus
 export const quickPeriodOptions = [
-  { id: "month", label: "Mois" },
-  { id: "bimester", label: "Bimestre" },
-  { id: "quarter", label: "Trimestre" },
-  { id: "semester", label: "Semestre" },
-  { id: "year", label: "Année" },
+  { id: 'month', label: 'Mois' },
+  { id: 'bimester', label: 'Bimestre' },
+  { id: 'quarter', label: 'Trimestre' },
+  { id: 'semester', label: 'Semestre' },
+  { id: 'year', label: 'Année' },
 ];
 
 export const analysisTypeOptions = [
   {
-    id: "expense",
-    label: "Sorties",
-    icon: "TrendingDown",
-    color: "text-red-600",
+    id: 'expense',
+    label: 'Sorties',
+    icon: 'TrendingDown',
+    color: 'text-red-600',
   },
   {
-    id: "revenue",
-    label: "Entrées",
-    icon: "TrendingUp",
-    color: "text-green-600",
+    id: 'revenue',
+    label: 'Entrées',
+    icon: 'TrendingUp',
+    color: 'text-green-600',
   },
 ];
 
@@ -1506,10 +1583,10 @@ export const getAnalysisModeOptions = (
   isCustomConsolidated
 ) => {
   return [
-    { id: "category", label: "Par catégorie" },
+    { id: 'category', label: 'Par catégorie' },
     ...(isConsolidated || isCustomConsolidated
-      ? [{ id: "project", label: "Par projet" }]
+      ? [{ id: 'project', label: 'Par projet' }]
       : []),
-    { id: "tier", label: "Par tiers" },
+    { id: 'tier', label: 'Par tiers' },
   ];
 };
