@@ -5,45 +5,17 @@ import {
   ChevronDown,
   Calendar,
   RefreshCw,
-  Layers,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CollectionModal } from './collection-modal';
 import { useUI } from '../../../components/context/UIContext';
 import { apiGet } from '../../../components/context/actionsMethode';
-
-// Fonction pour formater une date en YYYY-MM-DD (temps local)
-const formatDateToKey = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-// Fonction pour obtenir la date d'aujourd'hui
-const getTodayKey = () => {
-  return formatDateToKey(new Date());
-};
-
-// Fonction simplifiée pour organiser les transactions par date
-const transformBudgetData = (budgetData) => {
-  const transactions = {};
-
-  budgetData.forEach((transaction) => {
-    const dateKey = transaction.date; // La date est déjà générée par le backend
-
-    if (!transactions[dateKey]) {
-      transactions[dateKey] = [];
-    }
-
-    transactions[dateKey].push({
-      ...transaction,
-      amount: parseFloat(transaction.amount || 0),
-    });
-  });
-
-  return transactions;
-};
+import {
+  transformBudgetDataWithDates,
+  formatDateToKey,
+  getTodayKey,
+  getEndOfMonth,
+} from '../../../services/schedule';
 
 // Composant DayCell
 const DayCell = ({
@@ -247,8 +219,9 @@ const ScheduleView = () => {
 
     const activeId = String(activeProject.id || '');
     // C'est un projet simple si ce n'est pas "consolidated" et ne commence pas par "consolidated_view_"
-    const isSimpleProject = activeId !== 'consolidated' && !activeId.startsWith('consolidated_view_');
-    
+    const isSimpleProject =
+      activeId !== 'consolidated' && !activeId.startsWith('consolidated_view_');
+
     setHasValidProject(isSimpleProject);
   }, [activeProject]);
 
@@ -268,13 +241,95 @@ const ScheduleView = () => {
     };
   }, []);
 
-  // Transformation des données (simplifiée car les dates sont générées par le backend)
+  // Transformation des données avec génération limitée au mois courant
   const { transactionsByDate } = useMemo(() => {
     if (!budgetData || budgetData.length === 0) {
       return { transactionsByDate: {} };
     }
-    return { transactionsByDate: transformBudgetData(budgetData) };
-  }, [budgetData]);
+
+    let limitDate = null;
+
+    if (viewMode === 'month') {
+      // Pour la vue mensuelle, générer jusqu'à la fin du mois affiché
+      limitDate = getEndOfMonth(currentDate);
+    } else {
+      // Pour la vue hebdomadaire, générer jusqu'à la fin du mois suivant pour couvrir les transactions qui pourraient être visibles
+      const nextMonth = new Date(currentDate);
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+      limitDate = getEndOfMonth(nextMonth);
+    }
+
+    // Organiser les données budgétaires par date
+    const transactions = {};
+
+    // Transformez chaque élément budgétaire en transactions avec dates générées
+    budgetData.forEach((budget) => {
+      const frequencyId = budget.frequency_id;
+      const type = budget.category_type_id == 2 ? 'receivable' : 'payable';
+
+      // Préparation du nom du tiers
+      let thirdParty = budget.category_name;
+      if (budget.third_party_name && budget.third_party_firstname) {
+        thirdParty = `${budget.third_party_name} ${budget.third_party_firstname}`;
+      } else if (budget.third_party_name) {
+        thirdParty = budget.third_party_name;
+      }
+
+      // Utiliser la fonction transformBudgetDataWithDates pour générer les dates
+      const budgetArray = [budget];
+      const generatedTransactions = transformBudgetDataWithDates(
+        budgetArray,
+        limitDate
+      );
+
+      // Ajouter chaque transaction générée au dictionnaire par date
+      generatedTransactions.forEach((transaction, occurrenceIndex) => {
+        const dateKey = transaction.date;
+
+        if (!transactions[dateKey]) {
+          transactions[dateKey] = [];
+        }
+
+        // Vérifier si la transaction est dans l'intervalle de dates affiché
+        const transactionDate = new Date(transaction.date);
+
+        // Pour la vue mensuelle, filtrer par mois
+        if (viewMode === 'month') {
+          if (
+            transactionDate.getMonth() !== currentDate.getMonth() ||
+            transactionDate.getFullYear() !== currentDate.getFullYear()
+          ) {
+            return; // Ignorer les transactions hors du mois affiché
+          }
+        }
+
+        // Pour la vue hebdomadaire, vérifier si dans la semaine affichée
+        if (viewMode === 'week') {
+          const currentDayOfWeek = currentDate.getDay();
+          const startOffset = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1;
+          const weekStartDate = new Date(currentDate);
+          weekStartDate.setDate(weekStartDate.getDate() - startOffset);
+
+          const weekEndDate = new Date(weekStartDate);
+          weekEndDate.setDate(weekEndDate.getDate() + 6);
+
+          if (
+            transactionDate < weekStartDate ||
+            transactionDate > weekEndDate
+          ) {
+            return; // Ignorer les transactions hors de la semaine affichée
+          }
+        }
+
+        transactions[dateKey].push({
+          ...transaction,
+          amount: parseFloat(transaction.amount || 0),
+        });
+      });
+    });
+
+    return { transactionsByDate: transactions };
+  }, [budgetData, currentDate, viewMode]);
 
   // Génération de la grille du calendrier
   const calendarGrid = useMemo(() => {
@@ -375,11 +430,13 @@ const ScheduleView = () => {
         setLoading(true);
       }
 
-      const res = await apiGet(`/schedules/budgets/project/${activeProject.id}`);
+      const res = await apiGet(
+        `/schedules/budgets/project/${activeProject.id}`
+      );
 
       if (res.status === 200) {
-        // Les données reçues contiennent déjà toutes les transactions avec leurs dates générées
-        setBudgetData(res.budget);
+        // Stocker les données brutes du budget
+        setBudgetData(res.budget || []);
       }
     } catch (error) {
       console.error('Erreur lors du chargement des données:', error);
@@ -405,7 +462,8 @@ const ScheduleView = () => {
             Projet non valide
           </h3>
           <p className="text-gray-600">
-            Cette vue est réservée aux projets simples. Pour les vues consolidées, utilisez le sélecteur.
+            Cette vue est réservée aux projets simples. Pour les vues
+            consolidées, utilisez le sélecteur.
           </p>
         </div>
       </div>

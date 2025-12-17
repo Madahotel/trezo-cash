@@ -151,6 +151,7 @@ const AnalyseView = ({
   const transformedData = useMemo(() => {
     return transformApiData(apiData, defaultSettings, currentPeriod);
   }, [apiData, currentPeriod]);
+  console.log(transformedData);
 
   const {
     projects = [],
@@ -312,14 +313,27 @@ const AnalyseView = ({
       visibleData,
       isMobile,
     });
-  }, [analysisMode, categoryAnalysisData, tierAnalysisData, analysisType, analysisPeriodName, settings, visibleData, isMobile]);
+  }, [
+    analysisMode,
+    categoryAnalysisData,
+    tierAnalysisData,
+    analysisType,
+    analysisPeriodName,
+    settings,
+    visibleData,
+    isMobile,
+  ]);
 
-
-  const hasData = analysisMode === 'tier'
-    ? tierAnalysisData?.tiers &&
-    (Array.isArray(tierAnalysisData.tiers) ? tierAnalysisData.tiers.length > 0 : false)
-    : categoryAnalysisData?.categories &&
-    (Array.isArray(categoryAnalysisData.categories) ? categoryAnalysisData.categories.length > 0 : false);
+  const hasData =
+    analysisMode === 'tier'
+      ? tierAnalysisData?.tiers &&
+        (Array.isArray(tierAnalysisData.tiers)
+          ? tierAnalysisData.tiers.length > 0
+          : false)
+      : categoryAnalysisData?.categories &&
+        (Array.isArray(categoryAnalysisData.categories)
+          ? categoryAnalysisData.categories.length > 0
+          : false);
   const onChartClick = (params) => {
     if (params.componentType !== 'series') return;
 
@@ -368,17 +382,20 @@ const AnalyseView = ({
 
   const getEmptyStateTitle = () => {
     if (analysisMode === 'tier') {
-      return `Aucun ${analysisType === 'expense' ? 'fournisseur' : 'client'
-        } à analyser`;
-    }
-    return `Aucune ${analysisType === 'expense' ? 'dépense' : 'entrée'
+      return `Aucun ${
+        analysisType === 'expense' ? 'fournisseur' : 'client'
       } à analyser`;
+    }
+    return `Aucune ${
+      analysisType === 'expense' ? 'dépense' : 'entrée'
+    } à analyser`;
   };
 
   const calculateChartHeight = () => {
-    const dataLength = analysisMode === 'tier'
-      ? tierAnalysisData?.tiers?.length || 0
-      : categoryAnalysisData?.categories?.length || 0;
+    const dataLength =
+      analysisMode === 'tier'
+        ? tierAnalysisData?.tiers?.length || 0
+        : categoryAnalysisData?.categories?.length || 0;
 
     return chartStyles.calculateChartHeight(dataLength, isMobile);
   };
@@ -405,17 +422,14 @@ const AnalyseView = ({
       );
     }
 
-    const hasData = analysisMode === 'tier'
-      ? tierAnalysisData?.tiers && Array.isArray(tierAnalysisData.tiers) && tierAnalysisData.tiers.length > 0
-      : categoryAnalysisData?.categories && Array.isArray(categoryAnalysisData.categories) && categoryAnalysisData.categories.length > 0;
-
-    console.log('renderChart - hasData:', hasData, {
-      analysisMode,
-      categoryLength: categoryAnalysisData?.categories?.length,
-      tierLength: tierAnalysisData?.tiers?.length,
-      categoryAnalysisData,
-      tierAnalysisData
-    });
+    const hasData =
+      analysisMode === 'tier'
+        ? tierAnalysisData?.tiers &&
+          Array.isArray(tierAnalysisData.tiers) &&
+          tierAnalysisData.tiers.length > 0
+        : categoryAnalysisData?.categories &&
+          Array.isArray(categoryAnalysisData.categories) &&
+          categoryAnalysisData.categories.length > 0;
 
     if (!hasData) {
       const EmptyStateIcon = getEmptyStateIcon();
@@ -491,8 +505,9 @@ const AnalyseView = ({
                 >
                   <span className="truncate">{selectedPeriodLabel}</span>
                   <ChevronDown
-                    className={`w-4 h-4 flex-shrink-0 transition-transform ${isPeriodMenuOpen ? 'rotate-180' : ''
-                      }`}
+                    className={`w-4 h-4 flex-shrink-0 transition-transform ${
+                      isPeriodMenuOpen ? 'rotate-180' : ''
+                    }`}
                   />
                 </button>
                 <AnimatePresence>
@@ -511,10 +526,11 @@ const AnalyseView = ({
                                 handlePeriodSelect(option.id);
                                 setIsPeriodMenuOpen(false);
                               }}
-                              className={`w-full text-left px-3 py-2.5 text-sm rounded-md ${currentPeriod.type === option.id
+                              className={`w-full text-left px-3 py-2.5 text-sm rounded-md ${
+                                currentPeriod.type === option.id
                                   ? 'bg-blue-50 text-blue-700 font-semibold'
                                   : 'text-gray-700 hover:bg-gray-100'
-                                }`}
+                              }`}
                             >
                               {option.label}
                             </button>
@@ -582,10 +598,11 @@ const AnalyseView = ({
                                   setLocalAnalysisType(option.id);
                                   setIsMobileFiltersOpen(false);
                                 }}
-                                className={`w-full flex items-center gap-3 p-3 rounded-lg text-left ${analysisType === option.id
+                                className={`w-full flex items-center gap-3 p-3 rounded-lg text-left ${
+                                  analysisType === option.id
                                     ? 'bg-blue-50 border border-blue-200'
                                     : 'bg-gray-50 hover:bg-gray-100'
-                                  }`}
+                                }`}
                               >
                                 <Icon className={`w-5 h-5 ${option.color}`} />
                                 <span className="font-medium">
@@ -610,10 +627,11 @@ const AnalyseView = ({
                                 setAnalysisMode(option.id);
                                 setIsMobileFiltersOpen(false);
                               }}
-                              className={`w-full p-3 rounded-lg text-left font-medium ${analysisMode === option.id
+                              className={`w-full p-3 rounded-lg text-left font-medium ${
+                                analysisMode === option.id
                                   ? 'bg-blue-50 border border-blue-200'
                                   : 'bg-gray-50 hover:bg-gray-100'
-                                }`}
+                              }`}
                             >
                               {option.label}
                             </button>
@@ -634,17 +652,19 @@ const AnalyseView = ({
                                 budget: !p.budget,
                               }))
                             }
-                            className={`flex items-center justify-between p-3 rounded-lg ${visibleData.budget
+                            className={`flex items-center justify-between p-3 rounded-lg ${
+                              visibleData.budget
                                 ? 'bg-blue-50 border border-blue-200'
                                 : 'bg-gray-50 hover:bg-gray-100'
-                              }`}
+                            }`}
                           >
                             <span className="font-medium">Budget</span>
                             <div
-                              className={`w-4 h-4 rounded border ${visibleData.budget
+                              className={`w-4 h-4 rounded border ${
+                                visibleData.budget
                                   ? 'bg-blue-600 border-blue-600'
                                   : 'border-gray-300'
-                                }`}
+                              }`}
                             />
                           </button>
                           <button
@@ -654,17 +674,19 @@ const AnalyseView = ({
                                 actual: !p.actual,
                               }))
                             }
-                            className={`flex items-center justify-between p-3 rounded-lg ${visibleData.actual
+                            className={`flex items-center justify-between p-3 rounded-lg ${
+                              visibleData.actual
                                 ? 'bg-blue-50 border border-blue-200'
                                 : 'bg-gray-50 hover:bg-gray-100'
-                              }`}
+                            }`}
                           >
                             <span className="font-medium">Réel</span>
                             <div
-                              className={`w-4 h-4 rounded border ${visibleData.actual
+                              className={`w-4 h-4 rounded border ${
+                                visibleData.actual
                                   ? 'bg-blue-600 border-blue-600'
                                   : 'border-gray-300'
-                                }`}
+                              }`}
                             />
                           </button>
                         </div>
@@ -714,8 +736,9 @@ const AnalyseView = ({
                     >
                       <span>{selectedPeriodLabel}</span>
                       <ChevronDown
-                        className={`w-4 h-4 transition-transform ${isPeriodMenuOpen ? 'rotate-180' : ''
-                          }`}
+                        className={`w-4 h-4 transition-transform ${
+                          isPeriodMenuOpen ? 'rotate-180' : ''
+                        }`}
                       />
                     </button>
                     <AnimatePresence>
@@ -734,10 +757,11 @@ const AnalyseView = ({
                                     handlePeriodSelect(option.id);
                                     setIsPeriodMenuOpen(false);
                                   }}
-                                  className={`w-full text-left px-3 py-1.5 text-sm rounded-md ${currentPeriod.type === option.id
+                                  className={`w-full text-left px-3 py-1.5 text-sm rounded-md ${
+                                    currentPeriod.type === option.id
                                       ? 'bg-blue-50 text-blue-700 font-semibold'
                                       : 'text-gray-700 hover:bg-gray-100'
-                                    }`}
+                                  }`}
                                 >
                                   {option.label}
                                 </button>
@@ -761,8 +785,9 @@ const AnalyseView = ({
                       {selectedAnalysisModeOption?.label || 'Par catégorie'}
                     </span>
                     <ChevronDown
-                      className={`w-4 h-4 transition-transform ${isAnalysisModeMenuOpen ? 'rotate-180' : ''
-                        }`}
+                      className={`w-4 h-4 transition-transform ${
+                        isAnalysisModeMenuOpen ? 'rotate-180' : ''
+                      }`}
                     />
                   </button>
                   <AnimatePresence>
@@ -781,10 +806,11 @@ const AnalyseView = ({
                                   setAnalysisMode(option.id);
                                   setIsAnalysisModeMenuOpen(false);
                                 }}
-                                className={`w-full text-left px-3 py-1.5 text-sm rounded-md ${analysisMode === option.id
+                                className={`w-full text-left px-3 py-1.5 text-sm rounded-md ${
+                                  analysisMode === option.id
                                     ? 'bg-blue-50 text-blue-700 font-semibold'
                                     : 'text-gray-700 hover:bg-gray-100'
-                                  }`}
+                                }`}
                               >
                                 {option.label}
                               </button>
@@ -802,15 +828,17 @@ const AnalyseView = ({
                     className="flex items-center gap-2 px-3 text-sm font-semibold transition-colors bg-gray-200 rounded-md h-9 hover:bg-gray-300"
                   >
                     <SelectedIcon
-                      className={`w-4 h-4 ${selectedAnalysisTypeOption?.color || 'text-red-600'
-                        }`}
+                      className={`w-4 h-4 ${
+                        selectedAnalysisTypeOption?.color || 'text-red-600'
+                      }`}
                     />
                     <span>
                       {selectedAnalysisTypeOption?.label || 'Sorties'}
                     </span>
                     <ChevronDown
-                      className={`w-4 h-4 transition-transform ${isAnalysisTypeMenuOpen ? 'rotate-180' : ''
-                        }`}
+                      className={`w-4 h-4 transition-transform ${
+                        isAnalysisTypeMenuOpen ? 'rotate-180' : ''
+                      }`}
                     />
                   </button>
                   <AnimatePresence>
@@ -834,10 +862,11 @@ const AnalyseView = ({
                                     setLocalAnalysisType(option.id);
                                     setIsAnalysisTypeMenuOpen(false);
                                   }}
-                                  className={`w-full text-left px-3 py-1.5 text-sm rounded-md flex items-center gap-2 ${analysisType === option.id
+                                  className={`w-full text-left px-3 py-1.5 text-sm rounded-md flex items-center gap-2 ${
+                                    analysisType === option.id
                                       ? 'bg-blue-50 text-blue-700 font-semibold'
                                       : 'text-gray-700 hover:bg-gray-100'
-                                    }`}
+                                  }`}
                                 >
                                   <Icon className={`w-4 h-4 ${option.color}`} />
                                   {option.label}
@@ -856,10 +885,11 @@ const AnalyseView = ({
                     onClick={() =>
                       setVisibleData((p) => ({ ...p, budget: !p.budget }))
                     }
-                    className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-colors ${visibleData.budget
+                    className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-colors ${
+                      visibleData.budget
                         ? 'bg-white shadow text-blue-600'
                         : 'text-gray-600 hover:bg-gray-300'
-                      }`}
+                    }`}
                   >
                     Budget
                   </button>
@@ -867,10 +897,11 @@ const AnalyseView = ({
                     onClick={() =>
                       setVisibleData((p) => ({ ...p, actual: !p.actual }))
                     }
-                    className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-colors ${visibleData.actual
+                    className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-colors ${
+                      visibleData.actual
                         ? 'bg-white shadow text-blue-600'
                         : 'text-gray-600 hover:bg-gray-300'
-                      }`}
+                    }`}
                   >
                     Réel
                   </button>
@@ -913,7 +944,7 @@ const AnalyseView = ({
             </h3>
 
             {currentAnalysisData.data.rawData &&
-              currentAnalysisData.data.rawData.length > 0 ? (
+            currentAnalysisData.data.rawData.length > 0 ? (
               <>
                 <div className="grid grid-cols-1 gap-3 mb-4 sm:grid-cols-3 md:gap-4">
                   <div className="p-3 bg-white border rounded">
@@ -943,15 +974,16 @@ const AnalyseView = ({
                       Différence
                     </h4>
                     <p
-                      className={`text-base md:text-lg font-bold ${currentAnalysisData.data.totalActual <=
-                          currentAnalysisData.data.totalBudget
+                      className={`text-base md:text-lg font-bold ${
+                        currentAnalysisData.data.totalActual <=
+                        currentAnalysisData.data.totalBudget
                           ? 'text-green-600'
                           : 'text-red-600'
-                        }`}
+                      }`}
                     >
                       {formatCurrency(
                         currentAnalysisData.data.totalActual -
-                        currentAnalysisData.data.totalBudget,
+                          currentAnalysisData.data.totalBudget,
                         settings
                       )}
                     </p>
