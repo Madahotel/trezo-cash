@@ -558,7 +558,8 @@ const BudgetTableSimple = (props) => {
                         getFrequencyTitle={dataState.getFrequencyTitle}
                         getResteColor={dataState.getResteColor}
                         formatCurrency={formatCurrency}
-                        effectiveCashAccounts={displayBankAccounts} // ← CORRIGÉ
+                        effectiveCashAccounts={displayBankAccounts} 
+                        
 
                     />
                 )}

@@ -60,7 +60,9 @@ const ProjectCard = ({
     const [projectBudget, setProjectBudget] = useState({
         sumEntries: 0,
         sumExpenses: 0,
-        sumForecast: 0
+        sumForecast: 0,
+        entryCount: 0,
+        exitCount: 0
     });
     const [budgetLoading, setBudgetLoading] = useState(false);
     const [showCollaborators, setShowCollaborators] = useState(false);
@@ -77,22 +79,46 @@ const ProjectCard = ({
 
         try {
             setBudgetLoading(true);
-            await new Promise(resolve => setTimeout(resolve, 100));
-
-            // const data = await apiGet();
+            
             const data = await apiGet(`/budget-projects/${project.id}`);
+            
+            // Calculez les sommes à partir de la réponse API
+            let sumEntries = 0;
+            let sumExpenses = 0;
+            let entryCount = 0;
+            let exitCount = 0;
+
+            // Calcul des revenus (entries)
+            if (data.entries && data.entries.entry_items && data.entries.entry_items.sub_categories) {
+                sumEntries = data.entries.entry_items.sub_categories.reduce((total, item) => {
+                    return total + parseFloat(item.amount || 0);
+                }, 0);
+                entryCount = data.entries.entry_count || 0;
+            }
+
+            // Calcul des dépenses (exits)
+            if (data.exits && data.exits.exit_items && data.exits.exit_items.sub_categories) {
+                sumExpenses = data.exits.exit_items.sub_categories.reduce((total, item) => {
+                    return total + parseFloat(item.amount || 0);
+                }, 0);
+                exitCount = data.exits.exit_count || 0;
+            }
 
             setProjectBudget({
-                sumEntries: data.sums?.revenus || 0,
-                sumExpenses: data.sums?.depenses || 0,
-                sumForecast: data.sumForecast || 0
+                sumEntries: sumEntries,
+                sumExpenses: sumExpenses,
+                sumForecast: data.sumForecast || 0,
+                entryCount: entryCount,
+                exitCount: exitCount
             });
         } catch (err) {
             console.error('Erreur lors du chargement du budget du projet:', err);
             setProjectBudget({
                 sumEntries: 0,
                 sumExpenses: 0,
-                sumForecast: 0
+                sumForecast: 0,
+                entryCount: 0,
+                exitCount: 0
             });
         } finally {
             setBudgetLoading(false);
@@ -534,7 +560,12 @@ const ProjectCard = ({
                         <div className="grid grid-cols-2 gap-2">
                             <div className="p-2 bg-white border rounded-lg border-slate-200">
                                 <div className="flex items-center justify-between mb-1">
-                                    <p className="text-xs font-medium text-slate-700">Revenus</p>
+                                    <div>
+                                        <p className="text-xs font-medium text-slate-700">Revenus</p>
+                                        <p className="text-xs text-slate-500">
+                                            {projectBudget.entryCount} entrée{projectBudget.entryCount > 1 ? 's' : ''}
+                                        </p>
+                                    </div>
                                     <Target className="w-3 h-3 text-slate-500" />
                                 </div>
                                 <p className="mb-1 text-sm font-bold text-slate-900">
@@ -554,7 +585,12 @@ const ProjectCard = ({
 
                             <div className="p-2 bg-white border rounded-lg border-slate-200">
                                 <div className="flex items-center justify-between mb-1">
-                                    <p className="text-xs font-medium text-slate-700">Dépenses</p>
+                                    <div>
+                                        <p className="text-xs font-medium text-slate-700">Dépenses</p>
+                                        <p className="text-xs text-slate-500">
+                                            {projectBudget.exitCount} sortie{projectBudget.exitCount > 1 ? 's' : ''}
+                                        </p>
+                                    </div>
                                     <TrendingUp className="w-3 h-3 text-slate-500" />
                                 </div>
                                 <p className="mb-1 text-sm font-bold text-slate-900">

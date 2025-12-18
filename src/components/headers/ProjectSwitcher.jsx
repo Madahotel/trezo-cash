@@ -51,6 +51,7 @@ const ProjectSwitcher = () => {
   const hasInitialized = useRef(false);
   const refreshTimeoutRef = useRef(null);
   const autoRefreshIntervalRef = useRef(null);
+  const isRefreshingRef = useRef(false);
 
   const allProjects = useMemo(() => {
     if (!rawProjects || !Array.isArray(rawProjects)) return [];
@@ -136,6 +137,22 @@ const ProjectSwitcher = () => {
     return null;
   }, [allProjects, safeConsolidations, getSavedProject]);
 
+  const handleDataRefresh = useCallback(async () => {
+    if (isRefreshingRef.current) return;
+    
+    isRefreshingRef.current = true;
+    try {
+      await Promise.allSettled([
+        refetchProjects(),
+        refetchConsolidations()
+      ]);
+    } finally {
+      setTimeout(() => {
+        isRefreshingRef.current = false;
+      }, 1000);
+    }
+  }, [refetchProjects, refetchConsolidations]);
+
   useEffect(() => {
     if (projectsLoading || consolidationsLoading) return;
 
@@ -174,15 +191,16 @@ const ProjectSwitcher = () => {
   }, [allProjects, myProjects, safeConsolidations, projectsLoading, consolidationsLoading, uiDispatch, saveProject, validateActiveProject, uiState.activeProject]);
 
   useEffect(() => {
-    const handleDataRefresh = (event) => {
+    const handleDataRefreshWithDebounce = (event) => {
       if (refreshTimeoutRef.current) {
         clearTimeout(refreshTimeoutRef.current);
       }
+      
       refreshTimeoutRef.current = setTimeout(() => {
-        refetchProjects();
-        refetchConsolidations();
-      }, 300); 
+        handleDataRefresh();
+      }, 500);
     };
+
     const events = [
       'projectCreated',
       'projectUpdated', 
@@ -196,27 +214,28 @@ const ProjectSwitcher = () => {
       'consolidationDeleted',
       'consolidationsRefreshed' 
     ];
+    
     events.forEach(event => {
-      window.addEventListener(event, handleDataRefresh);
+      window.addEventListener(event, handleDataRefreshWithDebounce);
     });
 
     autoRefreshIntervalRef.current = setInterval(() => {
-      refetchProjects();
-      refetchConsolidations();
-    }, 60000); 
+      handleDataRefresh();
+    }, 60000);
+    
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         setTimeout(() => {
-          refetchProjects();
-          refetchConsolidations();
+          handleDataRefresh();
         }, 2000);
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    
     return () => {
       events.forEach(event => {
-        window.removeEventListener(event, handleDataRefresh);
+        window.removeEventListener(event, handleDataRefreshWithDebounce);
       });
       
       if (refreshTimeoutRef.current) {
@@ -229,7 +248,7 @@ const ProjectSwitcher = () => {
       
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [refetchProjects, refetchConsolidations]);
+  }, [handleDataRefresh]);
 
   const displayName = useMemo(() => {
     const activeId = activeProjectId ? String(activeProjectId) : '';
@@ -256,69 +275,54 @@ const ProjectSwitcher = () => {
     return uiState.activeProject?.name || 'Sélectionner un projet';
   }, [activeProjectId, activeProjectType, uiState.activeProject?.name, safeConsolidations, allProjects]);
 
-// ProjectSwitcher.jsx - MODIFIER la fonction handleSelect
-const handleSelect = useCallback((id) => {
-  try {
-    const idStr = String(id);
-    
-    // Récupérer l'URL actuelle pour savoir où on est
-    const currentPath = window.location.pathname;
-    
-    if (idStr === 'consolidated' || idStr.startsWith('consolidated_view_')) {
-      let consolidatedProject;
+  const handleSelect = useCallback((id) => {
+    try {
+      const idStr = String(id);
       
-      if (idStr === 'consolidated') {
-        consolidatedProject = { 
-          id: idStr, 
-          name: 'Mes projets consolidés', 
-          type: 'consolidated' 
-        };
-      } else {
-        const foundConsolidation = safeConsolidations.find(c => 
-          c && `consolidated_view_${c.id}` === idStr
-        );
-        consolidatedProject = {
-          id: idStr,
-          name: foundConsolidation?.name || 'Vue consolidée',
-          type: 'consolidated'
-        };
-      }
-
-      uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: consolidatedProject });
-      saveProject(consolidatedProject);
-
-      // NE PAS naviguer vers une autre URL !
-      // La page actuelle se mettra à jour automatiquement grâce au contexte
-      
-      // Seule exception : si on est sur une page qui n'existe pas pour les consolidations
-      // Mais pour l'échéancier, dashboard, etc., on reste sur la même page
-      
-    } else {
-      // Projet simple
-      const selectedProject = allProjects.find(p => areIdsEqual(p.id, id));
-      if (selectedProject) {
-        const isArchived = ["1", 1, true, "true"].includes(
-          selectedProject?.is_archived ?? selectedProject?.isArchived ?? 0
-        );
-
-        uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: selectedProject });
-        saveProject(selectedProject);
+      if (idStr === 'consolidated' || idStr.startsWith('consolidated_view_')) {
+        let consolidatedProject;
         
-        // NE PAS naviguer non plus !
-        // On reste sur la même page
+        if (idStr === 'consolidated') {
+          consolidatedProject = { 
+            id: idStr, 
+            name: 'Mes projets consolidés', 
+            type: 'consolidated' 
+          };
+        } else {
+          const foundConsolidation = safeConsolidations.find(c => 
+            c && `consolidated_view_${c.id}` === idStr
+          );
+          consolidatedProject = {
+            id: idStr,
+            name: foundConsolidation?.name || 'Vue consolidée',
+            type: 'consolidated'
+          };
+        }
+
+        uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: consolidatedProject });
+        saveProject(consolidatedProject);
+        
+      } else {
+        const selectedProject = allProjects.find(p => areIdsEqual(p.id, id));
+        if (selectedProject) {
+          const isArchived = ["1", 1, true, "true"].includes(
+            selectedProject?.is_archived ?? selectedProject?.isArchived ?? 0
+          );
+
+          uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: selectedProject });
+          saveProject(selectedProject);
+        }
       }
+      
+      setIsListOpen(false);
+    } catch (error) {
+      console.error('Erreur lors de la sélection:', error);
     }
-    
-    setIsListOpen(false);
-  } catch (error) {
-    console.error(' Erreur lors de la sélection:', error);
-  }
-}, [allProjects, uiDispatch, saveProject, safeConsolidations]); // Retirer "navigate" des dépendances
+  }, [allProjects, uiDispatch, saveProject, safeConsolidations]);
 
   const handleManualRefresh = useCallback(() => {
-    refetchProjects();
-    refetchConsolidations();
-  }, [refetchProjects, refetchConsolidations]);
+    handleDataRefresh();
+  }, [handleDataRefresh]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -333,6 +337,7 @@ const handleSelect = useCallback((id) => {
 
   useEffect(() => {
     if (consolidationsError) {
+      console.error('Erreur de consolidation:', consolidationsError);
     }
   }, [consolidationsError]);
 

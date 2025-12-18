@@ -5,7 +5,7 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
   build: {
-    outDir: 'F:/Upskill/Trezocash/git/trezo.cash/public/react',
+    outDir: 'C:/xampp/htdocs/back_tresocash/back/trezo.cash/public/react',
     emptyOutDir: true,
     manifest: true,
   },
@@ -23,5 +23,6 @@ export default defineConfig({
       },
     },
   },
+  // base :'/react/'
 });
 

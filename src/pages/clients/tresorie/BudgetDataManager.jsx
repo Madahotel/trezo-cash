@@ -196,44 +196,79 @@ const calculateYearlyPeriods = (baseDate, count) => {
 
 const calculateBimesterPeriods = (baseDate, count) => {
     const periods = [];
+    
     let currentDate = new Date(baseDate);
+    const dayOfWeek = currentDate.getDay();
+    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    currentDate.setDate(currentDate.getDate() + diffToMonday);
+    currentDate.setHours(0, 0, 0, 0);
 
     for (let i = 0; i < count; i++) {
-        // 8 semaines = 2 mois environ
+
+        const bimesterStart = new Date(currentDate);
+        
+        const bimesterEnd = new Date(currentDate);
+        bimesterEnd.setDate(bimesterEnd.getDate() + (8 * 7) - 1);
+        bimesterEnd.setHours(23, 59, 59, 999);
+
         for (let week = 0; week < 8; week++) {
             const weekStart = new Date(currentDate);
             weekStart.setDate(weekStart.getDate() + (week * 7));
+            weekStart.setHours(0, 0, 0, 0);
 
             const weekEnd = new Date(weekStart);
-            weekEnd.setDate(weekEnd.getDate() + 7);
-            weekEnd.setMilliseconds(-1);
+            weekEnd.setDate(weekEnd.getDate() + 6); 
+            weekEnd.setHours(23, 59, 59, 999);
 
             const weekNumber = week + 1;
+            
             const startDateStr = weekStart.toLocaleDateString('fr-FR', {
                 day: '2-digit',
                 month: 'short'
             });
+            
             const endDateStr = weekEnd.toLocaleDateString('fr-FR', {
                 day: '2-digit',
                 month: 'short'
             });
 
+            let label;
+            if (weekStart.getFullYear() !== weekEnd.getFullYear()) {
+                const startYear = weekStart.getFullYear().toString().slice(-2);
+                const endYear = weekEnd.getFullYear().toString().slice(-2);
+                label = `S${weekNumber} (${startDateStr}/${startYear}-${endDateStr}/${endYear})`;
+            } else if (weekStart.getMonth() !== weekEnd.getMonth()) {
+                label = `S${weekNumber} (${startDateStr}-${endDateStr})`;
+            } else {
+                label = `S${weekNumber} (${startDateStr}-${endDateStr})`;
+            }
+
             periods.push({
-                label: `S${weekNumber} (${startDateStr}-${endDateStr})`,
+                label,
                 startDate: new Date(weekStart),
                 endDate: new Date(weekEnd),
                 timeView: 'bimester',
                 weekIndex: week,
-                bimesterIndex: i
+                bimesterIndex: i,
+                month: weekStart.getMonth(),
+                year: weekStart.getFullYear(),
+                monthIdentifier: `${weekStart.getFullYear()}-${weekStart.getMonth() + 1}`,
+                weekInMonth: Math.floor((weekStart.getDate() - 1) / 7) + 1,
+                mondayDate: new Date(weekStart),
+                sundayDate: new Date(weekEnd),
+                bimesterStart: new Date(bimesterStart),
+                bimesterEnd: new Date(bimesterEnd)
             });
         }
-
-        // Avancer de 8 semaines pour le prochain bimestre
-        currentDate.setDate(currentDate.getDate() + 56); // 8 semaines * 7 jours
+        currentDate.setDate(currentDate.getDate() + 56);
     }
 
     return periods;
 };
+
+
+
+
 
 const calculateSemesterPeriods = (baseDate, count, byMonth = false) => {
     const periods = [];
@@ -630,6 +665,9 @@ const BudgetDataManager = ({
         return finalBudgetEntries || [];
     }, [projectData, finalBudgetEntries, processBudgetItems]);
 
+    // Fonction pour vérifier la cohérence des soldes
+
+
     const filteredBudgetEntries = useMemo(() => {
         try {
             let entries = processedBudgetEntries || [];
@@ -806,7 +844,6 @@ const BudgetDataManager = ({
         },
         [filteredExpandedAndVatEntries, isRowVisibleInPeriods]
     );
-// Calcul des positions de trésorerie avec vérifications
 const calculatePeriodPositions = useCallback((
     periods,
     cashAccounts,
@@ -818,7 +855,7 @@ const calculatePeriodPositions = useCallback((
 ) => {
     try {
         console.log('🔍 DEBUG calculatePeriodPositions - cashAccounts:', cashAccounts);
-        
+
         if (!periods || periods.length === 0) {
             return periods?.map(() => ({
                 initial: 0,
@@ -831,43 +868,18 @@ const calculatePeriodPositions = useCallback((
             })) || [];
         }
 
-        // 1. Calculer le solde initial total de tous les comptes avec vérification stricte
+        // 1. Calculer le solde initial total
         const totalInitialBalance = cashAccounts?.reduce((sum, account) => {
             if (!account) return sum;
-            
-            // Vérifier explicitement si c'est 0 ou une valeur valide
             const initialBalance = parseFloat(account.initialBalance || account.initial_amount || 0);
-            
-            // Si c'est NaN ou une valeur non numérique, retourner 0
-            if (isNaN(initialBalance)) {
-                console.warn('⚠️ Valeur initiale invalide pour le compte:', account);
-                return sum;
-            }
-            
-            // Si c'est 10000, vérifier si c'est intentionnel ou une valeur par défaut
-            if (initialBalance === 10000) {
-                console.warn('⚠️ Valeur initiale suspecte (10000) pour le compte:', account);
-                // Si l'utilisateur n'a pas configuré de solde, supposer 0
-                if (!account.is_configured || account.has_initial_balance === false) {
-                    return sum; // Ne pas ajouter les 10000€
-                }
-            }
-            
+            if (isNaN(initialBalance)) return sum;
             return sum + initialBalance;
         }, 0) || 0;
 
         console.log('🔢 Solde initial total calculé:', totalInitialBalance);
 
-        // Si le total est toujours 10000 et il n'y a pas de comptes configurés, mettre à 0
-        if (totalInitialBalance === 10000 && (!cashAccounts || cashAccounts.length === 0 || cashAccounts.every(acc => !acc.is_configured))) {
-            console.log('🔄 Correction: Pas de solde initial réel, on utilise 0');
-            runningBalance = 0;
-        } else {
-            runningBalance = totalInitialBalance;
-        }
-
         const positions = [];
-        let runningBalance = totalInitialBalance;
+        let runningBalance = totalInitialBalance; // Solde courant qui se propage
 
         for (let i = 0; i < periods.length; i++) {
             const period = periods[i];
@@ -893,19 +905,14 @@ const calculatePeriodPositions = useCallback((
                 hasOffBudgetExpenses
             );
 
-            // 3. Calculer les flux nets (Budget et Réel)
-            const budgetEntrees = revenueTotals?.budget || 0;
-            const budgetSorties = expenseTotals?.budget || 0;
-            const budgetNetFlow = budgetEntrees - budgetSorties;
-
+            // 3. Calculer les flux nets RÉELS
             const actualEntrees = revenueTotals?.actual || 0;
             const actualSorties = expenseTotals?.actual || 0;
             const actualNetFlow = actualEntrees - actualSorties;
 
             // 4. Calculer la trésorerie fin de période
-            const initialBalance = runningBalance;
+            const initialBalance = runningBalance; // Solde initial = solde final précédent
             const finalBalance = initialBalance + actualNetFlow;
-            const finalBalanceBudget = initialBalance + budgetNetFlow;
 
             // Mettre à jour le solde pour la période suivante
             runningBalance = finalBalance;
@@ -913,14 +920,9 @@ const calculatePeriodPositions = useCallback((
             positions.push({
                 initial: initialBalance,
                 final: finalBalance,
-                finalBudget: finalBalanceBudget,
                 netCashFlow: actualNetFlow,
-                netCashFlowBudget: budgetNetFlow,
                 totalEntrees: actualEntrees,
                 totalSorties: actualSorties,
-                totalEntreesBudget: budgetEntrees,
-                totalSortiesBudget: budgetSorties,
-                budgetNetFlow: budgetNetFlow,
                 actualNetFlow: actualNetFlow,
                 periodInfo: period.label,
                 periodStart: period.startDate,
@@ -931,8 +933,9 @@ const calculatePeriodPositions = useCallback((
                 initial: positions[i].initial,
                 fluxNet: actualNetFlow,
                 final: positions[i].final,
-                entrées: actualEntrees,
+                entrees: actualEntrees,
                 sorties: actualSorties,
+                calcul: `${initialBalance} + ${actualNetFlow} = ${finalBalance}`
             });
         }
 
@@ -994,6 +997,7 @@ const calculatePeriodPositions = useCallback((
             const isOneTime = frequencyId === "1" || entry?.frequency_name === "Ponctuel" || entry?.frequency === "Ponctuel";
             const isMonthly = frequencyId === "3" || entry?.frequency_name === "Mensuel" || entry?.frequency === "Mensuel";
             const isWeekly = frequencyId === "4" || entry?.frequency_name === "Hebdomadaire" || entry?.frequency === "Hebdomadaire";
+            const isBimonthly = frequencyId === "5" || entry?.frequency_name === "Bimensuel" || entry?.frequency === "Bimensuel";
             const isQuarterly = frequencyId === "6" || entry?.frequency_name === "Trimestriel" || entry?.frequency === "Trimestriel";
             const isSemiannual = frequencyId === "7" || entry?.frequency_name === "Semestriel" || entry?.frequency === "Semestriel";
             const isAnnual = frequencyId === "8" || entry?.frequency_name === "Annuel" || entry?.frequency === "Annuel";
@@ -1007,12 +1011,90 @@ const calculatePeriodPositions = useCallback((
                 return 0;
             }
 
-            // CAS 2: FRÉQUENCE MENSUELLE - IMPORTANT: Doit fonctionner pour TOUTES les vues
+            // CAS 2: FRÉQUENCE MENSUELLE - CORRIGÉ POUR TOUTES LES VUES
             if (isMonthly) {
-                // Pour toutes les vues (trimestre, semestre, année, etc.), 
-                // on doit calculer le montant mensuel qui tombe dans la période
+                // Récupérer le jour du paiement
+                const paymentDay = effectiveStartDate.getDate();
 
-                // Si la période est plus longue qu'un mois (trimestre, semestre, année)
+                // Pour la vue Bimestre (8 semaines = environ 2 mois)
+                if (timeView === 'bimester') {
+                    // La vue Bimestre affiche 8 semaines (environ 2 mois)
+                    // Nous devons vérifier si cette semaine contient le jour de paiement d'un des 2 mois
+
+                    // 1. Déterminer les mois couverts par cette période (bimestre)
+                    // Un bimestre = environ 2 mois
+                    const periodMonth = periodStart.getMonth();
+                    const periodYear = periodStart.getFullYear();
+
+                    // Vérifier les 2 mois du bimestre
+                    for (let monthOffset = 0; monthOffset < 2; monthOffset++) {
+                        const monthToCheck = (periodMonth + monthOffset) % 12;
+                        const yearToCheck = periodYear + Math.floor((periodMonth + monthOffset) / 12);
+
+                        // Calculer la date de paiement pour ce mois
+                        const lastDayOfMonth = new Date(yearToCheck, monthToCheck + 1, 0).getDate();
+                        const actualPaymentDay = Math.min(paymentDay, lastDayOfMonth);
+                        const paymentDateThisMonth = new Date(yearToCheck, monthToCheck, actualPaymentDay);
+                        paymentDateThisMonth.setHours(0, 0, 0, 0);
+
+                        // 3. Vérifier si cette date est dans la période (semaine spécifique)
+                        if (paymentDateThisMonth >= effectiveStartDate &&
+                            paymentDateThisMonth >= periodStart &&
+                            paymentDateThisMonth <= periodEnd) {
+                            return amount;
+                        }
+                    }
+                    return 0;
+                }
+
+                // Pour la vue semaine (7 jours)
+                if (timeView === 'week' || periodInfo?.timeView === 'week') {
+                    // La vue semaine affiche 7 jours
+                    // Nous devons vérifier si le jour de paiement est dans cette semaine
+
+                    // 1. Déterminer le mois de cette période
+                    const periodMonth = periodStart.getMonth();
+                    const periodYear = periodStart.getFullYear();
+
+                    // 2. Calculer la date de paiement pour ce mois
+                    const lastDayOfMonth = new Date(periodYear, periodMonth + 1, 0).getDate();
+                    const actualPaymentDay = Math.min(paymentDay, lastDayOfMonth);
+                    const paymentDateThisMonth = new Date(periodYear, periodMonth, actualPaymentDay);
+                    paymentDateThisMonth.setHours(0, 0, 0, 0);
+
+                    // 3. Vérifier si cette date est dans la période
+                    if (paymentDateThisMonth >= effectiveStartDate &&
+                        paymentDateThisMonth >= periodStart &&
+                        paymentDateThisMonth <= periodEnd) {
+                        return amount;
+                    }
+                    return 0;
+                }
+
+                // Pour la vue mois (affichage par semaine)
+                if (timeView === "month" && periodInfo?.weekIndex !== undefined) {
+                    // Pour la vue mois par semaine, vérifier si le jour de paiement est dans cette semaine
+                    const paymentDay = effectiveStartDate.getDate();
+                    const weekStartDay = periodStart.getDate();
+                    const weekEndDay = periodEnd.getDate();
+
+                    if (paymentDay >= weekStartDay && paymentDay <= weekEndDay) {
+                        return amount;
+                    }
+                    return 0;
+                }
+
+                // Pour la vue mois (affichage par mois entier)
+                if (timeView === "month" && periodInfo?.weekIndex === undefined) {
+                    // Si c'est la vue mois entière, retourner le montant complet
+                    if (periodStart.getMonth() === effectiveStartDate.getMonth() &&
+                        periodStart.getFullYear() === effectiveStartDate.getFullYear()) {
+                        return amount;
+                    }
+                    return 0;
+                }
+
+                // Pour les vues longues terme (trimestre, semestre, année, etc.)
                 if (timeView === 'trimester' || timeView === 'semester' || timeView === 'year' ||
                     timeView === 'year3' || timeView === 'year5' || timeView === 'year7') {
 
@@ -1045,38 +1127,31 @@ const calculatePeriodPositions = useCallback((
                     return totalAmount;
                 }
 
-                // Pour les vues plus courtes (jour, semaine, mois), utiliser la logique existante
-                const entryDayOfMonth = effectiveStartDate.getDate();
-                const entryMonth = effectiveStartDate.getMonth();
-                const entryYear = effectiveStartDate.getFullYear();
+                // Pour la vue jour
+                if (timeView === "day") {
+                    // Vérifier si c'est exactement le jour de paiement
+                    const periodDate = new Date(periodStart);
+                    periodDate.setHours(0, 0, 0, 0);
 
-                const periodStartDate = new Date(periodStart);
-                const periodEndDate = new Date(periodEnd);
-                const periodMonth = periodStartDate.getMonth();
-                const periodYear = periodStartDate.getFullYear();
+                    const entryDate = new Date(effectiveStartDate);
+                    entryDate.setHours(0, 0, 0, 0);
 
-                // Pour la vue mois (affichage par semaine)
-                if (timeView === "month" && periodInfo.weekIndex !== undefined) {
-                    const weekStartDay = periodStartDate.getDate();
-                    const weekEndDay = periodEndDate.getDate();
-
-                    if (entryMonth === periodMonth && entryYear === periodYear) {
-                        if (entryDayOfMonth >= weekStartDay && entryDayOfMonth <= weekEndDay) {
-                            return amount;
-                        }
-                    }
-                } else {
-                    if (entryDayOfMonth === periodStartDate.getDate() &&
-                        entryMonth === periodStartDate.getMonth() &&
-                        entryYear === periodStartDate.getFullYear()) {
+                    if (periodDate.getTime() === entryDate.getTime()) {
                         return amount;
                     }
+                    return 0;
+                }
+
+                // Par défaut: si c'est le même mois et que le jour de paiement est dans cette période
+                if (periodStart.getMonth() === effectiveStartDate.getMonth() &&
+                    periodStart.getFullYear() === effectiveStartDate.getFullYear()) {
+                    return amount;
                 }
 
                 return 0;
             }
 
-            // CAS 3: FRÉQUENCE HEBDOMADAIRE - Doit fonctionner pour toutes les vues
+            // CAS 3: FRÉQUENCE HEBDOMADAIRE
             if (isWeekly) {
                 if (timeView === 'trimester' || timeView === 'semester' || timeView === 'year' ||
                     timeView === 'year3' || timeView === 'year5' || timeView === 'year7') {
@@ -1104,16 +1179,113 @@ const calculatePeriodPositions = useCallback((
                     return totalAmount;
                 }
 
-                // Logique existante pour les vues courtes
-                const weeksSinceStart = Math.floor((periodStart - effectiveStartDate) / (7 * 24 * 60 * 60 * 1000));
-                if (weeksSinceStart >= 0 && weeksSinceStart % 1 === 0) {
-                    return amount;
+                // Pour la vue Bimestre (semaines spécifiques)
+                if (timeView === 'bimester') {
+                    // Vérifier si cette semaine est un multiple de 7 jours depuis la date de début
+                    const daysDiff = Math.floor((periodStart - effectiveStartDate) / (1000 * 60 * 60 * 24));
+                    if (daysDiff >= 0 && daysDiff % 7 === 0) {
+                        return amount;
+                    }
+                    return 0;
+                }
+
+                // Pour la vue semaine
+                if (timeView === 'week') {
+                    const daysDiff = Math.floor((periodStart - effectiveStartDate) / (1000 * 60 * 60 * 24));
+                    if (daysDiff >= 0 && daysDiff % 7 === 0) {
+                        return amount;
+                    }
+                    return 0;
+                }
+
+                // Pour la vue mois (par semaine)
+                if (timeView === 'month' && periodInfo?.weekIndex !== undefined) {
+                    // Pour la vue mois par semaine, vérifier si c'est un multiple de 7 jours
+                    const daysDiff = Math.floor((periodStart - effectiveStartDate) / (1000 * 60 * 60 * 24));
+                    if (daysDiff >= 0 && daysDiff % 7 === 0) {
+                        return amount;
+                    }
+                    return 0;
+                }
+
+                // Pour la vue jour
+                if (timeView === "day") {
+                    // Vérifier si c'est exactement le jour de début
+                    const daysDiff = Math.floor((periodStart - effectiveStartDate) / (1000 * 60 * 60 * 24));
+                    if (daysDiff >= 0 && daysDiff % 7 === 0) {
+                        return amount;
+                    }
+                    return 0;
+                }
+
+                return 0;
+            }
+
+            // CAS 4: FRÉQUENCE BIMENSUELLE (tous les 2 mois)
+            if (isBimonthly) {
+                const paymentDay = effectiveStartDate.getDate();
+
+                // Pour la vue Bimestre
+                if (timeView === 'bimester') {
+                    // Pour la vue Bimestre, afficher une fois (tous les 2 mois)
+                    const paymentMonth = effectiveStartDate.getMonth();
+                    const paymentYear = effectiveStartDate.getFullYear();
+
+                    // Vérifier si ce bimestre contient un mois de paiement
+                    const periodMonth = periodStart.getMonth();
+                    const periodYear = periodStart.getFullYear();
+
+                    // Vérifier les 2 mois du bimestre
+                    for (let monthOffset = 0; monthOffset < 2; monthOffset++) {
+                        const monthToCheck = (periodMonth + monthOffset) % 12;
+                        const yearToCheck = periodYear + Math.floor((periodMonth + monthOffset) / 12);
+
+                        // Calculer si c'est un mois de paiement (tous les 2 mois)
+                        const monthsSinceStart = (yearToCheck - paymentYear) * 12 + (monthToCheck - paymentMonth);
+
+                        if (monthsSinceStart >= 0 && monthsSinceStart % 2 === 0) {
+                            // Calculer la date de paiement pour ce mois
+                            const lastDayOfMonth = new Date(yearToCheck, monthToCheck + 1, 0).getDate();
+                            const actualPaymentDay = Math.min(paymentDay, lastDayOfMonth);
+                            const paymentDate = new Date(yearToCheck, monthToCheck, actualPaymentDay);
+                            paymentDate.setHours(0, 0, 0, 0);
+
+                            // Vérifier si cette date est dans la période
+                            if (paymentDate >= effectiveStartDate &&
+                                paymentDate >= periodStart &&
+                                paymentDate <= periodEnd) {
+                                return amount;
+                            }
+                        }
+                    }
+                    return 0;
+                }
+
+                // Pour les autres vues
+                const entryMonth = effectiveStartDate.getMonth();
+                const periodMonth = periodStart.getMonth();
+                const periodYear = periodStart.getFullYear();
+                const entryYear = effectiveStartDate.getFullYear();
+
+                // Calculer le nombre de mois depuis le début
+                const monthsSinceStart = (periodYear - entryYear) * 12 + (periodMonth - entryMonth);
+
+                if (monthsSinceStart >= 0 && monthsSinceStart % 2 === 0) {
+                    // Vérifier aussi le jour du mois
+                    const lastDayOfMonth = new Date(periodYear, periodMonth + 1, 0).getDate();
+                    const actualPaymentDay = Math.min(paymentDay, lastDayOfMonth);
+
+                    if (actualPaymentDay === periodStart.getDate()) {
+                        return amount;
+                    }
                 }
                 return 0;
             }
 
-            // CAS 4: FRÉQUENCE TRIMESTRIELLE
+            // CAS 5: FRÉQUENCE TRIMESTRIELLE
             if (isQuarterly) {
+                const paymentDay = effectiveStartDate.getDate();
+
                 // Même logique pour les vues longues terme
                 if (timeView === 'trimester' || timeView === 'semester' || timeView === 'year' ||
                     timeView === 'year3' || timeView === 'year5' || timeView === 'year7') {
@@ -1144,8 +1316,10 @@ const calculatePeriodPositions = useCallback((
                 return 0;
             }
 
-            // CAS 5: FRÉQUENCE SEMESTRIELLE
+            // CAS 6: FRÉQUENCE SEMESTRIELLE
             if (isSemiannual) {
+                const paymentDay = effectiveStartDate.getDate();
+
                 // Même logique pour les vues longues terme
                 if (timeView === 'trimester' || timeView === 'semester' || timeView === 'year' ||
                     timeView === 'year3' || timeView === 'year5' || timeView === 'year7') {
@@ -1174,8 +1348,11 @@ const calculatePeriodPositions = useCallback((
                 return 0;
             }
 
-            // CAS 6: FRÉQUENCE ANNUELLE
+            // CAS 7: FRÉQUENCE ANNUELLE
             if (isAnnual) {
+                const paymentDay = effectiveStartDate.getDate();
+                const paymentMonth = effectiveStartDate.getMonth();
+
                 // Même logique pour les vues longues terme
                 if (timeView === 'trimester' || timeView === 'semester' || timeView === 'year' ||
                     timeView === 'year3' || timeView === 'year5' || timeView === 'year7') {
@@ -1293,6 +1470,67 @@ const calculatePeriodPositions = useCallback((
             return 'text-text-secondary';
         }
     };
+
+    const checkCashConsistency = useCallback((periods, effectiveCashAccounts, groupedData) => {
+    if (!periods || periods.length < 2) return true;
+    
+    console.log('🔍 Vérification de la cohérence des soldes:');
+    
+    // Calculer le solde initial total
+    const totalInitialBalance = effectiveCashAccounts?.reduce((sum, account) => {
+        const initialBalance = parseFloat(account.initialBalance || account.initial_amount || 0);
+        return sum + (isNaN(initialBalance) ? 0 : initialBalance);
+    }, 0) || 0;
+    
+    console.log('Solde initial total:', totalInitialBalance);
+    
+    // Simuler la propagation
+    let runningBalance = totalInitialBalance;
+    
+    for (let i = 0; i < periods.length; i++) {
+        const entrees = calculateGeneralTotals(
+            groupedData?.entree || [],
+            periods[i],
+            'entree',
+            filteredExpandedAndVatEntries,
+            finalActualTransactions,
+            hasOffBudgetRevenues,
+            hasOffBudgetExpenses
+        );
+        
+        const sorties = calculateGeneralTotals(
+            groupedData?.sortie || [],
+            periods[i],
+            'sortie',
+            filteredExpandedAndVatEntries,
+            finalActualTransactions,
+            hasOffBudgetRevenues,
+            hasOffBudgetExpenses
+        );
+        
+        const netFlow = (entrees.actual || 0) - (sorties.actual || 0);
+        const newBalance = runningBalance + netFlow;
+        
+        console.log(`Période ${i} (${periods[i]?.label}):`, {
+            initial: runningBalance,
+            netFlow: netFlow,
+            final: newBalance,
+            entrees: entrees.actual,
+            sorties: sorties.actual
+        });
+        
+        runningBalance = newBalance;
+    }
+    
+    return true;
+}, [calculateGeneralTotals, filteredExpandedAndVatEntries, finalActualTransactions, hasOffBudgetRevenues, hasOffBudgetExpenses]);
+
+// Appeler cette fonction dans un useEffect pour debug
+// useEffect(() => {
+//     if (periods.length > 0 && groupedData) {
+//         checkCashConsistency(periods, effectiveCashAccounts, groupedData);
+//     }
+// }, [periods, effectiveCashAccounts, groupedData, checkCashConsistency]);
 
     // Préparer les données pour les enfants
     const dataState = {
