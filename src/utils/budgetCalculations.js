@@ -286,7 +286,6 @@ export const getEntryAmountForPeriod = (entry, periodStart, periodEnd) => {
   );
 };
 
-// ✅ CORRECTION: Fonction getActualAmountForPeriod bien exportée
 export const getActualAmountForPeriod = (
   entry,
   actualTransactions,
@@ -633,64 +632,308 @@ export const generateTaxPaymentEntries = (actuals, period, taxConfig) => {
   );
 };
 
-// Fonction pour vider le cache si nécessaire
 export const clearBudgetCalculationsCache = () => {
   calculationCache.clear();
 };
 
-// NOUVELLE FONCTION: calculateEntryAmountForPeriod simplifiée
-export const calculateEntryAmountForPeriod = (entry, startDate, endDate) => {
-  if (!entry || !entry.amount) {
-    return 0;
-  }
-
-  const frequency = entry.frequency_name || entry.frequency;
-  const amount = parseFloat(entry.amount) || 0;
-
-  // Si pas de fréquence, retourner le montant complet
-  if (!frequency) {
-    return amount;
-  }
-
-  const freqLower = frequency.toLowerCase();
-
-  // CORRECTION: Pour "Monsuel" (mensuel), toujours retourner le montant
-  if (freqLower === "monsuel" || freqLower === "mensuel") {
-    return amount;
-  }
-
-  // CORRECTION: Pour les autres fréquences récurrentes, retourner le montant
-  if (
-    freqLower === "hebdomadaire" ||
-    freqLower === "bimestriel" ||
-    freqLower === "trimestriel" ||
-    freqLower === "semestriel" ||
-    freqLower === "annuel"
-  ) {
-    return amount;
-  }
-
-  // Pour ponctuel, vérifier si la date est dans la période
-  if (freqLower === "ponctuel" || freqLower === "ponctuelle") {
-    const entryDate = entry.date
-      ? new Date(entry.date)
-      : entry.start_date
-      ? new Date(entry.start_date)
-      : null;
-    if (!entryDate) {
-      return amount;
+export const calculateEntryAmountForPeriod = (entry, periodStart, periodEnd, timeView = 'month') => {
+    if (!entry || !periodStart || !periodEnd) return 0;
+    
+    const entryDate = new Date(entry.start_date || entry.date || entry.startDate);
+    const entryAmount = parseFloat(entry.amount || entry.budget_amount || 0);
+    const frequencyId = entry.frequency_id?.toString();
+    
+    // Vérifier si l'entrée est active pendant cette période
+    if (entry.end_date) {
+        const entryEndDate = new Date(entry.end_date);
+        if (entryEndDate < periodStart) return 0; // L'entrée est terminée avant la période
     }
-
-    const isInPeriod = entryDate >= startDate && entryDate <= endDate;
-
-    return isInPeriod ? amount : 0;
-  }
-
-  // Par défaut, retourner le montant
-  return amount;
+    if (entryDate > periodEnd) return 0; // L'entrée commence après la période
+    
+    // 🔹 1. PONCTUEL (fréquence 1)
+    if (frequencyId === '1' || entry.frequency_name?.toLowerCase() === 'ponctuel') {
+        return (entryDate >= periodStart && entryDate < periodEnd) ? entryAmount : 0;
+    }
+    
+    // 🔹 2. JOURNALIER (fréquence 2)
+    if (frequencyId === '2' || entry.frequency_name?.toLowerCase() === 'journalier') {
+        const daysInPeriod = Math.floor((periodEnd - periodStart) / (1000 * 60 * 60 * 24));
+        return entryAmount * daysInPeriod;
+    }
+    
+    // 🔹 3. MENSUEL (fréquence 3) - LOGIQUE SPÉCIFIQUE POUR LA VUE MENSUELLE PAR SEMAINE
+    if (frequencyId === '3' || entry.frequency_name?.toLowerCase() === 'mensuel') {
+        const entryDay = entryDate.getDate(); // Ex: 10 pour le 10 de chaque mois
+        const entryYear = entryDate.getFullYear();
+        const entryMonth = entryDate.getMonth();
+        
+        // Déterminer la date de fin (end_date ou indéfinie)
+        const endLimit = entry.end_date ? new Date(entry.end_date) : null;
+        
+        // CORRECTION IMPORTANTE POUR LA VUE MENSUELLE PAR SEMAINE
+        if (timeView === 'month') {
+            // ✅ Vue mensuelle: n'apparaît dans la semaine qui contient le jour de paiement de chaque mois
+            
+            // Calculer toutes les dates de paiement possibles entre start_date et end_date
+            let currentMonth = new Date(entryDate);
+            
+            // Parcourir tous les mois jusqu'à ce qu'on dépasse la période ou la date de fin
+            while (currentMonth <= periodEnd) {
+                const currentYear = currentMonth.getFullYear();
+                const currentMonthNum = currentMonth.getMonth();
+                
+                // Calculer le dernier jour du mois
+                const lastDayOfMonth = new Date(currentYear, currentMonthNum + 1, 0);
+                const actualPaymentDay = Math.min(entryDay, lastDayOfMonth.getDate());
+                
+                // Date exacte du paiement pour ce mois
+                const paymentDate = new Date(currentYear, currentMonthNum, actualPaymentDay);
+                
+                // Vérifier si ce paiement est dans la période en cours
+                if (paymentDate >= periodStart && paymentDate < periodEnd) {
+                    // Maintenant déterminer si cette date tombe dans la semaine de cette période
+                    const periodYear = periodStart.getFullYear();
+                    const periodMonth = periodStart.getMonth();
+                    
+                    // Vérifier si le paiement est dans le même mois que la période
+                    if (currentYear === periodYear && currentMonthNum === periodMonth) {
+                        return entryAmount;
+                    }
+                }
+                
+                // Vérifier si on a dépassé la date de fin ou la période
+                if (endLimit && paymentDate > endLimit) break;
+                if (paymentDate > periodEnd) break;
+                
+                // Passer au mois suivant
+                currentMonth.setMonth(currentMonth.getMonth() + 1);
+            }
+            return 0;
+        }
+        
+        // Pour les autres vues, garder la logique existante
+        switch (timeView) {
+            case 'day':
+            case 'ponctuel':
+                // ✅ Vue journalière: n'apparaît QUE le jour du paiement
+                let currentDay = new Date(entryDate);
+                
+                while (true) {
+                    const lastDayOfMonth = new Date(
+                        currentDay.getFullYear(), 
+                        currentDay.getMonth() + 1, 
+                        0
+                    ).getDate();
+                    const actualPaymentDay = Math.min(entryDay, lastDayOfMonth);
+                    const paymentDate = new Date(
+                        currentDay.getFullYear(), 
+                        currentDay.getMonth(), 
+                        actualPaymentDay
+                    );
+                    
+                    if (paymentDate >= periodStart && paymentDate < periodEnd) {
+                        return entryAmount;
+                    }
+                    
+                    if (endLimit && paymentDate > endLimit) break;
+                    if (paymentDate > periodEnd) break;
+                    
+                    currentDay.setMonth(currentDay.getMonth() + 1);
+                }
+                return 0;
+                
+            case 'week':
+                // ✅ Vue hebdomadaire: n'apparaît QUE dans la semaine contenant le jour de paiement
+                let currentWeek = new Date(entryDate);
+                
+                while (true) {
+                    const lastDayOfMonth = new Date(
+                        currentWeek.getFullYear(), 
+                        currentWeek.getMonth() + 1, 
+                        0
+                    ).getDate();
+                    const actualPaymentDay = Math.min(entryDay, lastDayOfMonth);
+                    const paymentDate = new Date(
+                        currentWeek.getFullYear(), 
+                        currentWeek.getMonth(), 
+                        actualPaymentDay
+                    );
+                    
+                    if (paymentDate >= periodStart && paymentDate < periodEnd) {
+                        return entryAmount;
+                    }
+                    
+                    if (endLimit && paymentDate > endLimit) break;
+                    if (paymentDate > periodEnd) break;
+                    
+                    currentWeek.setMonth(currentWeek.getMonth() + 1);
+                }
+                return 0;
+                
+            case 'year':
+                // ✅ Vue annuelle: n'apparaît dans TOUS les mois de l'année qui contiennent le jour de paiement
+                const periodYear = periodStart.getFullYear();
+                
+                // Vérifier si cette année contient un paiement
+                for (let month = 0; month < 12; month++) {
+                    const lastDayOfMonth = new Date(periodYear, month + 1, 0).getDate();
+                    const actualPaymentDay = Math.min(entryDay, lastDayOfMonth);
+                    const paymentDate = new Date(periodYear, month, actualPaymentDay);
+                    
+                    if (paymentDate >= entryDate && 
+                        (!endLimit || paymentDate <= endLimit)) {
+                        return entryAmount;
+                    }
+                }
+                return 0;
+                
+            default:
+                return 0;
+        }
+    }
+    
+    // 🔹 4. HEBDOMADAIRE (fréquence 4)
+    if (frequencyId === '4' || entry.frequency_name?.toLowerCase() === 'hebdomadaire') {
+        // Nombre de semaines dans la période
+        const weeksInPeriod = Math.floor((periodEnd - periodStart) / (1000 * 60 * 60 * 24 * 7));
+        return entryAmount * weeksInPeriod;
+    }
+    
+    // 🔹 5. BIMENSUEL (fréquence 5)
+    if (frequencyId === '5' || entry.frequency_name?.toLowerCase() === 'bimensuel') {
+        // Vérifier si ce mois est un mois de paiement (tous les 2 mois)
+        const entryMonth = entryDate.getMonth();
+        const periodMonth = periodStart.getMonth();
+        const periodYear = periodStart.getFullYear();
+        const entryYear = entryDate.getFullYear();
+        
+        // Calculer le nombre de mois depuis le début
+        const monthsSinceStart = (periodYear - entryYear) * 12 + (periodMonth - entryMonth);
+        
+        if (monthsSinceStart >= 0 && monthsSinceStart % 2 === 0) {
+            return entryAmount;
+        }
+        return 0;
+    }
+    
+    // 🔹 6. TRIMESTRIEL (fréquence 6)
+    if (frequencyId === '6' || entry.frequency_name?.toLowerCase() === 'trimestriel') {
+        const entryMonth = entryDate.getMonth();
+        const periodMonth = periodStart.getMonth();
+        const periodYear = periodStart.getFullYear();
+        const entryYear = entryDate.getFullYear();
+        
+        const monthsSinceStart = (periodYear - entryYear) * 12 + (periodMonth - entryMonth);
+        
+        if (monthsSinceStart >= 0 && monthsSinceStart % 3 === 0) {
+            return entryAmount;
+        }
+        return 0;
+    }
+    
+    // 🔹 7. SEMESTRIEL (fréquence 7)
+    if (frequencyId === '7' || entry.frequency_name?.toLowerCase() === 'semestriel') {
+        const entryMonth = entryDate.getMonth();
+        const periodMonth = periodStart.getMonth();
+        const periodYear = periodStart.getFullYear();
+        const entryYear = entryDate.getFullYear();
+        
+        const monthsSinceStart = (periodYear - entryYear) * 12 + (periodMonth - entryMonth);
+        
+        if (monthsSinceStart >= 0 && monthsSinceStart % 6 === 0) {
+            return entryAmount;
+        }
+        return 0;
+    }
+    
+    // 🔹 8. ANNUEL (fréquence 8)
+    if (frequencyId === '8' || entry.frequency_name?.toLowerCase() === 'annuel') {
+        const entryMonth = entryDate.getMonth();
+        const entryDay = entryDate.getDate();
+        const periodMonth = periodStart.getMonth();
+        const periodYear = periodStart.getFullYear();
+        const entryYear = entryDate.getFullYear();
+        
+        // Vérifier si c'est la même année ET le même mois
+        if (periodYear >= entryYear && periodMonth === entryMonth) {
+            return entryAmount;
+        }
+        return 0;
+    }
+    
+    // 🔹 9. IRREGULIER (fréquence 9)
+    if (frequencyId === '9' || entry.frequency_name?.toLowerCase() === 'irregulier') {
+        // Vérifier les paiements programmés
+        if (entry.payments && Array.isArray(entry.payments)) {
+            for (let i = 0; i < entry.payments.length; i++) {
+                const payment = entry.payments[i];
+                if (!payment.paymentDate && !payment.date) continue;
+                
+                const paymentDate = new Date(payment.paymentDate || payment.date);
+                if (paymentDate >= periodStart && paymentDate < periodEnd) {
+                    return entryAmount;
+                }
+            }
+        }
+        return 0;
+    }
+    
+    return 0;
 };
 
-// NOUVELLE FONCTION: calculateActualAmountForPeriod avec priorité real_budget
+export const getWeekOfMonth = (date) => {
+    const dayOfMonth = date.getDate();
+    if (dayOfMonth <= 7) return 0; // S1
+    if (dayOfMonth <= 14) return 1; // S2
+    if (dayOfMonth <= 21) return 2; // S3
+    return 3; // S4
+};
+
+export const calculateMonthlyAmountForWeek = (entry, periodStart, periodEnd, weekIndex) => {
+    if (!entry || !periodStart || !periodEnd) return 0;
+    
+    const entryDate = new Date(entry.start_date || entry.date || entry.startDate);
+    const entryAmount = parseFloat(entry.amount || entry.budget_amount || 0);
+    const frequencyId = entry.frequency_id?.toString();
+    
+    // Seulement pour les paiements mensuels
+    if (frequencyId !== '3' && entry.frequency_name?.toLowerCase() !== 'mensuel') {
+        return 0;
+    }
+    
+    const entryDay = entryDate.getDate();
+    const periodYear = periodStart.getFullYear();
+    const periodMonth = periodStart.getMonth();
+    
+    // Vérifier si cette période (semaine) contient le jour de paiement
+    const lastDayOfMonth = new Date(periodYear, periodMonth + 1, 0).getDate();
+    const actualPaymentDay = Math.min(entryDay, lastDayOfMonth);
+    
+    // Date exacte du paiement dans ce mois
+    const exactPaymentDate = new Date(periodYear, periodMonth, actualPaymentDay);
+    
+    // Vérifier si cette date est dans les limites de l'entrée
+    if (entry.end_date) {
+        const entryEndDate = new Date(entry.end_date);
+        if (exactPaymentDate > entryEndDate) return 0;
+    }
+    if (exactPaymentDate < entryDate) return 0;
+    
+    // Déterminer la semaine de ce paiement
+    const paymentWeek = getWeekOfMonth(exactPaymentDate);
+    
+    // Retourner le montant seulement si la semaine correspond
+    if (weekIndex === paymentWeek) {
+        return entryAmount;
+    }
+    
+    return 0;
+};
+
+export const isEntryVisibleInPeriod = (entry, periodStart, periodEnd, timeView) => {
+    return calculateEntryAmountForPeriod(entry, periodStart, periodEnd, timeView) > 0;
+};
+
 export const calculateActualAmountForPeriod = (
   entry,
   actualTransactions,
@@ -831,7 +1074,6 @@ export const calculateActualAmountForPeriod = (
   return fallbackResult;
 };
 
-// NOUVELLE FONCTION: Calcul des positions de trésorerie
 export const calculatePeriodPositions = (
   periods,
   cashAccounts,
@@ -900,7 +1142,6 @@ export const calculatePeriodPositions = (
   return positions;
 };
 
-// Fonction helper pour la description
 export const getEntryDescription = (entry) => {
   return (
     entry.description ||
