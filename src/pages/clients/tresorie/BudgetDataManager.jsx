@@ -546,30 +546,9 @@ const BudgetDataManager = ({
                     return calculateQuarterPeriods(baseDate, 4, true);
 
                 case 'semester':
-                    const semesterPeriods = [];
-                    for (let i = 0; i < horizon; i++) {
-                        const semesterStart = new Date(baseDate);
-                        semesterStart.setMonth(semesterStart.getMonth() + (i * 6));
-
-                        const semesterMonth = Math.floor(semesterStart.getMonth() / 6) * 6;
-                        semesterStart.setMonth(semesterMonth, 1);
-                        semesterStart.setHours(0, 0, 0, 0);
-
-                        const semesterEnd = new Date(semesterStart);
-                        semesterEnd.setMonth(semesterEnd.getMonth() + 6);
-                        semesterEnd.setMilliseconds(-1);
-
-                        const semesterNumber = Math.floor(semesterStart.getMonth() / 6) + 1;
-                        const year = semesterStart.getFullYear();
-
-                        semesterPeriods.push({
-                            label: `S${semesterNumber} ${year}`,
-                            startDate: new Date(semesterStart),
-                            endDate: new Date(semesterEnd),
-                            timeView: 'semester'
-                        });
-                    }
-                    return semesterPeriods;
+                    baseDate.setMonth(baseDate.getMonth() + ((periodOffset || 0) * 6));
+                    // Pour afficher par mois dans le semestre - TOUJOURS true
+                    return calculateSemesterPeriods(baseDate, effectiveHorizonLength || 1, true);
 
                 case 'bimester':
                     return calculateBimesterPeriods(baseDate, horizon);
@@ -859,6 +838,7 @@ const BudgetDataManager = ({
         [filteredExpandedAndVatEntries, isRowVisibleInPeriods]
     );
 
+    // Ao amin'ny BudgetDataManager, corrigez la fonction calculateEntryBudgetForPeriod
     const calculateEntryBudgetForPeriod = useCallback((entry, periodStart, periodEnd, periodIndex, periodInfo) => {
         try {
             const amount = entry?.budget_amount || entry?.amount || 0;
@@ -891,23 +871,19 @@ const BudgetDataManager = ({
                 return 0;
             }
 
-            // CAS 2: FRÉQUENCE MENSUELLE - CORRECTION POUR LA VUE TRIMESTRE
+            // CAS 2: FRÉQUENCE MENSUELLE - GESTION POUR TOUTES LES VUES
             if (isMonthly) {
                 const paymentDay = effectiveStartDate.getDate();
 
-                // VUE TRIMESTRE PAR QUINZAINE - LOGIQUE CORRIGÉE
+                // VUE TRIMESTRE PAR QUINZAINE
                 if (timeView === 'trimester') {
-                    // Pour la vue trimestre, nous devons vérifier toutes les occurrences mensuelles
-                    // dans la période (qui est une quinzaine)
-
+                    // [Gardez le code existant pour trimestre]
                     let currentDate = new Date(effectiveStartDate);
 
-                    // Si la date de début est avant la période, trouver la première occurrence dans la période
                     if (currentDate < periodStart) {
                         const periodYear = periodStart.getFullYear();
                         const periodMonth = periodStart.getMonth();
 
-                        // Calculer la première occurrence dans ou après cette période
                         const monthsDiff = (periodYear - currentDate.getFullYear()) * 12 +
                             (periodMonth - currentDate.getMonth());
 
@@ -915,7 +891,6 @@ const BudgetDataManager = ({
                             currentDate.setMonth(currentDate.getMonth() + monthsDiff);
                         }
 
-                        // Ajuster le jour
                         const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
                         const actualDay = Math.min(paymentDay, lastDayOfMonth);
                         currentDate.setDate(actualDay);
@@ -952,8 +927,104 @@ const BudgetDataManager = ({
                     return 0;
                 }
 
+                if (timeView === 'bimester') {
+
+                    let currentDate = new Date(effectiveStartDate);
+
+                    if (currentDate < periodStart) {
+                        const monthsDiff = Math.ceil((periodStart - currentDate) / (30.44 * 24 * 60 * 60 * 1000));
+                        if (monthsDiff > 0) {
+                            currentDate.setMonth(currentDate.getMonth() + monthsDiff);
+                        }
+
+                        const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+                        const actualDay = Math.min(paymentDay, lastDayOfMonth);
+                        currentDate.setDate(actualDay);
+
+                        if (currentDate < periodStart) {
+                            currentDate.setMonth(currentDate.getMonth() + 1);
+                            const nextMonthLastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+                            const nextMonthDay = Math.min(paymentDay, nextMonthLastDay);
+                            currentDate.setDate(nextMonthDay);
+                        }
+                    }
+
+                    let totalAmount = 0;
+
+                    while (currentDate <= periodEnd) {
+                        if (currentDate >= periodStart && currentDate <= periodEnd) {
+
+                            return amount;
+                        }
+
+
+                        currentDate.setMonth(currentDate.getMonth() + 1);
+                        const lastDayOfNextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+                        const nextPaymentDay = Math.min(paymentDay, lastDayOfNextMonth);
+                        currentDate.setDate(nextPaymentDay);
+
+
+                        if (currentDate > periodEnd) break;
+                    }
+
+                    return totalAmount;
+                }
+
+                if (timeView === 'semester') {
+
+                    const isMonthPeriod = (periodEnd - periodStart) >= (28 * 24 * 60 * 60 * 1000) &&
+                        (periodEnd - periodStart) <= (31 * 24 * 60 * 60 * 1000);
+
+                    if (isMonthPeriod) {
+                        const periodMonth = periodStart.getMonth();
+                        const periodYear = periodStart.getFullYear();
+
+                        let currentDate = new Date(effectiveStartDate);
+
+                        if (currentDate < periodStart) {
+                            const monthsDiff = (periodYear - currentDate.getFullYear()) * 12 +
+                                (periodMonth - currentDate.getMonth());
+
+                            if (monthsDiff > 0) {
+                                currentDate.setMonth(currentDate.getMonth() + monthsDiff);
+                            }
+
+                            const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+                            const actualDay = Math.min(paymentDay, lastDayOfMonth);
+                            currentDate.setDate(actualDay);
+                        }
+
+                        if (currentDate.getMonth() === periodMonth &&
+                            currentDate.getFullYear() === periodYear &&
+                            currentDate >= periodStart &&
+                            currentDate <= periodEnd) {
+                            return amount;
+                        }
+
+                        // Vérifier aussi le mois suivant si on est à la fin du mois
+                        const nextMonthDate = new Date(currentDate);
+                        nextMonthDate.setMonth(nextMonthDate.getMonth() + 1);
+                        const lastDayOfNextMonth = new Date(nextMonthDate.getFullYear(), nextMonthDate.getMonth() + 1, 0).getDate();
+                        const nextPaymentDay = Math.min(paymentDay, lastDayOfNextMonth);
+                        nextMonthDate.setDate(nextPaymentDay);
+
+                        if (nextMonthDate >= periodStart && nextMonthDate <= periodEnd &&
+                            nextMonthDate.getMonth() === periodMonth) {
+                            return amount;
+                        }
+                    } else {
+                        // Vue semestre entier - utiliser la logique standard
+                        return calculateEntryAmountForPeriod(entry, periodStart, periodEnd, timeView);
+                    }
+
+                    return 0;
+                }
+
+                // Pour les autres vues (week, month, year), utiliser la fonction existante
                 return calculateEntryAmountForPeriod(entry, periodStart, periodEnd, timeView);
             }
+
+            // Pour toutes les autres fréquences, utiliser la fonction existante
             return calculateEntryAmountForPeriod(entry, periodStart, periodEnd, timeView);
 
         } catch (error) {
