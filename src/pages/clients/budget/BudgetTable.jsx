@@ -66,7 +66,8 @@ const SubCategoryRow = ({
         <div className="text-right">
           <div className="mb-1 text-xs text-gray-500">Budget</div>
           <div className="font-medium text-gray-900">
-            {formatCurrency(item.amount || item.budget_forecast_amount)}
+            {/* Mila devise */}
+            {item.amount} {item.currency_symbol}
           </div>
         </div>
 
@@ -237,7 +238,6 @@ const BudgetTable = ({
   // Fonction pour filtrer les données par année - CORRIGÉE
 
   const filteredBudgetData = filterDataByYear(budgetData, year);
-  console.log(filteredBudgetData);
 
   const getGroupedData = () => {
     if (!filteredBudgetData || loading) return [];
@@ -429,11 +429,6 @@ const BudgetTable = ({
             <h2 className="text-xl font-semibold text-gray-900">
               {isReadOnly ? 'Détail du budget consolidé' : 'Détail du budget'}
             </h2>
-            {year && (
-              <span className="px-3 py-1 text-sm font-medium text-blue-700 bg-blue-100 rounded-full">
-                Année {year}
-              </span>
-            )}
           </div>
           <p className="mt-1 text-sm text-gray-500">
             {isReadOnly
@@ -485,10 +480,10 @@ const BudgetTable = ({
               )}
             </div>
 
-            <button className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 transition-all duration-200 border border-gray-300 rounded-lg hover:border-gray-400 hover:bg-gray-50">
+            {/* <button className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 transition-all duration-200 border border-gray-300 rounded-lg hover:border-gray-400 hover:bg-gray-50">
               <Filter className="w-4 h-4 mr-2" />
               <span>Filtrer</span>
-            </button>
+            </button> */}
           </div>
         )}
       </div>
@@ -530,9 +525,9 @@ const BudgetTable = ({
               <th className="px-6 py-3 text-sm font-medium text-center text-gray-700">
                 Période
               </th>
-              <th className="px-6 py-3 text-sm font-medium text-right text-gray-700">
+              {/* <th className="px-6 py-3 text-sm font-medium text-right text-gray-700">
                 Budget
-              </th>
+              </th> */}
               <th className="px-6 py-3 text-sm font-medium text-center text-gray-700">
                 Actions
               </th>
@@ -578,11 +573,11 @@ const BudgetTable = ({
                         </div>
                       </td>
 
-                      <td className="px-6 py-4 text-right">
+                      {/* <td className="px-6 py-4 text-right">
                         <div className="font-semibold text-gray-900">
-                          {formatCurrency(category.amount)}
+                          {category.amount} Ar
                         </div>
-                      </td>
+                      </td> */}
 
                       <td className="px-6 py-4 text-center">
                         <div className="flex justify-center">
