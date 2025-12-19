@@ -4,7 +4,7 @@ import {
     Plus, Filter,
     CalendarRange,
     Eye, EyeOff,
-    TrendingUp, TrendingDown, ArrowRightLeft // AJOUT
+    TrendingUp, TrendingDown, ArrowRightLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -44,17 +44,15 @@ const BudgetTableHeader = ({
     tableauMode = 'edition',
     setTableauMode,
     showViewModeSwitcher = true,
-    // NOUVELLES PROPS
     focusType = 'net',
     onFocusChange,
 }) => {
-
 
     const periodOptions = useMemo(() => [
         { id: 'P1W', label: 'Semaine', range: 'P7D', granularity: GRANULARITY.WEEK, description: '7 jours (affichage par jour)' },
         { id: 'P1M', label: 'Mois', range: 'P1M', granularity: GRANULARITY.MONTH, description: '1 mois (affichage par semaine)' },
         { id: 'P2M', label: 'Bimestre', range: 'P2M', granularity: GRANULARITY.BIMESTER, description: '2 mois (affichage par semaine)' },
-        { id: 'P3M', label: 'Trimestre', range: 'P3M', granularity: GRANULARITY.TRIMESTER, description: '3 mois (affichage par mois)' },
+        { id: 'P3M', label: 'Trimestre', range: 'P3M', granularity: GRANULARITY.TRIMESTER, description: '3 mois (affichage par quinzaine)' },
         { id: 'P6M', label: 'Semestre', range: 'P6M', granularity: GRANULARITY.SEMESTER, description: '6 mois (affichage par mois)' },
         { id: 'P1Y', label: 'Année', range: 'P1Y', granularity: GRANULARITY.YEAR, description: '12 mois (affichage par mois)' },
         { id: 'P3Y', label: 'Année +3', range: 'P3Y', granularity: GRANULARITY.YEAR3, description: '3 ans (affichage par semestre)' },
@@ -79,47 +77,22 @@ const BudgetTableHeader = ({
         [frequencyFilter]
     );
 
-    // Fonction utilitaire pour trouver la période
     const findCurrentPeriod = () => {
         if (!timeRange) return null;
-
-        // Normaliser timeRange (enlever les espaces, standardiser la casse)
         const normalizedTimeRange = timeRange.toString().trim().toLowerCase();
 
-        // Recherche avec différentes stratégies
         for (const option of periodOptions) {
-            // Vérifier si timeRange correspond à l'ID (ex: 'P1D')
             if (normalizedTimeRange === option.id.toLowerCase()) {
-                console.log('Found by ID:', option.id);
                 return option;
             }
-
-            // Vérifier si timeRange correspond au range (ex: 'P1D')
             if (normalizedTimeRange === option.range.toLowerCase()) {
-                console.log('Found by range:', option.range);
                 return option;
             }
-
-            // Vérifier si timeRange correspond au granularity (ex: 'day')
             if (normalizedTimeRange === option.granularity.toLowerCase()) {
-                console.log('Found by granularity:', option.granularity);
                 return option;
             }
-
-            // Vérifier les correspondances spécifiques
-            if (normalizedTimeRange === 'day' && option.range === 'P1D') return option;
-            if (normalizedTimeRange === 'week' && option.range === 'P7D') return option;
-            if (normalizedTimeRange === 'month' && option.range === 'P1M') return option;
-            if (normalizedTimeRange === 'bimester' && option.range === 'P2M') return option;
-            if (normalizedTimeRange === 'trimester' && option.range === 'P3M') return option;
-            if (normalizedTimeRange === 'semester' && option.range === 'P6M') return option;
-            if (normalizedTimeRange === 'year' && option.range === 'P1Y') return option;
-            if (normalizedTimeRange === 'year3' && option.range === 'P3Y') return option;
-            if (normalizedTimeRange === 'year5' && option.range === 'P5Y') return option;
-            if (normalizedTimeRange === 'year7' && option.range === 'P7Y') return option;
         }
 
-        console.log('No period found for timeRange:', normalizedTimeRange);
         return null;
     };
 
@@ -127,17 +100,14 @@ const BudgetTableHeader = ({
 
     const displayLabel = useMemo(() => {
         if (!currentPeriod) return 'Sélectionner';
-
-        // Si c'est la vue jour, afficher la date formatée
         if (currentPeriod.range === 'P1D' || currentPeriod.granularity === 'day') {
-            return `Aujourd’hui – ${today.toLocaleDateString('fr-FR', {
+            return `Aujourd'hui – ${today.toLocaleDateString('fr-FR', {
                 weekday: 'long',
                 day: 'numeric',
                 month: 'long',
                 year: 'numeric'
             })}`;
         }
-
         return currentPeriod.label;
     }, [currentPeriod, today]);
 
@@ -164,11 +134,8 @@ const BudgetTableHeader = ({
         setIsPeriodMenuOpen(false);
     };
 
-    // Fonction pour vérifier si une option est sélectionnée
     const isPeriodSelected = (opt) => {
         if (!timeRange || !currentPeriod) return false;
-
-        // Compare l'option avec la période courante
         return opt.id === currentPeriod.id ||
             opt.range === currentPeriod.range ||
             opt.granularity === currentPeriod.granularity;
@@ -198,7 +165,7 @@ const BudgetTableHeader = ({
                     </button>
 
                     <button onClick={() => handleTimeNavigation('today')}
-                        className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg">
+                        className="px-4 py-2 text-sm font-semibold text-white bg-gray-600 rounded-lg">
                         Aujourd'hui
                     </button>
 
@@ -242,6 +209,7 @@ const BudgetTableHeader = ({
                             )}
                         </AnimatePresence>
                     </div>
+                    
                     {/* VIEW MODE SWITCHER */}
                     {showViewModeSwitcher && (
                         <div className="flex items-center gap-2 ml-2">

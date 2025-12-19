@@ -1,13 +1,21 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback,useRef } from 'react';
 import axios from '../components/config/Axios';
+
+// Cache global pour les consolidations
+let globalConsolidationsCache = null;
+let globalConsolidationsCacheTimestamp = 0;
+const CONSOLIDATIONS_CACHE_TTL = 120000; // 2 minutes
 
 export const useConsolidations = () => {
   const [consolidations, setConsolidations] = useState([]);
   const [consolidatedProjects, setConsolidatedProjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  
+  const hasFetchedInitial = useRef(false);
 
-  const transformConsolidatedData = (apiData) => {
+  // Fonction de transformation stable
+  const transformConsolidatedData = useCallback((apiData) => {
     if (!apiData || !apiData.project_consolidateds || !apiData.project_consolidateds.project_consolidated_items) {
       return [];
     }
@@ -62,41 +70,92 @@ export const useConsolidations = () => {
     });
     
     return Array.from(projectsMap.values());
-  };
+  }, []); // Fonction stable sans dépendances
 
-  const fetchConsolidations = useCallback(async () => {
+  const fetchConsolidations = useCallback(async (forceRefresh = false) => {
+    const now = Date.now();
+    
+    // Utiliser le cache si disponible et valide
+    if (!forceRefresh && globalConsolidationsCache && 
+        now - globalConsolidationsCacheTimestamp < CONSOLIDATIONS_CACHE_TTL) {
+      // Ne mettre à jour que si nécessaire
+      if (JSON.stringify(consolidations) !== JSON.stringify(globalConsolidationsCache)) {
+        setConsolidations(globalConsolidationsCache);
+        
+        // Transformer les données si nécessaire
+        if (globalConsolidationsCache.length > 0) {
+          const transformed = transformConsolidatedData({ 
+            project_consolidateds: { 
+              project_consolidated_items: { data: globalConsolidationsCache } 
+            } 
+          });
+          setConsolidatedProjects(transformed);
+        }
+      }
+      return globalConsolidationsCache;
+    }
+
     setLoading(true);
     setError(null);
+    
     try {
       const response = await axios.get('/consolidations');
+      
       if (response.status === 200) {
+        let consolidationsData = [];
+        
         if (response.data.consolidations && response.data.consolidations.consolidation_items) {
-          setConsolidations(response.data.consolidations.consolidation_items);
+          consolidationsData = response.data.consolidations.consolidation_items;
         } else if (response.data.consolidations) {
-          setConsolidations(response.data.consolidations);
+          consolidationsData = response.data.consolidations;
         } else if (Array.isArray(response.data)) {
-          setConsolidations(response.data);
-        } else {
-          setConsolidations([]);
+          consolidationsData = response.data;
         }
         
-        const transformedProjects = transformConsolidatedData(response.data);
-        setConsolidatedProjects(transformedProjects);
+        // Mettre à jour le cache global
+        globalConsolidationsCache = consolidationsData;
+        globalConsolidationsCacheTimestamp = now;
         
+        // Mettre à jour l'état seulement si les données ont changé
+        if (JSON.stringify(consolidations) !== JSON.stringify(consolidationsData)) {
+          setConsolidations(consolidationsData);
+          
+          // Transformer les données
+          const transformedProjects = transformConsolidatedData(response.data);
+          setConsolidatedProjects(transformedProjects);
+        }
+        
+        return consolidationsData;
       } else {
-        setConsolidations([]);
+        const emptyArray = [];
+        setConsolidations(emptyArray);
         setConsolidatedProjects([]);
+        return emptyArray;
       }
     } catch (err) {
       console.error('Erreur fetchConsolidations:', err);
       setError('Erreur lors du chargement des consolidations.');
+      return globalConsolidationsCache || [];
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [consolidations, transformConsolidatedData]); // Dépendances stabilisées
 
+  // Effet pour le chargement initial - exécuté une seule fois
   useEffect(() => {
-    fetchConsolidations();
+    if (hasFetchedInitial.current) return;
+    
+    const loadInitialConsolidations = async () => {
+      await fetchConsolidations(false);
+      hasFetchedInitial.current = true;
+    };
+    
+    loadInitialConsolidations();
+  }, []); // Exécuté une seule fois au montage
+
+  const refetch = useCallback(() => {
+    hasFetchedInitial.current = false;
+    return fetchConsolidations(true); // Force refresh
   }, [fetchConsolidations]);
 
   return { 
@@ -104,6 +163,12 @@ export const useConsolidations = () => {
     consolidatedProjects, 
     loading, 
     error, 
-    refetch: fetchConsolidations 
+    refetch 
   };
+};
+
+// Fonction pour invalider le cache
+export const invalidateConsolidationsCache = () => {
+  globalConsolidationsCache = null;
+  globalConsolidationsCacheTimestamp = 0;
 };

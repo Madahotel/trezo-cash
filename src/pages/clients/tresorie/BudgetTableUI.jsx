@@ -77,64 +77,141 @@ const BudgetTableUI = ({
         periodEndDate.setHours(23, 59, 59, 999);
         effectiveStartDate.setHours(0, 0, 0, 0);
 
-        // Vérifier d'abord si l'entrée commence après la période
         if (effectiveStartDate > periodEndDate) return false;
 
         let frequencyId;
+        let frequencyName;
+
         if (typeof entryFrequency === 'object') {
             frequencyId = entryFrequency.id ? entryFrequency.id.toString() :
                 entryFrequency.frequency_id ? entryFrequency.frequency_id.toString() : null;
+            frequencyName = entryFrequency.frequency_name || entryFrequency.frequency || '';
         } else {
             frequencyId = entryFrequency ? entryFrequency.toString() : null;
+            frequencyName = typeof entryFrequency === 'string' ? entryFrequency : '';
         }
 
-        const isOneTime = frequencyId === "1" || entryFrequency === "Ponctuel" || entryFrequency === "ponctuel";
+        const isOneTime = frequencyId === "1" ||
+            frequencyName === "Ponctuel" ||
+            frequencyName === "ponctuel" ||
+            frequencyName === "Ponctuelle" ||
+            frequencyName === "ponctuelle";
 
-        // CAS 1: FRÉQUENCE PONCTUELLE
         if (isOneTime) {
             return effectiveStartDate >= periodStartDate && effectiveStartDate <= periodEndDate;
         }
 
-        // CAS 2: FRÉQUENCE MENSUELLE - CORRIGÉ POUR TOUTES LES VUES
-        if (frequencyId === "3" || entryFrequency === "Mensuel" || entryFrequency === "mensuel") {
-            // Ne pas afficher si l'entrée commence après la période
+        const isMonthly = frequencyId === "3" ||
+            frequencyName === "Mensuel" ||
+            frequencyName === "mensuel" ||
+            frequencyName === "Monsuel" ||
+            frequencyName === "monsuel";
+
+        if (isMonthly) {
             if (effectiveStartDate > periodEndDate) return false;
 
-            // Récupérer le jour du mois du paiement (ex: 17)
             const paymentDay = effectiveStartDate.getDate();
+            const paymentMonth = effectiveStartDate.getMonth();
+            const paymentYear = effectiveStartDate.getFullYear();
 
-            // Fonction pour vérifier si une date de paiement tombe dans une période
+            if (timeView === 'trimester') {
+                const periodStartDay = periodStartDate.getDate();
+                const periodEndDay = periodEndDate.getDate();
+
+                const isFirstHalf = periodStartDay >= 1 && periodStartDay <= 15;
+                const isSecondHalf = periodStartDay >= 16;
+
+                let currentMonth = paymentMonth;
+                let currentYear = paymentYear;
+                let currentDate = new Date(paymentYear, paymentMonth, paymentDay);
+
+                if (currentDate < periodStartDate) {
+                    const periodYear = periodStartDate.getFullYear();
+                    const periodMonth = periodStartDate.getMonth();
+
+                    const monthsDiff = (periodYear - paymentYear) * 12 + (periodMonth - paymentMonth);
+
+                    if (monthsDiff >= 0) {
+                        currentYear = periodYear;
+                        currentMonth = periodMonth;
+
+                        const lastDayOfPeriodMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+                        const adjustedPaymentDay = Math.min(paymentDay, lastDayOfPeriodMonth);
+                        currentDate = new Date(currentYear, currentMonth, adjustedPaymentDay);
+
+                        if (currentDate < periodStartDate) {
+                            currentMonth++;
+                            if (currentMonth > 11) {
+                                currentMonth = 0;
+                                currentYear++;
+                            }
+                            const nextMonthLastDay = new Date(currentYear, currentMonth + 1, 0).getDate();
+                            const nextMonthPaymentDay = Math.min(paymentDay, nextMonthLastDay);
+                            currentDate = new Date(currentYear, currentMonth, nextMonthPaymentDay);
+                        }
+                    }
+                }
+
+                while (currentDate <= periodEndDate) {
+                    if (currentDate >= periodStartDate && currentDate <= periodEndDate) {
+                        const currentDay = currentDate.getDate();
+                        const currentMonth = currentDate.getMonth();
+                        const periodMonth = periodStartDate.getMonth();
+
+                        if (currentMonth === periodMonth) {
+                            if (isFirstHalf) {
+                                if (currentDay >= 1 && currentDay <= 15) {
+                                    return true;
+                                }
+                            } else if (isSecondHalf) {
+                                const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+                                if (currentDay >= 16 && currentDay <= lastDayOfMonth) {
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+
+                    currentMonth++;
+                    if (currentMonth > 11) {
+                        currentMonth = 0;
+                        currentYear++;
+                    }
+
+                    const lastDayOfNextMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+                    const nextPaymentDay = Math.min(paymentDay, lastDayOfNextMonth);
+                    currentDate = new Date(currentYear, currentMonth, nextPaymentDay);
+                }
+
+                return false;
+            }
+
             const isPaymentDateInPeriod = (checkDate) => {
                 return checkDate >= effectiveStartDate &&
                     checkDate >= periodStartDate &&
                     checkDate <= periodEndDate;
             };
 
-            // 1. Déterminer le(s) mois qui se chevauchent avec cette période
             const periodStartMonth = periodStartDate.getMonth();
             const periodStartYear = periodStartDate.getFullYear();
             const periodEndMonth = periodEndDate.getMonth();
             const periodEndYear = periodEndDate.getFullYear();
 
-            // Vérifier chaque mois qui se chevauche avec la période
             let currentYear = periodStartYear;
             let currentMonth = periodStartMonth;
 
             while (currentYear < periodEndYear ||
                 (currentYear === periodEndYear && currentMonth <= periodEndMonth)) {
 
-                // Calculer la date de paiement pour ce mois
                 const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
                 const actualPaymentDay = Math.min(paymentDay, lastDayOfMonth);
                 const paymentDateThisMonth = new Date(currentYear, currentMonth, actualPaymentDay);
                 paymentDateThisMonth.setHours(0, 0, 0, 0);
 
-                // Vérifier si cette date de paiement est dans la période
                 if (isPaymentDateInPeriod(paymentDateThisMonth)) {
                     return true;
                 }
 
-                // Passer au mois suivant
                 currentMonth++;
                 if (currentMonth > 11) {
                     currentMonth = 0;
@@ -145,23 +222,19 @@ const BudgetTableUI = ({
             return false;
         }
 
-        // CAS 3: FRÉQUENCE HEBDOMADAIRE - CORRIGÉ
-        if (frequencyId === "4" || entryFrequency === "Hebdomadaire" || entryFrequency === "hebdomadaire") {
+
+        if (frequencyId === "4" || frequencyName === "Hebdomadaire" || frequencyName === "hebdomadaire") {
             if (effectiveStartDate <= periodEndDate) {
-                // Pour la vue Bimestre (8 semaines), on doit vérifier chaque semaine
                 if (timeView === 'bimester') {
-                    // Calculer toutes les semaines depuis la date de début
                     let currentWeek = new Date(effectiveStartDate);
 
                     while (currentWeek <= periodEndDate) {
                         if (currentWeek >= periodStartDate && currentWeek <= periodEndDate) {
                             return true;
                         }
-                        // Passer à la semaine suivante
                         currentWeek.setDate(currentWeek.getDate() + 7);
                     }
                 } else {
-                    // Pour les autres vues, vérifier si un multiple de 7 jours tombe dans la période
                     const diffInDays = Math.floor((periodStartDate - effectiveStartDate) / (1000 * 60 * 60 * 24));
 
                     if (diffInDays >= 0 && diffInDays % 7 === 0) {
@@ -177,24 +250,19 @@ const BudgetTableUI = ({
             return false;
         }
 
-        // CAS 4: FRÉQUENCE BIMENSUELLE (tous les 2 mois)
-        if (frequencyId === "5" || entryFrequency === "Bimensuel" || entryFrequency === "bimensuel") {
+        if (frequencyId === "5" || frequencyName === "Bimensuel" || frequencyName === "bimensuel") {
             if (effectiveStartDate <= periodEndDate) {
                 const paymentDay = effectiveStartDate.getDate();
 
-                // Vérifier tous les 2 mois
                 let currentDate = new Date(effectiveStartDate);
 
                 while (currentDate <= periodEndDate) {
                     if (currentDate >= periodStartDate && currentDate <= periodEndDate) {
-                        // Vérifier aussi le jour du mois
                         if (currentDate.getDate() === paymentDay) {
                             return true;
                         }
                     }
-                    // Passer à 2 mois suivants
                     currentDate.setMonth(currentDate.getMonth() + 2);
-                    // Réappliquer le jour exact
                     const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
                     const actualDay = Math.min(paymentDay, lastDayOfMonth);
                     currentDate.setDate(actualDay);
@@ -203,24 +271,19 @@ const BudgetTableUI = ({
             return false;
         }
 
-        // CAS 5: FRÉQUENCE TRIMESTRIELLE
-        if (frequencyId === "6" || entryFrequency === "Trimestriel" || entryFrequency === "trimestriel") {
+        if (frequencyId === "6" || frequencyName === "Trimestriel" || frequencyName === "trimestriel") {
             if (effectiveStartDate <= periodEndDate) {
                 const paymentDay = effectiveStartDate.getDate();
 
-                // Vérifier tous les trimestres (tous les 3 mois)
                 let currentDate = new Date(effectiveStartDate);
 
                 while (currentDate <= periodEndDate) {
                     if (currentDate >= periodStartDate && currentDate <= periodEndDate) {
-                        // Vérifier aussi le jour du mois
                         if (currentDate.getDate() === paymentDay) {
                             return true;
                         }
                     }
-                    // Passer au trimestre suivant (+3 mois)
                     currentDate.setMonth(currentDate.getMonth() + 3);
-                    // Réappliquer le jour exact
                     const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
                     const actualDay = Math.min(paymentDay, lastDayOfMonth);
                     currentDate.setDate(actualDay);
@@ -229,27 +292,22 @@ const BudgetTableUI = ({
             return false;
         }
 
-        // CAS 6: FRÉQUENCE SEMESTRIELLE
-        if (frequencyId === "7" || entryFrequency === "Semestriel" || entryFrequency === "semestriel") {
+        if (frequencyId === "7" || frequencyName === "Semestriel" || frequencyName === "semestriel") {
             if (effectiveStartDate <= periodEndDate) {
                 const paymentDay = effectiveStartDate.getDate();
                 const paymentMonth = effectiveStartDate.getMonth();
 
-                // Vérifier tous les 6 mois
                 let currentDate = new Date(effectiveStartDate);
 
                 while (currentDate <= periodEndDate) {
                     if (currentDate >= periodStartDate && currentDate <= periodEndDate) {
-                        // Vérifier aussi le jour du mois
                         if (currentDate.getDate() === paymentDay &&
                             (currentDate.getMonth() === paymentMonth ||
                                 currentDate.getMonth() === (paymentMonth + 6) % 12)) {
                             return true;
                         }
                     }
-                    // Passer au semestre suivant (+6 mois)
                     currentDate.setMonth(currentDate.getMonth() + 6);
-                    // Réappliquer le jour exact
                     const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
                     const actualDay = Math.min(paymentDay, lastDayOfMonth);
                     currentDate.setDate(actualDay);
@@ -258,25 +316,20 @@ const BudgetTableUI = ({
             return false;
         }
 
-        // CAS 7: FRÉQUENCE ANNUELLE
-        if (frequencyId === "8" || entryFrequency === "Annuel" || entryFrequency === "annuel") {
+        if (frequencyId === "8" || frequencyName === "Annuel" || frequencyName === "annuel") {
             if (effectiveStartDate <= periodEndDate) {
                 const paymentDay = effectiveStartDate.getDate();
                 const paymentMonth = effectiveStartDate.getMonth();
 
-                // Vérifier chaque année
                 let currentDate = new Date(effectiveStartDate);
 
                 while (currentDate <= periodEndDate) {
                     if (currentDate >= periodStartDate && currentDate <= periodEndDate) {
-                        // Vérifier le mois et le jour exacts
                         if (currentDate.getMonth() === paymentMonth && currentDate.getDate() === paymentDay) {
                             return true;
                         }
                     }
-                    // Passer à l'année suivante
                     currentDate.setFullYear(currentDate.getFullYear() + 1);
-                    // Réappliquer le jour et mois exacts
                     const lastDayOfMonth = new Date(currentDate.getFullYear(), paymentMonth + 1, 0).getDate();
                     const actualDay = Math.min(paymentDay, lastDayOfMonth);
                     currentDate.setMonth(paymentMonth);
@@ -286,14 +339,11 @@ const BudgetTableUI = ({
             return false;
         }
 
-        // CAS PAR DÉFAUT: Si l'entrée commence avant la fin de la période
         return effectiveStartDate <= periodEndDate;
     }, [projectStartDate, timeView]);
 
-    // Calculer le solde initial total
     const totalInitialBalance = React.useMemo(() => {
         if (!effectiveCashAccounts || effectiveCashAccounts.length === 0) {
-            console.log('🔍 DEBUG: Aucun compte de trésorerie trouvé');
             return 0;
         }
 
@@ -301,7 +351,6 @@ const BudgetTableUI = ({
             const initialAmount = parseFloat(account.initial_amount || account.initialBalance || 0);
             if (initialAmount === 10000) {
                 if (account.is_configured === false || account.has_initial_balance === false) {
-                    console.log('🔄 Compte non configuré - on ignore les 10000€');
                     return sum;
                 }
             }
@@ -313,7 +362,6 @@ const BudgetTableUI = ({
             return 0;
         }
         if (total === 10000 && effectiveCashAccounts.every(acc => !acc.is_active || !acc.is_configured)) {
-            console.log('🔄 Correction: Aucun compte actif avec solde réel - retourne 0');
             return 0;
         }
 
@@ -355,8 +403,22 @@ const BudgetTableUI = ({
         };
     }, [groupedData, periods, calculateEntryBudgetForPeriod, calculateActualAmountForPeriod, finalActualTransactions, realBudgetData, shouldDisplayForPeriod]);
 
-    // ✅ CORRIGÉ: Calculer les soldes initiaux BUDGET et RÉEL séparément
-    const calculateAllInitialBalances = React.useMemo(() => {
+    const allNetFlows = React.useMemo(() => {
+        if (!periods || periods.length === 0) return [];
+
+        return periods.map((_, periodIndex) => {
+            const entreesTotals = calculateCategoryTotalsByPeriod('entree', periodIndex);
+            const sortiesTotals = calculateCategoryTotalsByPeriod('sortie', periodIndex);
+
+            return {
+                budget: entreesTotals.periodBudget - sortiesTotals.periodBudget,
+                actual: entreesTotals.periodActual - sortiesTotals.periodActual,
+                reste: (entreesTotals.periodBudget - sortiesTotals.periodBudget) - (entreesTotals.periodActual - sortiesTotals.periodActual)
+            };
+        });
+    }, [periods, calculateCategoryTotalsByPeriod]);
+
+    const allInitialBalances = React.useMemo(() => {
         if (!periods || periods.length === 0) {
             return { budget: [], actual: [] };
         }
@@ -364,79 +426,42 @@ const BudgetTableUI = ({
         const initialBudgetBalances = new Array(periods.length).fill(0);
         const initialActualBalances = new Array(periods.length).fill(0);
 
-        // Premier solde initial = totalInitialBalance
         initialBudgetBalances[0] = totalInitialBalance || 0;
         initialActualBalances[0] = totalInitialBalance || 0;
 
-        console.log('🔢 DEBUG calculateAllInitialBalances - Solde initial période 0:', {
-            budget: initialBudgetBalances[0],
-            actual: initialActualBalances[0]
-        });
-
-        // Pour chaque période suivante
         for (let i = 1; i < periods.length; i++) {
-            // 1. Récupérer les soldes précédents
             const previousBudget = initialBudgetBalances[i - 1];
             const previousActual = initialActualBalances[i - 1];
 
-            // 2. Calculer les flux nets POUR LA PÉRIODE PRÉCÉDENTE (i-1)
-            const entreesPrev = calculateCategoryTotalsByPeriod('entree', i - 1);
-            const sortiesPrev = calculateCategoryTotalsByPeriod('sortie', i - 1);
+            const netFlowBudgetPrev = allNetFlows[i - 1]?.budget || 0;
+            const netFlowActualPrev = allNetFlows[i - 1]?.actual || 0;
 
-            // Flux NET pour la période précédente
-            const netFlowBudgetPrev = entreesPrev.periodBudget - sortiesPrev.periodBudget;
-            const netFlowActualPrev = entreesPrev.periodActual - sortiesPrev.periodActual;
-
-            // 3. Solde initial actuel = solde précédent + flux net précédent
             initialBudgetBalances[i] = previousBudget + netFlowBudgetPrev;
             initialActualBalances[i] = previousActual + netFlowActualPrev;
-
-            console.log(`🔢 DEBUG Propagation pour période ${i}:`, {
-                previousBudget,
-                previousActual,
-                netFlowBudgetPrev,
-                netFlowActualPrev,
-                newBudget: initialBudgetBalances[i],
-                newActual: initialActualBalances[i]
-            });
         }
 
         return {
             budget: initialBudgetBalances,
             actual: initialActualBalances
         };
-    }, [periods, totalInitialBalance, calculateCategoryTotalsByPeriod]);
+    }, [periods, totalInitialBalance, allNetFlows]);
 
-    // ✅ CORRIGÉ: Fonction pour le solde initial (version avec budget/réel)
     const calculateInitialBalance = React.useCallback((periodIndex, type = 'actual') => {
-        if (!calculateAllInitialBalances ||
-            !calculateAllInitialBalances.budget ||
-            !calculateAllInitialBalances.actual) {
+        if (!allInitialBalances ||
+            !allInitialBalances.budget ||
+            !allInitialBalances.actual) {
             return periodIndex === 0 ? (totalInitialBalance || 0) : 0;
         }
 
         return type === 'budget'
-            ? calculateAllInitialBalances.budget[periodIndex] || 0
-            : calculateAllInitialBalances.actual[periodIndex] || 0;
-    }, [calculateAllInitialBalances, totalInitialBalance]);
+            ? allInitialBalances.budget[periodIndex] || 0
+            : allInitialBalances.actual[periodIndex] || 0;
+    }, [allInitialBalances, totalInitialBalance]);
 
-    // ✅ CORRECTION: Fonction pour calculer le flux net
     const calculateNetFlow = React.useCallback((periodIndex) => {
-        const entreesTotals = calculateCategoryTotalsByPeriod('entree', periodIndex);
-        const sortiesTotals = calculateCategoryTotalsByPeriod('sortie', periodIndex);
+        return allNetFlows[periodIndex] || { budget: 0, actual: 0, reste: 0 };
+    }, [allNetFlows]);
 
-        const netBudget = entreesTotals.periodBudget - sortiesTotals.periodBudget;
-        const netActual = entreesTotals.periodActual - sortiesTotals.periodActual;
-        const netReste = netBudget - netActual;
-
-        return {
-            budget: netBudget,
-            actual: netActual,
-            reste: netReste
-        };
-    }, [calculateCategoryTotalsByPeriod]);
-
-    // ✅ CORRIGÉ: Fonction pour le solde final
     const calculateFinalCash = React.useCallback((periodIndex) => {
         const initialBudget = calculateInitialBalance(periodIndex, 'budget');
         const initialActual = calculateInitialBalance(periodIndex, 'actual');
@@ -444,7 +469,7 @@ const BudgetTableUI = ({
 
         const budgetFinal = initialBudget + netFlow.budget;
         const actualFinal = initialActual + netFlow.actual;
-        const reste = netFlow.budget - netFlow.actual; // ou budgetFinal - actualFinal
+        const reste = netFlow.budget - netFlow.actual;
 
         return {
             budget: budgetFinal,
@@ -456,19 +481,10 @@ const BudgetTableUI = ({
             initialActual: initialActual
         };
     }, [calculateInitialBalance, calculateNetFlow]);
-    // Fonction pour vérifier si une entry doit être affichée selon le focus
-    const shouldDisplayEntryByFocus = React.useCallback((entryType) => {
-        if (focusType === 'entree') {
-            return entryType === 'entree';
-        } else if (focusType === 'sortie') {
-            return entryType === 'sortie';
-        } else {
-            return true;
-        }
-    }, [focusType]);
 
-    // ✅ DEBUG: Ajouter un useEffect pour vérifier la cohérence
     React.useEffect(() => {
+        if (periods.length === 0) return;
+
         console.log("=== VÉRIFICATION COHÉRENCE TRÉSORERIE ===");
 
         periods.forEach((period, i) => {
@@ -479,19 +495,28 @@ const BudgetTableUI = ({
             console.log(`Période ${i} (${period.label}):`);
             console.log(`  - Trésorerie début: ${formatCurrency(initial, currencySettings)}`);
             console.log(`  - Flux net: ${formatCurrency(netFlow.actual, currencySettings)}`);
-            console.log(`  - Trésorerie fin calculée: ${formatCurrency(final.actual, currencySettings)}`);
-            console.log(`  - Vérification: ${initial} + ${netFlow.actual} = ${initial + netFlow.actual}`);
-            console.log(`  - Correspond à trésorerie fin: ${(initial + netFlow.actual) === final.actual ? '✅' : '❌'}`);
+            console.log(`  - Trésorerie fin: ${formatCurrency(final.actual, currencySettings)}`);
+            console.log(`  - Calcul: ${initial} + ${netFlow.actual} = ${initial + netFlow.actual}`);
 
-            // Vérifier la propagation
             if (i > 0) {
                 const previousFinal = calculateFinalCash(i - 1);
-                console.log(`  - Propagation: trésorerie fin p${i - 1} = ${formatCurrency(previousFinal.actual, currencySettings)}`);
-                console.log(`  - Doit être égale à trésorerie début p${i}: ${formatCurrency(initial, currencySettings)}`);
-                console.log(`  - Correspondance: ${previousFinal.actual === initial ? '✅' : '❌'}`);
+                const currentInitial = calculateInitialBalance(i);
+                console.log(`  - Propagation: fin p${i - 1} = ${formatCurrency(previousFinal.actual, currencySettings)}`);
+                console.log(`  - Début p${i} = ${formatCurrency(currentInitial, currencySettings)}`);
+                console.log(`  - Correspondance: ${Math.abs(previousFinal.actual - currentInitial) < 0.01 ? '✅' : '❌'}`);
             }
         });
     }, [periods, calculateInitialBalance, calculateNetFlow, calculateFinalCash, formatCurrency, currencySettings]);
+
+    const shouldDisplayEntryByFocus = React.useCallback((entryType) => {
+        if (focusType === 'entree') {
+            return entryType === 'entree';
+        } else if (focusType === 'sortie') {
+            return entryType === 'sortie';
+        } else {
+            return true;
+        }
+    }, [focusType]);
 
     const renderBudgetRows = (type) => {
         const isEntree = type === 'entree';
@@ -509,7 +534,6 @@ const BudgetTableUI = ({
 
         return (
             <>
-                {/* LIGNE DU TOTAL DES CATÉGORIES */}
                 <tr className="bg-gray-200 border-gray-300 cursor-pointer border-y-2" onClick={toggleMainCollapse}>
                     <td className="sticky left-0 z-20 px-4 py-1 bg-gray-200 text-text-primary" style={{ width: columnWidths.category }}>
                         <div className="flex items-center gap-2 font-bold">
@@ -585,13 +609,11 @@ const BudgetTableUI = ({
                     })}
                 </tr>
 
-                {/* CATÉGORIES ET ENTRIES */}
                 {!isCollapsed && mainCategories.length > 0 && mainCategories.map((mainCategory) => {
                     const isMainCollapsed = collapsedItems[mainCategory.id];
 
                     return (
                         <React.Fragment key={mainCategory.id}>
-                            {/* LIGNE DE LA CATÉGORIE AVEC TOTAUX */}
                             <tr onClick={() => toggleCollapse(mainCategory.id)} className="text-gray-700 bg-gray-100 cursor-pointer hover:bg-gray-200">
                                 <td className="sticky left-0 z-20 px-4 py-1 bg-gray-100" style={{ width: columnWidths.category }}>
                                     <div className="flex items-center gap-2 text-xs font-semibold">
@@ -677,7 +699,6 @@ const BudgetTableUI = ({
                                 })}
                             </tr>
 
-                            {/* ENTRIES DE LA CATÉGORIE */}
                             {!isMainCollapsed && mainCategory.entries && mainCategory.entries.map((entry) => {
                                 const hasVisiblePeriods = periods.some(period =>
                                     shouldDisplayForPeriod(
@@ -881,17 +902,26 @@ const BudgetTableUI = ({
                                                 {numVisibleCols > 0 && (
                                                     <div className="grid grid-cols-3 gap-1 text-sm">
                                                         {visibleColumns.budget && (
-                                                            <div className={`relative font-bold text-center text-text-primary`}>
+                                                            <div className={`relative font-bold text-center text-text-primary group`}>
                                                                 {formatCurrency(initialBudget, currencySettings)}
+                                                                <div className="absolute z-50 hidden p-2 text-xs transform -translate-x-1/2 bg-white border rounded shadow-lg group-hover:block bottom-full left-1/2 whitespace-nowrap">
+                                                                    Budget {periodIndex === 0 ? '(Solde initial)' : '(Propagation de la période précédente)'}
+                                                                </div>
                                                             </div>
                                                         )}
                                                         {visibleColumns.actual && (
-                                                            <div className={`relative font-bold text-center text-text-primary`}>
+                                                            <div className={`relative font-bold text-center text-text-primary group`}>
                                                                 {formatCurrency(initialActual, currencySettings)}
+                                                                <div className="absolute z-50 hidden p-2 text-xs transform -translate-x-1/2 bg-white border rounded shadow-lg group-hover:block bottom-full left-1/2 whitespace-nowrap">
+                                                                    Réel {periodIndex === 0 ? '(Solde initial)' : '(Propagation de la période précédente)'}
+                                                                </div>
                                                             </div>
                                                         )}
-                                                        <div className={`relative font-bold text-center ${getResteColor(initialBudget - initialActual, true)}`}>
+                                                        <div className={`relative font-bold text-center ${getResteColor(initialBudget - initialActual, true)} group`}>
                                                             {formatCurrency(initialBudget - initialActual, currencySettings)}
+                                                            <div className="absolute z-50 hidden p-2 text-xs transform -translate-x-1/2 bg-white border rounded shadow-lg group-hover:block bottom-full left-1/2 whitespace-nowrap">
+                                                                Différence budget/réel
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 )}
@@ -904,12 +934,10 @@ const BudgetTableUI = ({
 
                             <tr className="bg-surface"><td colSpan={totalCols} className="py-2"></td></tr>
 
-                            {/* ENTRÉES */}
                             {renderBudgetRows('entree')}
 
                             <tr className="bg-surface"><td colSpan={totalCols} className="py-2"></td></tr>
 
-                            {/* SORTIES */}
                             {renderBudgetRows('sortie')}
 
                             <tr className="bg-surface"><td colSpan={totalCols} className="py-2"></td></tr>
@@ -995,7 +1023,7 @@ const BudgetTableUI = ({
                                 })}
                             </tr>
 
-                            {/* TRÉSORERIE FIN DE PÉRIODE - CORRECTEMENT PROPAGÉE */}
+                            {/* TRÉSORERIE FIN DE PÉRIODE */}
                             <tr className="bg-gray-300 border-t-2 border-gray-400">
                                 <td
                                     className="sticky left-0 z-20 px-4 py-2 font-bold bg-gray-300 text-text-primary"
@@ -1035,18 +1063,28 @@ const BudgetTableUI = ({
                                                 {numVisibleCols > 0 && (
                                                     <div className="grid grid-cols-3 gap-1 text-sm">
                                                         {visibleColumns.budget && (
-                                                            <div className={`relative font-bold text-center ${finalCash.budget < 0 ? 'text-red-700' : 'text-text-primary'}`}>
+                                                            <div className={`relative font-bold text-center ${finalCash.budget < 0 ? 'text-red-700' : 'text-text-primary'} group`}>
                                                                 {formatCurrency(finalCash.budget, currencySettings)}
+                                                                <div className="absolute z-50 hidden p-2 text-xs transform -translate-x-1/2 bg-white border rounded shadow-lg group-hover:block bottom-full left-1/2 whitespace-nowrap">
+                                                                    = {formatCurrency(finalCash.initialBudget, currencySettings)} (début)
+                                                                    + {formatCurrency(finalCash.netFlowBudget, currencySettings)} (flux net)
+                                                                </div>
                                                             </div>
                                                         )}
                                                         {visibleColumns.actual && (
-                                                            <div className={`relative font-bold text-center ${finalCash.actual < 0 ? 'text-red-700' : 'text-text-primary'}`}>
+                                                            <div className={`relative font-bold text-center ${finalCash.actual < 0 ? 'text-red-700' : 'text-text-primary'} group`}>
                                                                 {formatCurrency(finalCash.actual, currencySettings)}
+                                                                <div className="absolute z-50 hidden p-2 text-xs transform -translate-x-1/2 bg-white border rounded shadow-lg group-hover:block bottom-full left-1/2 whitespace-nowrap">
+                                                                    = {formatCurrency(finalCash.initialActual, currencySettings)} (début)
+                                                                    + {formatCurrency(finalCash.netFlowActual, currencySettings)} (flux net)
+                                                                </div>
                                                             </div>
                                                         )}
-                                                        {/* REMA: Reste = différence entre budget sy réel */}
-                                                        <div className={`relative font-bold text-center ${getResteColor(finalCash.reste, true)}`}>
+                                                        <div className={`relative font-bold text-center ${getResteColor(finalCash.reste, true)} group`}>
                                                             {formatCurrency(finalCash.reste, currencySettings)}
+                                                            <div className="absolute z-50 hidden p-2 text-xs transform -translate-x-1/2 bg-white border rounded shadow-lg group-hover:block bottom-full left-1/2 whitespace-nowrap">
+                                                                Différence entre budget et réel
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 )}

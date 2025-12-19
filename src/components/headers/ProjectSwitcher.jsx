@@ -102,39 +102,41 @@ const ProjectSwitcher = () => {
     }
   }, []);
 
-  const validateActiveProject = useCallback(() => {
-    const savedProject = getSavedProject();
-    if (!savedProject) return null;
+  const validateActiveProject = useMemo(() => {
+    return () => {
+      const savedProject = getSavedProject();
+      if (!savedProject) return null;
 
-    const { id, type } = savedProject;
-    const idStr = id ? String(id) : '';
+      const { id, type } = savedProject;
+      const idStr = id ? String(id) : '';
 
-    if (type === 'consolidated' || idStr === 'consolidated' || idStr.startsWith('consolidated_view_')) {
-      if (idStr === 'consolidated') {
-        return savedProject;
-      }
-
-      const consolidatedId = idStr.replace('consolidated_view_', '');
-      const exists = safeConsolidations.some(c =>
-        c && String(c.id) === consolidatedId
-      );
-
-      if (exists) {
-        return savedProject;
-      }
-    } else {
-      const projectExists = allProjects.some(p => areIdsEqual(p.id, id));
-      const project = allProjects.find(p => areIdsEqual(p.id, id));
-
-      if (projectExists && project) {
-        const isArchived = ["1", 1, true, "true"].includes(project?.is_archived ?? project?.isArchived ?? 0);
-        if (!isArchived) {
+      if (type === 'consolidated' || idStr === 'consolidated' || idStr.startsWith('consolidated_view_')) {
+        if (idStr === 'consolidated') {
           return savedProject;
         }
-      }
-    }
 
-    return null;
+        const consolidatedId = idStr.replace('consolidated_view_', '');
+        const exists = safeConsolidations.some(c =>
+          c && String(c.id) === consolidatedId
+        );
+
+        if (exists) {
+          return savedProject;
+        }
+      } else {
+        const projectExists = allProjects.some(p => areIdsEqual(p.id, id));
+        const project = allProjects.find(p => areIdsEqual(p.id, id));
+
+        if (projectExists && project) {
+          const isArchived = ["1", 1, true, "true"].includes(project?.is_archived ?? project?.isArchived ?? 0);
+          if (!isArchived) {
+            return savedProject;
+          }
+        }
+      }
+
+      return null;
+    };
   }, [allProjects, safeConsolidations, getSavedProject]);
 
   const handleDataRefresh = useCallback(async () => {
@@ -153,12 +155,9 @@ const ProjectSwitcher = () => {
     }
   }, [refetchProjects, refetchConsolidations]);
 
+  // Effet d'initialisation - exécuté une seule fois
   useEffect(() => {
-    if (projectsLoading || consolidationsLoading) return;
-
-    if (!hasInitialized.current) {
-      hasInitialized.current = true;
-    }
+    if (projectsLoading || consolidationsLoading || hasInitialized.current) return;
 
     const validProject = validateActiveProject();
 
@@ -188,8 +187,27 @@ const ProjectSwitcher = () => {
     } else if (!uiState.activeProject || !areIdsEqual(uiState.activeProject.id, validProject.id)) {
       uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: validProject });
     }
-  }, [allProjects, myProjects, safeConsolidations, projectsLoading, consolidationsLoading, uiDispatch, saveProject, validateActiveProject, uiState.activeProject]);
 
+    hasInitialized.current = true;
+  }, []); // Exécuté une seule fois au montage
+
+  // Effet pour synchroniser le projet actif quand les données changent
+  useEffect(() => {
+    if (projectsLoading || consolidationsLoading || !hasInitialized.current) return;
+
+    const validProject = validateActiveProject();
+    
+    if (validProject && (!uiState.activeProject || !areIdsEqual(uiState.activeProject.id, validProject.id))) {
+      uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: validProject });
+    } else if (!validProject && myProjects.length > 0 && uiState.activeProject?.type !== 'consolidated') {
+      // Si le projet sauvegardé n'est plus valide, prendre le premier projet
+      const firstProject = myProjects[0];
+      uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: firstProject });
+      saveProject(firstProject);
+    }
+  }, [allProjects, safeConsolidations, projectsLoading, consolidationsLoading]);
+
+  // Effet pour les événements et rafraîchissements automatiques
   useEffect(() => {
     const handleDataRefreshWithDebounce = (event) => {
       if (refreshTimeoutRef.current) {
@@ -198,43 +216,38 @@ const ProjectSwitcher = () => {
       
       refreshTimeoutRef.current = setTimeout(() => {
         handleDataRefresh();
-      }, 500);
+      }, 1000); // Augmenté à 1 seconde
     };
 
-    const events = [
+    // Réduire le nombre d'événements écoutés
+    const essentialEvents = [
       'projectCreated',
-      'projectUpdated', 
       'projectDeleted',
-      'projectArchived',
-      'projectRestored',
-      'projectsUpdated',
       'consolidationCreated',
-      'consolidationCreatedSuccess',
-      'consolidationUpdated',
-      'consolidationDeleted',
-      'consolidationsRefreshed' 
+      'consolidationDeleted'
     ];
     
-    events.forEach(event => {
+    essentialEvents.forEach(event => {
       window.addEventListener(event, handleDataRefreshWithDebounce);
     });
 
+    // Rafraîchissement automatique moins fréquent
     autoRefreshIntervalRef.current = setInterval(() => {
       handleDataRefresh();
-    }, 60000);
+    }, 300000); // 5 minutes
     
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         setTimeout(() => {
           handleDataRefresh();
-        }, 2000);
+        }, 5000); // Attendre 5 secondes après retour à l'onglet
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     
     return () => {
-      events.forEach(event => {
+      essentialEvents.forEach(event => {
         window.removeEventListener(event, handleDataRefreshWithDebounce);
       });
       
@@ -340,6 +353,16 @@ const ProjectSwitcher = () => {
       console.error('Erreur de consolidation:', consolidationsError);
     }
   }, [consolidationsError]);
+
+  // Ajout de logs de débogage (optionnel)
+  useEffect(() => {
+    console.log('🔄 ProjectSwitcher render:', {
+      projectsCount: allProjects.length,
+      consolidationsCount: safeConsolidations.length,
+      loading: { projects: projectsLoading, consolidations: consolidationsLoading },
+      activeProject: uiState.activeProject
+    });
+  }, [allProjects.length, safeConsolidations.length, projectsLoading, consolidationsLoading, uiState.activeProject]);
 
   if (projectsLoading || consolidationsLoading) {
     return (
