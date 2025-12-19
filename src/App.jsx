@@ -5,6 +5,7 @@ import { UIProvider } from "./components/context/UIContext";
 import { AuthProvider } from "./components/context/AuthContext";
 import { SettingsProvider } from "./components/context/SettingsContext";
 import { Toaster } from 'react-hot-toast';
+import { AppCurrencyProvider } from "./contexts/AppCurrencyProvider";
 
 function App() {
   return (
@@ -14,7 +15,9 @@ function App() {
         <DataProvider>
           <UIProvider>
             <SettingsProvider>
-              <RouterProvider router={router} />
+              <AppCurrencyProvider>
+                <RouterProvider router={router} />
+              </AppCurrencyProvider>
             </SettingsProvider>
           </UIProvider>
         </DataProvider>

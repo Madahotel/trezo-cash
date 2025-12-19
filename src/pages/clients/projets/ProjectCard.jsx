@@ -24,7 +24,7 @@ import {
 } from '../../../components/ui/card';
 import { Textarea } from '../../../components/ui/textarea';
 import Badge from '../../../components/ui/badge';
-import { formatCurrency } from '../../../utils/formatters';
+import { useAppCurrency } from '../../../contexts/AppCurrencyProvider';
 import { apiGet } from '../../../components/context/actionsMethode';
 
 const ProjectCard = ({
@@ -72,6 +72,8 @@ const ProjectCard = ({
         { id: 3, name: 'Pierre Lambert', role: 'Designer', avatar: null },
     ]);
 
+    const { formatCurrency } = useAppCurrency();
+
     const fetchProjectBudget = async () => {
         if (!project.id || typeof project.id !== 'number') return;
 
@@ -79,7 +81,6 @@ const ProjectCard = ({
             setBudgetLoading(true);
             await new Promise(resolve => setTimeout(resolve, 100));
 
-            // const data = await apiGet();
             const data = await apiGet(`/budget-projects/${project.id}`);
 
             setProjectBudget({
@@ -229,7 +230,7 @@ const ProjectCard = ({
 
     return (
         <Card className={`relative transition-all duration-200 hover:shadow-md border border-slate-200 bg-white ${isSelected ? 'ring-2 ring-blue-500 shadow-lg' :
-                'hover:border-slate-300'
+            'hover:border-slate-300'
             } ${isActiveProject ? 'ring-1 ring-emerald-500' : ''}`}>
 
             {/* Indicateur de sélection compact */}
@@ -516,14 +517,14 @@ const ProjectCard = ({
                             <span className="text-xs font-medium text-slate-700">Performance</span>
                             <div className="flex items-center space-x-1.5">
                                 <div className={`w-1.5 h-1.5 rounded-full ${financialHealth === 'excellent' ? 'bg-emerald-500' :
-                                        financialHealth === 'bon' ? 'bg-blue-500' :
-                                            financialHealth === 'moyen' ? 'bg-amber-500' :
-                                                financialHealth === 'à améliorer' ? 'bg-orange-500' : 'bg-red-500'
+                                    financialHealth === 'bon' ? 'bg-blue-500' :
+                                        financialHealth === 'moyen' ? 'bg-amber-500' :
+                                            financialHealth === 'à améliorer' ? 'bg-orange-500' : 'bg-red-500'
                                     }`}></div>
                                 <span className={`text-xs font-semibold ${financialHealth === 'excellent' ? 'text-emerald-700' :
-                                        financialHealth === 'bon' ? 'text-blue-700' :
-                                            financialHealth === 'moyen' ? 'text-amber-700' :
-                                                financialHealth === 'à améliorer' ? 'text-orange-700' : 'text-red-700'
+                                    financialHealth === 'bon' ? 'text-blue-700' :
+                                        financialHealth === 'moyen' ? 'text-amber-700' :
+                                            financialHealth === 'à améliorer' ? 'text-orange-700' : 'text-red-700'
                                     }`}>
                                     {financialHealth.charAt(0).toUpperCase() + financialHealth.slice(1)}
                                 </span>

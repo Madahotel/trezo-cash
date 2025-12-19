@@ -29,11 +29,12 @@ import {
 } from '../ui/dropdown-menu';
 import { Button } from '../ui/Button';
 import { useSettings } from '../../contexts/SettingsContext';
+import { useAppCurrency } from '../../contexts/AppCurrencyProvider';
 
 const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
   const { uiState, uiDispatch } = useUI();
-  const { activeProject } = uiState; 
-  const activeProjectId = activeProject?.id || null; 
+  const { activeProject } = uiState;
+  const activeProjectId = activeProject?.id || null;
   const { dataState, fetchProjects } = useData();
 
   const { user, token } = useAuth();
@@ -42,8 +43,6 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
     theme,
     setTheme,
     currencies,
-    selectedCurrency,
-    setSelectedCurrency,
     getAllThemes,
   } = useSettings();
 
@@ -53,6 +52,8 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const [themeActive, setThemeActive] = useState('');
+
+  const { appCurrency, setAppCurrency, refreshExchangeRates, ratesLastUpdated } = useAppCurrency();
 
   useEffect(() => {
     if (user?.id && token) {
@@ -167,17 +168,15 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
       prefix = 'Collaborators ';
     else if (location.pathname.startsWith('/client/comptes'))
       prefix = 'Comptes associé';
-    
+
     return `${prefix} ${projectTypeLabel} : "${projectName}"`;
   }, [activeProjectOrView, location.pathname, profile, user]);
 
-  // CORRECTION : Utiliser userProjects au lieu de projects
   const canShareProject = useMemo(() => {
     if (!activeProjectOrView || !user?.id) {
       return false;
     }
 
-    // CORRECTION : Utiliser la fonction utilitaire pour vérifier le type de projet
     const projectIdInfo = getProjectIdInfo(activeProjectId);
 
     if (projectIdInfo.isConsolidated || projectIdInfo.isCustomConsolidated) {
@@ -201,6 +200,9 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
     navigate('/app/collaborateurs');
   };
 
+  const handleRefreshRates = () => {
+    refreshExchangeRates();
+  };
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
@@ -306,16 +308,32 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
                   <Coins className="w-5 h-5" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
-                <DropdownMenuLabel className="flex items-center">
-                  <Coins className="w-4 h-4 mr-2" />
-                  Choisir votre devise
+              <DropdownMenuContent align="end" className="w-72">
+                <DropdownMenuLabel className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <Coins className="w-4 h-4 mr-2" />
+                    Choisir votre devise
+                  </div>
+                  <button
+                    onClick={handleRefreshRates}
+                    className="p-1 text-xs text-gray-500 hover:text-gray-700"
+                    title="Actualiser les taux de change"
+                  >
+                    ↻
+                  </button>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <div className="px-3 py-1 text-xs text-gray-500">
+                  {ratesLastUpdated ? (
+                    <>Taux mis à jour: {ratesLastUpdated.toLocaleTimeString('fr-FR')}</>
+                  ) : (
+                    'Chargement des taux...'
+                  )}
+                </div>
                 {currencies.map((currency) => (
                   <DropdownMenuItem
                     key={currency.id}
-                    onClick={() => setSelectedCurrency(currency.code)}
+                    onClick={() => setAppCurrency(currency.code)}
                     className="flex items-center justify-between p-3 cursor-pointer"
                   >
                     <div className="flex items-center space-x-3">
@@ -331,7 +349,7 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
                         </div>
                       </div>
                     </div>
-                    {selectedCurrency === currency.code && (
+                    {appCurrency === currency.code && (
                       <Check className="w-4 h-4 text-purple-600" />
                     )}
                   </DropdownMenuItem>
