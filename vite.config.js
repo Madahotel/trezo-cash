@@ -9,6 +9,7 @@ export default defineConfig({
     emptyOutDir: true,
     manifest: true,
   },
+  base: '/react/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -17,11 +18,10 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8000', 
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
       },
     },
   },
 });
-
