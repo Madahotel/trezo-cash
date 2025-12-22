@@ -9,7 +9,7 @@ export default defineConfig({
     emptyOutDir: true,
     manifest: true,
   },
-  base: '/react/',
+  // base: '/react/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
