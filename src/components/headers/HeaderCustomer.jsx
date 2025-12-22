@@ -29,11 +29,12 @@ import {
 } from '../ui/dropdown-menu';
 import { Button } from '../ui/Button';
 import { useSettings } from '../../contexts/SettingsContext';
+import { apiGet, apiPost } from '../context/actionsMethode';
 
 const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
   const { uiState, uiDispatch } = useUI();
-  const { activeProject } = uiState; 
-  const activeProjectId = activeProject?.id || null; 
+  const { activeProject } = uiState;
+  const activeProjectId = activeProject?.id || null;
   const { dataState, fetchProjects } = useData();
 
   const { user, token } = useAuth();
@@ -167,7 +168,7 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
       prefix = 'Collaborators ';
     else if (location.pathname.startsWith('/client/comptes'))
       prefix = 'Comptes associé';
-    
+
     return `${prefix} ${projectTypeLabel} : "${projectName}"`;
   }, [activeProjectOrView, location.pathname, profile, user]);
 
@@ -200,6 +201,59 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
   const handleShareClick = () => {
     navigate('/app/collaborateurs');
   };
+
+  const handleCurrencySelect = async (currency) => {
+    console.log("SELECTED CURRENCY (CLICK):", currency);
+
+    const result = await apiPost("/session-currency", {
+      currency_id: currency,
+    });
+
+    console.log("POST RESULT:", result);
+
+    await fetchSessionCurrency();
+  };
+
+  const [currencyRate, setCurrencyRate] = useState(1);
+
+  const fetchSessionCurrency = async () => {
+    try {
+      const data = await apiGet("/session-currency");
+
+      console.log("GET /session-currency DATA:", data);
+
+      if (!data) return;
+
+      const { currency, rate } = data;
+
+      setSelectedCurrency(currency);
+      setCurrencyRate(rate);
+
+      sessionStorage.setItem(
+        "session_currency",
+        JSON.stringify({ currency, rate })
+      );
+
+      console.log(
+        "SESSION STORAGE SAVED:",
+        sessionStorage.getItem("session_currency")
+      );
+    } catch (error) {
+      console.error("Erreur chargement devise", error);
+    }
+  };
+
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem("session_currency");
+    if (stored) {
+      const { currency, rate } = JSON.parse(stored);
+      setSelectedCurrency(currency);
+      setCurrencyRate(rate);
+    } else {
+      fetchSessionCurrency();
+    }
+  }, []);
 
 
   return (
@@ -315,7 +369,7 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
                 {currencies.map((currency) => (
                   <DropdownMenuItem
                     key={currency.id}
-                    onClick={() => setSelectedCurrency(currency.code)}
+                    onClick={() => handleCurrencySelect(currency.code)}
                     className="flex items-center justify-between p-3 cursor-pointer"
                   >
                     <div className="flex items-center space-x-3">

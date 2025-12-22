@@ -229,7 +229,7 @@ const ProjectCard = ({
 
     return (
         <Card className={`relative transition-all duration-200 hover:shadow-md border border-slate-200 bg-white ${isSelected ? 'ring-2 ring-blue-500 shadow-lg' :
-                'hover:border-slate-300'
+            'hover:border-slate-300'
             } ${isActiveProject ? 'ring-1 ring-emerald-500' : ''}`}>
 
             {/* Indicateur de sélection compact */}
@@ -516,14 +516,14 @@ const ProjectCard = ({
                             <span className="text-xs font-medium text-slate-700">Performance</span>
                             <div className="flex items-center space-x-1.5">
                                 <div className={`w-1.5 h-1.5 rounded-full ${financialHealth === 'excellent' ? 'bg-emerald-500' :
-                                        financialHealth === 'bon' ? 'bg-blue-500' :
-                                            financialHealth === 'moyen' ? 'bg-amber-500' :
-                                                financialHealth === 'à améliorer' ? 'bg-orange-500' : 'bg-red-500'
+                                    financialHealth === 'bon' ? 'bg-blue-500' :
+                                        financialHealth === 'moyen' ? 'bg-amber-500' :
+                                            financialHealth === 'à améliorer' ? 'bg-orange-500' : 'bg-red-500'
                                     }`}></div>
                                 <span className={`text-xs font-semibold ${financialHealth === 'excellent' ? 'text-emerald-700' :
-                                        financialHealth === 'bon' ? 'text-blue-700' :
-                                            financialHealth === 'moyen' ? 'text-amber-700' :
-                                                financialHealth === 'à améliorer' ? 'text-orange-700' : 'text-red-700'
+                                    financialHealth === 'bon' ? 'text-blue-700' :
+                                        financialHealth === 'moyen' ? 'text-amber-700' :
+                                            financialHealth === 'à améliorer' ? 'text-orange-700' : 'text-red-700'
                                     }`}>
                                     {financialHealth.charAt(0).toUpperCase() + financialHealth.slice(1)}
                                 </span>
@@ -541,7 +541,7 @@ const ProjectCard = ({
                                     {budgetLoading ? (
                                         <span className="text-slate-400">...</span>
                                     ) : (
-                                        formatCurrency(projectBudget.sumEntries, project.mainCurrency)
+                                        formatCurrency(projectBudget.sumEntries)
                                     )}
                                 </p>
                                 <div className="w-full bg-slate-200 rounded-full h-1.5">
@@ -561,7 +561,7 @@ const ProjectCard = ({
                                     {budgetLoading ? (
                                         <span className="text-slate-400">...</span>
                                     ) : (
-                                        formatCurrency(projectBudget.sumExpenses, project.mainCurrency)
+                                        formatCurrency(projectBudget.sumExpenses)
                                     )}
                                 </p>
                                 <div className="w-full bg-slate-200 rounded-full h-1.5">
