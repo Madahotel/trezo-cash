@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { apiGet } from '../../../../components/context/actionsMethode';
 
 export const AddAccountForm = ({
   onSave,
@@ -6,13 +7,26 @@ export const AddAccountForm = ({
   showMessageModal,
   accountCategories,
 }) => {
+  const [currencies, setCurrencies] = useState([]);
   const [formData, setFormData] = useState({
     name: '',
     mainCategoryId: 'bank',
     initial_amount: '',
     date_balance: '',
-    currency_id: 1,
+    currency_id: 1, // Valeur par défaut
   });
+
+  useEffect(() => {
+    const fetchdata = async () => {
+      try {
+        const res = await apiGet(`/currencies`);
+        setCurrencies(res.currencies || res); // Adapté pour gérer les deux formats de réponse
+      } catch (error) {
+        console.log('CURRENCY ERROR ===> ', error);
+      }
+    };
+    fetchdata();
+  }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -42,23 +56,48 @@ export const AddAccountForm = ({
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Type de compte
-          </label>
-          <select
-            value={formData.mainCategoryId}
-            onChange={(e) =>
-              setFormData({ ...formData, mainCategoryId: e.target.value })
-            }
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            {accountCategories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Type de compte
+            </label>
+            <select
+              value={formData.mainCategoryId}
+              onChange={(e) =>
+                setFormData({ ...formData, mainCategoryId: e.target.value })
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {accountCategories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Devise
+            </label>
+            <select
+              value={formData.currency_id}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  currency_id: parseInt(e.target.value),
+                })
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {/* <option>Selectionner votre devise</option> */}
+              {currencies.map((currency) => (
+                <option key={currency.id} value={currency.id}>
+                  {currency.name} ({currency.symbol})
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
