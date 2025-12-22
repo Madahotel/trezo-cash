@@ -1,15 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  X,
-  Edit,
-  Wallet,
-  Calendar,
-  Archive,
-  ArchiveRestore,
-  Loader,
-} from 'lucide-react';
-import { formatCurrency } from '../../../utils/formatting';
+import { X, Edit, Wallet, Calendar, Loader } from 'lucide-react';
 import { apiGet } from '../../../components/context/actionsMethode';
 
 const AccountDetailModal = ({
@@ -17,8 +8,6 @@ const AccountDetailModal = ({
   onClose,
   account, // On reçoit seulement l'ID du compte
   onEdit,
-  onCloseAccount,
-  onReopenAccount,
 }) => {
   const [accountData, setAccountData] = useState(null);
   const [reportedAmount, setReportedAmount] = useState(null);
@@ -58,7 +47,6 @@ const AccountDetailModal = ({
     if (isClosed) {
       return (
         <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full flex items-center gap-1">
-          <Archive className="w-3 h-3" />
           Clôturé le {formatDate(closureDate)}
         </span>
       );
@@ -85,16 +73,6 @@ const AccountDetailModal = ({
   const handleEditClick = () => {
     onClose();
     onEdit(accountData);
-  };
-
-  const handleCloseAccountClick = () => {
-    onClose();
-    onCloseAccount(accountData);
-  };
-
-  const handleReopenAccountClick = () => {
-    onClose();
-    onReopenAccount(accountData);
   };
 
   const fetchAccountData = async (id) => {
@@ -282,14 +260,6 @@ const AccountDetailModal = ({
                       Informations supplémentaires
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      {/* <div>
-                        <span className="font-medium text-gray-500">
-                          ID du compte:
-                        </span>
-                        <span className="ml-2 text-gray-900 font-mono">
-                          {accountData.id}
-                        </span>
-                      </div> */}
                       <div>
                         <span className="font-medium text-gray-500">
                           Devise :
@@ -298,16 +268,6 @@ const AccountDetailModal = ({
                           {accountData.currency_name}
                         </span>
                       </div>
-                      {/* <div>
-                        <span className="font-medium text-gray-500">
-                          Date de création:
-                        </span>
-                        <span className="ml-2 text-gray-900">
-                          {accountData.created_at
-                            ? formatDate(accountData.created_at)
-                            : 'Non disponible'}
-                        </span>
-                      </div> */}
                       <div>
                         <span className="font-medium text-gray-500">
                           Dernière modification:
@@ -352,35 +312,14 @@ const AccountDetailModal = ({
                   Fermer
                 </button>
 
-                {accountData && (
-                  <>
-                    {accountData.is_closed ? (
-                      <button
-                        onClick={handleReopenAccountClick}
-                        className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors flex items-center gap-2"
-                      >
-                        <ArchiveRestore className="w-4 h-4" />
-                        Ré-ouvrir
-                      </button>
-                    ) : (
-                      <>
-                        <button
-                          onClick={handleCloseAccountClick}
-                          className="px-4 py-2 text-sm font-medium text-white bg-yellow-600 rounded-md hover:bg-yellow-700 transition-colors flex items-center gap-2"
-                        >
-                          <Archive className="w-4 h-4" />
-                          Clôturer
-                        </button>
-                        <button
-                          onClick={handleEditClick}
-                          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
-                        >
-                          <Edit className="w-4 h-4" />
-                          Modifier
-                        </button>
-                      </>
-                    )}
-                  </>
+                {accountData && !accountData.is_closed && (
+                  <button
+                    onClick={handleEditClick}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
+                  >
+                    <Edit className="w-4 h-4" />
+                    Modifier
+                  </button>
                 )}
               </div>
             </div>

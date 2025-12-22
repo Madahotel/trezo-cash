@@ -1,14 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Wallet,
-  Edit,
-  Archive,
-  ArchiveRestore,
-  Eye,
-  Calendar,
-} from 'lucide-react';
+import { Wallet, Edit, Eye, Calendar, History } from 'lucide-react';
 import { apiGet } from '../../../components/context/actionsMethode';
-// import { formatCurrency } from '../../../utils/formatting';
 
 const AccountsTable = ({
   accounts,
@@ -17,9 +9,8 @@ const AccountsTable = ({
   onCancelEdit,
   onSaveEdit,
   setEditingAccount,
-  onCloseAccount,
-  onReopenAccount,
   onViewDetails,
+  onViewHistory, // Nouvelle prop pour ouvrir l'historique
 }) => {
   const [currencies, setCurrencies] = useState([]);
 
@@ -28,7 +19,6 @@ const AccountsTable = ({
     const fetchCurrencies = async () => {
       try {
         const res = await apiGet(`/currencies`);
-        // Gérer différents formats de réponse
         setCurrencies(res.currencies || res || []);
       } catch (error) {
         console.error('CURRENCY ERROR ===> ', error);
@@ -45,9 +35,7 @@ const AccountsTable = ({
           {accounts.map((account) => (
             <div
               key={account.id}
-              className={`bg-white p-4 sm:p-4 transition-colors hover:bg-gray-50 ${
-                account.is_closed ? 'opacity-60' : ''
-              } border-b border-gray-100 sm:border-b-0`}
+              className="bg-white p-4 sm:p-4 transition-colors hover:bg-gray-50 border-b border-gray-100 sm:border-b-0"
             >
               {editingAccount?.id === account.id ? (
                 <EditAccountForm
@@ -55,15 +43,14 @@ const AccountsTable = ({
                   setEditingAccount={setEditingAccount}
                   onCancel={onCancelEdit}
                   onSave={onSaveEdit}
-                  currencies={currencies} // Passer les devises chargées
+                  currencies={currencies}
                 />
               ) : (
                 <AccountRow
                   account={account}
                   onStartEdit={onStartEdit}
-                  onCloseAccount={onCloseAccount}
-                  onReopenAccount={onReopenAccount}
                   onViewDetails={onViewDetails}
+                  onViewHistory={onViewHistory}
                 />
               )}
             </div>
@@ -86,7 +73,7 @@ const AccountsTable = ({
   );
 };
 
-// Sous-composant pour le formulaire d'édition (responsive)
+// Sous-composant pour le formulaire d'édition
 const EditAccountForm = ({
   editingAccount,
   setEditingAccount,
@@ -94,7 +81,6 @@ const EditAccountForm = ({
   onSave,
   currencies = [],
 }) => {
-  // Fonction pour trouver la devise actuelle
   const getCurrentCurrency = () => {
     if (editingAccount.currency) {
       return editingAccount.currency;
@@ -107,7 +93,6 @@ const EditAccountForm = ({
       return foundCurrency;
     }
 
-    // Fallback par défaut
     return { id: 1, name: 'Euro', code: 'EUR', symbol: '€' };
   };
 
@@ -210,14 +195,8 @@ const EditAccountForm = ({
   );
 };
 
-// Sous-composant pour une ligne de compte (responsive)
-const AccountRow = ({
-  account,
-  onStartEdit,
-  onCloseAccount,
-  onReopenAccount,
-  onViewDetails,
-}) => {
+// Sous-composant pour une ligne de compte
+const AccountRow = ({ account, onStartEdit, onViewDetails, onViewHistory }) => {
   return (
     <div className="group">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
@@ -232,11 +211,6 @@ const AccountRow = ({
               <h3 className="font-medium text-gray-800 truncate text-sm sm:text-base">
                 {account.name}
               </h3>
-              {account.is_closed && (
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-red-100 text-red-700">
-                  Clôturé
-                </span>
-              )}
             </div>
             <p className="text-gray-500 text-xs flex items-center gap-1">
               <Calendar className="w-3 h-3" />
@@ -254,7 +228,6 @@ const AccountRow = ({
                 <p className="text-xs text-gray-500">Solde initial</p>
               </div>
 
-              {/* Solde actuel sur mobile */}
               {account.reportedAmount && (
                 <div>
                   <p className="font-semibold text-gray-800 text-sm">
@@ -270,8 +243,7 @@ const AccountRow = ({
         {/* Section droite - Montants et actions */}
         <div className="flex items-center justify-between sm:justify-end relative min-w-0 sm:min-w-[300px]">
           {/* Montants - cachés sur mobile, visibles sur desktop */}
-          <div className="hidden sm:flex items-center absolute right-0 transition-all duration-300 group-hover:translate-x-[-140px] pr-2 gap-8">
-            {/* Solde initial */}
+          <div className="hidden sm:flex items-center absolute right-0 transition-all duration-300 group-hover:translate-x-[-180px] pr-2 gap-8">
             <div className="text-right">
               <p className="font-semibold text-gray-800 whitespace-nowrap text-sm sm:text-base">
                 {account.initial_amount} {account.currency_symbol}
@@ -281,7 +253,6 @@ const AccountRow = ({
               </p>
             </div>
 
-            {/* Solde actuel */}
             {account.reportedAmount && (
               <div className="text-right">
                 <p className="font-semibold text-gray-800 whitespace-nowrap text-sm sm:text-base">
@@ -296,39 +267,27 @@ const AccountRow = ({
 
           {/* Boutons d'action */}
           <div className="flex items-center gap-1 sm:absolute sm:right-0 sm:opacity-0 sm:group-hover:opacity-100 sm:transition-all sm:duration-300 sm:translate-x-[20px] sm:group-hover:translate-x-0 pl-2">
-            {account.is_closed ? (
-              <button
-                onClick={() => onReopenAccount(account)}
-                className="p-1.5 sm:p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded transition-colors"
-                title="Ré-ouvrir le compte"
-              >
-                <ArchiveRestore className="w-4 h-4" />
-              </button>
-            ) : (
-              <>
-                <button
-                  onClick={() => onViewDetails(account)}
-                  className="p-1.5 sm:p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
-                  title="Voir les détails"
-                >
-                  <Eye className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => onStartEdit(account)}
-                  className="p-1.5 sm:p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
-                  title="Modifier"
-                >
-                  <Edit className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => onCloseAccount(account)}
-                  className="p-1.5 sm:p-2 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded transition-colors"
-                  title="Clôturer le compte"
-                >
-                  <Archive className="w-4 h-4" />
-                </button>
-              </>
-            )}
+            <button
+              onClick={() => onViewDetails(account)}
+              className="p-1.5 sm:p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+              title="Voir les détails"
+            >
+              <Eye className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => onViewHistory(account)}
+              className="p-1.5 sm:p-2 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded transition-colors"
+              title="Voir l'historique des transactions"
+            >
+              <History className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => onStartEdit(account)}
+              className="p-1.5 sm:p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+              title="Modifier"
+            >
+              <Edit className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
