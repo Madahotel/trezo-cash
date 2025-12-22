@@ -10,7 +10,6 @@ import LectureView from './LectureView.jsx';
 import TransactionDetailDrawer from './TransactionDetailDrawer.jsx';
 import BudgetTableHeader from './BudgetTableHeader.jsx';
 
-// Configurations
 const criticalityConfig = {
     critical: { label: 'Critique', color: 'bg-red-500' },
     essential: { label: 'Essentiel', color: 'bg-yellow-500' },
@@ -29,7 +28,6 @@ const frequencyDisplayConfig = {
     'all': { timeUnit: 'month', horizonLength: 6, label: 'Mixte (selon fréquence)' }
 };
 
-// Fonction pour mapper timeView à timeRange
 const getTimeRangeFromView = (timeView) => {
     const viewToRangeMap = {
         day: 'P1D',
@@ -43,7 +41,7 @@ const getTimeRangeFromView = (timeView) => {
         year5: 'P5Y',
         year7: 'P7Y',
     };
-    return viewToRangeMap[timeView] || 'P1M'; // Par défaut: mois
+    return viewToRangeMap[timeView] || 'P1M'; 
 };
 
 const BudgetTableSimple = (props) => {
@@ -80,10 +78,9 @@ const BudgetTableSimple = (props) => {
         onRefresh,
         consolidatedData,
         onEdit,
-        timeRange: externalTimeRange // Si fourni de l'extérieur
+        timeRange: externalTimeRange 
     } = props;
 
-    // États
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [projectData, setProjectData] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -115,19 +112,15 @@ const BudgetTableSimple = (props) => {
     const [monthDisplayMode, setMonthDisplayMode] = useState('byMonth');
     const [showTotals, setShowTotals] = useState(true);
 
-    // Calculer timeRange à partir de timeView
     const timeRange = useMemo(() => {
-        // Priorité: 1. externalTimeRange, 2. calculé à partir de timeView
         return externalTimeRange || getTimeRangeFromView(timeView);
     }, [externalTimeRange, timeView]);
 
-    // Références
     const topScrollRef = useRef(null);
     const mainScrollRef = useRef(null);
     const tierSearchRef = useRef(null);
     const frequencyFilterRef = useRef(null);
 
-    // Context et hooks
     const { dataState: contextDataState } = useData();
     const { realBudgetData, loading: realBudgetLoading } = useRealBudgetData(activeProjectId);
 
@@ -187,7 +180,6 @@ const BudgetTableSimple = (props) => {
             compareDate.getFullYear() === todayDate.getFullYear();
     }, [today]);
 
-    // Fetch des données
     const fetchProjectData = useCallback(async (projectId, frequencyId = null, forceRefresh = false) => {
         if (!projectId) return;
 
@@ -212,7 +204,6 @@ const BudgetTableSimple = (props) => {
                 const hasBudgetItems = data.budgets.budget_items?.length > 0;
                 if (hasBudgetItems) {
                     setProjectData(data);
-                    // Stocker aussi les comptes bancaires séparément
                     if (data.bank_accounts?.bank_account_items) {
                         console.log('Bank accounts from API:', data.bank_accounts.bank_account_items);
                     }
@@ -231,20 +222,17 @@ const BudgetTableSimple = (props) => {
     }, []);
     const [bankAccounts, setBankAccounts] = useState([]);
 
-    // Mettez à jour quand projectData change
     useEffect(() => {
         if (projectData?.bank_accounts?.bank_account_items) {
             setBankAccounts(projectData.bank_accounts.bank_account_items);
         }
     }, [projectData]);
 
-    // Utilisez bankAccounts au lieu de effectiveCashAccounts
     const displayBankAccounts = useMemo(() => {
-        // Priorité: 1. API, 2. finalCashAccounts, 3. contexte, 4. défaut
         if (bankAccounts.length > 0) {
             return bankAccounts;
         }
-        return effectiveCashAccounts; // fallback
+        return effectiveCashAccounts; 
     }, [bankAccounts, effectiveCashAccounts]);
 
     useEffect(() => {
@@ -253,7 +241,6 @@ const BudgetTableSimple = (props) => {
         }
     }, [activeProjectId, frequencyFilter, refreshTrigger, fetchProjectData]);
 
-    // Handlers
     const handleEditBudget = useCallback((item, type, event) => {
         event?.stopPropagation();
         onEdit?.(item, type);
@@ -301,12 +288,6 @@ const BudgetTableSimple = (props) => {
 
         setTimeView(newTimeView);
 
-        // Mettre à jour timeRange si fourni
-        if (selectedTimeRange) {
-            console.log('TimeRange sélectionné:', selectedTimeRange);
-            // Si vous avez besoin de stocker timeRange séparément
-            // Vous pourriez vouloir ajouter un état pour timeRange ici
-        }
 
         uiDispatch({ type: 'SET_PERIOD_OFFSET', payload: 0 });
     }, [uiDispatch]);
@@ -346,7 +327,6 @@ const BudgetTableSimple = (props) => {
 
     const handleDrillDown = useCallback(() => {
         const newCollapsedState = {};
-        // À implémenter selon votre logique de groupement
         setCollapsedItems(newCollapsedState);
         setIsEntreesCollapsed(false);
         setIsSortiesCollapsed(false);
@@ -354,7 +334,6 @@ const BudgetTableSimple = (props) => {
 
     const handleDrillUp = useCallback(() => {
         const newCollapsedState = {};
-        // À implémenter selon votre logique de groupement
         setCollapsedItems(newCollapsedState);
         setIsEntreesCollapsed(true);
         setIsSortiesCollapsed(true);
@@ -362,7 +341,6 @@ const BudgetTableSimple = (props) => {
 
     const handleActualClick = useCallback((context) => {
         console.log('Actual click:', context);
-        // Implémenter l'ouverture du drawer avec les transactions
     }, []);
 
     const handleCloseDrawer = useCallback(() => {
@@ -375,7 +353,6 @@ const BudgetTableSimple = (props) => {
         });
     }, []);
 
-    // Sauvegarde des largeurs de colonnes
     useEffect(() => {
         try {
             localStorage.setItem('budgetAppColumnWidths', JSON.stringify(columnWidths));
@@ -384,7 +361,6 @@ const BudgetTableSimple = (props) => {
         }
     }, [columnWidths]);
 
-    // Gestion du scroll synchronisé
     useEffect(() => {
         const topEl = topScrollRef.current;
         const mainEl = mainScrollRef.current;

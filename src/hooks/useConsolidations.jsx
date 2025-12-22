@@ -1,10 +1,9 @@
-import { useState, useEffect, useCallback,useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from '../components/config/Axios';
 
-// Cache global pour les consolidations
 let globalConsolidationsCache = null;
 let globalConsolidationsCacheTimestamp = 0;
-const CONSOLIDATIONS_CACHE_TTL = 120000; // 2 minutes
+const CONSOLIDATIONS_CACHE_TTL = 120000; 
 
 export const useConsolidations = () => {
   const [consolidations, setConsolidations] = useState([]);
@@ -13,8 +12,8 @@ export const useConsolidations = () => {
   const [error, setError] = useState(null);
   
   const hasFetchedInitial = useRef(false);
+  const abortControllerRef = useRef(null);
 
-  // Fonction de transformation stable
   const transformConsolidatedData = useCallback((apiData) => {
     if (!apiData || !apiData.project_consolidateds || !apiData.project_consolidateds.project_consolidated_items) {
       return [];
@@ -70,7 +69,7 @@ export const useConsolidations = () => {
     });
     
     return Array.from(projectsMap.values());
-  }, []); // Fonction stable sans dépendances
+  }, []);
 
   const fetchConsolidations = useCallback(async (forceRefresh = false) => {
     const now = Date.now();
@@ -99,7 +98,15 @@ export const useConsolidations = () => {
     setError(null);
     
     try {
-      const response = await axios.get('/consolidations');
+      // Annuler la requête précédente si elle existe
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      abortControllerRef.current = new AbortController();
+      
+      const response = await axios.get('/consolidations', {
+        signal: abortControllerRef.current.signal
+      });
       
       if (response.status === 200) {
         let consolidationsData = [];
@@ -133,15 +140,21 @@ export const useConsolidations = () => {
         return emptyArray;
       }
     } catch (err) {
+      // Ignorer les erreurs d'annulation
+      if (err.name === 'AbortError' || err.code === 'ERR_CANCELED') {
+        return globalConsolidationsCache || [];
+      }
+      
       console.error('Erreur fetchConsolidations:', err);
       setError('Erreur lors du chargement des consolidations.');
       return globalConsolidationsCache || [];
     } finally {
       setLoading(false);
+      abortControllerRef.current = null;
     }
-  }, [consolidations, transformConsolidatedData]); // Dépendances stabilisées
+  }, [consolidations, transformConsolidatedData]);
 
-  // Effet pour le chargement initial - exécuté une seule fois
+  // Effet pour le chargement initial
   useEffect(() => {
     if (hasFetchedInitial.current) return;
     
@@ -151,11 +164,17 @@ export const useConsolidations = () => {
     };
     
     loadInitialConsolidations();
-  }, []); // Exécuté une seule fois au montage
+    
+    return () => {
+      // Nettoyer l'abort controller
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   const refetch = useCallback(() => {
-    hasFetchedInitial.current = false;
-    return fetchConsolidations(true); // Force refresh
+    return fetchConsolidations(true);
   }, [fetchConsolidations]);
 
   return { 

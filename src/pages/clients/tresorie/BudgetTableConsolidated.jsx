@@ -17,7 +17,7 @@ import {
     ChevronUp,
 } from 'lucide-react';
 import { useUI } from '../../../components/context/UIContext';
-import { useConsolidationDetails } from '../../../hooks/useConsolidationDetails'; // Importez votre hook
+import { useConsolidationDetails } from '../../../hooks/useConsolidationDetails';
 import TransactionDetailDrawer from './TransactionDetailDrawer.jsx';
 import ResizableTh from './ResizableTh.jsx';
 import {

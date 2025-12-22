@@ -25,16 +25,22 @@ const BudgetTableRow = ({
     criticalityConfig,
     realBudgetData,
     finalActualTransactions,
-    // NOUVELLE PROP: Fonction pour vérifier si l'entrée doit être affichée
     shouldDisplayForPeriod,
-}) => { // ✅ Tsy mila periodStart sy periodEnd ho props
+    indentLevel = 0,
+}) => {
     const subCat = entry.category && entry.mainCategory?.subCategories?.find((sc) => sc.name === entry.category);
     const criticality = subCat?.criticality;
     const critConfig = criticalityConfig[criticality];
 
     return (
         <tr className={`border-b border-gray-100 hover:bg-gray-50 group ${entry.is_vat_child ? 'bg-gray-50/50' : entry.is_vat_payment || entry.is_tax_payment ? 'bg-blue-50/50' : ''}`}>
-            <td className={`px-4 py-1 font-normal text-gray-800 sticky left-0 bg-white group-hover:bg-gray-50 z-20 ${entry.is_vat_child ? 'pl-8' : ''}`} style={{ width: columnWidths.category }}>
+            <td
+                className={`px-4 py-1 font-normal text-gray-800 sticky left-0 bg-white group-hover:bg-gray-50 z-20 ${entry.is_vat_child ? 'pl-8' : ''}`}
+                style={{
+                    width: columnWidths.category,
+                    paddingLeft: indentLevel > 0 ? `${16 + (indentLevel * 40)}px` : (entry.is_vat_child ? '32px' : '16px')
+                }}
+            >
                 <div className="flex items-center gap-2">
                     {critConfig && (
                         <span className={`w-2 h-2 rounded-full ${critConfig.color}`} title={`Criticité: ${critConfig.label}`}></span>
@@ -70,8 +76,8 @@ const BudgetTableRow = ({
             <td className="bg-surface"></td>
             {periods.map((period, periodIndex) => {
                 // Vérifier si cette entrée doit être affichée pour cette période
-                const shouldDisplay = shouldDisplayForPeriod ? 
-                    shouldDisplayForPeriod(entry.startDate, period.startDate, period.endDate, entry.frequency, period.displayMode) : 
+                const shouldDisplay = shouldDisplayForPeriod ?
+                    shouldDisplayForPeriod(entry.startDate, period.startDate, period.endDate, entry.frequency, period.displayMode) :
                     true; // ✅ Fanitsiana eto: entry.startDate no voalohany
 
                 if (!shouldDisplay) {
@@ -123,7 +129,7 @@ const BudgetTableRow = ({
                 const actual = calculateActualAmountForPeriod(entry, finalActualTransactions, period.startDate, period.endDate, realBudgetData);
                 const reste = budget - actual;
                 const columnIdBase = period.startDate.toISOString();
-                
+
                 return (
                     <React.Fragment key={periodIndex}>
                         <td className="px-1 py-1" style={periodCellStyle}>
@@ -149,25 +155,24 @@ const BudgetTableRow = ({
                                                     handleActualClick({ entry, period, source: 'entry' });
                                                 }}
                                                 disabled={actual === 0 && budget === 0}
-                                                className={`hover:underline disabled:cursor-not-allowed disabled:text-gray-400 ${
-                                                    realBudgetData?.real_budget_items?.data && 
-                                                    realBudgetData.real_budget_items.data.some(
-                                                        (rb) => (rb.budget_id === entry.budget_id || rb.project_id === entry.project_id) &&
+                                                className={`hover:underline disabled:cursor-not-allowed disabled:text-gray-400 ${realBudgetData?.real_budget_items?.data &&
+                                                        realBudgetData.real_budget_items.data.some(
+                                                            (rb) => (rb.budget_id === entry.budget_id || rb.project_id === entry.project_id) &&
                                                                 rb.collection_date &&
                                                                 new Date(rb.collection_date) >= period.startDate &&
                                                                 new Date(rb.collection_date) <= period.endDate
-                                                    ) ? 'font-semibold text-green-600' :
-                                                    entry.collectionData?.collection?.length > 0 ? 'font-semibold text-blue-600' : 'text-blue-600'
-                                                }`}
+                                                        ) ? 'font-semibold text-green-600' :
+                                                        entry.collectionData?.collection?.length > 0 ? 'font-semibold text-blue-600' : 'text-blue-600'
+                                                    }`}
                                                 title={
                                                     realBudgetData?.real_budget_items?.data &&
-                                                    realBudgetData.real_budget_items.data.some(
-                                                        (rb) => (rb.budget_id === entry.budget_id || rb.project_id === entry.project_id) &&
+                                                        realBudgetData.real_budget_items.data.some(
+                                                            (rb) => (rb.budget_id === entry.budget_id || rb.project_id === entry.project_id) &&
                                                                 rb.collection_date &&
                                                                 new Date(rb.collection_date) >= period.startDate &&
                                                                 new Date(rb.collection_date) <= period.endDate
-                                                    ) ? 'Montant provenant des données real_budget API' :
-                                                    entry.collectionData?.collection?.length > 0 ? 'Montant provenant des collections' : 'Montant provenant des paiements'
+                                                        ) ? 'Montant provenant des données real_budget API' :
+                                                        entry.collectionData?.collection?.length > 0 ? 'Montant provenant des collections' : 'Montant provenant des paiements'
                                                 }
                                             >
                                                 {formatCurrency(actual, currencySettings)}

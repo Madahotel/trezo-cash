@@ -356,25 +356,43 @@ const calculateYear3Periods = (baseDate, count) => {
     const periods = [];
     let currentDate = new Date(baseDate);
 
-    for (let i = 0; i < count * 3; i++) {
-        for (let semester = 0; semester < 2; semester++) {
-            const semesterStart = new Date(currentDate.getFullYear(), semester * 6, 1);
-            const semesterEnd = new Date(currentDate.getFullYear(), (semester + 1) * 6, 0, 23, 59, 59, 999);
+    // S'assurer qu'on commence au début de l'année
+    currentDate.setMonth(0, 1);
+    currentDate.setHours(0, 0, 0, 0);
 
-            const semesterNumber = semester + 1;
-            const year = semesterStart.getFullYear();
+    // Pour year3, afficher par semestre sur 3 ans (6 semestres)
+    const totalYears = 3;
+    const semestersPerYear = 2;
+    const totalSemesters = totalYears * semestersPerYear;
 
-            periods.push({
-                label: `S${semesterNumber} ${year}`,
-                startDate: new Date(semesterStart),
-                endDate: new Date(semesterEnd),
-                timeView: 'year3',
-                semesterIndex: semester,
-                yearIndex: i
-            });
-        }
+    for (let i = 0; i < totalSemesters; i++) {
+        const yearIndex = Math.floor(i / 2);
+        const semesterIndex = i % 2; // 0 = S1, 1 = S2
 
-        currentDate.setFullYear(currentDate.getFullYear() + 1);
+        const semesterStartMonth = semesterIndex * 6; // 0 ou 6
+        const semesterEndMonth = semesterStartMonth + 5; // 5 ou 11
+
+        const semesterStart = new Date(currentDate.getFullYear() + yearIndex, semesterStartMonth, 1);
+        const semesterEnd = new Date(currentDate.getFullYear() + yearIndex, semesterEndMonth + 1, 0, 23, 59, 59, 999);
+
+        const semesterNumber = semesterIndex + 1;
+        const yearNumber = semesterStart.getFullYear();
+
+        periods.push({
+            label: `S${semesterNumber} ${yearNumber}`,
+            startDate: new Date(semesterStart),
+            endDate: new Date(semesterEnd),
+            timeView: 'year3',
+            semesterIndex: i,
+            yearIndex: yearIndex,
+            year: yearNumber,
+            semester: semesterNumber,
+            isSemesterView: true,
+            semesterStartMonth: semesterStartMonth,
+            semesterEndMonth: semesterEndMonth,
+            semesterMonths: [semesterStartMonth, semesterStartMonth + 1, semesterStartMonth + 2,
+                semesterStartMonth + 3, semesterStartMonth + 4, semesterStartMonth + 5]
+        });
     }
 
     return periods;
@@ -384,19 +402,21 @@ const calculateYear5Periods = (baseDate, count) => {
     const periods = [];
     let currentDate = new Date(baseDate);
 
-    for (let i = 0; i < count; i++) {
-        const yearStart = new Date(currentDate.getFullYear(), 0, 1);
-        const yearEnd = new Date(currentDate.getFullYear(), 11, 31, 23, 59, 59, 999);
+    // Pour year5, afficher par année sur 5 ans
+    for (let i = 0; i < 5; i++) {
+        const yearStart = new Date(currentDate.getFullYear() + i, 0, 1);
+        const yearEnd = new Date(currentDate.getFullYear() + i, 11, 31, 23, 59, 59, 999);
+
+        const yearNumber = yearStart.getFullYear();
 
         periods.push({
-            label: currentDate.getFullYear().toString(),
+            label: yearNumber.toString(),
             startDate: new Date(yearStart),
             endDate: new Date(yearEnd),
             timeView: 'year5',
-            yearIndex: i
+            yearIndex: i,
+            year: yearNumber
         });
-
-        currentDate.setFullYear(currentDate.getFullYear() + 1);
     }
 
     return periods;
@@ -406,19 +426,21 @@ const calculateYear7Periods = (baseDate, count) => {
     const periods = [];
     let currentDate = new Date(baseDate);
 
-    for (let i = 0; i < count; i++) {
-        const yearStart = new Date(currentDate.getFullYear(), 0, 1);
-        const yearEnd = new Date(currentDate.getFullYear(), 11, 31, 23, 59, 59, 999);
+    // Pour year7, afficher par année sur 7 ans
+    for (let i = 0; i < 7; i++) {
+        const yearStart = new Date(currentDate.getFullYear() + i, 0, 1);
+        const yearEnd = new Date(currentDate.getFullYear() + i, 11, 31, 23, 59, 59, 999);
+
+        const yearNumber = yearStart.getFullYear();
 
         periods.push({
-            label: currentDate.getFullYear().toString(),
+            label: yearNumber.toString(),
             startDate: new Date(yearStart),
             endDate: new Date(yearEnd),
             timeView: 'year7',
-            yearIndex: i
+            yearIndex: i,
+            year: yearNumber
         });
-
-        currentDate.setFullYear(currentDate.getFullYear() + 1);
     }
 
     return periods;
@@ -451,7 +473,6 @@ const BudgetDataManager = ({
             const todayDate = new Date(today || new Date());
             let baseDate = new Date(todayDate);
 
-            // Ajuster selon le décalage
             switch (timeView) {
                 case 'day':
                     baseDate.setDate(baseDate.getDate() + (periodOffset || 0));
@@ -838,7 +859,32 @@ const BudgetDataManager = ({
         [filteredExpandedAndVatEntries, isRowVisibleInPeriods]
     );
 
-    // Ao amin'ny BudgetDataManager, corrigez la fonction calculateEntryBudgetForPeriod
+    const isEntryActiveForPeriod = useCallback((entry, periodStart, periodEnd) => {
+        try {
+            const entryStart = entry.startDate ? new Date(entry.startDate) :
+                (entry.start_date ? new Date(entry.start_date) : null);
+            const entryEnd = entry.endDate ? new Date(entry.endDate) :
+                (entry.end_date ? new Date(entry.end_date) : null);
+
+            if (!entryStart) return true;
+
+            const frequencyId = entry?.frequency_id?.toString();
+            const isOneTime = frequencyId === "1" || entry?.frequency_name === "Ponctuel";
+
+            if (isOneTime) {
+                return entryStart >= periodStart && entryStart <= periodEnd;
+            }
+
+            if (entryStart > periodEnd) return false;
+            if (entryEnd && entryEnd < periodStart) return false;
+
+            return true;
+        } catch (error) {
+            console.error('Erreur dans isEntryActiveForPeriod:', error);
+            return false;
+        }
+    }, []);
+
     const calculateEntryBudgetForPeriod = useCallback((entry, periodStart, periodEnd, periodIndex, periodInfo) => {
         try {
             const amount = entry?.budget_amount || entry?.amount || 0;
@@ -862,7 +908,6 @@ const BudgetDataManager = ({
             const isSemiannual = frequencyId === "7" || entry?.frequency_name === "Semestriel" || entry?.frequency === "Semestriel";
             const isAnnual = frequencyId === "8" || entry?.frequency_name === "Annuel" || entry?.frequency === "Annuel";
 
-            // CAS 1: FRÉQUENCE PONCTUELLE
             if (isOneTime) {
                 const entryDate = effectiveStartDate;
                 if (entryDate >= periodStart && entryDate <= periodEnd) {
@@ -871,13 +916,250 @@ const BudgetDataManager = ({
                 return 0;
             }
 
-            // CAS 2: FRÉQUENCE MENSUELLE - GESTION POUR TOUTES LES VUES
+            if (timeView === 'year3') {
+                const periodYear = periodStart.getFullYear();
+                const periodStartMonth = periodStart.getMonth();
+                const periodEndMonth = periodEnd.getMonth();
+
+                const isFirstSemester = periodStartMonth === 0;
+                const isSecondSemester = periodStartMonth === 6;
+
+                if (isMonthly) {
+                    const paymentDay = effectiveStartDate.getDate();
+                    const paymentMonth = effectiveStartDate.getMonth();
+                    const paymentYear = effectiveStartDate.getFullYear();
+
+                    if (paymentYear > periodYear) return 0;
+                    if (paymentYear === periodYear && paymentMonth > periodEndMonth) return 0;
+
+                    let currentYear = paymentYear;
+                    let currentMonth = paymentMonth;
+
+                    if (currentYear < periodYear || (currentYear === periodYear && currentMonth < periodStartMonth)) {
+                        currentYear = periodYear;
+                        currentMonth = periodStartMonth;
+                    }
+
+                    let totalPaymentsInSemester = 0;
+
+                    for (let monthOffset = 0; monthOffset < 6; monthOffset++) {
+                        const checkMonth = periodStartMonth + monthOffset;
+                        const checkYear = periodYear;
+
+                        if (checkYear >= paymentYear) {
+                            if (checkYear > paymentYear || checkMonth >= paymentMonth) {
+                                const entryEnd = entry.endDate ? new Date(entry.endDate) :
+                                    (entry.end_date ? new Date(entry.end_date) : null);
+
+                                if (!entryEnd ||
+                                    (checkYear < entryEnd.getFullYear() ||
+                                        (checkYear === entryEnd.getFullYear() && checkMonth <= entryEnd.getMonth()))) {
+
+                                    const lastDayOfMonth = new Date(checkYear, checkMonth + 1, 0).getDate();
+                                    if (paymentDay <= lastDayOfMonth) {
+                                        totalPaymentsInSemester += amount;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    return totalPaymentsInSemester;
+                }
+
+                if (isQuarterly) {
+                    const paymentDay = effectiveStartDate.getDate();
+                    const paymentMonth = effectiveStartDate.getMonth();
+                    const paymentYear = effectiveStartDate.getFullYear();
+
+                    const quarter1StartMonth = periodStartMonth;
+                    const quarter2StartMonth = periodStartMonth + 3;
+
+                    let totalAmount = 0;
+
+                    if (paymentMonth === quarter1StartMonth ||
+                        paymentMonth === quarter1StartMonth % 12) {
+                        const checkYear = paymentYear <= periodYear ? periodYear : paymentYear;
+                        const lastDayOfMonth = new Date(checkYear, quarter1StartMonth + 1, 0).getDate();
+                        const actualPaymentDay = Math.min(paymentDay, lastDayOfMonth);
+                        const paymentDate = new Date(checkYear, quarter1StartMonth, actualPaymentDay);
+
+                        if (paymentDate >= periodStart && paymentDate <= periodEnd) {
+                            totalAmount += amount;
+                        }
+                    }
+
+                    if (paymentMonth === quarter2StartMonth ||
+                        paymentMonth === quarter2StartMonth % 12) {
+                        const checkYear = paymentYear <= periodYear ? periodYear : paymentYear;
+                        const lastDayOfMonth = new Date(checkYear, quarter2StartMonth + 1, 0).getDate();
+                        const actualPaymentDay = Math.min(paymentDay, lastDayOfMonth);
+                        const paymentDate = new Date(checkYear, quarter2StartMonth, actualPaymentDay);
+
+                        if (paymentDate >= periodStart && paymentDate <= periodEnd) {
+                            totalAmount += amount;
+                        }
+                    }
+
+                    return totalAmount;
+                }
+
+                if (isSemiannual) {
+                    const paymentDay = effectiveStartDate.getDate();
+                    const paymentMonth = effectiveStartDate.getMonth();
+                    const paymentYear = effectiveStartDate.getFullYear();
+
+                    if (paymentMonth === periodStartMonth) {
+                        const checkYear = paymentYear <= periodYear ? periodYear : paymentYear;
+                        const lastDayOfMonth = new Date(checkYear, paymentMonth + 1, 0).getDate();
+                        const actualPaymentDay = Math.min(paymentDay, lastDayOfMonth);
+                        const paymentDate = new Date(checkYear, paymentMonth, actualPaymentDay);
+
+                        if (paymentDate >= periodStart && paymentDate <= periodEnd) {
+                            return amount;
+                        }
+                    }
+                    return 0;
+                }
+
+                if (isAnnual) {
+                    const paymentDay = effectiveStartDate.getDate();
+                    const paymentMonth = effectiveStartDate.getMonth();
+                    const paymentYear = effectiveStartDate.getFullYear();
+
+                    if (paymentYear === periodYear) {
+                        if ((isFirstSemester && paymentMonth >= 0 && paymentMonth <= 5) ||
+                            (isSecondSemester && paymentMonth >= 6 && paymentMonth <= 11)) {
+
+                            const lastDayOfMonth = new Date(paymentYear, paymentMonth + 1, 0).getDate();
+                            const actualPaymentDay = Math.min(paymentDay, lastDayOfMonth);
+                            const paymentDate = new Date(paymentYear, paymentMonth, actualPaymentDay);
+
+                            if (paymentDate >= periodStart && paymentDate <= periodEnd) {
+                                return amount;
+                            }
+                        }
+                    }
+                    return 0;
+                }
+
+                return calculateEntryAmountForPeriod(entry, periodStart, periodEnd, timeView);
+            }
+
+            if (timeView === 'year5' || timeView === 'year7') {
+                const periodYear = periodStart.getFullYear();
+                const periodStartMonth = 0; 
+                const periodEndMonth = 11; 
+
+                if (isMonthly) {
+                    const paymentDay = effectiveStartDate.getDate();
+                    const paymentMonth = effectiveStartDate.getMonth();
+                    const paymentYear = effectiveStartDate.getFullYear();
+
+                    if (paymentYear > periodYear) return 0;
+
+                    let currentYear = paymentYear > periodYear ? periodYear : paymentYear;
+
+                    let totalPaymentsInYear = 0;
+
+                    for (let month = 0; month < 12; month++) {
+                        const checkMonth = month;
+                        const checkYear = periodYear;
+
+                        if (checkYear >= paymentYear) {
+                            if (checkYear > paymentYear || checkMonth >= paymentMonth) {
+                                const entryEnd = entry.endDate ? new Date(entry.endDate) :
+                                    (entry.end_date ? new Date(entry.end_date) : null);
+
+                                if (!entryEnd ||
+                                    (checkYear < entryEnd.getFullYear() ||
+                                        (checkYear === entryEnd.getFullYear() && checkMonth <= entryEnd.getMonth()))) {
+
+                                    const lastDayOfMonth = new Date(checkYear, checkMonth + 1, 0).getDate();
+                                    if (paymentDay <= lastDayOfMonth) {
+                                        totalPaymentsInYear += amount;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    return totalPaymentsInYear;
+                }
+
+                if (isQuarterly) {
+                    const paymentDay = effectiveStartDate.getDate();
+                    const paymentMonth = effectiveStartDate.getMonth();
+                    const paymentYear = effectiveStartDate.getFullYear();
+
+                    let totalAmount = 0;
+
+                    for (let quarter = 0; quarter < 4; quarter++) {
+                        const quarterMonth = quarter * 3;
+
+                        if (paymentMonth === quarterMonth || paymentMonth === quarterMonth % 12) {
+                            const checkYear = paymentYear <= periodYear ? periodYear : paymentYear;
+                            const lastDayOfMonth = new Date(checkYear, quarterMonth + 1, 0).getDate();
+                            const actualPaymentDay = Math.min(paymentDay, lastDayOfMonth);
+                            const paymentDate = new Date(checkYear, quarterMonth, actualPaymentDay);
+
+                            if (paymentDate >= periodStart && paymentDate <= periodEnd) {
+                                totalAmount += amount;
+                            }
+                        }
+                    }
+
+                    return totalAmount;
+                }
+
+                if (isSemiannual) {
+                    const paymentDay = effectiveStartDate.getDate();
+                    const paymentMonth = effectiveStartDate.getMonth();
+                    const paymentYear = effectiveStartDate.getFullYear();
+
+                    let totalAmount = 0;
+
+                    for (let semester = 0; semester < 2; semester++) {
+                        const semesterMonth = semester * 6;
+
+                        if (paymentMonth === semesterMonth || paymentMonth === semesterMonth % 12) {
+                            const checkYear = paymentYear <= periodYear ? periodYear : paymentYear;
+                            const lastDayOfMonth = new Date(checkYear, semesterMonth + 1, 0).getDate();
+                            const actualPaymentDay = Math.min(paymentDay, lastDayOfMonth);
+                            const paymentDate = new Date(checkYear, semesterMonth, actualPaymentDay);
+
+                            if (paymentDate >= periodStart && paymentDate <= periodEnd) {
+                                totalAmount += amount;
+                            }
+                        }
+                    }
+
+                    return totalAmount;
+                }
+
+                if (isAnnual) {
+                    const paymentDay = effectiveStartDate.getDate();
+                    const paymentMonth = effectiveStartDate.getMonth();
+                    const paymentYear = effectiveStartDate.getFullYear();
+
+                    if (paymentYear === periodYear) {
+                        const lastDayOfMonth = new Date(paymentYear, paymentMonth + 1, 0).getDate();
+                        const actualPaymentDay = Math.min(paymentDay, lastDayOfMonth);
+                        const paymentDate = new Date(paymentYear, paymentMonth, actualPaymentDay);
+
+                        if (paymentDate >= periodStart && paymentDate <= periodEnd) {
+                            return amount;
+                        }
+                    }
+                    return 0;
+                }
+                return calculateEntryAmountForPeriod(entry, periodStart, periodEnd, timeView);
+            }
+
             if (isMonthly) {
                 const paymentDay = effectiveStartDate.getDate();
 
-                // VUE TRIMESTRE PAR QUINZAINE
                 if (timeView === 'trimester') {
-                    // [Gardez le code existant pour trimestre]
                     let currentDate = new Date(effectiveStartDate);
 
                     if (currentDate < periodStart) {
@@ -928,7 +1210,6 @@ const BudgetDataManager = ({
                 }
 
                 if (timeView === 'bimester') {
-
                     let currentDate = new Date(effectiveStartDate);
 
                     if (currentDate < periodStart) {
@@ -949,29 +1230,23 @@ const BudgetDataManager = ({
                         }
                     }
 
-                    let totalAmount = 0;
-
                     while (currentDate <= periodEnd) {
                         if (currentDate >= periodStart && currentDate <= periodEnd) {
-
                             return amount;
                         }
-
 
                         currentDate.setMonth(currentDate.getMonth() + 1);
                         const lastDayOfNextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
                         const nextPaymentDay = Math.min(paymentDay, lastDayOfNextMonth);
                         currentDate.setDate(nextPaymentDay);
 
-
                         if (currentDate > periodEnd) break;
                     }
 
-                    return totalAmount;
+                    return 0;
                 }
 
                 if (timeView === 'semester') {
-
                     const isMonthPeriod = (periodEnd - periodStart) >= (28 * 24 * 60 * 60 * 1000) &&
                         (periodEnd - periodStart) <= (31 * 24 * 60 * 60 * 1000);
 
@@ -1001,7 +1276,6 @@ const BudgetDataManager = ({
                             return amount;
                         }
 
-                        // Vérifier aussi le mois suivant si on est à la fin du mois
                         const nextMonthDate = new Date(currentDate);
                         nextMonthDate.setMonth(nextMonthDate.getMonth() + 1);
                         const lastDayOfNextMonth = new Date(nextMonthDate.getFullYear(), nextMonthDate.getMonth() + 1, 0).getDate();
@@ -1013,50 +1287,23 @@ const BudgetDataManager = ({
                             return amount;
                         }
                     } else {
-                        // Vue semestre entier - utiliser la logique standard
                         return calculateEntryAmountForPeriod(entry, periodStart, periodEnd, timeView);
                     }
 
                     return 0;
                 }
 
-                // Pour les autres vues (week, month, year), utiliser la fonction existante
                 return calculateEntryAmountForPeriod(entry, periodStart, periodEnd, timeView);
             }
 
-            // Pour toutes les autres fréquences, utiliser la fonction existante
             return calculateEntryAmountForPeriod(entry, periodStart, periodEnd, timeView);
 
         } catch (error) {
             console.error('Erreur dans calculateEntryBudgetForPeriod:', error);
             return 0;
         }
-    }, [timeView]);
-    const isEntryActiveForPeriod = useCallback((entry, periodStart, periodEnd) => {
-        try {
-            const entryStart = entry.startDate ? new Date(entry.startDate) :
-                (entry.start_date ? new Date(entry.start_date) : null);
-            const entryEnd = entry.endDate ? new Date(entry.endDate) :
-                (entry.end_date ? new Date(entry.end_date) : null);
+    }, [timeView, calculateEntryAmountForPeriod, isEntryActiveForPeriod]);
 
-            if (!entryStart) return true;
-
-            const frequencyId = entry?.frequency_id?.toString();
-            const isOneTime = frequencyId === "1" || entry?.frequency_name === "Ponctuel";
-
-            if (isOneTime) {
-                return entryStart >= periodStart && entryStart <= periodEnd;
-            }
-
-            if (entryStart > periodEnd) return false;
-            if (entryEnd && entryEnd < periodStart) return false;
-
-            return true;
-        } catch (error) {
-            console.error('Erreur dans isEntryActiveForPeriod:', error);
-            return false;
-        }
-    }, []);
 
 
 
