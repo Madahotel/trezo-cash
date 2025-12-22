@@ -102,45 +102,43 @@ const ProjectSwitcher = () => {
     }
   }, []);
 
-  const validateActiveProject = useMemo(() => {
-    return () => {
-      const savedProject = getSavedProject();
-      if (!savedProject) return null;
+  const validateActiveProject = useCallback(() => {
+    const savedProject = getSavedProject();
+    if (!savedProject) return null;
 
-      const { id, type } = savedProject;
-      const idStr = id ? String(id) : '';
+    const { id, type } = savedProject;
+    const idStr = id ? String(id) : '';
 
-      if (type === 'consolidated' || idStr === 'consolidated' || idStr.startsWith('consolidated_view_')) {
-        if (idStr === 'consolidated') {
-          return savedProject;
-        }
-
-        const consolidatedId = idStr.replace('consolidated_view_', '');
-        const exists = safeConsolidations.some(c =>
-          c && String(c.id) === consolidatedId
-        );
-
-        if (exists) {
-          return savedProject;
-        }
-      } else {
-        const projectExists = allProjects.some(p => areIdsEqual(p.id, id));
-        const project = allProjects.find(p => areIdsEqual(p.id, id));
-
-        if (projectExists && project) {
-          const isArchived = ["1", 1, true, "true"].includes(project?.is_archived ?? project?.isArchived ?? 0);
-          if (!isArchived) {
-            return savedProject;
-          }
-        }
+    if (type === 'consolidated' || idStr === 'consolidated' || idStr.startsWith('consolidated_view_')) {
+      if (idStr === 'consolidated') {
+        return savedProject;
       }
 
-      return null;
-    };
+      const consolidatedId = idStr.replace('consolidated_view_', '');
+      const consolidationIds = new Set(safeConsolidations.map(c => c?.id?.toString()));
+      
+      if (consolidationIds.has(consolidatedId)) {
+        return savedProject;
+      }
+    } else {
+      const projectsMap = new Map(allProjects.map(p => [String(p.id), p]));
+      const project = projectsMap.get(idStr);
+      
+      if (project) {
+        const isArchived = ["1", 1, true, "true"].includes(
+          project?.is_archived ?? project?.isArchived ?? 0
+        );
+        if (!isArchived) {
+          return savedProject;
+        }
+      }
+    }
+
+    return null;
   }, [allProjects, safeConsolidations, getSavedProject]);
 
   const handleDataRefresh = useCallback(async () => {
-    if (isRefreshingRef.current) return;
+    if (isRefreshingRef.current || !hasInitialized.current) return;
     
     isRefreshingRef.current = true;
     try {
@@ -151,105 +149,112 @@ const ProjectSwitcher = () => {
     } finally {
       setTimeout(() => {
         isRefreshingRef.current = false;
-      }, 1000);
+      }, 2000);
     }
   }, [refetchProjects, refetchConsolidations]);
 
-  // Effet d'initialisation - exécuté une seule fois
+  // Effet d'initialisation
   useEffect(() => {
-    if (projectsLoading || consolidationsLoading || hasInitialized.current) return;
+    if (hasInitialized.current) return;
+    
+    const initializeProject = async () => {
+      if (projectsLoading || consolidationsLoading) return;
+      
+      const validProject = validateActiveProject();
+      
+      if (!validProject) {
+        if (myProjects.length > 0) {
+          const firstProject = myProjects[0];
+          uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: firstProject });
+          saveProject(firstProject);
+        } else if (safeConsolidations.length > 0) {
+          const firstConsolidation = safeConsolidations[0];
+          const consolidatedProject = {
+            id: `consolidated_view_${firstConsolidation.id}`,
+            name: firstConsolidation.name,
+            type: 'consolidated'
+          };
+          uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: consolidatedProject });
+          saveProject(consolidatedProject);
+        } else {
+          const consolidatedProject = {
+            id: 'consolidated',
+            name: 'Mes projets consolidés',
+            type: 'consolidated'
+          };
+          uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: consolidatedProject });
+          saveProject(consolidatedProject);
+        }
+      } else if (!uiState.activeProject || !areIdsEqual(uiState.activeProject.id, validProject.id)) {
+        uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: validProject });
+      }
+      
+      hasInitialized.current = true;
+    };
+    
+    initializeProject();
+  }, [projectsLoading, consolidationsLoading, validateActiveProject, myProjects, safeConsolidations, uiDispatch, saveProject, uiState.activeProject]);
 
+  // Effet pour synchroniser le projet actif
+  useEffect(() => {
+    if (!hasInitialized.current || projectsLoading || consolidationsLoading) return;
+    
     const validProject = validateActiveProject();
-
+    
     if (!validProject) {
-      if (myProjects.length > 0) {
+      if (myProjects.length > 0 && uiState.activeProject?.type !== 'consolidated') {
         const firstProject = myProjects[0];
         uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: firstProject });
         saveProject(firstProject);
-      } else if (safeConsolidations.length > 0) {
-        const firstConsolidation = safeConsolidations[0];
-        const consolidatedProject = {
-          id: `consolidated_view_${firstConsolidation.id}`,
-          name: firstConsolidation.name,
-          type: 'consolidated'
-        };
-        uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: consolidatedProject });
-        saveProject(consolidatedProject);
-      } else {
-        const consolidatedProject = {
-          id: 'consolidated',
-          name: 'Mes projets consolidés',
-          type: 'consolidated'
-        };
-        uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: consolidatedProject });
-        saveProject(consolidatedProject);
       }
-    } else if (!uiState.activeProject || !areIdsEqual(uiState.activeProject.id, validProject.id)) {
-      uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: validProject });
+      return;
     }
-
-    hasInitialized.current = true;
-  }, []); // Exécuté une seule fois au montage
-
-  // Effet pour synchroniser le projet actif quand les données changent
-  useEffect(() => {
-    if (projectsLoading || consolidationsLoading || !hasInitialized.current) return;
-
-    const validProject = validateActiveProject();
     
-    if (validProject && (!uiState.activeProject || !areIdsEqual(uiState.activeProject.id, validProject.id))) {
+    const currentId = uiState.activeProject?.id;
+    const validatedId = validProject.id;
+    
+    if (!currentId || !areIdsEqual(currentId, validatedId)) {
       uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: validProject });
-    } else if (!validProject && myProjects.length > 0 && uiState.activeProject?.type !== 'consolidated') {
-      // Si le projet sauvegardé n'est plus valide, prendre le premier projet
-      const firstProject = myProjects[0];
-      uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: firstProject });
-      saveProject(firstProject);
     }
-  }, [allProjects, safeConsolidations, projectsLoading, consolidationsLoading]);
+  }, [allProjects, safeConsolidations]);
 
   // Effet pour les événements et rafraîchissements automatiques
   useEffect(() => {
-    const handleDataRefreshWithDebounce = (event) => {
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-      }
-      
-      refreshTimeoutRef.current = setTimeout(() => {
-        handleDataRefresh();
-      }, 1000); // Augmenté à 1 seconde
-    };
-
-    // Réduire le nombre d'événements écoutés
-    const essentialEvents = [
-      'projectCreated',
-      'projectDeleted',
-      'consolidationCreated',
-      'consolidationDeleted'
-    ];
+    if (!hasInitialized.current) return;
     
-    essentialEvents.forEach(event => {
-      window.addEventListener(event, handleDataRefreshWithDebounce);
-    });
-
+    const handleSpecificEvent = (event) => {
+      const eventType = event.type || event.detail?.type;
+      const shouldRefresh = [
+        'projectCreated',
+        'projectDeleted',
+        'consolidationCreated',
+        'consolidationDeleted'
+      ].includes(eventType);
+      
+      if (shouldRefresh) {
+        handleDataRefresh();
+      }
+    };
+    
+    window.addEventListener('projectEvent', handleSpecificEvent);
+    
     // Rafraîchissement automatique moins fréquent
     autoRefreshIntervalRef.current = setInterval(() => {
       handleDataRefresh();
-    }, 300000); // 5 minutes
+    }, 600000); // 10 minutes
     
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         setTimeout(() => {
           handleDataRefresh();
-        }, 5000); // Attendre 5 secondes après retour à l'onglet
+        }, 5000);
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     
     return () => {
-      essentialEvents.forEach(event => {
-        window.removeEventListener(event, handleDataRefreshWithDebounce);
-      });
+      window.removeEventListener('projectEvent', handleSpecificEvent);
       
       if (refreshTimeoutRef.current) {
         clearTimeout(refreshTimeoutRef.current);
@@ -354,15 +359,18 @@ const ProjectSwitcher = () => {
     }
   }, [consolidationsError]);
 
-  // Ajout de logs de débogage (optionnel)
+  // Logs de débogage conditionnels
   useEffect(() => {
-    console.log('🔄 ProjectSwitcher render:', {
-      projectsCount: allProjects.length,
-      consolidationsCount: safeConsolidations.length,
-      loading: { projects: projectsLoading, consolidations: consolidationsLoading },
-      activeProject: uiState.activeProject
-    });
-  }, [allProjects.length, safeConsolidations.length, projectsLoading, consolidationsLoading, uiState.activeProject]);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔄 ProjectSwitcher render:', {
+        projectsCount: allProjects.length,
+        consolidationsCount: safeConsolidations.length,
+        loading: { projects: projectsLoading, consolidations: consolidationsLoading },
+        activeProject: uiState.activeProject,
+        initialized: hasInitialized.current
+      });
+    }
+  }, []);
 
   if (projectsLoading || consolidationsLoading) {
     return (

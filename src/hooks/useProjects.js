@@ -14,6 +14,7 @@ export const useProjects = () => {
   
   const isFetching = useRef(false);
   const abortControllerRef = useRef(null);
+  const mountedRef = useRef(true);
 
   const transformApiData = useCallback((apiData) => {
     const transformedProjects = [];
@@ -155,21 +156,27 @@ export const useProjects = () => {
       const now = Date.now();
       if (!forceRefresh && globalProjectsCache && 
           now - globalCacheTimestamp < CACHE_TTL) {
-        setProjects(globalProjectsCache);
-        setLoading(false);
+        if (mountedRef.current) {
+          setProjects(globalProjectsCache);
+          setLoading(false);
+        }
         return globalProjectsCache;
       }
 
       if (!user?.id || !token) {
-        setError('Utilisateur non connecté');
-        setLoading(false);
+        if (mountedRef.current) {
+          setError('Utilisateur non connecté');
+          setLoading(false);
+        }
         return [];
       }
 
       try {
         isFetching.current = true;
-        setLoading(true);
-        setError(null);
+        if (mountedRef.current) {
+          setLoading(true);
+          setError(null);
+        }
 
         if (abortControllerRef.current) {
           abortControllerRef.current.abort();
@@ -187,7 +194,9 @@ export const useProjects = () => {
         const data = response.data;
 
         if (data.status === 204 || !data.projects) {
-          setProjects([]);
+          if (mountedRef.current) {
+            setProjects([]);
+          }
           globalProjectsCache = [];
           globalCacheTimestamp = now;
           return [];
@@ -195,31 +204,40 @@ export const useProjects = () => {
 
         const transformedProjects = transformApiData(data);
         
-        setProjects(transformedProjects);
+        if (mountedRef.current) {
+          setProjects(transformedProjects);
+        }
         globalProjectsCache = transformedProjects;
         globalCacheTimestamp = now;
         
         return transformedProjects;
       } catch (err) {
+        if (!mountedRef.current) return globalProjectsCache || [];
 
         if (err.name === 'AbortError' || err.code === 'ERR_CANCELED') {
           return globalProjectsCache || [];
         }
         
         if (err.response?.status === 429) {
-          setError('Trop de requêtes. Veuillez patienter quelques instants...');
+          if (mountedRef.current) {
+            setError('Trop de requêtes. Veuillez patienter quelques instants...');
+          }
           return globalProjectsCache || [];
         }
 
         const errorMsg = err.response?.data?.message || 
                         err.message || 
                         'Erreur lors du chargement des projets';
-        setError(errorMsg);
+        if (mountedRef.current) {
+          setError(errorMsg);
+        }
         
         return globalProjectsCache || [];
       } finally {
         isFetching.current = false;
-        setLoading(false);
+        if (mountedRef.current) {
+          setLoading(false);
+        }
         abortControllerRef.current = null;
       }
     },
@@ -227,22 +245,24 @@ export const useProjects = () => {
   );
 
   useEffect(() => {
+    mountedRef.current = true;
+    
     let timer;
-    let mounted = true;
 
     const loadProjects = async () => {
       if (!user?.id || !token) {
-        if (mounted) {
+        if (mountedRef.current) {
           setLoading(false);
           setProjects([]);
         }
         return;
       }
 
+      // Délai aléatoire pour éviter les requêtes simultanées
       const delay = Math.random() * 1500;
       
       timer = setTimeout(async () => {
-        if (mounted) {
+        if (mountedRef.current) {
           await fetchProjects();
         }
       }, delay);
@@ -251,13 +271,13 @@ export const useProjects = () => {
     loadProjects();
 
     return () => {
-      mounted = false;
+      mountedRef.current = false;
       if (timer) clearTimeout(timer);
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
     };
-  }, [user?.id, token]); 
+  }, [user?.id, token, fetchProjects]); 
 
   const refetch = useCallback(() => {
     return fetchProjects(true);
@@ -269,6 +289,8 @@ export const useProjects = () => {
   }, []);
 
   const updateProjects = useCallback((updatedProjects) => {
+    if (!mountedRef.current) return;
+    
     setProjects(updatedProjects);
     globalProjectsCache = updatedProjects;
     globalCacheTimestamp = Date.now();
@@ -288,6 +310,3 @@ export const invalidateProjectsCache = () => {
   globalProjectsCache = null;
   globalCacheTimestamp = 0;
 };
-
-// Ity hook ity no maka sy mitantana ny lisitry ny projets avy amin'ny API
-// avec optimisation de performance et gestion du rate limiting
