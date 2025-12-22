@@ -68,6 +68,7 @@ const SubCategoryRow = ({
           <div className="font-medium text-gray-900">
             {/* Mila devise */}
             {item.amount} {item.currency_symbol}
+            {/* {formatCurrency(item.amount, { currency_code: item.currency_code })} */}
           </div>
         </div>
 
@@ -77,7 +78,7 @@ const SubCategoryRow = ({
             <Calendar className="w-3 h-3" />
             {formatShortDate(item.start_date)}
             {item.is_duration_indefinite ||
-            item.is_budget_duration_indefinite ? (
+              item.is_budget_duration_indefinite ? (
               <span> → ∞</span>
             ) : item.end_date ? (
               <span> → {formatShortDate(item.end_date)}</span>
@@ -140,18 +141,15 @@ const SubCategoryMenu = ({
         position: 'fixed',
         [menuPosition === 'top' ? 'bottom' : 'top']:
           menuPosition === 'top'
-            ? `${
-                window.innerHeight -
-                menuRefs.current[item.id]?.getBoundingClientRect().top +
-                8
-              }px`
-            : `${
-                menuRefs.current[item.id]?.getBoundingClientRect().bottom + 8
-              }px`,
-        right: `${
-          window.innerWidth -
+            ? `${window.innerHeight -
+            menuRefs.current[item.id]?.getBoundingClientRect().top +
+            8
+            }px`
+            : `${menuRefs.current[item.id]?.getBoundingClientRect().bottom + 8
+            }px`,
+        right: `${window.innerWidth -
           menuRefs.current[item.id]?.getBoundingClientRect().right
-        }px`,
+          }px`,
       }}
     >
       <div className="p-1">
@@ -263,9 +261,8 @@ const BudgetTable = ({
         return {
           id: category.category_id,
           categoryName: category.category_name,
-          subcategoryName: `${categoryItems.length} sous-catégorie${
-            categoryItems.length > 1 ? 's' : ''
-          }`,
+          subcategoryName: `${categoryItems.length} sous-catégorie${categoryItems.length > 1 ? 's' : ''
+            }`,
           amount: totalAmount,
           items: categoryItems,
         };
@@ -284,9 +281,8 @@ const BudgetTable = ({
         return {
           id: category.category_id,
           categoryName: category.category_name,
-          subcategoryName: `${categoryItems.length} sous-catégorie${
-            categoryItems.length > 1 ? 's' : ''
-          }`,
+          subcategoryName: `${categoryItems.length} sous-catégorie${categoryItems.length > 1 ? 's' : ''
+            }`,
           amount: totalAmount,
           items: categoryItems,
         };
@@ -450,24 +446,22 @@ const BudgetTable = ({
                   <span>Année {year}</span>
                 </div>
                 <ChevronDown
-                  className={`w-3.5 h-3.5 text-gray-500 transition-transform ${
-                    isYearDropdownOpen ? 'rotate-180' : ''
-                  }`}
+                  className={`w-3.5 h-3.5 text-gray-500 transition-transform ${isYearDropdownOpen ? 'rotate-180' : ''
+                    }`}
                 />
               </button>
 
               {isYearDropdownOpen && (
                 <div className="absolute right-0 z-50 w-full mt-1 overflow-hidden bg-white border border-gray-200 rounded-lg shadow-lg top-full min-w-[130px]">
-                  <div className="py-1 max-h-60 overflow-y-auto">
+                  <div className="py-1 overflow-y-auto max-h-60">
                     {availableYears.map((availableYear) => (
                       <button
                         key={availableYear}
                         onClick={() => handleYearChange(availableYear)}
-                        className={`flex items-center justify-between w-full px-3 py-2 text-sm text-left transition-colors hover:bg-gray-50 ${
-                          availableYear === year
-                            ? 'bg-blue-50 text-blue-600 font-medium'
-                            : 'text-gray-700'
-                        }`}
+                        className={`flex items-center justify-between w-full px-3 py-2 text-sm text-left transition-colors hover:bg-gray-50 ${availableYear === year
+                          ? 'bg-blue-50 text-blue-600 font-medium'
+                          : 'text-gray-700'
+                          }`}
                       >
                         <span>Année {availableYear}</span>
                         {availableYear === year && (
@@ -492,21 +486,19 @@ const BudgetTable = ({
       {!isReadOnly && (
         <div className="flex p-1 mb-4 space-x-1 bg-gray-100 rounded-lg">
           <button
-            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 ${
-              activeTab === 'revenus'
-                ? 'bg-white text-gray-900 border border-gray-200 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
-            }`}
+            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 ${activeTab === 'revenus'
+              ? 'bg-white text-gray-900 border border-gray-200 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+              }`}
             onClick={() => handleTabChange('revenus')}
           >
             Revenus ({filteredBudgetData?.entries?.entry_count || 0})
           </button>
           <button
-            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 ${
-              activeTab === 'depenses'
-                ? 'bg-white text-gray-900 border border-gray-200 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
-            }`}
+            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 ${activeTab === 'depenses'
+              ? 'bg-white text-gray-900 border border-gray-200 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+              }`}
             onClick={() => handleTabChange('depenses')}
           >
             Dépenses ({filteredBudgetData?.exits?.exit_count || 0})
@@ -668,12 +660,12 @@ const BudgetTable = ({
                       {isReadOnly
                         ? 'Aucun budget consolidé trouvé'
                         : activeTab === 'revenus'
-                        ? year
-                          ? `Aucun revenu trouvé pour l'année ${year}`
-                          : 'Aucun revenu trouvé'
-                        : year
-                        ? `Aucune dépense trouvée pour l'année ${year}`
-                        : 'Aucune dépense trouvée'}
+                          ? year
+                            ? `Aucun revenu trouvé pour l'année ${year}`
+                            : 'Aucun revenu trouvé'
+                          : year
+                            ? `Aucune dépense trouvée pour l'année ${year}`
+                            : 'Aucune dépense trouvée'}
                     </div>
                   </div>
                 </td>

@@ -234,6 +234,8 @@ const HeaderCustomer = ({ setIsMobileMenuOpen }) => {
         JSON.stringify({ currency, rate })
       );
 
+      window.location.reload();
+
       console.log(
         "SESSION STORAGE SAVED:",
         sessionStorage.getItem("session_currency")
