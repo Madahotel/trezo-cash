@@ -3,11 +3,9 @@ import axios from '../config/Axios';
 export async function apiGet(url) {
   try {
     const res = await axios.get(url);
-    if (res.data.status === 200) {
-      return res.data;
-    }
+    return res.data; // ⬅️ TOUJOURS retourner les données
   } catch (error) {
-    console.error('Erreur API GET:', error);
+    console.error("Erreur API GET:", error);
     throw error;
   }
 }
@@ -15,11 +13,9 @@ export async function apiGet(url) {
 export async function apiPost(url, formData) {
   try {
     const res = await axios.post(url, formData);
-    if (res.data.status === 200) {
-      return res.data;
-    }
+    return res.data; // ⬅️ idem
   } catch (error) {
-    console.error('Erreur API POST:', error);
+    console.error("Erreur API POST:", error);
     throw error;
   }
 }
