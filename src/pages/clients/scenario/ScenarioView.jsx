@@ -52,26 +52,6 @@ const colorMap = {
 };
 const defaultColors = colorMap["#8b5cf6"];
 
-// Données de test
-const testScenarios = [
-  {
-    id: "1",
-    name: "Scénario 1",
-    displayName: "Scénario 1",
-    description: "Description 1",
-    color: "#8b5cf6",
-    isVisible: true,
-  },
-  {
-    id: "2",
-    name: "Scénario 2",
-    displayName: "Scénario 2",
-    description: "Description 2",
-    color: "#f97316",
-    isVisible: true,
-  },
-];
-
 // Générer un tableau de données aléatoires
 const generateRandomData = (length, base = 1000, variance = 500) => {
   return Array.from({ length }, () =>
@@ -329,7 +309,6 @@ const ScenarioView = () => {
     setMobileMenuOpen(mobileMenuOpen === scenarioId ? null : scenarioId);
   };
 
-  // --- Données dynamiques pour le graphique ---
   const chartData = useMemo(() => {
     return {
       labels: currentPeriods,
@@ -708,7 +687,7 @@ const ScenarioView = () => {
           </div>
 
           {/* Zone du graphique */}
-          <div className="flex-grow  bg-white shadow-lg rounded-lg border border-gray-200 p-4">
+          <div className="flex-grow  bg-white shadow-lg rounded-lg border border-gray-200 p-4 ">
             <div className="flex-grow min-h-[300px] md:min-h-[400px]">
               <ReactECharts
                 option={getChartOptions()}
