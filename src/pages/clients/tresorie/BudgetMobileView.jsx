@@ -6,96 +6,64 @@ import { formatCurrency } from '../../../utils/formatting.js';
 import useRealBudgetData from '../../../hooks/useRealBudgetData.jsx';
 import axios from '../../../components/config/Axios.jsx';
 
-/**
- * Calcule le montant budgété d'une entrée pour une période donnée (version mobile)
- */
+
 const calculateEntryAmountForPeriod = (entry, startDate, endDate) => {
     if (!entry || !entry.amount) return 0;
-    
-    // Logique simplifiée pour mobile
+
     const frequency = entry.frequency_name || entry.frequency;
     const freqLower = frequency?.toLowerCase();
-    
+
     if (freqLower === 'ponctuel' || freqLower === 'ponctuelle') {
         const entryDate = new Date(entry.date || entry.start_date);
         return (entryDate >= startDate && entryDate <= endDate) ? entry.amount : 0;
     }
-    
+
     return entry.amount || 0;
 };
 
-/**
- * Calcule le montant réel pour une période donnée (version mobile avec real_budget)
- */
+
 const calculateActualAmountForPeriod = (entry, actualTransactions, startDate, endDate, realBudgetData = null) => {
     if (!entry) return 0;
 
-    console.log('🔍 [MOBILE] Calcul réel pour:', entry.supplier, 'budget_id:', entry.budget_id, 'Période:', startDate.toISOString().split('T')[0], '-', endDate.toISOString().split('T')[0]);
-
-    // PRIORITÉ 1: Données real_budget API
     if (realBudgetData?.real_budget_items?.data) {
         const realBudgetsForEntry = realBudgetData.real_budget_items.data.filter(rb => {
             const matchesBudget = rb.budget_id === entry.budget_id;
-            
-            // Vérification de la date de collection
+
             let matchesDate = false;
             if (rb.collection_date) {
                 try {
                     const collectionDate = new Date(rb.collection_date);
                     collectionDate.setHours(0, 0, 0, 0);
-                    
+
                     const periodStart = new Date(startDate);
                     periodStart.setHours(0, 0, 0, 0);
-                    
+
                     const periodEnd = new Date(endDate);
                     periodEnd.setHours(23, 59, 59, 999);
-                    
+
                     matchesDate = collectionDate >= periodStart && collectionDate <= periodEnd;
                     
-                    console.log('📅 [MOBILE] Vérification date:', {
-                        supplier: entry.supplier,
-                        collection_date: rb.collection_date,
-                        period_start: periodStart.toISOString(),
-                        period_end: periodEnd.toISOString(),
-                        matchesDate
-                    });
                 } catch (error) {
                     console.error('Erreur de parsing date:', error);
                 }
             }
 
             const isMatch = matchesBudget && matchesDate;
-            
-            console.log('🔍 [MOBILE] Correspondance:', {
-                supplier: entry.supplier,
-                entry_budget_id: entry.budget_id,
-                real_budget_id: rb.budget_id,
-                matchesBudget,
-                matchesDate,
-                isMatch,
-                collection_amount: rb.collection_amount
-            });
 
             return isMatch;
         });
 
-        console.log(`📊 [MOBILE] ${entry.supplier}: ${realBudgetsForEntry.length} collections dans cette période`);
 
         if (realBudgetsForEntry.length > 0) {
             const totalAmount = realBudgetsForEntry.reduce((sum, rb) => {
                 const amount = parseFloat(rb.collection_amount) || 0;
-                console.log(`💰 [MOBILE] ${entry.supplier}: ${amount} depuis real_budget`);
                 return sum + amount;
             }, 0);
 
-            console.log(`✅ [MOBILE] FINAL ${entry.supplier}: ${totalAmount}`);
             return totalAmount;
         }
     }
 
-    console.log(`❌ [MOBILE] Aucune donnée real_budget pour ${entry.supplier}`);
-
-    // PRIORITÉ 2: Paiements traditionnels
     const entryActuals = actualTransactions.filter(actual =>
         actual.budgetId === entry.id || actual.budgetId === entry.id.replace('_vat', '')
     );
@@ -105,13 +73,13 @@ const calculateActualAmountForPeriod = (entry, actualTransactions, startDate, en
             try {
                 const paymentDate = new Date(p.paymentDate);
                 paymentDate.setHours(0, 0, 0, 0);
-                
+
                 const periodStart = new Date(startDate);
                 periodStart.setHours(0, 0, 0, 0);
-                
+
                 const periodEnd = new Date(endDate);
                 periodEnd.setHours(23, 59, 59, 999);
-                
+
                 return paymentDate >= periodStart && paymentDate <= periodEnd;
             } catch (error) {
                 return false;
@@ -120,14 +88,10 @@ const calculateActualAmountForPeriod = (entry, actualTransactions, startDate, en
         return sum + paymentsInPeriod.reduce((paymentSum, p) => paymentSum + (p.paidAmount || 0), 0);
     }, 0);
 
-    console.log(`💳 [MOBILE] Paiements traditionnels ${entry.supplier}: ${paymentsAmount}`);
-
     return paymentsAmount;
 };
 
-/**
- * Composant de visualisation mobile du budget
- */
+
 const BudgetMobileView = ({
     finalBudgetEntries,
     finalActualTransactions,
@@ -148,78 +112,66 @@ const BudgetMobileView = ({
         decimalPlaces: activeProject?.decimal_places,
     }), [activeProject]);
 
-    // Récupération des données real_budget
     const { realBudgetData, loading: realBudgetLoading } = useRealBudgetData(activeProjectId);
 
-    // États pour l'API (comme dans la vue desktop)
     const [projectData, setProjectData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-const fetchProjectData = async (projectId, frequencyId = null, forceRefresh = false) => {
-  if (!projectId) return;
-  
-  setLoading(true);
-  setError(null);
+    const fetchProjectData = async (projectId, frequencyId = null, forceRefresh = false) => {
+        if (!projectId) return;
 
-  try {
-    // 1. Vérifiez d'abord si la route existe
-    console.log('📍 URL appelée:', `/trezo-tables/projects/${projectId}`);
-    
-    const response = await axios.get(`/trezo-tables/projects/${projectId}`, {
-      params: {
-        ...(frequencyId && frequencyId !== 'all' && { frequency_id: frequencyId }),
-        ...(forceRefresh && { _t: Date.now() })
-      }
-    });
+        setLoading(true);
+        setError(null);
 
-    console.log('✅ Statut réponse:', response.status);
-    console.log('📊 Type de contenu:', response.headers['content-type']);
-    console.log('📦 Données brutes:', response.data);
+        try {
 
-    // 2. Vérifiez si vous recevez bien du JSON
-    if (typeof response.data === 'string' && response.data.includes('<!doctype html>')) {
-      throw new Error('Route API introuvable - La page HTML est renvoyée au lieu des données JSON');
-    }
+            const response = await axios.get(`/trezo-tables/projects/${projectId}`, {
+                params: {
+                    ...(frequencyId && frequencyId !== 'all' && { frequency_id: frequencyId }),
+                    ...(forceRefresh && { _t: Date.now() })
+                }
+            });
 
-    // 3. Continuez avec le traitement normal
-    if (response.data && response.data.budgets) {
-      setProjectData(response.data);
-      setHasNoData(false);
-    } else {
-      setProjectData({ budgets: { budget_items: [] } });
-      setHasNoData(true);
-    }
+            if (typeof response.data === 'string' && response.data.includes('<!doctype html>')) {
+                throw new Error('Route API introuvable - La page HTML est renvoyée au lieu des données JSON');
+            }
 
-  } catch (err) {
-    console.error('❌ Erreur détaillée fetchProjectData:', {
-      message: err.message,
-      response: err.response,
-      status: err.response?.status,
-      url: err.config?.url
-    });
+            if (response.data && response.data.budgets) {
+                setProjectData(response.data);
+                setHasNoData(false);
+            } else {
+                setProjectData({ budgets: { budget_items: [] } });
+                setHasNoData(true);
+            }
 
-    // Message d'erreur plus clair
-    if (err.response?.status === 404) {
-      setError(`Route API non trouvée: ${err.config?.url}`);
-    } else if (err.response?.data && typeof err.response.data === 'string' && 
-               err.response.data.includes('<!doctype html>')) {
-      setError('Erreur de routage : La route API n\'existe pas');
-    } else {
-      setError(err.message || 'Erreur de chargement des données');
-    }
-    setHasNoData(false);
-  } finally {
-    setLoading(false);
-  }
-};
+        } catch (err) {
+            console.error('Erreur détaillée fetchProjectData:', {
+                message: err.message,
+                response: err.response,
+                status: err.response?.status,
+                url: err.config?.url
+            });
 
-    // Récupération des données de l'API
+            // Message d'erreur plus clair
+            if (err.response?.status === 404) {
+                setError(`Route API non trouvée: ${err.config?.url}`);
+            } else if (err.response?.data && typeof err.response.data === 'string' &&
+                err.response.data.includes('<!doctype html>')) {
+                setError('Erreur de routage : La route API n\'existe pas');
+            } else {
+                setError(err.message || 'Erreur de chargement des données');
+            }
+            setHasNoData(false);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         fetchProjectData(activeProjectId);
     }, [activeProjectId]);
 
-    // Fonction pour traiter les données de l'API (identique à la vue desktop)
     const processBudgetItems = (budgetItems) => {
         if (!budgetItems || !Array.isArray(budgetItems)) return [];
 
@@ -293,20 +245,14 @@ const fetchProjectData = async (projectId, frequencyId = null, forceRefresh = fa
         });
     };
 
-    // Utiliser les données récupérées de l'API (comme la vue desktop)
     const processedBudgetEntries = useMemo(() => {
         if (projectData && projectData.budgets && projectData.budgets.budget_items) {
             const processed = processBudgetItems(projectData.budgets.budget_items);
-            console.log('📱 [MOBILE] Entrées traitées depuis API:', processed.length);
             return processed;
         }
-        console.log('📱 [MOBILE] Utilisation des entrées finales:', finalBudgetEntries?.length || 0);
         return finalBudgetEntries || [];
     }, [projectData, finalBudgetEntries]);
 
-    /**
-     * Calcule la période mobile actuelle
-     */
     const mobilePeriod = useMemo(() => {
         const targetDate = new Date();
         targetDate.setDate(1);
@@ -316,18 +262,16 @@ const fetchProjectData = async (projectId, frequencyId = null, forceRefresh = fa
         const periodStart = new Date(year, month, 1);
         const periodEnd = new Date(year, month + 1, 0);
         periodEnd.setHours(23, 59, 59, 999);
-        return { 
-            startDate: periodStart, 
+        return {
+            startDate: periodStart,
             endDate: periodEnd,
             label: targetDate.toLocaleString('fr-FR', { month: 'long', year: 'numeric' })
         };
     }, [mobileMonthOffset, settings.timezoneOffset]);
 
-    /**
-     * Traite les entrées pour l'affichage mobile (avec les données de l'API)
-     */
+
     const mobileProcessedEntries = useProcessedEntries(
-        processedBudgetEntries, // ← Utiliser processedBudgetEntries au lieu de finalBudgetEntries
+        processedBudgetEntries,
         finalActualTransactions || [],
         finalCategories || {},
         vatRegimes || {},
@@ -338,49 +282,37 @@ const fetchProjectData = async (projectId, frequencyId = null, forceRefresh = fa
         isCustomConsolidated
     );
 
-    /**
-     * Agrège les données par tiers pour l'affichage mobile
-     */
     const mobileData = useMemo(() => {
         if (!mobilePeriod) return null;
 
         const { startDate, endDate } = mobilePeriod;
         const tiersData = new Map();
 
-        console.log('📱 [MOBILE] Début calcul données mobiles');
-        console.log('📱 [MOBILE] Données real_budget disponibles:', realBudgetData?.real_budget_items?.data?.length || 0);
-        console.log('📱 [MOBILE] Entrées traitées:', mobileProcessedEntries.length);
-
-        // 1. Calculer les montants budgétisés et réels par tiers
         mobileProcessedEntries.forEach(entry => {
             const tierName = entry.supplier;
             if (!tierName) return;
 
             const budgetAmount = calculateEntryAmountForPeriod(entry, startDate, endDate);
             const actualAmount = calculateActualAmountForPeriod(
-                entry, 
-                finalActualTransactions, 
-                startDate, 
-                endDate, 
+                entry,
+                finalActualTransactions,
+                startDate,
+                endDate,
                 realBudgetData
             );
 
-            console.log(`📱 [MOBILE] ${tierName}: Budget=${budgetAmount}, Réel=${actualAmount}, budget_id=${entry.budget_id}`);
-
             if (budgetAmount !== 0 || actualAmount !== 0) {
                 if (!tiersData.has(tierName)) {
-                    tiersData.set(tierName, { 
-                        budget: 0, 
-                        actual: 0, 
+                    tiersData.set(tierName, {
+                        budget: 0,
+                        actual: 0,
                         type: entry.type,
                         hasRealBudgetData: false,
                         budget_id: entry.budget_id
                     });
                 }
                 const data = tiersData.get(tierName);
-                
-                // Pour les revenus : montants positifs
-                // Pour les dépenses : montants négatifs
+
                 if (entry.type === 'revenu' || entry.type === 'entree') {
                     data.budget += budgetAmount;
                     data.actual += actualAmount;
@@ -388,13 +320,12 @@ const fetchProjectData = async (projectId, frequencyId = null, forceRefresh = fa
                     data.budget -= budgetAmount;
                     data.actual -= actualAmount;
                 }
-                
-                // Marquer si des données real_budget sont utilisées
+
                 if (actualAmount > 0 && realBudgetData?.real_budget_items?.data) {
-                    const hasRealBudget = realBudgetData.real_budget_items.data.some(rb => 
-                        rb.budget_id === entry.budget_id && 
+                    const hasRealBudget = realBudgetData.real_budget_items.data.some(rb =>
+                        rb.budget_id === entry.budget_id &&
                         rb.collection_date &&
-                        new Date(rb.collection_date) >= startDate && 
+                        new Date(rb.collection_date) >= startDate &&
                         new Date(rb.collection_date) <= endDate
                     );
                     data.hasRealBudgetData = hasRealBudget;
@@ -402,13 +333,11 @@ const fetchProjectData = async (projectId, frequencyId = null, forceRefresh = fa
             }
         });
 
-        // 2. Convertir la Map en tableau et trier (Revenus avant Dépenses)
         const dataArray = Array.from(tiersData.entries())
             .map(([supplier, data]) => ({
                 supplier,
                 ...data,
                 reste: data.budget - data.actual,
-                // Déterminer le type basé sur le signe du budget
                 displayType: data.budget >= 0 ? 'revenu' : 'depense'
             }))
             .filter(item => item.budget !== 0 || item.actual !== 0)
@@ -417,18 +346,9 @@ const fetchProjectData = async (projectId, frequencyId = null, forceRefresh = fa
                 return a.supplier.localeCompare(b.supplier);
             });
 
-        // 3. Calculer les totaux
         const totalBudget = dataArray.reduce((sum, item) => sum + item.budget, 0);
         const totalActual = dataArray.reduce((sum, item) => sum + item.actual, 0);
         const totalReste = totalBudget - totalActual;
-
-        console.log('📱 [MOBILE] Résultats finaux:', {
-            totalBudget,
-            totalActual, 
-            totalReste,
-            items: dataArray.length,
-            itemsWithRealBudget: dataArray.filter(item => item.hasRealBudgetData).length
-        });
 
         return {
             tiersData: dataArray,
@@ -437,11 +357,6 @@ const fetchProjectData = async (projectId, frequencyId = null, forceRefresh = fa
         };
     }, [mobilePeriod, mobileProcessedEntries, finalActualTransactions, realBudgetData]);
 
-    // Afficher les données de débogage
-    console.log('📱 [MOBILE] Données real_budget complètes:', realBudgetData);
-    console.log('📱 [MOBILE] Données mobiles calculées:', mobileData);
-
-    // Indicateur de chargement
     if (realBudgetLoading || loading) {
         return (
             <div className="p-4">
@@ -454,17 +369,16 @@ const fetchProjectData = async (projectId, frequencyId = null, forceRefresh = fa
 
     return (
         <div className="p-4">
-            {/* En-tête de navigation mobile */}
             <div className="flex items-center justify-between mb-4">
-                <button 
-                    onClick={() => setMobileMonthOffset(mobileMonthOffset - 1)} 
+                <button
+                    onClick={() => setMobileMonthOffset(mobileMonthOffset - 1)}
                     className="p-2 rounded-full hover:bg-gray-100"
                 >
                     <ChevronLeft className="w-5 h-5" />
                 </button>
                 <h2 className="text-lg font-semibold text-gray-700">{mobilePeriod?.label}</h2>
-                <button 
-                    onClick={() => setMobileMonthOffset(mobileMonthOffset + 1)} 
+                <button
+                    onClick={() => setMobileMonthOffset(mobileMonthOffset + 1)}
                     className="p-2 rounded-full hover:bg-gray-100"
                 >
                     <ChevronRight className="w-5 h-5" />
@@ -473,14 +387,11 @@ const fetchProjectData = async (projectId, frequencyId = null, forceRefresh = fa
 
             {mobileData && (
                 <>
-                    {/* Indicateur de source des données - SEULEMENT si il y a des données real_budget */}
                     {mobileData.hasRealBudgetData && (
                         <div className="p-2 mb-3 text-xs text-green-600 rounded-lg bg-green-50">
                             ✓ Données réelles synchronisées
                         </div>
                     )}
-
-                    {/* Carte de résumé des flux */}
                     <div className="p-4 mb-4 border rounded-lg shadow-sm bg-gray-50">
                         <h3 className="mb-2 text-sm font-bold text-gray-600 uppercase">Flux de trésorerie net</h3>
                         <div className="grid grid-cols-3 gap-2 text-sm font-bold">
@@ -493,7 +404,7 @@ const fetchProjectData = async (projectId, frequencyId = null, forceRefresh = fa
                             <div className="text-center">
                                 <div className="text-gray-600">Réel</div>
                                 <div className={
-                                    mobileData.totals.actual !== 0 
+                                    mobileData.totals.actual !== 0
                                         ? (mobileData.totals.actual >= 0 ? 'text-green-600' : 'text-red-700')
                                         : 'text-gray-700'
                                 }>
@@ -508,8 +419,6 @@ const fetchProjectData = async (projectId, frequencyId = null, forceRefresh = fa
                             </div>
                         </div>
                     </div>
-
-                    {/* Liste des tiers */}
                     {mobileData.tiersData.length > 0 ? (
                         <ul className="space-y-2">
                             {mobileData.tiersData.map(item => (
@@ -522,11 +431,10 @@ const fetchProjectData = async (projectId, frequencyId = null, forceRefresh = fa
                                                     ✓
                                                 </span>
                                             )}
-                                            <span className={`text-xs uppercase px-2 py-0.5 rounded flex-shrink-0 ml-1 ${
-                                                item.displayType === 'revenu' 
-                                                    ? 'bg-green-100 text-green-700' 
+                                            <span className={`text-xs uppercase px-2 py-0.5 rounded flex-shrink-0 ml-1 ${item.displayType === 'revenu'
+                                                    ? 'bg-green-100 text-green-700'
                                                     : 'bg-red-100 text-red-700'
-                                            }`}>
+                                                }`}>
                                                 {item.displayType === 'revenu' ? 'Encaissement' : 'Décaissement'}
                                             </span>
                                         </div>
@@ -540,26 +448,22 @@ const fetchProjectData = async (projectId, frequencyId = null, forceRefresh = fa
                                         </div>
                                         <div className="text-center">
                                             <div className="text-gray-500">Réel</div>
-                                            <div className={`font-medium ${
-                                                item.hasRealBudgetData 
-                                                    ? 'text-green-600 font-semibold' 
-                                                    : item.actual !== 0 
+                                            <div className={`font-medium ${item.hasRealBudgetData
+                                                    ? 'text-green-600 font-semibold'
+                                                    : item.actual !== 0
                                                         ? 'text-blue-600'
                                                         : 'text-gray-700'
-                                            }`}>
+                                                }`}>
                                                 {formatCurrency(Math.abs(item.actual), currencySettings)}
                                             </div>
                                         </div>
                                         <div className="text-center">
                                             <div className="text-gray-500">Reste</div>
-                                            <div className={`font-medium ${
-                                                // Pour les revenus : reste positif = bon, reste négatif = mauvais
-                                                // Pour les dépenses : reste négatif = bon, reste positif = mauvais
-                                                (item.displayType === 'revenu' && item.reste >= 0) || 
-                                                (item.displayType === 'depense' && item.reste <= 0)
-                                                    ? 'text-green-600' 
+                                            <div className={`font-medium ${(item.displayType === 'revenu' && item.reste >= 0) ||
+                                                    (item.displayType === 'depense' && item.reste <= 0)
+                                                    ? 'text-green-600'
                                                     : 'text-red-600'
-                                            }`}>
+                                                }`}>
                                                 {formatCurrency(Math.abs(item.reste), currencySettings)}
                                             </div>
                                         </div>

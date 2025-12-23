@@ -83,12 +83,10 @@ const BudgetTableConsolidated = (props) => {
         onRefresh,
         consolidatedData: propsConsolidatedData,
     } = props;
-
-    // Utiliser le contexte UI pour déterminer la vue consolidée
+    
     const { uiState } = useUI();
     const currentProject = uiState.activeProject;
 
-    // Extraire l'ID de consolidation depuis le projet actif
     const consolidationId = useMemo(() => {
         if (currentProject?.type === 'consolidated' && currentProject?.id) {
             const idStr = String(currentProject.id);
@@ -99,11 +97,9 @@ const BudgetTableConsolidated = (props) => {
         return null;
     }, [currentProject]);
 
-    // Déterminer si c'est une vue consolidée
     const isConsolidatedView = currentProject?.type === 'consolidated';
     const isCustomConsolidated = !!consolidationId;
 
-    // Utiliser votre hook pour charger les données consolidées
     const {
         consolidatedViewData,
         realBudgets,
@@ -112,13 +108,11 @@ const BudgetTableConsolidated = (props) => {
         refetch: refetchConsolidation
     } = useConsolidationDetails(consolidationId);
 
-    // Transformer les données du hook pour le tableau
     const transformedConsolidatedData = useMemo(() => {
         if (!isConsolidatedView || !consolidatedViewData?.hasData) {
             return null;
         }
 
-        // Structure pour la fonction consolidateEntries
         return {
             project_consolidateds: {
                 project_consolidated_items: {
@@ -151,7 +145,6 @@ const BudgetTableConsolidated = (props) => {
         };
     }, [isConsolidatedView, consolidatedViewData, realBudgets, consolidationId]);
 
-    // Utiliser les données transformées ou celles passées en props
     const consolidatedData = isConsolidatedView ? transformedConsolidatedData : propsConsolidatedData;
 
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -242,12 +235,10 @@ const BudgetTableConsolidated = (props) => {
     // Transformation des données consolidées
     const consolidatedEntries = useMemo(() => {
         if (!consolidatedData?.project_consolidateds?.project_consolidated_items?.data) {
-            console.log('📭 No consolidated data found');
             return [];
         }
 
         const items = consolidatedData.project_consolidateds.project_consolidated_items.data;
-        console.log('📋 Processing consolidated items:', items.length);
 
         // Préparer les données réelles par budget avec les dates
         const realPaymentsByBudgetId = {};
@@ -312,22 +303,7 @@ const BudgetTableConsolidated = (props) => {
                 hasDetailedPayments: realPayments.length > 0
             };
 
-            console.log('📝 Built entry:', {
-                budgetId: entry.budget_id,
-                budgetAmount: entry.budgetAmount,
-                realPaymentsCount: entry.realPayments.length,
-                realPayments: entry.realPayments.map(p => ({
-                    date: p.collection_date,
-                    amount: p.collection_amount
-                }))
-            });
-
             return entry;
-        });
-
-        console.log('✅ consolidatedEntries built:', {
-            totalEntries: entries.length,
-            entriesWithRealPayments: entries.filter(e => e.realPayments.length > 0).length
         });
 
         return entries;
@@ -341,14 +317,6 @@ const BudgetTableConsolidated = (props) => {
     }, [consolidatedEntries, finalBudgetEntries, isConsolidatedView, isCustomConsolidated]);
 
     const calculateConsolidatedActualAmount = useCallback((entry, period) => {
-        console.log('🔍 DEBUG calculateConsolidatedActualAmount:', {
-            entryId: entry.id,
-            entryBudgetId: entry.budget_id,
-            period: period.label,
-            periodStart: period.startDate,
-            periodEnd: period.endDate,
-            entryRealAmount: entry.realAmount
-        });
 
         // 1. Si l'entrée a des paiements réels (realPayments), les filtrer par période
         if (entry.realPayments && Array.isArray(entry.realPayments)) {
@@ -364,22 +332,14 @@ const BudgetTableConsolidated = (props) => {
                         // Vérifier si le paiement est dans la période
                         if (paymentDate >= periodStart && paymentDate < periodEnd) {
                             totalForPeriod += payment.collection_amount;
-                            console.log('💰 Payment in period:', {
-                                paymentDate: paymentDate,
-                                amount: payment.collection_amount,
-                                periodStart: periodStart,
-                                periodEnd: periodEnd,
-                                totalForPeriod: totalForPeriod
-                            });
                         }
                     } catch (error) {
-                        console.error('❌ Error parsing payment date:', payment.collection_date, error);
+                        console.error('Error parsing payment date:', payment.collection_date, error);
                     }
                 }
             });
 
             if (totalForPeriod > 0) {
-                console.log('✅ Total from realPayments for period:', totalForPeriod);
                 return totalForPeriod;
             }
         }
@@ -405,19 +365,15 @@ const BudgetTableConsolidated = (props) => {
                             totalForPeriod += parseFloat(item.collection_amount || 0);
                         }
                     } catch (error) {
-                        console.error('❌ Error parsing collection date:', item.collection_date, error);
+                        console.error('Error parsing collection date:', item.collection_date, error);
                     }
                 }
             });
 
             if (totalForPeriod > 0) {
-                console.log('✅ Total from real_budgets for period:', totalForPeriod);
                 return totalForPeriod;
             }
         }
-
-        // 3. Pour les budgets sans paiements réels, utiliser calculateActualAmountForPeriod
-        console.log('🔄 No real payments found for this period, using calculateActualAmountForPeriod');
 
         const fallbackResult = calculateActualAmountForPeriod(
             entry,
@@ -426,8 +382,6 @@ const BudgetTableConsolidated = (props) => {
             period.endDate,
             entry.projectId
         );
-
-        console.log('🔚 Fallback result:', fallbackResult);
         return fallbackResult;
     }, [consolidatedData, finalActualTransactions]);
 
@@ -1069,7 +1023,6 @@ const BudgetTableConsolidated = (props) => {
         hasOffBudgetExpenses,
     ]);
 
-    // Gestion des événements
     const toggleCollapse = (mainCatId) => {
         setCollapsedItems((prev) => ({
             ...prev,
@@ -1408,8 +1361,6 @@ const BudgetTableConsolidated = (props) => {
                 title = 'Détails du flux de trésorerie';
                 break;
         }
-
-        console.log('Final transactions to display:', transactions.length);
 
         // Toujours ouvrir le drawer, même s'il n'y a pas de transactions
         setDrawerData({
@@ -1924,7 +1875,6 @@ const BudgetTableConsolidated = (props) => {
         );
     };
 
-    // Gestion du chargement pour les vues consolidées
     if (isConsolidatedView && consolidationLoading) {
         return (
             <div className="flex items-center justify-center h-96">

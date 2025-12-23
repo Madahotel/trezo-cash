@@ -51,7 +51,6 @@ const ProjectSwitcher = () => {
   const hasInitialized = useRef(false);
   const refreshTimeoutRef = useRef(null);
   const autoRefreshIntervalRef = useRef(null);
-  const isRefreshingRef = useRef(false);
 
   const allProjects = useMemo(() => {
     if (!rawProjects || !Array.isArray(rawProjects)) return [];
@@ -115,19 +114,19 @@ const ProjectSwitcher = () => {
       }
 
       const consolidatedId = idStr.replace('consolidated_view_', '');
-      const consolidationIds = new Set(safeConsolidations.map(c => c?.id?.toString()));
-      
-      if (consolidationIds.has(consolidatedId)) {
+      const exists = safeConsolidations.some(c =>
+        c && String(c.id) === consolidatedId
+      );
+
+      if (exists) {
         return savedProject;
       }
     } else {
-      const projectsMap = new Map(allProjects.map(p => [String(p.id), p]));
-      const project = projectsMap.get(idStr);
-      
-      if (project) {
-        const isArchived = ["1", 1, true, "true"].includes(
-          project?.is_archived ?? project?.isArchived ?? 0
-        );
+      const projectExists = allProjects.some(p => areIdsEqual(p.id, id));
+      const project = allProjects.find(p => areIdsEqual(p.id, id));
+
+      if (projectExists && project) {
+        const isArchived = ["1", 1, true, "true"].includes(project?.is_archived ?? project?.isArchived ?? 0);
         if (!isArchived) {
           return savedProject;
         }
@@ -137,124 +136,88 @@ const ProjectSwitcher = () => {
     return null;
   }, [allProjects, safeConsolidations, getSavedProject]);
 
-  const handleDataRefresh = useCallback(async () => {
-    if (isRefreshingRef.current || !hasInitialized.current) return;
-    
-    isRefreshingRef.current = true;
-    try {
-      await Promise.allSettled([
-        refetchProjects(),
-        refetchConsolidations()
-      ]);
-    } finally {
-      setTimeout(() => {
-        isRefreshingRef.current = false;
-      }, 2000);
-    }
-  }, [refetchProjects, refetchConsolidations]);
-
-  // Effet d'initialisation
   useEffect(() => {
-    if (hasInitialized.current) return;
-    
-    const initializeProject = async () => {
-      if (projectsLoading || consolidationsLoading) return;
-      
-      const validProject = validateActiveProject();
-      
-      if (!validProject) {
-        if (myProjects.length > 0) {
-          const firstProject = myProjects[0];
-          uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: firstProject });
-          saveProject(firstProject);
-        } else if (safeConsolidations.length > 0) {
-          const firstConsolidation = safeConsolidations[0];
-          const consolidatedProject = {
-            id: `consolidated_view_${firstConsolidation.id}`,
-            name: firstConsolidation.name,
-            type: 'consolidated'
-          };
-          uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: consolidatedProject });
-          saveProject(consolidatedProject);
-        } else {
-          const consolidatedProject = {
-            id: 'consolidated',
-            name: 'Mes projets consolidés',
-            type: 'consolidated'
-          };
-          uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: consolidatedProject });
-          saveProject(consolidatedProject);
-        }
-      } else if (!uiState.activeProject || !areIdsEqual(uiState.activeProject.id, validProject.id)) {
-        uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: validProject });
-      }
-      
+    if (projectsLoading || consolidationsLoading) return;
+
+    if (!hasInitialized.current) {
       hasInitialized.current = true;
-    };
-    
-    initializeProject();
-  }, [projectsLoading, consolidationsLoading, validateActiveProject, myProjects, safeConsolidations, uiDispatch, saveProject, uiState.activeProject]);
+    }
 
-  // Effet pour synchroniser le projet actif
-  useEffect(() => {
-    if (!hasInitialized.current || projectsLoading || consolidationsLoading) return;
-    
     const validProject = validateActiveProject();
-    
+
     if (!validProject) {
-      if (myProjects.length > 0 && uiState.activeProject?.type !== 'consolidated') {
+      if (myProjects.length > 0) {
         const firstProject = myProjects[0];
         uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: firstProject });
         saveProject(firstProject);
+      } else if (safeConsolidations.length > 0) {
+        const firstConsolidation = safeConsolidations[0];
+        const consolidatedProject = {
+          id: `consolidated_view_${firstConsolidation.id}`,
+          name: firstConsolidation.name,
+          type: 'consolidated'
+        };
+        uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: consolidatedProject });
+        saveProject(consolidatedProject);
+      } else {
+        const consolidatedProject = {
+          id: 'consolidated',
+          name: 'Mes projets consolidés',
+          type: 'consolidated'
+        };
+        uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: consolidatedProject });
+        saveProject(consolidatedProject);
       }
-      return;
-    }
-    
-    const currentId = uiState.activeProject?.id;
-    const validatedId = validProject.id;
-    
-    if (!currentId || !areIdsEqual(currentId, validatedId)) {
+    } else if (!uiState.activeProject || !areIdsEqual(uiState.activeProject.id, validProject.id)) {
       uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: validProject });
     }
-  }, [allProjects, safeConsolidations]);
+  }, [allProjects, myProjects, safeConsolidations, projectsLoading, consolidationsLoading, uiDispatch, saveProject, validateActiveProject, uiState.activeProject]);
 
-  // Effet pour les événements et rafraîchissements automatiques
   useEffect(() => {
-    if (!hasInitialized.current) return;
-    
-    const handleSpecificEvent = (event) => {
-      const eventType = event.type || event.detail?.type;
-      const shouldRefresh = [
-        'projectCreated',
-        'projectDeleted',
-        'consolidationCreated',
-        'consolidationDeleted'
-      ].includes(eventType);
-      
-      if (shouldRefresh) {
-        handleDataRefresh();
+    const handleDataRefresh = (event) => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
       }
+      refreshTimeoutRef.current = setTimeout(() => {
+        refetchProjects();
+        refetchConsolidations();
+      }, 300); 
     };
-    
-    window.addEventListener('projectEvent', handleSpecificEvent);
-    
-    // Rafraîchissement automatique moins fréquent
+    const events = [
+      'projectCreated',
+      'projectUpdated', 
+      'projectDeleted',
+      'projectArchived',
+      'projectRestored',
+      'projectsUpdated',
+      'consolidationCreated',
+      'consolidationCreatedSuccess',
+      'consolidationUpdated',
+      'consolidationDeleted',
+      'consolidationsRefreshed' 
+    ];
+    events.forEach(event => {
+      window.addEventListener(event, handleDataRefresh);
+    });
+
     autoRefreshIntervalRef.current = setInterval(() => {
-      handleDataRefresh();
-    }, 600000); // 10 minutes
-    
+      refetchProjects();
+      refetchConsolidations();
+    }, 60000); 
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         setTimeout(() => {
-          handleDataRefresh();
-        }, 5000);
+          refetchProjects();
+          refetchConsolidations();
+        }, 2000);
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
     return () => {
-      window.removeEventListener('projectEvent', handleSpecificEvent);
+      events.forEach(event => {
+        window.removeEventListener(event, handleDataRefresh);
+      });
       
       if (refreshTimeoutRef.current) {
         clearTimeout(refreshTimeoutRef.current);
@@ -266,7 +229,7 @@ const ProjectSwitcher = () => {
       
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [handleDataRefresh]);
+  }, [refetchProjects, refetchConsolidations]);
 
   const displayName = useMemo(() => {
     const activeId = activeProjectId ? String(activeProjectId) : '';
@@ -293,54 +256,69 @@ const ProjectSwitcher = () => {
     return uiState.activeProject?.name || 'Sélectionner un projet';
   }, [activeProjectId, activeProjectType, uiState.activeProject?.name, safeConsolidations, allProjects]);
 
-  const handleSelect = useCallback((id) => {
-    try {
-      const idStr = String(id);
+// ProjectSwitcher.jsx - MODIFIER la fonction handleSelect
+const handleSelect = useCallback((id) => {
+  try {
+    const idStr = String(id);
+    
+    // Récupérer l'URL actuelle pour savoir où on est
+    const currentPath = window.location.pathname;
+    
+    if (idStr === 'consolidated' || idStr.startsWith('consolidated_view_')) {
+      let consolidatedProject;
       
-      if (idStr === 'consolidated' || idStr.startsWith('consolidated_view_')) {
-        let consolidatedProject;
-        
-        if (idStr === 'consolidated') {
-          consolidatedProject = { 
-            id: idStr, 
-            name: 'Mes projets consolidés', 
-            type: 'consolidated' 
-          };
-        } else {
-          const foundConsolidation = safeConsolidations.find(c => 
-            c && `consolidated_view_${c.id}` === idStr
-          );
-          consolidatedProject = {
-            id: idStr,
-            name: foundConsolidation?.name || 'Vue consolidée',
-            type: 'consolidated'
-          };
-        }
-
-        uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: consolidatedProject });
-        saveProject(consolidatedProject);
-        
+      if (idStr === 'consolidated') {
+        consolidatedProject = { 
+          id: idStr, 
+          name: 'Mes projets consolidés', 
+          type: 'consolidated' 
+        };
       } else {
-        const selectedProject = allProjects.find(p => areIdsEqual(p.id, id));
-        if (selectedProject) {
-          const isArchived = ["1", 1, true, "true"].includes(
-            selectedProject?.is_archived ?? selectedProject?.isArchived ?? 0
-          );
-
-          uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: selectedProject });
-          saveProject(selectedProject);
-        }
+        const foundConsolidation = safeConsolidations.find(c => 
+          c && `consolidated_view_${c.id}` === idStr
+        );
+        consolidatedProject = {
+          id: idStr,
+          name: foundConsolidation?.name || 'Vue consolidée',
+          type: 'consolidated'
+        };
       }
+
+      uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: consolidatedProject });
+      saveProject(consolidatedProject);
+
+      // NE PAS naviguer vers une autre URL !
+      // La page actuelle se mettra à jour automatiquement grâce au contexte
       
-      setIsListOpen(false);
-    } catch (error) {
-      console.error('Erreur lors de la sélection:', error);
+      // Seule exception : si on est sur une page qui n'existe pas pour les consolidations
+      // Mais pour l'échéancier, dashboard, etc., on reste sur la même page
+      
+    } else {
+      // Projet simple
+      const selectedProject = allProjects.find(p => areIdsEqual(p.id, id));
+      if (selectedProject) {
+        const isArchived = ["1", 1, true, "true"].includes(
+          selectedProject?.is_archived ?? selectedProject?.isArchived ?? 0
+        );
+
+        uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: selectedProject });
+        saveProject(selectedProject);
+        
+        // NE PAS naviguer non plus !
+        // On reste sur la même page
+      }
     }
-  }, [allProjects, uiDispatch, saveProject, safeConsolidations]);
+    
+    setIsListOpen(false);
+  } catch (error) {
+    console.error(' Erreur lors de la sélection:', error);
+  }
+}, [allProjects, uiDispatch, saveProject, safeConsolidations]); // Retirer "navigate" des dépendances
 
   const handleManualRefresh = useCallback(() => {
-    handleDataRefresh();
-  }, [handleDataRefresh]);
+    refetchProjects();
+    refetchConsolidations();
+  }, [refetchProjects, refetchConsolidations]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -355,22 +333,8 @@ const ProjectSwitcher = () => {
 
   useEffect(() => {
     if (consolidationsError) {
-      console.error('Erreur de consolidation:', consolidationsError);
     }
   }, [consolidationsError]);
-
-  // Logs de débogage conditionnels
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🔄 ProjectSwitcher render:', {
-        projectsCount: allProjects.length,
-        consolidationsCount: safeConsolidations.length,
-        loading: { projects: projectsLoading, consolidations: consolidationsLoading },
-        activeProject: uiState.activeProject,
-        initialized: hasInitialized.current
-      });
-    }
-  }, []);
 
   if (projectsLoading || consolidationsLoading) {
     return (
