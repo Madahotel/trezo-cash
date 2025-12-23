@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useData } from '../../../components/context/DataContext';
 import { useUI } from '../../../components/context/UIContext';
-import { LayoutTemplate, Plus, Edit, Trash2, RefreshCw, User, ArrowUp, Crown, Users, Briefcase } from 'lucide-react';
+import { LayoutTemplate, Plus, Edit, Trash2, RefreshCw, User, ArrowUp, Crown, Users, Briefcase, Eye } from 'lucide-react';
 import EmptyState from '../../../components/emptystate/EmptyState';
 import SaveTemplateModal from '../../../components/modal/SaveTemplateModal';
 import { apiService } from '../../../utils/ApiService';
@@ -13,73 +13,49 @@ const MyTemplatesView = () => {
     const { templates, session } = dataState;
     const [isSaveTemplateModal, setIsSaveTemplateModal] = useState(false);
     const [editingTemplate, setEditingTemplate] = useState(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
+    const [isBackgroundLoading, setIsBackgroundLoading] = useState(false);
     const [refreshCount, setRefreshCount] = useState(0);
     const [showScrollTop, setShowScrollTop] = useState(false);
     const [visibleActions, setVisibleActions] = useState({});
     const listRef = useRef(null);
 
-    // Fonction pour normaliser les IDs (gère les strings et numbers)
     const normalizeId = (id) => {
         if (id === null || id === undefined) return null;
         return typeof id === 'string' ? parseInt(id) || id : id;
     };
 
-    // Fonction pour charger les templates
-    const loadTemplates = async () => {
+    const loadTemplates = async (isBackground = false) => {
         try {
-            setIsLoading(true);
-            uiDispatch({ type: 'SET_LOADING', payload: true });
-            console.log('🔄 Début du chargement des templates...');
-
+            if (!isBackground) {
+                setIsInitialLoading(true);
+            } else {
+                setIsBackgroundLoading(true);
+            }
+            
             const response = await apiService.get('/templates');
-            console.log('📡 Réponse API complète:', JSON.stringify(response, null, 2));
-
+            
             if (response.status === 200) {
                 const apiData = response.templates;
 
-                // Log détaillé de chaque catégorie
-                console.log('📊 Officials:', apiData.officials);
-                console.log('📊 Personals:', apiData.personals);
-                console.log('📊 Communities:', apiData.communities);
-
-                // Extraire les données de la structure paginée
                 const officialsData = apiData.officials?.template_official_items?.data || [];
                 const personalsData = apiData.personals?.template_personal_items?.data || [];
                 const communitiesData = apiData.communities?.template_community_items?.data || [];
 
-                console.log('📦 Officials extraits:', officialsData);
-                console.log('📦 Personals extraits:', personalsData);
-                console.log('📦 Communities extraits:', communitiesData);
-
-                // Vérifier si la session est disponible
-                console.log('👤 Session user ID:', session?.user?.id);
-                console.log('👤 Session complète:', session);
-
-                // Combiner tous les templates
                 const allTemplates = [...officialsData, ...personalsData, ...communitiesData];
-                console.log('📦 Total templates avant déduplication:', allTemplates.length, allTemplates);
 
-                // Éliminer les doublons avec Map, en gardant le template avec le bon type
                 const templateMap = new Map();
-                const duplicates = [];
 
                 allTemplates.forEach((template) => {
-                    console.log(`📝 Template ${template.id} "${template.name}":`, {
-                        type_id: template.template_type_id,
-                        type_name: template.template_type_name,
-                        user_id: template.user_subscriber_id,
-                        from: template.from // Pour savoir d'où il vient
-                    });
-
                     if (templateMap.has(template.id)) {
                         const existing = templateMap.get(template.id);
-                        // Si le nouveau template est de type personnel (2), on le préfère
-                        if (template.template_type_id === 2 && existing.template_type_id !== 2) {
+                        
+                        if (template.template_type_id === 1) {
                             templateMap.set(template.id, template);
-                            console.log(`🔄 Remplacement: Template ${template.id} maintenant marqué comme personnel`);
                         }
-                        duplicates.push(template.id);
+                        else if (template.template_type_id === 2 && existing.template_type_id !== 1) {
+                            templateMap.set(template.id, template);
+                        }
                     } else {
                         templateMap.set(template.id, template);
                     }
@@ -87,46 +63,46 @@ const MyTemplatesView = () => {
 
                 const uniqueTemplates = Array.from(templateMap.values());
 
-                console.log('✨ Templates uniques:', uniqueTemplates);
-                if (duplicates.length > 0) {
-                    console.log(`🗑️ Doublons ignorés: ${duplicates.join(", ")}`);
-                }
-
                 dataDispatch({
                     type: 'SET_TEMPLATES',
                     payload: uniqueTemplates,
                 });
 
-                uiDispatch({
-                    type: 'ADD_TOAST',
-                    payload: {
-                        message: `${uniqueTemplates.length} modèles chargés`,
-                        type: 'success',
-                    },
-                });
+                if (!isBackground) {
+                    uiDispatch({
+                        type: 'ADD_TOAST',
+                        payload: {
+                            message: `${uniqueTemplates.length} modèles chargés`,
+                            type: 'success',
+                        },
+                    });
+                }
             } else if (response.status === 204) {
-                console.log('ℹ️ Aucun template trouvé');
                 dataDispatch({
                     type: 'SET_TEMPLATES',
                     payload: [],
                 });
             }
         } catch (error) {
-            console.error('❌ Erreur chargement templates:', error);
-            uiDispatch({
-                type: 'ADD_TOAST',
-                payload: {
-                    message: error.error || 'Erreur lors du chargement des templates',
-                    type: 'error',
-                },
-            });
+            console.error('Erreur chargement templates:', error);
+            if (!isBackground) {
+                uiDispatch({
+                    type: 'ADD_TOAST',
+                    payload: {
+                        message: error.error || 'Erreur lors du chargement des templates',
+                        type: 'error',
+                    },
+                });
+            }
         } finally {
-            setIsLoading(false);
-            uiDispatch({ type: "SET_LOADING", payload: false });
+            if (!isBackground) {
+                setIsInitialLoading(false);
+            } else {
+                setIsBackgroundLoading(false);
+            }
         }
     };
 
-    // Fonction pour supprimer un template
     const handleDeleteTemplate = async (templateId) => {
         try {
             uiDispatch({ type: 'SET_LOADING', payload: true });
@@ -134,8 +110,7 @@ const MyTemplatesView = () => {
             const response = await apiService.delete(`/templates/${templateId}`);
 
             if (response.status === 200) {
-                // Recharger la liste après suppression
-                await loadTemplates();
+                await loadTemplates(true);
 
                 uiDispatch({
                     type: 'ADD_TOAST',
@@ -159,12 +134,11 @@ const MyTemplatesView = () => {
         }
     };
 
-    // Fonction pour obtenir le type de template
     const getTemplateTypeInfo = (template) => {
         const typeId = template.template_type_id;
 
         switch (typeId) {
-            case 1: // Officiel
+            case 1: 
                 return {
                     label: 'Officiel',
                     icon: Crown,
@@ -174,7 +148,7 @@ const MyTemplatesView = () => {
                     borderColor: 'border-purple-200',
                     isEditable: false
                 };
-            case 2: // Personnel
+            case 2: 
                 return {
                     label: 'Personnel',
                     icon: User,
@@ -184,7 +158,7 @@ const MyTemplatesView = () => {
                     borderColor: 'border-blue-200',
                     isEditable: true
                 };
-            case 3: // Communauté
+            case 3: 
                 return {
                     label: 'Communauté',
                     icon: Users,
@@ -207,7 +181,14 @@ const MyTemplatesView = () => {
         }
     };
 
-    // Filtrer les templates de l'utilisateur connecté
+    const canUserModifyTemplate = (template) => {
+        const sessionUserId = normalizeId(session?.user?.id);
+        const templateUserId = normalizeId(template.user_subscriber_id);
+        const templateTypeId = template.template_type_id;
+        
+        return templateTypeId === 2 && sessionUserId === templateUserId;
+    };
+
     const myTemplates = templates.filter(t => {
         if (!session || !session.user || !session.user.id) {
             return false;
@@ -217,33 +198,10 @@ const MyTemplatesView = () => {
         const templateUserId = normalizeId(t.user_subscriber_id);
         const templateTypeId = t.template_type_id;
 
-        // Inclure:
-        // 1. Tous les templates personnels créés par l'utilisateur
-        // 2. Tous les templates officiels (disponibles pour tous)
         return (templateTypeId === 2 && sessionUserId === templateUserId) ||
-            (templateTypeId === 1); // Ajouter cette condition pour inclure les officiels
+            (templateTypeId === 1);
     });
-    // Ajouter un log pour debug
-    useEffect(() => {
-        console.log('📊 FINAL - Données disponibles:');
-        console.log('👤 Session:', session);
-        console.log('👤 Session user ID:', session?.user?.id);
-        console.log('📋 Templates chargés:', templates);
-        console.log('🔍 myTemplates filtrés:', myTemplates);
 
-        if (templates.length > 0) {
-            templates.forEach(t => {
-                console.log(`📝 Template ${t.id} "${t.name}":`, {
-                    type: t.template_type_id,
-                    typeName: t.template_type_name,
-                    userId: t.user_subscriber_id,
-                    isMine: normalizeId(session?.user?.id) === normalizeId(t.user_subscriber_id)
-                });
-            });
-        }
-    }, [templates, session, myTemplates]);
-
-    // Gestion du scroll
     const handleScroll = () => {
         if (listRef.current) {
             const { scrollTop } = listRef.current;
@@ -265,20 +223,16 @@ const MyTemplatesView = () => {
         listRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // Charger les templates au montage du composant
     useEffect(() => {
-        console.log('🔄 useEffect triggered, refreshCount:', refreshCount);
-        console.log('🔐 Session dans useEffect:', session);
 
         if (session?.user?.id) {
-            console.log('✅ User ID disponible, chargement des templates...');
             loadTemplates();
         } else {
-            console.log('❌ User ID non disponible');
+            console.log(' User ID non disponible');
+            setIsInitialLoading(false);
         }
     }, [refreshCount, session?.user?.id]);
-
-    // Gestionnaire d'événements de scroll
+    
     useEffect(() => {
         const listElement = listRef.current;
         if (listElement) {
@@ -288,7 +242,6 @@ const MyTemplatesView = () => {
     }, [myTemplates]);
 
     const handleRefresh = () => {
-        console.log('🔄 Rafraîchissement manuel');
         setRefreshCount(prev => prev + 1);
     };
 
@@ -298,7 +251,6 @@ const MyTemplatesView = () => {
     };
 
     const handleEditTemplate = (template) => {
-        // Vérifier que c'est bien un template personnel de l'utilisateur
         const sessionUserId = normalizeId(session?.user?.id);
         const templateUserId = normalizeId(template.user_subscriber_id);
         const isPersonal = template.template_type_id === 2;
@@ -317,13 +269,23 @@ const MyTemplatesView = () => {
         }
     };
 
+    const handleViewTemplate = (template) => {
+        uiDispatch({
+            type: 'ADD_TOAST',
+            payload: {
+                message: `Visualisation du template "${template.name}"`,
+                type: 'info',
+            },
+        });
+    };
+
     const handleCloseModal = () => {
         setIsSaveTemplateModal(false);
         setEditingTemplate(null);
-        handleRefresh();
+        loadTemplates(true);
     };
 
-    if (isLoading) {
+    if (isInitialLoading) {
         return (
             <div className="flex flex-col items-center justify-center py-12 space-y-4">
                 <div className="w-12 h-12 border-b-2 border-blue-600 rounded-full animate-spin"></div>
@@ -344,7 +306,6 @@ const MyTemplatesView = () => {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            {/* Header fixe */}
             <div className="sticky top-0 z-10 bg-white border-b border-gray-200">
                 <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between py-4">
@@ -357,12 +318,18 @@ const MyTemplatesView = () => {
                                 <p>ID utilisateur: {session?.user?.id || 'Non connecté'}</p>
                             </div>
                         </div>
-                        <div className="flex gap-3">
+                        <div className="flex items-center gap-3">
+                            {isBackgroundLoading && (
+                                <div className="flex items-center gap-2 px-3 py-1 text-xs text-blue-600 rounded-full bg-blue-50">
+                                    <div className="w-3 h-3 border-2 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+                                    <span>Mise à jour...</span>
+                                </div>
+                            )}
                             <button
                                 onClick={handleRefresh}
                                 className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 transition-colors bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
                             >
-                                <RefreshCw size={16} />
+                                <RefreshCw size={16} className={isBackgroundLoading ? 'animate-spin' : ''} />
                                 Actualiser
                             </button>
                             <button
@@ -377,7 +344,6 @@ const MyTemplatesView = () => {
                 </div>
             </div>
 
-            {/* Contenu principal avec scroll */}
             <div className="px-4 py-6 mx-auto max-w-7xl sm:px-6 lg:px-8">
                 <div
                     ref={listRef}
@@ -405,6 +371,7 @@ const MyTemplatesView = () => {
                         <ul className="divide-y divide-gray-200">
                             {myTemplates.map((template) => {
                                 const typeInfo = getTemplateTypeInfo(template);
+                                const canModify = canUserModifyTemplate(template);
 
                                 return (
                                     <li
@@ -414,7 +381,6 @@ const MyTemplatesView = () => {
                                     >
                                         <div className="flex items-center justify-between h-20 p-6">
                                             <div className="flex items-center flex-1 min-w-0 gap-4">
-                                                {/* Icône dynamique */}
                                                 <div
                                                     className="flex items-center justify-center flex-shrink-0 w-5 h-5 transition-transform rounded-xl group-hover:scale-105"
                                                     style={{
@@ -467,35 +433,65 @@ const MyTemplatesView = () => {
                                                 </div>
                                             </div>
 
-                                            {/* Boutons d'action */}
-                                            <div className={`
-                                                flex items-center gap-2 transition-all duration-300 ml-4
-                                                ${visibleActions[template.id]
-                                                    ? 'opacity-100 translate-x-0'
-                                                    : 'opacity-70 translate-x-2'
-                                                }
-                                            `}>
-                                                <button
-                                                    onClick={() => handleEditTemplate(template)}
-                                                    className="p-2 text-blue-600 transition-colors rounded-lg hover:text-blue-800 hover:bg-blue-100 group/btn"
-                                                    title="Modifier le modèle"
-                                                >
-                                                    <Edit size={18} />
-                                                    <span className="absolute px-2 py-1 text-xs text-white transition-opacity transform -translate-x-1/2 bg-gray-800 rounded opacity-0 -top-8 left-1/2 group-hover/btn:opacity-100 whitespace-nowrap">
-                                                        Modifier
-                                                    </span>
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDeleteTemplate(template.id)}
-                                                    className="p-2 text-red-600 transition-colors rounded-lg hover:text-red-800 hover:bg-red-100 group/btn"
-                                                    title="Supprimer le modèle"
-                                                >
-                                                    <Trash2 size={18} />
-                                                    <span className="absolute px-2 py-1 text-xs text-white transition-opacity transform -translate-x-1/2 bg-gray-800 rounded opacity-0 -top-8 left-1/2 group-hover/btn:opacity-100 whitespace-nowrap">
-                                                        Supprimer
-                                                    </span>
-                                                </button>
-                                            </div>
+                                            {template.template_type_id === 1 ? (
+                                                // Template officiel - aucun bouton d'action, seulement un badge informatif
+                                                <div className="ml-4">
+                                                    <div className="flex items-center gap-1 px-3 py-1 text-xs text-purple-600 rounded-full bg-purple-50">
+                                                        <Crown size={12} />
+                                                        <span>Modèle officiel</span>
+                                                    </div>
+                                                </div>
+                                            ) : canModify ? (
+                                                // Boutons Modifier/Supprimer pour les templates personnels de l'utilisateur
+                                                <div className={`
+                                                    flex items-center gap-2 transition-all duration-300 ml-4
+                                                    ${visibleActions[template.id]
+                                                        ? 'opacity-100 translate-x-0'
+                                                        : 'opacity-70 translate-x-2'
+                                                    }
+                                                `}>
+                                                    <button
+                                                        onClick={() => handleEditTemplate(template)}
+                                                        className="p-2 text-blue-600 transition-colors rounded-lg hover:text-blue-800 hover:bg-blue-100 group/btn"
+                                                        title="Modifier le modèle"
+                                                    >
+                                                        <Edit size={18} />
+                                                        <span className="absolute px-2 py-1 text-xs text-white transition-opacity transform -translate-x-1/2 bg-gray-800 rounded opacity-0 -top-8 left-1/2 group-hover/btn:opacity-100 whitespace-nowrap">
+                                                            Modifier
+                                                        </span>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteTemplate(template.id)}
+                                                        className="p-2 text-red-600 transition-colors rounded-lg hover:text-red-800 hover:bg-red-100 group/btn"
+                                                        title="Supprimer le modèle"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                        <span className="absolute px-2 py-1 text-xs text-white transition-opacity transform -translate-x-1/2 bg-gray-800 rounded opacity-0 -top-8 left-1/2 group-hover/btn:opacity-100 whitespace-nowrap">
+                                                            Supprimer
+                                                        </span>
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                // Pour les autres templates non modifiables (communautaires ou personnels d'autres utilisateurs)
+                                                <div className={`
+                                                    flex items-center gap-2 transition-all duration-300 ml-4
+                                                    ${visibleActions[template.id]
+                                                        ? 'opacity-100 translate-x-0'
+                                                        : 'opacity-70 translate-x-2'
+                                                    }
+                                                `}>
+                                                    <button
+                                                        onClick={() => handleViewTemplate(template)}
+                                                        className="p-2 text-gray-600 transition-colors rounded-lg hover:text-gray-800 hover:bg-gray-100 group/btn"
+                                                        title="Visualiser le modèle"
+                                                    >
+                                                        <Eye size={18} />
+                                                        <span className="absolute px-2 py-1 text-xs text-white transition-opacity transform -translate-x-1/2 bg-gray-800 rounded opacity-0 -top-8 left-1/2 group-hover/btn:opacity-100 whitespace-nowrap">
+                                                            Visualiser
+                                                        </span>
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     </li>
                                 );

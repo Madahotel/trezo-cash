@@ -5,10 +5,11 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
   build: {
-    outDir: 'F:/Upskill/Trezocash/git/trezo.cash/public/react',
+    outDir: 'C:/xampp/htdocs/back_tresocash/back/trezo.cash/public/react',
     emptyOutDir: true,
     manifest: true,
   },
+  // base: '/react/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -17,11 +18,11 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8000', 
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
       },
     },
   },
+  // base :'/react/'
 });
-

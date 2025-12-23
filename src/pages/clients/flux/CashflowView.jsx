@@ -4,6 +4,21 @@ import ReactECharts from "echarts-for-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiGet } from "../../../components/context/actionsMethode";
 
+// Import des fonctions depuis cashflow.js
+import {
+  formatCurrency,
+  getMonthFull,
+  getBimonthFull,
+  getViewModeOptions,
+  getViewModeLabel,
+  getMonthOptions,
+  getBimonthOptions,
+  getYearOptions,
+  calculatePeriods,
+  calculateChartData,
+  calculateStats,
+} from '../../../services/cashflow';
+
 const CashflowView = ({ isFocusMode = false }) => {
   const [periodOffset, setPeriodOffset] = useState(0);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -86,6 +101,7 @@ const CashflowView = ({ isFocusMode = false }) => {
     setSelectedYear((prev) => prev + direction);
   };
 
+<<<<<<< HEAD
   const formatCurrency = (value) => {
     if (value === null || value === undefined) return "";
     return new Intl.NumberFormat("fr-FR", {
@@ -391,62 +407,32 @@ const CashflowView = ({ isFocusMode = false }) => {
       }
       return years;
     }
+=======
+  // Calcul des périodes
+  const periods = useMemo(() => {
+    return calculatePeriods(
+      viewMode,
+      selectedYear,
+      selectedMonth,
+      selectedBimonth,
+      currentYear,
+      currentMonth,
+      currentDate
+    );
+>>>>>>> 06846af8c4c8646d59dcf19a95cb8b33873e7a2c
   }, [
+    viewMode,
     selectedYear,
     selectedMonth,
     selectedBimonth,
     currentYear,
     currentMonth,
     currentDate,
-    viewMode,
   ]);
 
-  // Fonction pour calculer la balance cumulative depuis le début
-  const calculateCumulativeData = () => {
-    if (!data || !data.balanceMovements || data.balanceMovements.length === 0) {
-      return {
-        cumulativeBalances: [],
-        allPeriodsData: [],
-        initialBalance: data?.initialBalance
-          ? parseFloat(data.initialBalance)
-          : 0,
-      };
-    }
-
-    // Trier tous les mouvements par date
-    const sortedMovements = [...data.balanceMovements].sort(
-      (a, b) => new Date(a.operation_date) - new Date(b.operation_date)
-    );
-
-    // Calculer les balances cumulatives pour chaque mouvement
-    let cumulativeBalance = parseFloat(data.initialBalance) || 0;
-    const cumulativeBalances = [];
-
-    sortedMovements.forEach((movement) => {
-      const date = new Date(movement.operation_date);
-      const amount = parseFloat(movement.operation_amount) || 0;
-
-      if (movement.movement_type_id === 1) {
-        cumulativeBalance += amount;
-      } else if (movement.movement_type_id === 2) {
-        cumulativeBalance -= amount;
-      }
-
-      cumulativeBalances.push({
-        date,
-        balance: cumulativeBalance,
-        movement,
-      });
-    });
-
-    return {
-      cumulativeBalances,
-      initialBalance: parseFloat(data.initialBalance) || 0,
-    };
-  };
-
-  // Traitement des données de l'API - logique simplifiée
+  // Traitement des données de l'API
   const chartData = useMemo(() => {
+<<<<<<< HEAD
     const labels = periods.map((p) => p.label);
 
     // Si pas de données, retourner des données vides
@@ -618,8 +604,21 @@ const CashflowView = ({ isFocusMode = false }) => {
       balances,
       startingBalance,
     };
+=======
+    return calculateChartData(
+      data,
+      periods,
+      selectedYear,
+      selectedMonth,
+      selectedBimonth,
+      viewMode,
+      currentYear,
+      currentMonth
+    );
+>>>>>>> 06846af8c4c8646d59dcf19a95cb8b33873e7a2c
   }, [data, periods, selectedYear, selectedMonth, selectedBimonth, viewMode]);
 
+  // Configuration du graphique ECharts
   const getChartOptions = () => {
     const { labels, inflows, outflows, balances, startingBalance } = chartData;
 
@@ -639,14 +638,11 @@ const CashflowView = ({ isFocusMode = false }) => {
         if (month >= startMonth && month <= endMonth) {
           todayIndex = month - startMonth;
         } else if (selectedYear < currentYear) {
-          // Si l'année sélectionnée est dans le passé, dernière période
           todayIndex = periods.length - 1;
         }
       } else if (selectedYear < currentYear) {
-        // Si l'année sélectionnée est dans le passé, dernière période
         todayIndex = periods.length - 1;
       } else {
-        // Si l'année sélectionnée est dans le futur, pas de période courante
         todayIndex = -1;
       }
     } else if (["month", "quarter", "semester"].includes(viewMode)) {
@@ -664,25 +660,33 @@ const CashflowView = ({ isFocusMode = false }) => {
         todayIndex = -1;
       }
     } else {
-      // Vue annuelle
       todayIndex = periods.findIndex((p) => p.year === currentYear);
     }
 
     // Fonction pour formater le label (masquer si 0)
     const formatLabel = (value) => {
       if (value === 0 || value === null || value === undefined) {
+<<<<<<< HEAD
         return ""; // Retourner une chaîne vide pour les valeurs 0
+=======
+        return '';
+>>>>>>> 06846af8c4c8646d59dcf19a95cb8b33873e7a2c
       }
       return formatCurrency(value);
     };
 
-    // Créer les séries pour la balance cumulative avec style différent selon la période
+    // Créer les séries pour la balance cumulative
     const balanceSeries = {
       name: "Balance",
       type: "line",
       data: balances,
+<<<<<<< HEAD
       smooth: 0.4, // Courbure modérée
       symbol: "diamond",
+=======
+      smooth: 0.4,
+      symbol: 'diamond',
+>>>>>>> 06846af8c4c8646d59dcf19a95cb8b33873e7a2c
       symbolSize: 8,
       showSymbol: true,
       lineStyle: {
@@ -725,7 +729,6 @@ const CashflowView = ({ isFocusMode = false }) => {
 
     // Définir les styles de ligne selon la période
     if (todayIndex !== -1 && todayIndex < periods.length - 1) {
-      // Il y a des données passées et futures
       balanceSeries.lineStyle = (params) => {
         const index = params.dataIndex;
         if (index <= todayIndex) {
@@ -744,7 +747,6 @@ const CashflowView = ({ isFocusMode = false }) => {
         }
       };
 
-      // Pour les symboles, masquer sur la partie tiretée
       balanceSeries.showSymbol = true;
       balanceSeries.symbol = (params) => {
         const index = params.dataIndex;
@@ -758,14 +760,12 @@ const CashflowView = ({ isFocusMode = false }) => {
       todayIndex === periods.length - 1 ||
       todayIndex > periods.length - 1
     ) {
-      // Toutes les périodes sont passées
       balanceSeries.lineStyle = {
         width: 3,
         color: "#3b82f6",
         type: "solid",
       };
     } else {
-      // Toutes les périodes sont futures
       balanceSeries.lineStyle = {
         width: 3,
         color: "#3b82f6",
@@ -876,7 +876,6 @@ const CashflowView = ({ isFocusMode = false }) => {
           const monthName = periods[periodIndex].fullLabel;
           let html = `<div style="margin-bottom: 8px; font-weight: 500; color: #111827;">${monthName}</div>`;
 
-          // Afficher la balance de départ pour la première période
           if (periodIndex === 0) {
             html += `
               <div style="display: flex; justify-content: space-between; align-items: center; margin: 4px 0;">
@@ -892,8 +891,12 @@ const CashflowView = ({ isFocusMode = false }) => {
           }
 
           params.forEach((p) => {
+<<<<<<< HEAD
             // Exclure la série de balance de départ du tooltip
             if (p.seriesName === "Balance de départ") return;
+=======
+            if (p.seriesName === 'Balance de départ') return;
+>>>>>>> 06846af8c4c8646d59dcf19a95cb8b33873e7a2c
 
             const value = formatCurrency(p.value);
             const colorMap = {
@@ -901,7 +904,18 @@ const CashflowView = ({ isFocusMode = false }) => {
               Sorties: "#ef4444",
               Balance: "#3b82f6",
             };
+<<<<<<< HEAD
             const color = colorMap[p.seriesName] || "#6b7280";
+=======
+            const color = colorMap[p.seriesName] || '#6b7280';
+
+            const isProjection = periodIndex > todayIndex && todayIndex !== -1;
+
+            const seriesName =
+              isProjection && p.seriesName === 'Balance'
+                ? `${p.seriesName} (projection)`
+                : p.seriesName;
+>>>>>>> 06846af8c4c8646d59dcf19a95cb8b33873e7a2c
 
             html += `
               <div style="display: flex; justify-content: space-between; align-items: center; margin: 4px 0;">
@@ -930,10 +944,17 @@ const CashflowView = ({ isFocusMode = false }) => {
         icon: "circle",
       },
       grid: {
+<<<<<<< HEAD
         left: "0%",
         right: "0%",
         bottom: "15%",
         top: "5%",
+=======
+        left: '2%',
+        right: '5%',
+        bottom: '18%',
+        top: '12%',
+>>>>>>> 06846af8c4c8646d59dcf19a95cb8b33873e7a2c
         containLabel: true,
       },
       xAxis: {
@@ -990,12 +1011,13 @@ const CashflowView = ({ isFocusMode = false }) => {
     };
   };
 
-  // Options d'années (5 ans en arrière, année courante, 4 ans en avant)
-  const yearOptions = Array.from({ length: 10 }, (_, i) => {
-    const yearValue = new Date().getFullYear() - 5 + i;
-    return { id: yearValue.toString(), label: yearValue.toString() };
-  });
+  // Options pour les menus déroulants
+  const viewModeOptions = getViewModeOptions();
+  const monthOptions = getMonthOptions();
+  const bimonthOptions = getBimonthOptions();
+  const yearOptions = getYearOptions(currentYear);
 
+<<<<<<< HEAD
   // Options pour les mois
   const monthOptions = [
     { id: 0, label: "Janvier" },
@@ -1038,41 +1060,11 @@ const CashflowView = ({ isFocusMode = false }) => {
   };
 
   // Calcul des statistiques basées sur les données réelles
+=======
+  // Calcul des statistiques
+>>>>>>> 06846af8c4c8646d59dcf19a95cb8b33873e7a2c
   const stats = useMemo(() => {
-    const { inflows, outflows, balances } = chartData;
-
-    // Calculer les moyennes uniquement sur les périodes avec données
-    const periodsWithData =
-      inflows.filter((val, idx) => val !== 0 || outflows[idx] !== 0).length ||
-      periods.length;
-
-    const totalInflow = inflows.reduce((a, b) => a + b, 0);
-    const totalOutflow = outflows.reduce((a, b) => a + b, 0);
-
-    // La balance totale est la dernière balance cumulative
-    const totalBalance =
-      balances.length > 0 ? balances[balances.length - 1] : 0;
-
-    const avgInflow = totalInflow / periodsWithData;
-    const avgOutflow = totalOutflow / periodsWithData;
-
-    // Trouver la dernière balance non-nulle
-    let lastBalance = 0;
-    for (let i = balances.length - 1; i >= 0; i--) {
-      if (inflows[i] !== 0 || outflows[i] !== 0 || i === 0) {
-        lastBalance = balances[i];
-        break;
-      }
-    }
-
-    return {
-      avgInflow: Math.round(avgInflow),
-      avgOutflow: Math.round(avgOutflow),
-      lastBalance,
-      totalInflow,
-      totalOutflow,
-      totalBalance,
-    };
+    return calculateStats(chartData, periods);
   }, [chartData, periods]);
 
   if (isLoading) {

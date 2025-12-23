@@ -37,7 +37,16 @@ const criticalityConfig = {
     discretionary: { label: 'Discrétionnaire', color: 'bg-blue-500' },
 };
 
-const LectureView = ({ entries, periods, settings, actuals, isConsolidated, projects, visibleColumns, categories }) => {
+const LectureView = ({ 
+    entries, 
+    periods, 
+    settings, 
+    actuals, 
+    isConsolidated, 
+    projects, 
+    visibleColumns, 
+    categories 
+}) => {
     const sortedEntries = useMemo(() => {
         return [...entries].sort((a, b) => {
             if (a.type !== b.type) return a.type === 'revenu' ? -1 : 1;
@@ -61,7 +70,11 @@ const LectureView = ({ entries, periods, settings, actuals, isConsolidated, proj
                 const amount = calculateActualAmountForPeriod(entry, actuals, period.startDate, period.endDate);
                 return sum + (entry.type === 'revenu' ? amount : -amount);
             }, 0);
-            return { budget: totalBudget, actual: totalActual, reste: totalBudget - totalActual };
+            return { 
+                budget: totalBudget, 
+                actual: totalActual, 
+                reste: totalBudget - totalActual 
+            };
         });
     }, [sortedEntries, periods, actuals]);
 
@@ -109,33 +122,97 @@ const LectureView = ({ entries, periods, settings, actuals, isConsolidated, proj
 
                         return (
                             <tr key={entry.id} className="border-b hover:bg-gray-50">
-                                <td className="px-4 py-2 font-bold text-gray-500 align-top">{groupLabel}</td>
+                                <td className="px-4 py-2 font-bold text-gray-500 align-top">
+                                    {groupLabel}
+                                </td>
                                 <td className={`py-2 px-4 font-medium text-gray-600`}>
                                     <div className="flex items-center gap-2">
-                                        {critConfig && <span className={`w-2 h-2 rounded-full ${critConfig.color}`} title={`Criticité: ${critConfig.label}`}></span>}
+                                        {critConfig && (
+                                            <span 
+                                                className={`w-2 h-2 rounded-full ${critConfig.color}`} 
+                                                title={`Criticité: ${critConfig.label}`}
+                                            ></span>
+                                        )}
                                         <span>{entry.category}</span>
                                     </div>
                                 </td>
-                                {isConsolidated && <td className="px-4 py-2">{projects.find(p => p.id === entry.projectId)?.name || 'N/A'}</td>}
+                                {isConsolidated && (
+                                    <td className="px-4 py-2">
+                                        {projects.find(p => p.id === entry.projectId)?.name || 'N/A'}
+                                    </td>
+                                )}
                                 <td className="flex items-center gap-2 px-4 py-2">
                                     {entry.supplier}
-                                    {entry.isProvision && <Lock className="w-3 h-3 text-indigo-500" title="Provision" />}
+                                    {entry.isProvision && (
+                                        <Lock 
+                                            className="w-3 h-3 text-indigo-500" 
+                                            title="Provision" 
+                                        />
+                                    )}
                                 </td>
-                                {visibleColumns.description && <td className="max-w-xs px-4 py-2 text-xs text-gray-500 truncate">{entry.description}</td>}
+                                {visibleColumns.description && (
+                                    <td className="max-w-xs px-4 py-2 text-xs text-gray-500 truncate">
+                                        {entry.description}
+                                    </td>
+                                )}
                                 {periods.map(period => {
                                     // ✅ CORRECTION: Utiliser les fonctions locales
-                                    const budget = calculateEntryAmountForPeriod(entry, period.startDate, period.endDate);
-                                    const actual = calculateActualAmountForPeriod(entry, actuals, period.startDate, period.endDate);
+                                    const budget = calculateEntryAmountForPeriod(
+                                        entry, 
+                                        period.startDate, 
+                                        period.endDate
+                                    );
+                                    const actual = calculateActualAmountForPeriod(
+                                        entry, 
+                                        actuals, 
+                                        period.startDate, 
+                                        period.endDate
+                                    );
                                     const reste = budget - actual;
                                     const isRevenue = entry.type === 'revenu';
-                                    const resteColor = reste === 0 ? 'text-gray-500' : isRevenue ? (reste <= 0 ? 'text-green-600' : 'text-red-600') : (reste >= 0 ? 'text-green-600' : 'text-red-600');
+                                    const resteColor = reste === 0 
+                                        ? 'text-gray-500' 
+                                        : isRevenue 
+                                            ? (reste <= 0 ? 'text-green-600' : 'text-red-600')
+                                            : (reste >= 0 ? 'text-green-600' : 'text-red-600');
                                     const columnIdBase = period.startDate.toISOString();
+                                    
                                     return (
                                         <td key={period.label} className="px-4 py-2 text-center">
                                             <div className="flex justify-around">
-                                                {visibleColumns.budget && <div className="relative w-1/3 text-gray-500 group/subcell">{formatCurrency(budget, settings)}<CommentButton rowId={entry.id} columnId={`${columnIdBase}_budget`} rowName={entry.supplier} columnName={`${period.label} (Prév.)`} /></div>}
-                                                {visibleColumns.actual && <div className="relative w-1/3 font-semibold group/subcell">{formatCurrency(actual, settings)}<CommentButton rowId={entry.id} columnId={`${columnIdBase}_actual`} rowName={entry.supplier} columnName={`${period.label} (Réel)`} /></div>}
-                                                {visibleColumns.reste && <div className={`w-1/3 ${resteColor} relative group/subcell`}>{formatCurrency(reste, settings)}<CommentButton rowId={entry.id} columnId={`${columnIdBase}_reste`} rowName={entry.supplier} columnName={`${period.label} (Reste)`} /></div>}
+                                                {visibleColumns.budget && (
+                                                    <div className="relative w-1/3 text-gray-500 group/subcell">
+                                                        {formatCurrency(budget, settings)}
+                                                        <CommentButton 
+                                                            rowId={entry.id}
+                                                            columnId={`${columnIdBase}_budget`}
+                                                            rowName={entry.supplier}
+                                                            columnName={`${period.label} (Prév.)`}
+                                                        />
+                                                    </div>
+                                                )}
+                                                {visibleColumns.actual && (
+                                                    <div className="relative w-1/3 font-semibold group/subcell">
+                                                        {formatCurrency(actual, settings)}
+                                                        <CommentButton 
+                                                            rowId={entry.id}
+                                                            columnId={`${columnIdBase}_actual`}
+                                                            rowName={entry.supplier}
+                                                            columnName={`${period.label} (Réel)`}
+                                                        />
+                                                    </div>
+                                                )}
+                                                {visibleColumns.reste && (
+                                                    <div className={`w-1/3 ${resteColor} relative group/subcell`}>
+                                                        {formatCurrency(reste, settings)}
+                                                        <CommentButton 
+                                                            rowId={entry.id}
+                                                            columnId={`${columnIdBase}_reste`}
+                                                            rowName={entry.supplier}
+                                                            columnName={`${period.label} (Reste)`}
+                                                        />
+                                                    </div>
+                                                )}
                                             </div>
                                         </td>
                                     );
@@ -146,17 +223,60 @@ const LectureView = ({ entries, periods, settings, actuals, isConsolidated, proj
                 </tbody>
                 <tfoot>
                     <tr className="font-bold bg-gray-100">
-                        <td colSpan={isConsolidated ? (visibleColumns.description ? 5 : 4) : (visibleColumns.description ? 4 : 3)} className="px-4 py-3">Flux de trésorerie net</td>
+                        <td 
+                            colSpan={
+                                isConsolidated 
+                                    ? (visibleColumns.description ? 5 : 4) 
+                                    : (visibleColumns.description ? 4 : 3)
+                            } 
+                            className="px-4 py-3"
+                        >
+                            Flux de trésorerie net
+                        </td>
                         {totalsByPeriod.map((total, index) => {
                             const period = periods[index];
                             const columnIdBase = period.startDate.toISOString();
                             const rowId = 'net_flow';
+                            const budgetColor = total.budget >= 0 ? 'text-gray-600' : 'text-red-600';
+                            const actualColor = total.actual >= 0 ? 'text-gray-800' : 'text-red-700';
+                            const resteColor = total.reste >= 0 ? 'text-green-600' : 'text-red-600';
+                            
                             return (
                                 <td key={index} className="px-4 py-3 text-center">
                                     <div className="flex justify-around">
-                                        {visibleColumns.budget && <div className={`w-1/3 text-xs ${total.budget >= 0 ? 'text-gray-600' : 'text-red-600'} relative group/subcell`}>{formatCurrency(total.budget, settings)}<CommentButton rowId={rowId} columnId={`${columnIdBase}_budget`} rowName="Flux de trésorerie net" columnName={`${period.label} (Prév.)`} /></div>}
-                                        {visibleColumns.actual && <div className={`w-1/3 font-semibold ${total.actual >= 0 ? 'text-gray-800' : 'text-red-700'} relative group/subcell`}>{formatCurrency(total.actual, settings)}<CommentButton rowId={rowId} columnId={`${columnIdBase}_actual`} rowName="Flux de trésorerie net" columnName={`${period.label} (Réel)`} /></div>}
-                                        {visibleColumns.reste && <div className={`w-1/3 text-xs ${total.reste >= 0 ? 'text-green-600' : 'text-red-600'} relative group/subcell`}>{formatCurrency(total.reste, settings)}<CommentButton rowId={rowId} columnId={`${columnIdBase}_reste`} rowName="Flux de trésorerie net" columnName={`${period.label} (Reste)`} /></div>}
+                                        {visibleColumns.budget && (
+                                            <div className={`w-1/3 text-xs ${budgetColor} relative group/subcell`}>
+                                                {formatCurrency(total.budget, settings)}
+                                                <CommentButton 
+                                                    rowId={rowId}
+                                                    columnId={`${columnIdBase}_budget`}
+                                                    rowName="Flux de trésorerie net"
+                                                    columnName={`${period.label} (Prév.)`}
+                                                />
+                                            </div>
+                                        )}
+                                        {visibleColumns.actual && (
+                                            <div className={`w-1/3 font-semibold ${actualColor} relative group/subcell`}>
+                                                {formatCurrency(total.actual, settings)}
+                                                <CommentButton 
+                                                    rowId={rowId}
+                                                    columnId={`${columnIdBase}_actual`}
+                                                    rowName="Flux de trésorerie net"
+                                                    columnName={`${period.label} (Réel)`}
+                                                />
+                                            </div>
+                                        )}
+                                        {visibleColumns.reste && (
+                                            <div className={`w-1/3 text-xs ${resteColor} relative group/subcell`}>
+                                                {formatCurrency(total.reste, settings)}
+                                                <CommentButton 
+                                                    rowId={rowId}
+                                                    columnId={`${columnIdBase}_reste`}
+                                                    rowName="Flux de trésorerie net"
+                                                    columnName={`${period.label} (Reste)`}
+                                                />
+                                            </div>
+                                        )}
                                     </div>
                                 </td>
                             );

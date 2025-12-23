@@ -21,6 +21,7 @@ const AccountDetailModal = ({
   onReopenAccount,
 }) => {
   const [accountData, setAccountData] = useState(null);
+  const [reportedAmount, setReportedAmount] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -103,11 +104,8 @@ const AccountDetailModal = ({
     setError(null);
     try {
       const res = await apiGet(`/bank-accounts/${id}`);
-      if (res && res.bank_account) {
-        setAccountData(res.bank_account);
-      } else {
-        setError('Données du compte non disponibles');
-      }
+      setAccountData(res.bank_account);
+      setReportedAmount(res.reportedAmount);
     } catch (err) {
       console.error('Erreur lors du chargement des détails:', err);
       setError('Erreur lors du chargement des détails du compte');
@@ -235,18 +233,6 @@ const AccountDetailModal = ({
                     <div className="space-y-4">
                       <div>
                         <h3 className="text-sm font-medium text-gray-500 mb-1">
-                          Solde actuel
-                        </h3>
-                        <p className="text-2xl font-bold text-gray-900">
-                          {formatCurrency(
-                            accountData.initial_amount,
-                            accountData.currency?.code
-                          )}
-                        </p>
-                      </div>
-
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-500 mb-1">
                           Date du création
                         </h3>
                         <div className="flex items-center gap-2">
@@ -255,6 +241,25 @@ const AccountDetailModal = ({
                             {formatDate(accountData.date_balance)}
                           </span>
                         </div>
+                      </div>
+
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-500 mb-1">
+                          Solde initial
+                        </h3>
+                        <p className="text-2xl font-bold text-gray-900">
+                          {accountData.initial_amount}
+                          {accountData.currency_symbol}
+                        </p>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-500 mb-1">
+                          Solde actuel
+                        </h3>
+                        <p className="text-2xl font-bold text-gray-900">
+                          {reportedAmount}
+                          {accountData.currency_symbol}
+                        </p>
                       </div>
 
                       {accountData.currency && (

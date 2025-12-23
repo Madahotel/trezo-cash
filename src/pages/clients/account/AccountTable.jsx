@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Wallet,
   Edit,
@@ -7,7 +7,8 @@ import {
   Eye,
   Calendar,
 } from 'lucide-react';
-import { formatCurrency } from '../../../utils/formatting';
+import { apiGet } from '../../../components/context/actionsMethode';
+// import { formatCurrency } from '../../../utils/formatting';
 
 const AccountsTable = ({
   accounts,
@@ -20,6 +21,23 @@ const AccountsTable = ({
   onReopenAccount,
   onViewDetails,
 }) => {
+  const [currencies, setCurrencies] = useState([]);
+
+  // Charger les devises au montage du composant
+  useEffect(() => {
+    const fetchCurrencies = async () => {
+      try {
+        const res = await apiGet(`/currencies`);
+        // Gérer différents formats de réponse
+        setCurrencies(res.currencies || res || []);
+      } catch (error) {
+        console.error('CURRENCY ERROR ===> ', error);
+      }
+    };
+
+    fetchCurrencies();
+  }, []);
+
   return (
     <div className="bg-white">
       {accounts.length > 0 ? (
@@ -37,6 +55,7 @@ const AccountsTable = ({
                   setEditingAccount={setEditingAccount}
                   onCancel={onCancelEdit}
                   onSave={onSaveEdit}
+                  currencies={currencies} // Passer les devises chargées
                 />
               ) : (
                 <AccountRow
@@ -73,14 +92,33 @@ const EditAccountForm = ({
   setEditingAccount,
   onCancel,
   onSave,
+  currencies = [],
 }) => {
+  // Fonction pour trouver la devise actuelle
+  const getCurrentCurrency = () => {
+    if (editingAccount.currency) {
+      return editingAccount.currency;
+    }
+
+    const foundCurrency = currencies.find(
+      (c) => c.id === editingAccount.currency_id
+    );
+    if (foundCurrency) {
+      return foundCurrency;
+    }
+
+    // Fallback par défaut
+    return { id: 1, name: 'Euro', code: 'EUR', symbol: '€' };
+  };
+
+  const currentCurrency = getCurrentCurrency();
+
   return (
     <div className="space-y-4 p-3 sm:p-4 border-l-2 border-gray-300 bg-gray-50 rounded-lg">
       <h4 className="font-medium text-gray-800 text-sm sm:text-base">
         Modifier le compte
       </h4>
 
-      <input type="hidden" value={editingAccount.currency_id} />
       <div className="grid grid-cols-1 gap-3 sm:gap-4">
         <div>
           <label className="text-xs sm:text-sm text-gray-600 mb-1 block">
@@ -136,11 +174,22 @@ const EditAccountForm = ({
           <label className="text-xs sm:text-sm text-gray-600 mb-1 block">
             Devise
           </label>
-          <div className="w-full px-3 py-2 bg-gray-50 rounded border border-gray-300">
-            <span className="text-sm text-gray-700">
-              {editingAccount.currency?.code || 'EUR'}
-            </span>
-          </div>
+          <select
+            value={editingAccount.currency_id || currentCurrency.id}
+            onChange={(e) =>
+              setEditingAccount((d) => ({
+                ...d,
+                currency_id: parseInt(e.target.value),
+              }))
+            }
+            className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400"
+          >
+            {currencies.map((currency) => (
+              <option key={currency.id} value={currency.id}>
+                {currency.name} ({currency.symbol})
+              </option>
+            ))}
+          </select>
         </div>
       </div>
       <div className="flex justify-end gap-2 pt-3 border-t border-gray-200">
@@ -191,30 +240,58 @@ const AccountRow = ({
             </div>
             <p className="text-gray-500 text-xs flex items-center gap-1">
               <Calendar className="w-3 h-3" />
-              Solde au{' '}
+              Solde du{' '}
               {new Date(account.date_balance).toLocaleDateString('fr-FR')}
             </p>
 
             {/* Montant visible sur mobile */}
-            <div className="sm:hidden mt-2">
-              <p className="font-semibold text-gray-800 text-sm">
-                {formatCurrency(account.initial_amount, account.currency?.code)}
-              </p>
-              <p className="text-xs text-gray-500">Solde initial</p>
+            <div className="sm:hidden mt-2 space-y-2">
+              <div>
+                <p className="font-semibold text-gray-800 text-sm">
+                  {account.initial_amount}
+                  {account.currency_symbol}
+                </p>
+                <p className="text-xs text-gray-500">Solde initial</p>
+              </div>
+
+              {/* Solde actuel sur mobile */}
+              {account.reportedAmount && (
+                <div>
+                  <p className="font-semibold text-gray-800 text-sm">
+                    {account.reportedAmount} {account.currency_symbol}
+                  </p>
+                  <p className="text-xs text-gray-500">Solde actuel</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Section droite - Montant et actions */}
-        <div className="flex items-center justify-between sm:justify-end relative min-w-0 sm:min-w-[200px]">
-          {/* Montant - caché sur mobile, visible sur desktop */}
-          <div className="hidden sm:block absolute right-0 text-right transition-all duration-300 group-hover:translate-x-[-110px] pr-2">
-            <p className="font-semibold text-gray-800 whitespace-nowrap text-sm sm:text-base">
-              {formatCurrency(account.initial_amount, account.currency?.code)}
-            </p>
-            <p className="text-xs text-gray-500 mt-1 whitespace-nowrap">
-              Solde initial
-            </p>
+        {/* Section droite - Montants et actions */}
+        <div className="flex items-center justify-between sm:justify-end relative min-w-0 sm:min-w-[300px]">
+          {/* Montants - cachés sur mobile, visibles sur desktop */}
+          <div className="hidden sm:flex items-center absolute right-0 transition-all duration-300 group-hover:translate-x-[-140px] pr-2 gap-8">
+            {/* Solde initial */}
+            <div className="text-right">
+              <p className="font-semibold text-gray-800 whitespace-nowrap text-sm sm:text-base">
+                {account.initial_amount} {account.currency_symbol}
+              </p>
+              <p className="text-xs text-gray-500 mt-1 whitespace-nowrap">
+                Solde initial
+              </p>
+            </div>
+
+            {/* Solde actuel */}
+            {account.reportedAmount && (
+              <div className="text-right">
+                <p className="font-semibold text-gray-800 whitespace-nowrap text-sm sm:text-base">
+                  {account.reportedAmount} {account.currency_symbol}
+                </p>
+                <p className="text-xs text-gray-500 mt-1 whitespace-nowrap">
+                  Solde actuel
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Boutons d'action */}

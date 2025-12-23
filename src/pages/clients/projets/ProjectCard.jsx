@@ -60,7 +60,9 @@ const ProjectCard = ({
     const [projectBudget, setProjectBudget] = useState({
         sumEntries: 0,
         sumExpenses: 0,
-        sumForecast: 0
+        sumForecast: 0,
+        entryCount: 0,
+        exitCount: 0
     });
     const [budgetLoading, setBudgetLoading] = useState(false);
     const [showCollaborators, setShowCollaborators] = useState(false);
@@ -77,22 +79,46 @@ const ProjectCard = ({
 
         try {
             setBudgetLoading(true);
-            await new Promise(resolve => setTimeout(resolve, 100));
-
-            // const data = await apiGet();
+            
             const data = await apiGet(`/budget-projects/${project.id}`);
+            
+            // Calculez les sommes à partir de la réponse API
+            let sumEntries = 0;
+            let sumExpenses = 0;
+            let entryCount = 0;
+            let exitCount = 0;
+
+            // Calcul des revenus (entries)
+            if (data.entries && data.entries.entry_items && data.entries.entry_items.sub_categories) {
+                sumEntries = data.entries.entry_items.sub_categories.reduce((total, item) => {
+                    return total + parseFloat(item.amount || 0);
+                }, 0);
+                entryCount = data.entries.entry_count || 0;
+            }
+
+            // Calcul des dépenses (exits)
+            if (data.exits && data.exits.exit_items && data.exits.exit_items.sub_categories) {
+                sumExpenses = data.exits.exit_items.sub_categories.reduce((total, item) => {
+                    return total + parseFloat(item.amount || 0);
+                }, 0);
+                exitCount = data.exits.exit_count || 0;
+            }
 
             setProjectBudget({
-                sumEntries: data.sums?.revenus || 0,
-                sumExpenses: data.sums?.depenses || 0,
-                sumForecast: data.sumForecast || 0
+                sumEntries: sumEntries,
+                sumExpenses: sumExpenses,
+                sumForecast: data.sumForecast || 0,
+                entryCount: entryCount,
+                exitCount: exitCount
             });
         } catch (err) {
             console.error('Erreur lors du chargement du budget du projet:', err);
             setProjectBudget({
                 sumEntries: 0,
                 sumExpenses: 0,
-                sumForecast: 0
+                sumForecast: 0,
+                entryCount: 0,
+                exitCount: 0
             });
         } finally {
             setBudgetLoading(false);
@@ -229,7 +255,7 @@ const ProjectCard = ({
 
     return (
         <Card className={`relative transition-all duration-200 hover:shadow-md border border-slate-200 bg-white ${isSelected ? 'ring-2 ring-blue-500 shadow-lg' :
-                'hover:border-slate-300'
+            'hover:border-slate-300'
             } ${isActiveProject ? 'ring-1 ring-emerald-500' : ''}`}>
 
             {/* Indicateur de sélection compact */}
@@ -516,14 +542,14 @@ const ProjectCard = ({
                             <span className="text-xs font-medium text-slate-700">Performance</span>
                             <div className="flex items-center space-x-1.5">
                                 <div className={`w-1.5 h-1.5 rounded-full ${financialHealth === 'excellent' ? 'bg-emerald-500' :
-                                        financialHealth === 'bon' ? 'bg-blue-500' :
-                                            financialHealth === 'moyen' ? 'bg-amber-500' :
-                                                financialHealth === 'à améliorer' ? 'bg-orange-500' : 'bg-red-500'
+                                    financialHealth === 'bon' ? 'bg-blue-500' :
+                                        financialHealth === 'moyen' ? 'bg-amber-500' :
+                                            financialHealth === 'à améliorer' ? 'bg-orange-500' : 'bg-red-500'
                                     }`}></div>
                                 <span className={`text-xs font-semibold ${financialHealth === 'excellent' ? 'text-emerald-700' :
-                                        financialHealth === 'bon' ? 'text-blue-700' :
-                                            financialHealth === 'moyen' ? 'text-amber-700' :
-                                                financialHealth === 'à améliorer' ? 'text-orange-700' : 'text-red-700'
+                                    financialHealth === 'bon' ? 'text-blue-700' :
+                                        financialHealth === 'moyen' ? 'text-amber-700' :
+                                            financialHealth === 'à améliorer' ? 'text-orange-700' : 'text-red-700'
                                     }`}>
                                     {financialHealth.charAt(0).toUpperCase() + financialHealth.slice(1)}
                                 </span>
@@ -534,14 +560,19 @@ const ProjectCard = ({
                         <div className="grid grid-cols-2 gap-2">
                             <div className="p-2 bg-white border rounded-lg border-slate-200">
                                 <div className="flex items-center justify-between mb-1">
-                                    <p className="text-xs font-medium text-slate-700">Revenus</p>
+                                    <div>
+                                        <p className="text-xs font-medium text-slate-700">Revenus</p>
+                                        <p className="text-xs text-slate-500">
+                                            {projectBudget.entryCount} entrée{projectBudget.entryCount > 1 ? 's' : ''}
+                                        </p>
+                                    </div>
                                     <Target className="w-3 h-3 text-slate-500" />
                                 </div>
                                 <p className="mb-1 text-sm font-bold text-slate-900">
                                     {budgetLoading ? (
                                         <span className="text-slate-400">...</span>
                                     ) : (
-                                        formatCurrency(projectBudget.sumEntries, project.mainCurrency)
+                                        formatCurrency(projectBudget.sumEntries)
                                     )}
                                 </p>
                                 <div className="w-full bg-slate-200 rounded-full h-1.5">
@@ -554,14 +585,19 @@ const ProjectCard = ({
 
                             <div className="p-2 bg-white border rounded-lg border-slate-200">
                                 <div className="flex items-center justify-between mb-1">
-                                    <p className="text-xs font-medium text-slate-700">Dépenses</p>
+                                    <div>
+                                        <p className="text-xs font-medium text-slate-700">Dépenses</p>
+                                        <p className="text-xs text-slate-500">
+                                            {projectBudget.exitCount} sortie{projectBudget.exitCount > 1 ? 's' : ''}
+                                        </p>
+                                    </div>
                                     <TrendingUp className="w-3 h-3 text-slate-500" />
                                 </div>
                                 <p className="mb-1 text-sm font-bold text-slate-900">
                                     {budgetLoading ? (
                                         <span className="text-slate-400">...</span>
                                     ) : (
-                                        formatCurrency(projectBudget.sumExpenses, project.mainCurrency)
+                                        formatCurrency(projectBudget.sumExpenses)
                                     )}
                                 </p>
                                 <div className="w-full bg-slate-200 rounded-full h-1.5">
