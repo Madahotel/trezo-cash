@@ -14,23 +14,32 @@ import {
   getMonthOptions,
   getBimonthOptions,
   getYearOptions,
+  getWeekOptions,
   calculatePeriods,
   calculateChartData,
+  calculateWeeklyChartData,
   calculateStats,
+  calculateCumulativeData,
+  getFullPeriodLabel,
+  isPeriodInPast,
+  isPeriodCurrent,
 } from '../../../services/cashflow';
 
 const CashflowView = ({ isFocusMode = false }) => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth()); // 0-11
-  const [selectedBimonth, setSelectedBimonth] = useState(0); // 0-5 pour Jan-Fév à Nov-Déc
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedBimonth, setSelectedBimonth] = useState(0);
+  const [selectedWeek, setSelectedWeek] = useState(0);
   const [isYearMenuOpen, setIsYearMenuOpen] = useState(false);
   const [isMonthMenuOpen, setIsMonthMenuOpen] = useState(false);
   const [isBimonthMenuOpen, setIsBimonthMenuOpen] = useState(false);
-  const [viewMode, setViewMode] = useState('month'); // 'week', 'bimonth', 'month', 'quarter', 'semester', 'year'
+  const [isWeekMenuOpen, setIsWeekMenuOpen] = useState(false);
+  const [viewMode, setViewMode] = useState('month');
   const [isViewModeMenuOpen, setIsViewModeMenuOpen] = useState(false);
   const yearMenuRef = useRef(null);
   const monthMenuRef = useRef(null);
   const bimonthMenuRef = useRef(null);
+  const weekMenuRef = useRef(null);
   const viewModeMenuRef = useRef(null);
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -38,9 +47,7 @@ const CashflowView = ({ isFocusMode = false }) => {
   // Obtenir la date actuelle
   const currentDate = new Date();
   const currentYear = currentDate.getFullYear();
-  const currentMonth = currentDate.getMonth(); // 0-indexed (0 = janvier, 11 = décembre)
-
-  // Calculer le bimensuel courant
+  const currentMonth = currentDate.getMonth();
   const currentBimonth = Math.floor(currentMonth / 2);
 
   // Charger les données initiales
@@ -59,12 +66,31 @@ const CashflowView = ({ isFocusMode = false }) => {
     fetchData();
   }, []);
 
-  // Initialiser le bimensuel sélectionné
+  // Mettre à jour les sélections quand le mode de vue change
   useEffect(() => {
     if (viewMode === 'bimonth') {
       setSelectedBimonth(currentBimonth);
     }
-  }, [viewMode, currentBimonth]);
+    if (viewMode === 'week' || viewMode === 'month') {
+      setSelectedMonth(currentMonth);
+      const weekOptions = getWeekOptions(selectedYear, currentMonth);
+      const currentWeekIndex = weekOptions.findIndex(
+        (week) => currentDate >= week.weekStart && currentDate <= week.weekEnd
+      );
+      if (currentWeekIndex !== -1) {
+        setSelectedWeek(currentWeekIndex);
+      } else if (weekOptions.length > 0) {
+        setSelectedWeek(0);
+      }
+    }
+  }, [viewMode]);
+
+  // Réinitialiser la semaine sélectionnée quand on change de mois
+  useEffect(() => {
+    if (viewMode === 'week') {
+      setSelectedWeek(0);
+    }
+  }, [selectedMonth, viewMode]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -83,6 +109,9 @@ const CashflowView = ({ isFocusMode = false }) => {
       ) {
         setIsBimonthMenuOpen(false);
       }
+      if (weekMenuRef.current && !weekMenuRef.current.contains(event.target)) {
+        setIsWeekMenuOpen(false);
+      }
       if (
         viewModeMenuRef.current &&
         !viewModeMenuRef.current.contains(event.target)
@@ -100,17 +129,83 @@ const CashflowView = ({ isFocusMode = false }) => {
     setSelectedYear((prev) => prev + direction);
   };
 
-  // Calcul des périodes
+  // Obtenir les options de semaine pour le mois sélectionné
+  const weekOptions = useMemo(() => {
+    if (viewMode === 'week' || viewMode === 'month') {
+      return getWeekOptions(selectedYear, selectedMonth);
+    }
+    return [];
+  }, [viewMode, selectedYear, selectedMonth]);
+
+  // Calcul des périodes - CORRECTION : AJOUT DE selectedWeek DANS LES DÉPENDANCES
   const periods = useMemo(() => {
-    return calculatePeriods(
-      viewMode,
-      selectedYear,
-      selectedMonth,
-      selectedBimonth,
-      currentYear,
-      currentMonth,
-      currentDate
-    );
+    if (
+      viewMode === 'week' &&
+      weekOptions.length > 0 &&
+      selectedWeek < weekOptions.length
+    ) {
+      // Pour la vue hebdo, on affiche les jours de la semaine sélectionnée
+      const selectedWeekOption = weekOptions[selectedWeek];
+      if (!selectedWeekOption) return [];
+
+      const days = [];
+      const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+      const dayFullNames = [
+        'Lundi',
+        'Mardi',
+        'Mercredi',
+        'Jeudi',
+        'Vendredi',
+        'Samedi',
+        'Dimanche',
+      ];
+
+      const startDate = new Date(selectedWeekOption.weekStart);
+
+      // S'assurer qu'on commence le lundi
+      while (startDate.getDay() !== 1) {
+        startDate.setDate(startDate.getDate() - 1);
+      }
+
+      for (let i = 0; i < 7; i++) {
+        const currentDay = new Date(startDate);
+        currentDay.setDate(startDate.getDate() + i);
+
+        const isToday =
+          currentDay.getDate() === currentDate.getDate() &&
+          currentDay.getMonth() === currentDate.getMonth() &&
+          currentDay.getFullYear() === currentDate.getFullYear();
+
+        const isPast = currentDay < currentDate && !isToday;
+
+        days.push({
+          label: `${dayNames[i]} ${currentDay.getDate()}`,
+          fullLabel: `${dayFullNames[i]} ${currentDay.getDate()} ${getMonthFull(
+            currentDay.getMonth()
+          )}`,
+          dayIndex: i,
+          date: new Date(currentDay),
+          isToday,
+          isPast,
+          isFuture: currentDay > currentDate,
+          weekStart: new Date(startDate),
+          weekEnd: new Date(startDate.getTime() + 6 * 24 * 60 * 60 * 1000),
+        });
+      }
+
+      return days;
+    } else {
+      // Pour les autres vues
+      return calculatePeriods(
+        viewMode,
+        selectedYear,
+        selectedMonth,
+        selectedBimonth,
+        currentYear,
+        currentMonth,
+        currentDate
+      );
+    }
   }, [
     viewMode,
     selectedYear,
@@ -119,66 +214,84 @@ const CashflowView = ({ isFocusMode = false }) => {
     currentYear,
     currentMonth,
     currentDate,
+    weekOptions,
+    selectedWeek, // IMPORTANT : AJOUTÉ ICI
   ]);
+
+  // Calcul de la balance de départ
+  const startingBalance = useMemo(() => {
+    if (!data) {
+      return data?.initialBalance ? parseFloat(data.initialBalance) : 0;
+    }
+
+    const { initialBalance } = calculateCumulativeData(data);
+
+    if (
+      viewMode === 'week' &&
+      weekOptions.length > 0 &&
+      selectedWeek < weekOptions.length
+    ) {
+      const selectedWeekOption = weekOptions[selectedWeek];
+      const startOfWeek = new Date(selectedWeekOption.weekStart);
+
+      const { cumulativeBalances } = calculateCumulativeData(data);
+      let balanceAtStartOfWeek = initialBalance;
+
+      for (let i = 0; i < cumulativeBalances.length; i++) {
+        if (cumulativeBalances[i].date < startOfWeek) {
+          balanceAtStartOfWeek = cumulativeBalances[i].balance;
+        } else {
+          break;
+        }
+      }
+
+      return balanceAtStartOfWeek;
+    }
+
+    return initialBalance;
+  }, [data, viewMode, weekOptions, selectedWeek]);
 
   // Traitement des données de l'API
   const chartData = useMemo(() => {
-    return calculateChartData(
-      data,
-      periods,
-      selectedYear,
-      selectedMonth,
-      selectedBimonth,
-      viewMode,
-      currentYear,
-      currentMonth
-    );
-  }, [data, periods, selectedYear, selectedMonth, selectedBimonth, viewMode]);
+    if (
+      viewMode === 'week' &&
+      weekOptions.length > 0 &&
+      selectedWeek < weekOptions.length
+    ) {
+      return calculateWeeklyChartData(
+        data,
+        periods,
+        weekOptions,
+        selectedWeek,
+        startingBalance
+      );
+    } else {
+      return calculateChartData(
+        data,
+        periods,
+        selectedYear,
+        selectedMonth,
+        selectedBimonth,
+        viewMode,
+        currentDate
+      );
+    }
+  }, [
+    data,
+    periods,
+    viewMode,
+    selectedYear,
+    selectedMonth,
+    selectedBimonth,
+    currentDate,
+    weekOptions,
+    selectedWeek,
+    startingBalance,
+  ]);
 
-  // Configuration du graphique ECharts
+  // Configuration du graphique ECharts - CORRECTION POUR TOUTES LES VUES
   const getChartOptions = () => {
     const { labels, inflows, outflows, balances, startingBalance } = chartData;
-
-    // Déterminer l'index de la période courante
-    let todayIndex = -1;
-
-    if (viewMode === 'week') {
-      todayIndex = periods.findIndex(
-        (p) => currentDate >= p.weekStart && currentDate <= p.weekEnd
-      );
-    } else if (viewMode === 'bimonth') {
-      if (selectedYear === currentYear) {
-        const month = currentMonth;
-        const startMonth = selectedBimonth * 2;
-        const endMonth = startMonth + 1;
-
-        if (month >= startMonth && month <= endMonth) {
-          todayIndex = month - startMonth;
-        } else if (selectedYear < currentYear) {
-          todayIndex = periods.length - 1;
-        }
-      } else if (selectedYear < currentYear) {
-        todayIndex = periods.length - 1;
-      } else {
-        todayIndex = -1;
-      }
-    } else if (['month', 'quarter', 'semester'].includes(viewMode)) {
-      if (selectedYear === currentYear) {
-        if (viewMode === 'month') {
-          todayIndex = currentMonth;
-        } else if (viewMode === 'quarter') {
-          todayIndex = Math.floor(currentMonth / 3);
-        } else if (viewMode === 'semester') {
-          todayIndex = Math.floor(currentMonth / 6);
-        }
-      } else if (selectedYear < currentYear) {
-        todayIndex = periods.length - 1;
-      } else {
-        todayIndex = -1;
-      }
-    } else {
-      todayIndex = periods.findIndex((p) => p.year === currentYear);
-    }
 
     // Fonction pour formater le label (masquer si 0)
     const formatLabel = (value) => {
@@ -188,7 +301,73 @@ const CashflowView = ({ isFocusMode = false }) => {
       return formatCurrency(value);
     };
 
-    // Créer les séries pour la balance cumulative
+    // Déterminer l'index de la période actuelle - CORRECTION POUR TOUTES LES VUES
+    let currentPeriodIndex = -1;
+
+    if (viewMode === 'week') {
+      // Vue hebdo : trouver le jour actuel
+      currentPeriodIndex = periods.findIndex((p) => p.isToday);
+      if (currentPeriodIndex === -1) {
+        for (let i = periods.length - 1; i >= 0; i--) {
+          if (periods[i].isPast) {
+            currentPeriodIndex = i;
+            break;
+          }
+        }
+      }
+    } else if (viewMode === 'month' || viewMode === 'bimonth') {
+      // Vue mensuelle/bimensuelle : trouver la semaine actuelle
+      for (let i = 0; i < periods.length; i++) {
+        if (periods[i].weekStart && periods[i].weekEnd) {
+          if (
+            currentDate >= periods[i].weekStart &&
+            currentDate <= periods[i].weekEnd
+          ) {
+            currentPeriodIndex = i;
+            break;
+          }
+        }
+      }
+      if (currentPeriodIndex === -1) {
+        for (let i = periods.length - 1; i >= 0; i--) {
+          if (periods[i].weekEnd && periods[i].weekEnd < currentDate) {
+            currentPeriodIndex = i;
+            break;
+          }
+        }
+      }
+    } else if (viewMode === 'quarter') {
+      // Vue trimestrielle : trouver le trimestre actuel
+      const currentQuarter = Math.floor(currentMonth / 3);
+      if (selectedYear === currentYear) {
+        currentPeriodIndex = currentQuarter;
+      } else if (selectedYear < currentYear) {
+        currentPeriodIndex = periods.length - 1; // Dernier trimestre
+      }
+    } else if (viewMode === 'semester') {
+      // Vue semestrielle : trouver le semestre actuel
+      const currentSemester = Math.floor(currentMonth / 6);
+      if (selectedYear === currentYear) {
+        currentPeriodIndex = currentSemester;
+      } else if (selectedYear < currentYear) {
+        currentPeriodIndex = periods.length - 1; // Dernier semestre
+      }
+    } else if (viewMode === 'year') {
+      // Vue annuelle : trouver le mois actuel
+      if (selectedYear === currentYear) {
+        currentPeriodIndex = currentMonth;
+      } else if (selectedYear < currentYear) {
+        currentPeriodIndex = periods.length - 1; // Décembre
+      }
+    } else if (viewMode === 'global') {
+      // Vue globale : trouver l'année actuelle
+      currentPeriodIndex = periods.findIndex((p) => p.year === currentYear);
+      if (currentPeriodIndex === -1 && selectedYear < currentYear) {
+        currentPeriodIndex = periods.length - 1; // Dernière année
+      }
+    }
+
+    // Créer les séries pour la balance cumulative - TRAIT PLEIN/POINTILLÉ POUR TOUTES LES VUES
     const balanceSeries = {
       name: 'Balance',
       type: 'line',
@@ -216,6 +395,74 @@ const CashflowView = ({ isFocusMode = false }) => {
       z: 3,
     };
 
+    // Configurer le style de ligne selon si c'est passé ou futur
+    if (currentPeriodIndex !== -1) {
+      balanceSeries.lineStyle = (params) => {
+        const index = params.dataIndex;
+        // Passé ou présent : trait plein
+        // Futur : trait pointillé
+        if (index <= currentPeriodIndex) {
+          return {
+            width: 3,
+            color: '#3b82f6',
+            type: 'solid',
+          };
+        } else {
+          return {
+            width: 3,
+            color: '#3b82f6',
+            type: 'dashed',
+            opacity: 0.8,
+          };
+        }
+      };
+
+      balanceSeries.showSymbol = (params) => {
+        const index = params.dataIndex;
+        // Symboles seulement pour passé et présent
+        return index <= currentPeriodIndex;
+      };
+    } else {
+      // Si pas de période actuelle trouvée
+      if (
+        viewMode === 'global' ||
+        viewMode === 'year' ||
+        viewMode === 'semester' ||
+        viewMode === 'quarter'
+      ) {
+        // Pour les vues agrégées, vérifier si toutes les périodes sont passées
+        const allPast = periods.every(
+          (p) => p.isPastOrCurrent === true || p.isPastOrCurrent === undefined
+        );
+
+        if (allPast) {
+          balanceSeries.lineStyle = {
+            width: 3,
+            color: '#3b82f6',
+            type: 'solid',
+          };
+          balanceSeries.showSymbol = true;
+        } else {
+          balanceSeries.lineStyle = {
+            width: 3,
+            color: '#3b82f6',
+            type: 'dashed',
+            opacity: 0.8,
+          };
+          balanceSeries.showSymbol = false;
+        }
+      } else {
+        // Par défaut pour les autres vues
+        balanceSeries.lineStyle = {
+          width: 3,
+          color: '#3b82f6',
+          type: 'dashed',
+          opacity: 0.8,
+        };
+        balanceSeries.showSymbol = false;
+      }
+    }
+
     // Série pour la ligne de balance de départ
     const startingBalanceSeries = {
       name: 'Balance de départ',
@@ -234,54 +481,6 @@ const CashflowView = ({ isFocusMode = false }) => {
       },
       z: 0,
     };
-
-    // Définir les styles de ligne selon la période
-    if (todayIndex !== -1 && todayIndex < periods.length - 1) {
-      balanceSeries.lineStyle = (params) => {
-        const index = params.dataIndex;
-        if (index <= todayIndex) {
-          return {
-            width: 3,
-            color: '#3b82f6',
-            type: 'solid',
-          };
-        } else {
-          return {
-            width: 3,
-            color: '#3b82f6',
-            type: 'dashed',
-            opacity: 0.8,
-          };
-        }
-      };
-
-      balanceSeries.showSymbol = true;
-      balanceSeries.symbol = (params) => {
-        const index = params.dataIndex;
-        if (index <= todayIndex) {
-          return 'diamond';
-        } else {
-          return 'none';
-        }
-      };
-    } else if (
-      todayIndex === periods.length - 1 ||
-      todayIndex > periods.length - 1
-    ) {
-      balanceSeries.lineStyle = {
-        width: 3,
-        color: '#3b82f6',
-        type: 'solid',
-      };
-    } else {
-      balanceSeries.lineStyle = {
-        width: 3,
-        color: '#3b82f6',
-        type: 'dashed',
-        opacity: 0.8,
-      };
-      balanceSeries.showSymbol = false;
-    }
 
     const seriesData = [
       startingBalanceSeries,
@@ -342,6 +541,14 @@ const CashflowView = ({ isFocusMode = false }) => {
       balanceSeries,
     ];
 
+    // Configurer la rotation des labels selon la vue
+    const labelRotation =
+      viewMode === 'week'
+        ? 0
+        : ['month', 'bimonth'].includes(viewMode)
+        ? 45
+        : 0;
+
     return {
       backgroundColor: 'transparent',
       tooltip: {
@@ -363,7 +570,10 @@ const CashflowView = ({ isFocusMode = false }) => {
         padding: [8, 12],
         formatter: (params) => {
           const periodIndex = params[0].dataIndex;
-          const periodName = periods[periodIndex].fullLabel;
+          const periodName =
+            periods[periodIndex]?.fullLabel ||
+            periods[periodIndex]?.label ||
+            '';
           let html = `<div style="margin-bottom: 8px; font-weight: 500; color: #111827;">${periodName}</div>`;
 
           if (periodIndex === 0) {
@@ -391,7 +601,9 @@ const CashflowView = ({ isFocusMode = false }) => {
             };
             const color = colorMap[p.seriesName] || '#6b7280';
 
-            const isProjection = periodIndex > todayIndex && todayIndex !== -1;
+            const isProjection =
+              (currentPeriodIndex !== -1 && periodIndex > currentPeriodIndex) ||
+              periods[periodIndex]?.isFuture === true;
 
             const seriesName =
               isProjection && p.seriesName === 'Balance'
@@ -425,10 +637,10 @@ const CashflowView = ({ isFocusMode = false }) => {
         icon: 'circle',
       },
       grid: {
-        left: '2%',
-        right: '5%',
-        bottom: '18%',
-        top: '12%',
+        left: '3%',
+        right: '4%',
+        bottom: '15%',
+        top: '10%',
         containLabel: true,
       },
       xAxis: {
@@ -448,7 +660,7 @@ const CashflowView = ({ isFocusMode = false }) => {
           fontSize: 11,
           margin: 8,
           interval: 0,
-          rotate: viewMode === 'week' ? 45 : 0,
+          rotate: labelRotation,
         },
         boundaryGap: false,
         splitLine: {
@@ -484,7 +696,6 @@ const CashflowView = ({ isFocusMode = false }) => {
       padding: [0, 10, 0, 10],
     };
   };
-
   // Options pour les menus déroulants
   const viewModeOptions = getViewModeOptions();
   const monthOptions = getMonthOptions();
@@ -495,6 +706,25 @@ const CashflowView = ({ isFocusMode = false }) => {
   const stats = useMemo(() => {
     return calculateStats(chartData, periods);
   }, [chartData, periods]);
+
+  // Fonction pour obtenir le label complet de la période affichée
+  const fullPeriodLabel = useMemo(() => {
+    return getFullPeriodLabel(
+      viewMode,
+      selectedYear,
+      selectedMonth,
+      selectedBimonth,
+      weekOptions,
+      selectedWeek
+    );
+  }, [
+    viewMode,
+    selectedYear,
+    selectedMonth,
+    selectedBimonth,
+    weekOptions,
+    selectedWeek,
+  ]);
 
   if (isLoading) {
     return (
@@ -516,23 +746,25 @@ const CashflowView = ({ isFocusMode = false }) => {
         <div className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
             <div className="flex items-center gap-4">
-              {/* Navigation par année (toujours visible) */}
+              {/* Navigation par période */}
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handlePeriodChange(-1)}
                   className="p-1 hover:bg-gray-100 rounded transition-colors"
-                  title="Année précédente"
+                  title="Période précédente"
                   disabled={isLoading}
                 >
                   <ChevronLeft size={16} className="text-gray-600" />
                 </button>
                 <span className="text-sm text-gray-700 min-w-[80px] text-center font-medium">
-                  {selectedYear}
+                  {viewMode === 'global'
+                    ? `${selectedYear - 5}-${selectedYear + 4}`
+                    : selectedYear}
                 </span>
                 <button
                   onClick={() => handlePeriodChange(1)}
                   className="p-1 hover:bg-gray-100 rounded transition-colors"
-                  title="Année suivante"
+                  title="Période suivante"
                   disabled={isLoading}
                 >
                   <ChevronRight size={16} className="text-gray-600" />
@@ -568,11 +800,12 @@ const CashflowView = ({ isFocusMode = false }) => {
                             key={option.id}
                             onClick={() => {
                               setViewMode(option.id);
-                              // Si on passe en vue hebdo, sélectionner le mois courant
-                              if (option.id === 'week') {
+                              if (
+                                option.id === 'week' ||
+                                option.id === 'month'
+                              ) {
                                 setSelectedMonth(currentMonth);
                               }
-                              // Si on passe en vue bimensuelle, sélectionner le bimensuel courant
                               if (option.id === 'bimonth') {
                                 setSelectedBimonth(currentBimonth);
                               }
@@ -595,8 +828,108 @@ const CashflowView = ({ isFocusMode = false }) => {
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Sélecteur de mois (uniquement visible en vue hebdo) */}
+              {/* Sélecteurs spécifiques selon la vue */}
               {viewMode === 'week' && (
+                <>
+                  <div className="relative" ref={monthMenuRef}>
+                    <button
+                      onClick={() => setIsMonthMenuOpen((p) => !p)}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded border border-gray-300 text-gray-700 text-sm hover:bg-gray-50 transition-colors w-full sm:w-auto"
+                      disabled={isLoading}
+                    >
+                      <span>{getMonthFull(selectedMonth)}</span>
+                      <ChevronDown
+                        className={`w-3 h-3 transition-transform ${
+                          isMonthMenuOpen ? 'rotate-180' : ''
+                        }`}
+                      />
+                    </button>
+
+                    <AnimatePresence>
+                      {isMonthMenuOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -5 }}
+                          className="absolute right-0 top-full mt-1 w-full sm:w-40 bg-white rounded border shadow-sm z-10"
+                        >
+                          <div className="py-1 max-h-60 overflow-y-auto">
+                            {monthOptions.map((option) => (
+                              <button
+                                key={option.id}
+                                onClick={() => {
+                                  setSelectedMonth(option.id);
+                                  setSelectedWeek(0);
+                                  setIsMonthMenuOpen(false);
+                                }}
+                                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${
+                                  selectedMonth === option.id
+                                    ? 'text-blue-600 bg-blue-50'
+                                    : 'text-gray-700'
+                                }`}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {weekOptions.length > 0 && (
+                    <div className="relative" ref={weekMenuRef}>
+                      <button
+                        onClick={() => setIsWeekMenuOpen((p) => !p)}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded border border-gray-300 text-gray-700 text-sm hover:bg-gray-50 transition-colors w-full sm:w-auto"
+                        disabled={isLoading}
+                      >
+                        <span>
+                          {weekOptions[selectedWeek]?.label ||
+                            `S${selectedWeek + 1}`}
+                        </span>
+                        <ChevronDown
+                          className={`w-3 h-3 transition-transform ${
+                            isWeekMenuOpen ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </button>
+
+                      <AnimatePresence>
+                        {isWeekMenuOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -5 }}
+                            className="absolute right-0 top-full mt-1 w-full sm:w-48 bg-white rounded border shadow-sm z-10"
+                          >
+                            <div className="py-1 max-h-60 overflow-y-auto">
+                              {weekOptions.map((option, index) => (
+                                <button
+                                  key={index}
+                                  onClick={() => {
+                                    setSelectedWeek(index);
+                                    setIsWeekMenuOpen(false);
+                                  }}
+                                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${
+                                    selectedWeek === index
+                                      ? 'text-blue-600 bg-blue-50'
+                                      : 'text-gray-700'
+                                  }`}
+                                >
+                                  {option.fullLabel}
+                                </button>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {viewMode === 'month' && (
                 <div className="relative" ref={monthMenuRef}>
                   <button
                     onClick={() => setIsMonthMenuOpen((p) => !p)}
@@ -643,7 +976,6 @@ const CashflowView = ({ isFocusMode = false }) => {
                 </div>
               )}
 
-              {/* Sélecteur de bimensuel (uniquement visible en vue bimensuelle) */}
               {viewMode === 'bimonth' && (
                 <div className="relative" ref={bimonthMenuRef}>
                   <button
@@ -691,52 +1023,59 @@ const CashflowView = ({ isFocusMode = false }) => {
                 </div>
               )}
 
-              {/* Sélecteur d'année (toujours visible) */}
-              <div className="relative" ref={yearMenuRef}>
-                <button
-                  onClick={() => setIsYearMenuOpen((p) => !p)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded border border-gray-300 text-gray-700 text-sm hover:bg-gray-50 transition-colors w-full sm:w-auto"
-                  disabled={isLoading}
-                >
-                  <span>{selectedYear}</span>
-                  <ChevronDown
-                    className={`w-3 h-3 transition-transform ${
-                      isYearMenuOpen ? 'rotate-180' : ''
-                    }`}
-                  />
-                </button>
+              {/* Sélecteur d'année (toujours visible sauf en vue globale) */}
+              {viewMode !== 'global' && (
+                <div className="relative" ref={yearMenuRef}>
+                  <button
+                    onClick={() => setIsYearMenuOpen((p) => !p)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded border border-gray-300 text-gray-700 text-sm hover:bg-gray-50 transition-colors w-full sm:w-auto"
+                    disabled={isLoading}
+                  >
+                    <span>{selectedYear}</span>
+                    <ChevronDown
+                      className={`w-3 h-3 transition-transform ${
+                        isYearMenuOpen ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
 
-                <AnimatePresence>
-                  {isYearMenuOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -5 }}
-                      className="absolute right-0 top-full mt-1 w-full sm:w-32 bg-white rounded border shadow-sm z-10"
-                    >
-                      <div className="py-1 max-h-60 overflow-y-auto">
-                        {yearOptions.map((option) => (
-                          <button
-                            key={option.id}
-                            onClick={() => {
-                              setSelectedYear(parseInt(option.id));
-                              setIsYearMenuOpen(false);
-                            }}
-                            className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${
-                              selectedYear === parseInt(option.id)
-                                ? 'text-blue-600 bg-blue-50'
-                                : 'text-gray-700'
-                            }`}
-                          >
-                            {option.label}
-                          </button>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+                  <AnimatePresence>
+                    {isYearMenuOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        className="absolute right-0 top-full mt-1 w-full sm:w-32 bg-white rounded border shadow-sm z-10"
+                      >
+                        <div className="py-1 max-h-60 overflow-y-auto">
+                          {yearOptions.map((option) => (
+                            <button
+                              key={option.id}
+                              onClick={() => {
+                                setSelectedYear(parseInt(option.id));
+                                setIsYearMenuOpen(false);
+                              }}
+                              className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${
+                                selectedYear === parseInt(option.id)
+                                  ? 'text-blue-600 bg-blue-50'
+                                  : 'text-gray-700'
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
             </div>
+          </div>
+
+          {/* Label de la période sélectionnée */}
+          <div className="text-sm text-gray-600 mb-4 font-medium">
+            {fullPeriodLabel}
           </div>
 
           {/* Stats en ligne */}
@@ -777,12 +1116,7 @@ const CashflowView = ({ isFocusMode = false }) => {
           ) : (
             <div className="flex items-center justify-center h-full">
               <div className="text-gray-500">
-                Aucune donnée disponible pour{' '}
-                {viewMode === 'week'
-                  ? `${getMonthFull(selectedMonth)} ${selectedYear}`
-                  : viewMode === 'bimonth'
-                  ? `${getBimonthFull(selectedBimonth)} ${selectedYear}`
-                  : selectedYear}
+                Aucune donnée disponible pour {fullPeriodLabel}
               </div>
             </div>
           )}

@@ -196,7 +196,7 @@ const TransactionHistoryDrawer = ({ isOpen, onClose, account }) => {
                   <p className="text-sm text-gray-600">{account?.name}</p>
                   <ChevronRight className="w-4 h-4 text-gray-400" />
                   <p className="text-sm font-medium text-gray-800">
-                    Solde: {account?.reportedAmount || account?.initial_amount}{' '}
+                    Solde actuel : {account?.reportedAmount}{' '}
                     {account?.currency_symbol}
                   </p>
                 </div>

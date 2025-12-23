@@ -106,10 +106,26 @@ export const formatDateRange = (startDate, endDate) => {
     return `${date.getDate()} ${getMonthShort(date.getMonth())}`;
   };
 
-  if (startDate.getMonth() === endDate.getMonth()) {
+  const formatDayMonthYear = (date) => {
+    return `${date.getDate()} ${getMonthShort(
+      date.getMonth()
+    )} ${date.getFullYear()}`;
+  };
+
+  // Si même mois et même année
+  if (
+    startDate.getMonth() === endDate.getMonth() &&
+    startDate.getFullYear() === endDate.getFullYear()
+  ) {
     return `${startDate.getDate()}-${formatDayMonth(endDate)}`;
-  } else {
+  }
+  // Si même année mais mois différent
+  else if (startDate.getFullYear() === endDate.getFullYear()) {
     return `${formatDayMonth(startDate)}-${formatDayMonth(endDate)}`;
+  }
+  // Si années différentes
+  else {
+    return `${formatDayMonthYear(startDate)}-${formatDayMonthYear(endDate)}`;
   }
 };
 
@@ -123,53 +139,52 @@ export const getWeeksForMonth = (year, month, currentDate = new Date()) => {
   const startOfMonth = new Date(year, month, 1);
   const endOfMonth = new Date(year, month + 1, 0);
 
-  // Ajuster au lundi pour la première semaine
+  // Déterminer le premier lundi du mois
   let currentWeekStart = new Date(startOfMonth);
-  const day = currentWeekStart.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  currentWeekStart.setDate(currentWeekStart.getDate() + diff);
 
-  // S'assurer qu'on commence au premier jour du mois au plus tôt
-  if (currentWeekStart < startOfMonth) {
-    currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+  // Si le 1er n'est pas un lundi, trouver le lundi précédent
+  if (currentWeekStart.getDay() !== 1) {
+    const daysToMonday =
+      currentWeekStart.getDay() === 0 ? -6 : 1 - currentWeekStart.getDay();
+    currentWeekStart.setDate(currentWeekStart.getDate() + daysToMonday);
   }
 
-  let weekNumber = getWeekNumber(currentWeekStart);
   let weekIndex = 0;
 
+  // Parcourir les semaines jusqu'à couvrir tout le mois
   while (currentWeekStart <= endOfMonth && weekIndex < 6) {
     const weekEnd = new Date(currentWeekStart);
-    weekEnd.setDate(weekEnd.getDate() + 6);
+    weekEnd.setDate(weekEnd.getDate() + 6); // Ajouter 6 jours pour avoir dimanche
 
-    // Ajuster la fin de semaine à la fin du mois si nécessaire
+    // Ajuster la fin de la semaine si elle dépasse la fin du mois
     const weekEndInMonth = weekEnd > endOfMonth ? endOfMonth : weekEnd;
 
-    const isPast = weekEndInMonth < currentDate;
-    const isCurrent =
-      currentDate >= currentWeekStart && currentDate <= weekEndInMonth;
+    // Cette semaine doit contenir au moins un jour du mois
+    if (currentWeekStart <= endOfMonth) {
+      const isPast = weekEndInMonth < currentDate;
+      const isCurrent =
+        currentDate >= currentWeekStart && currentDate <= weekEndInMonth;
 
-    // Vérifier si cette semaine appartient bien au mois en cours
-    if (
-      weekEndInMonth.getMonth() === month ||
-      currentWeekStart.getMonth() === month
-    ) {
       weeks.push({
-        label: `S${weekNumber}`,
-        fullLabel: `Semaine ${weekNumber} (${formatDateRange(
+        label: `S${weekIndex + 1}`, // S1, S2, S3... pour le mois
+        weekNumberLabel: `S${getWeekNumber(currentWeekStart)}`, // Numéro ISO
+        fullLabel: `Semaine ${weekIndex + 1} (${formatDateRange(
           currentWeekStart,
           weekEndInMonth
         )})`,
         weekStart: new Date(currentWeekStart),
         weekEnd: new Date(weekEndInMonth),
-        weekNumber,
+        weekNumber: getWeekNumber(currentWeekStart),
+        weekIndex,
         isPastOrCurrent: isPast || isCurrent,
         isFuture: currentWeekStart > currentDate,
+        month: month, // Stocker le mois pour référence
+        year: year, // Stocker l'année pour référence
       });
     }
 
     // Passer à la semaine suivante
     currentWeekStart.setDate(currentWeekStart.getDate() + 7);
-    weekNumber = getWeekNumber(currentWeekStart);
     weekIndex++;
   }
 
@@ -223,15 +238,16 @@ export const calculateCumulativeData = (data) => {
 };
 
 /**
- * Obtient les options de mode de vue
+ * Obtient les options de mode de vue (AVEC VUE GLOBALE)
  */
 export const getViewModeOptions = () => [
-  { id: 'week', label: 'Vue Hebdomadaire' },
+  { id: 'global', label: 'Vue Globale' },
+  { id: 'year', label: 'Vue Annuelle' },
+  { id: 'semester', label: 'Vue Semestrielle' },
+  { id: 'quarter', label: 'Vue Trimestrielle' },
   { id: 'bimonth', label: 'Vue Bimensuelle' },
   { id: 'month', label: 'Vue Mensuelle' },
-  { id: 'quarter', label: 'Vue Trimestrielle' },
-  { id: 'semester', label: 'Vue Semestrielle' },
-  { id: 'year', label: 'Vue Annuelle' },
+  { id: 'week', label: 'Vue Hebdomadaire' },
 ];
 
 /**
@@ -283,7 +299,43 @@ export const getYearOptions = (currentYear = new Date().getFullYear()) => {
 };
 
 /**
- * Calcule les périodes selon le mode de vue
+ * Obtient les options des semaines pour un mois donné
+ */
+export const getWeekOptions = (year, month) => {
+  const weeks = getWeeksForMonth(year, month);
+  return weeks.map((week, index) => ({
+    id: index,
+    label: week.label, // S1, S2, S3...
+    fullLabel: week.fullLabel,
+    weekStart: week.weekStart,
+    weekEnd: week.weekEnd,
+  }));
+};
+
+/**
+ * Obtient les semaines pour l'année complète (pour la vue globale)
+ */
+export const getWeeksForYear = (year, currentDate = new Date()) => {
+  const weeks = [];
+
+  for (let month = 0; month < 12; month++) {
+    const monthWeeks = getWeeksForMonth(year, month, currentDate);
+    monthWeeks.forEach((week) => {
+      weeks.push({
+        ...week,
+        monthIndex: month,
+        year: year,
+        label: `${getMonthShort(month)} ${week.label}`,
+        fullLabel: `${getMonthFull(month)} ${week.fullLabel}`,
+      });
+    });
+  }
+
+  return weeks;
+};
+
+/**
+ * Calcule les périodes selon le mode de vue - CORRIGÉ
  */
 export const calculatePeriods = (
   viewMode,
@@ -327,48 +379,43 @@ export const calculatePeriods = (
   if (viewMode === 'week') {
     // Vue hebdomadaire - semaines du mois sélectionné
     return getWeeksForMonth(selectedYear, selectedMonth, currentDate);
+  } else if (viewMode === 'month') {
+    // Vue mensuelle - Afficher les semaines du mois (S1, S2, S3...)
+    return getWeeksForMonth(selectedYear, selectedMonth, currentDate);
   } else if (viewMode === 'bimonth') {
-    // Vue bimensuelle - afficher les 2 mois de la période sélectionnée
+    // Vue bimensuelle - Afficher les semaines des 2 mois
     const startMonth = selectedBimonth * 2;
     const endMonth = startMonth + 1;
-
     const bimonthPeriods = [];
 
-    // Créer des périodes pour chaque mois de la période bimensuelle
     for (let i = startMonth; i <= endMonth && i < 12; i++) {
-      const isPastOrCurrent =
-        selectedYear < currentYear ||
-        (selectedYear === currentYear && i <= currentMonth);
-      const isFuture =
-        selectedYear > currentYear ||
-        (selectedYear === currentYear && i > currentMonth);
+      const monthWeeks = getWeeksForMonth(selectedYear, i, currentDate);
+      monthWeeks.forEach((week) => {
+        const isPastOrCurrent =
+          selectedYear < currentYear ||
+          (selectedYear === currentYear && i < currentMonth) ||
+          (selectedYear === currentYear &&
+            i === currentMonth &&
+            week.isPastOrCurrent);
+        const isFuture =
+          selectedYear > currentYear ||
+          (selectedYear === currentYear && i > currentMonth) ||
+          (selectedYear === currentYear && i === currentMonth && week.isFuture);
 
-      bimonthPeriods.push({
-        label: monthsShort[i],
-        fullLabel: `${monthsFull[i]} ${selectedYear}`,
-        monthNumber: i + 1,
-        monthIndex: i,
-        isPastOrCurrent,
-        isFuture,
+        bimonthPeriods.push({
+          ...week,
+          label: `${monthsShort[i]} ${week.label}`,
+          fullLabel: `${monthsFull[i]} ${week.fullLabel}`,
+          monthNumber: i + 1,
+          monthIndex: i,
+          isPastOrCurrent,
+          isFuture,
+        });
       });
     }
     return bimonthPeriods;
-  } else if (viewMode === 'month') {
-    // Vue mensuelle - 12 mois
-    return monthsShort.map((month, index) => ({
-      label: month,
-      fullLabel: `${monthsFull[index]} ${selectedYear}`,
-      monthNumber: index + 1,
-      monthIndex: index,
-      isPastOrCurrent:
-        selectedYear < currentYear ||
-        (selectedYear === currentYear && index <= currentMonth),
-      isFuture:
-        selectedYear > currentYear ||
-        (selectedYear === currentYear && index > currentMonth),
-    }));
   } else if (viewMode === 'quarter') {
-    // Vue trimestrielle - 4 trimestres
+    // Vue trimestrielle - 4 trimestres (T1, T2, T3, T4)
     const quarters = [];
     const quarterLabels = ['T1', 'T2', 'T3', 'T4'];
     const quarterFullLabels = [
@@ -381,6 +428,7 @@ export const calculatePeriods = (
     for (let i = 0; i < 4; i++) {
       const startMonth = i * 3;
       const endMonth = startMonth + 2;
+
       const isPastOrCurrent =
         selectedYear < currentYear ||
         (selectedYear === currentYear && endMonth <= currentMonth);
@@ -395,11 +443,12 @@ export const calculatePeriods = (
         endMonth,
         isPastOrCurrent,
         isFuture,
+        quarterIndex: i,
       });
     }
     return quarters;
   } else if (viewMode === 'semester') {
-    // Vue semestrielle - 2 semestres
+    // Vue semestrielle - 2 semestres (S1, S2)
     const semesters = [];
     const semesterLabels = ['S1', 'S2'];
     const semesterFullLabels = ['1er Semestre', '2ème Semestre'];
@@ -407,6 +456,7 @@ export const calculatePeriods = (
     for (let i = 0; i < 2; i++) {
       const startMonth = i * 6;
       const endMonth = startMonth + 5;
+
       const isPastOrCurrent =
         selectedYear < currentYear ||
         (selectedYear === currentYear && endMonth <= currentMonth);
@@ -421,11 +471,26 @@ export const calculatePeriods = (
         endMonth,
         isPastOrCurrent,
         isFuture,
+        semesterIndex: i,
       });
     }
     return semesters;
-  } else {
-    // Vue annuelle - 10 ans (5 avant, année courante, 4 après)
+  } else if (viewMode === 'year') {
+    // Vue annuelle - 12 mois
+    return monthsShort.map((month, index) => ({
+      label: month,
+      fullLabel: `${monthsFull[index]} ${selectedYear}`,
+      monthNumber: index + 1,
+      monthIndex: index,
+      isPastOrCurrent:
+        selectedYear < currentYear ||
+        (selectedYear === currentYear && index <= currentMonth),
+      isFuture:
+        selectedYear > currentYear ||
+        (selectedYear === currentYear && index > currentMonth),
+    }));
+  } else if (viewMode === 'global') {
+    // Vue globale - 10 ans
     const years = [];
     for (let i = -5; i <= 4; i++) {
       const year = selectedYear + i;
@@ -439,10 +504,24 @@ export const calculatePeriods = (
     }
     return years;
   }
+
+  // Par défaut, retourner les mois
+  return monthsShort.map((month, index) => ({
+    label: month,
+    fullLabel: `${monthsFull[index]} ${selectedYear}`,
+    monthNumber: index + 1,
+    monthIndex: index,
+    isPastOrCurrent:
+      selectedYear < currentYear ||
+      (selectedYear === currentYear && index <= currentMonth),
+    isFuture:
+      selectedYear > currentYear ||
+      (selectedYear === currentYear && index > currentMonth),
+  }));
 };
 
 /**
- * Calcule les données du graphique
+ * Calcule les données du graphique pour toutes les vues - CORRIGÉ
  */
 export const calculateChartData = (
   data,
@@ -452,7 +531,8 @@ export const calculateChartData = (
   selectedBimonth,
   viewMode,
   currentYear = new Date().getFullYear(),
-  currentMonth = new Date().getMonth()
+  currentMonth = new Date().getMonth(),
+  currentDate = new Date()
 ) => {
   const labels = periods.map((p) => p.label);
 
@@ -485,7 +565,17 @@ export const calculateChartData = (
     let periodIndex = -1;
 
     if (viewMode === 'week') {
-      // Trouver l'index de la semaine (dans le mois sélectionné)
+      // Pour la vue hebdo, on gère différemment (dans le composant)
+      if (
+        date.getFullYear() === selectedYear &&
+        date.getMonth() === selectedMonth
+      ) {
+        periodIndex = periods.findIndex((p) => {
+          return date >= p.weekStart && date <= p.weekEnd;
+        });
+      }
+    } else if (viewMode === 'month') {
+      // Vue mensuelle - par semaine
       if (
         date.getFullYear() === selectedYear &&
         date.getMonth() === selectedMonth
@@ -495,31 +585,37 @@ export const calculateChartData = (
         });
       }
     } else if (viewMode === 'bimonth') {
-      // Pour le bimensuel, on a 2 mois à afficher
+      // Vue bimensuelle - par semaine
       if (date.getFullYear() === selectedYear) {
         const month = date.getMonth();
         const startMonth = selectedBimonth * 2;
         const endMonth = startMonth + 1;
 
         if (month >= startMonth && month <= endMonth) {
-          periodIndex = month - startMonth; // 0 pour premier mois, 1 pour deuxième mois
+          periodIndex = periods.findIndex((p) => {
+            return date >= p.weekStart && date <= p.weekEnd;
+          });
         }
       }
-    } else if (viewMode === 'month') {
-      if (date.getFullYear() === selectedYear) {
-        periodIndex = date.getMonth();
-      }
     } else if (viewMode === 'quarter') {
+      // Vue trimestrielle - par trimestre
       if (date.getFullYear() === selectedYear) {
         const month = date.getMonth();
         periodIndex = Math.floor(month / 3);
       }
     } else if (viewMode === 'semester') {
+      // Vue semestrielle - par semestre
       if (date.getFullYear() === selectedYear) {
         const month = date.getMonth();
         periodIndex = Math.floor(month / 6);
       }
     } else if (viewMode === 'year') {
+      // Vue annuelle - par mois
+      if (date.getFullYear() === selectedYear) {
+        periodIndex = date.getMonth();
+      }
+    } else if (viewMode === 'global') {
+      // Vue globale - par année
       periodIndex = periods.findIndex((p) => p.year === date.getFullYear());
     }
 
@@ -536,50 +632,37 @@ export const calculateChartData = (
     }
   });
 
-  // Maintenant, calculer les balances pour chaque période
-  // Pour chaque période, trouver la dernière balance cumulative correspondante
+  // Calculer les balances
   if (cumulativeBalances.length > 0) {
-    // Trier les périodes par date de début pour faciliter le calcul
-    const sortedPeriods = periods.map((period, index) => ({
-      ...period,
-      index,
-      startDate:
-        viewMode === 'week'
-          ? period.weekStart
-          : viewMode === 'month'
-          ? new Date(selectedYear, period.monthIndex, 1)
-          : viewMode === 'bimonth'
-          ? new Date(selectedYear, period.monthIndex, 1)
-          : viewMode === 'quarter'
-          ? new Date(selectedYear, period.startMonth, 1)
-          : viewMode === 'semester'
-          ? new Date(selectedYear, period.startMonth, 1)
-          : new Date(period.year, 0, 1),
-      endDate:
-        viewMode === 'week'
-          ? period.weekEnd
-          : viewMode === 'month'
-          ? new Date(selectedYear, period.monthIndex + 1, 0)
-          : viewMode === 'bimonth'
-          ? new Date(selectedYear, period.monthIndex + 1, 0)
-          : viewMode === 'quarter'
-          ? new Date(selectedYear, period.endMonth + 1, 0)
-          : viewMode === 'semester'
-          ? new Date(selectedYear, period.endMonth + 1, 0)
-          : new Date(period.year, 11, 31),
-    }));
+    // Pour chaque période, trouver la dernière balance cumulative
+    for (let i = 0; i < periods.length; i++) {
+      const period = periods[i];
 
-    // Pour chaque période, trouver la dernière balance cumulative avant ou à la fin de la période
-    for (let i = 0; i < sortedPeriods.length; i++) {
-      const period = sortedPeriods[i];
+      // Déterminer la date de fin de la période
+      let periodEndDate;
+      if (period.weekEnd) {
+        periodEndDate = period.weekEnd;
+      } else if (viewMode === 'month' && period.monthIndex !== undefined) {
+        periodEndDate = new Date(selectedYear, period.monthIndex + 1, 0);
+      } else if (viewMode === 'bimonth' && period.monthIndex !== undefined) {
+        periodEndDate = new Date(selectedYear, period.monthIndex + 1, 0);
+      } else if (viewMode === 'quarter' && period.endMonth !== undefined) {
+        periodEndDate = new Date(selectedYear, period.endMonth + 1, 0);
+      } else if (viewMode === 'semester' && period.endMonth !== undefined) {
+        periodEndDate = new Date(selectedYear, period.endMonth + 1, 0);
+      } else if (viewMode === 'year' && period.monthIndex !== undefined) {
+        periodEndDate = new Date(selectedYear, period.monthIndex + 1, 0);
+      } else if (viewMode === 'global' && period.year !== undefined) {
+        periodEndDate = new Date(period.year, 11, 31);
+      } else {
+        periodEndDate = currentDate;
+      }
 
-      // Chercher la dernière balance cumulative qui est <= à la date de fin de la période
+      // Chercher la dernière balance cumulative <= à la fin de la période
       let lastBalanceForPeriod = initialBalance;
-
       for (let j = cumulativeBalances.length - 1; j >= 0; j--) {
-        const balanceData = cumulativeBalances[j];
-        if (balanceData.date <= period.endDate) {
-          lastBalanceForPeriod = balanceData.balance;
+        if (cumulativeBalances[j].date <= periodEndDate) {
+          lastBalanceForPeriod = cumulativeBalances[j].balance;
           break;
         }
       }
@@ -596,24 +679,114 @@ export const calculateChartData = (
     }
   }
 
-  // Pour la vue bimensuelle, ajuster la balance de départ pour qu'elle soit correcte
+  // Pour les vues qui affichent des semaines, ajuster la balance de départ
   let startingBalance = initialBalance;
+  if (
+    ['week', 'month', 'bimonth'].includes(viewMode) &&
+    cumulativeBalances.length > 0
+  ) {
+    // Trouver la date de début de la première période
+    const firstPeriod = periods[0];
+    if (firstPeriod && firstPeriod.weekStart) {
+      const startOfFirstPeriod = firstPeriod.weekStart;
+      let balanceAtStartOfPeriod = initialBalance;
 
-  if (viewMode === 'bimonth' && cumulativeBalances.length > 0) {
-    // Trouver la balance au début de la période bimensuelle
-    const startMonth = selectedBimonth * 2;
-    const startOfPeriod = new Date(selectedYear, startMonth, 1);
-    let balanceAtStartOfPeriod = initialBalance;
+      for (let i = 0; i < cumulativeBalances.length; i++) {
+        if (cumulativeBalances[i].date < startOfFirstPeriod) {
+          balanceAtStartOfPeriod = cumulativeBalances[i].balance;
+        } else {
+          break;
+        }
+      }
 
-    for (let i = 0; i < cumulativeBalances.length; i++) {
-      if (cumulativeBalances[i].date < startOfPeriod) {
-        balanceAtStartOfPeriod = cumulativeBalances[i].balance;
-      } else {
+      startingBalance = balanceAtStartOfPeriod;
+    }
+  }
+
+  return {
+    labels,
+    inflows: inflows.map((value) => Math.round(value)),
+    outflows: outflows.map((value) => Math.round(value)),
+    balances,
+    startingBalance,
+  };
+};
+/**
+ * Calcule les données du graphique pour la vue hebdomadaire (par jours)
+ */
+export const calculateWeeklyChartData = (
+  data,
+  periods,
+  weekOptions,
+  selectedWeek,
+  startingBalance
+) => {
+  const labels = periods.map((p) => p.label);
+  const inflows = Array(periods.length).fill(0);
+  const outflows = Array(periods.length).fill(0);
+  const balances = Array(periods.length).fill(0);
+
+  // Si pas de données, retourner des données vides
+  if (!data || !data.balanceMovements) {
+    return {
+      labels,
+      inflows,
+      outflows,
+      balances,
+      startingBalance: data?.initialBalance
+        ? parseFloat(data.initialBalance)
+        : 0,
+    };
+  }
+
+  // Calculer les balances cumulatives depuis le début
+  const { cumulativeBalances } = calculateCumulativeData(data);
+
+  // Pour chaque mouvement, le répartir dans le jour approprié
+  data.balanceMovements.forEach((movement) => {
+    const date = new Date(movement.operation_date);
+    const amount = parseFloat(movement.operation_amount) || 0;
+
+    // Vérifier si la date est dans la semaine sélectionnée
+    const selectedWeekOption = weekOptions[selectedWeek];
+    if (
+      selectedWeekOption &&
+      date >= selectedWeekOption.weekStart &&
+      date <= selectedWeekOption.weekEnd
+    ) {
+      // Trouver le jour de la semaine (0-6, où 0 = dimanche)
+      let dayOfWeek = date.getDay();
+      // Convertir en format Lundi=0, Mardi=1, etc.
+      dayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+      if (dayOfWeek >= 0 && dayOfWeek < periods.length) {
+        if (movement.movement_type_id === 1) {
+          inflows[dayOfWeek] += amount;
+        } else if (movement.movement_type_id === 2) {
+          outflows[dayOfWeek] += amount;
+        }
+      }
+    }
+  });
+
+  // Pour chaque jour, trouver la balance cumulative correspondante
+  for (let i = 0; i < periods.length; i++) {
+    const dayDate = periods[i].date;
+
+    // Chercher la dernière balance cumulative qui est <= à la fin de la journée
+    let lastBalanceForDay = startingBalance;
+    const endOfDay = new Date(dayDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    for (let j = cumulativeBalances.length - 1; j >= 0; j--) {
+      const balanceData = cumulativeBalances[j];
+      if (balanceData.date <= endOfDay) {
+        lastBalanceForDay = balanceData.balance;
         break;
       }
     }
 
-    startingBalance = balanceAtStartOfPeriod;
+    balances[i] = Math.round(lastBalanceForDay);
   }
 
   return {
@@ -662,4 +835,87 @@ export const calculateStats = (chartData, periods) => {
     totalOutflow,
     totalBalance,
   };
+};
+
+/**
+ * Obtient l'étiquette de période complète pour le header
+ */
+export const getFullPeriodLabel = (
+  viewMode,
+  selectedYear,
+  selectedMonth,
+  selectedBimonth,
+  weekOptions,
+  selectedWeek
+) => {
+  if (viewMode === 'week') {
+    if (weekOptions && weekOptions.length > 0) {
+      const weekOption = weekOptions[selectedWeek];
+      if (weekOption) {
+        return `Vue Hebdomadaire - ${weekOption.fullLabel}`;
+      }
+    }
+    return `Vue Hebdomadaire - ${getMonthFull(selectedMonth)} ${selectedYear}`;
+  } else if (viewMode === 'month') {
+    return `Vue Mensuelle - ${getMonthFull(selectedMonth)} ${selectedYear}`;
+  } else if (viewMode === 'bimonth') {
+    return `Vue Bimensuelle - ${getBimonthFull(
+      selectedBimonth
+    )} ${selectedYear}`;
+  } else if (viewMode === 'quarter') {
+    return `Vue Trimestrielle - ${selectedYear}`;
+  } else if (viewMode === 'semester') {
+    return `Vue Semestrielle - ${selectedYear}`;
+  } else if (viewMode === 'year') {
+    return `Vue Annuelle - ${selectedYear}`;
+  } else if (viewMode === 'global') {
+    return `Vue Globale (${selectedYear - 5}-${selectedYear + 4})`;
+  }
+  return '';
+};
+
+/**
+ * Détermine si une période est dans le passé
+ */
+export const isPeriodInPast = (period, currentDate = new Date()) => {
+  if (period.weekEnd) {
+    return period.weekEnd < currentDate;
+  } else if (period.monthIndex !== undefined) {
+    const endOfMonth = new Date(
+      currentDate.getFullYear(),
+      period.monthIndex + 1,
+      0
+    );
+    return endOfMonth < currentDate;
+  } else if (period.year !== undefined) {
+    const endOfYear = new Date(period.year, 11, 31);
+    return endOfYear < currentDate;
+  }
+  return false;
+};
+
+/**
+ * Détermine si une période est actuelle
+ */
+export const isPeriodCurrent = (period, currentDate = new Date()) => {
+  if (period.weekStart && period.weekEnd) {
+    return currentDate >= period.weekStart && currentDate <= period.weekEnd;
+  } else if (period.monthIndex !== undefined) {
+    const startOfMonth = new Date(
+      currentDate.getFullYear(),
+      period.monthIndex,
+      1
+    );
+    const endOfMonth = new Date(
+      currentDate.getFullYear(),
+      period.monthIndex + 1,
+      0
+    );
+    return currentDate >= startOfMonth && currentDate <= endOfMonth;
+  } else if (period.year !== undefined) {
+    const startOfYear = new Date(period.year, 0, 1);
+    const endOfYear = new Date(period.year, 11, 31);
+    return currentDate >= startOfYear && currentDate <= endOfYear;
+  }
+  return false;
 };
