@@ -454,8 +454,6 @@ const BudgetTableUI = ({
             }
             return false;
         }
-
-        // Si aucune fréquence reconnue, vérifier si la date de début est dans la période
         return effectiveStartDate <= periodEndDate;
     }, [projectStartDate, timeView]);
 

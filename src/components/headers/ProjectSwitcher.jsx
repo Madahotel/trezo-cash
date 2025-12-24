@@ -256,12 +256,10 @@ const ProjectSwitcher = () => {
     return uiState.activeProject?.name || 'Sélectionner un projet';
   }, [activeProjectId, activeProjectType, uiState.activeProject?.name, safeConsolidations, allProjects]);
 
-// ProjectSwitcher.jsx - MODIFIER la fonction handleSelect
 const handleSelect = useCallback((id) => {
   try {
     const idStr = String(id);
     
-    // Récupérer l'URL actuelle pour savoir où on est
     const currentPath = window.location.pathname;
     
     if (idStr === 'consolidated' || idStr.startsWith('consolidated_view_')) {
@@ -286,15 +284,8 @@ const handleSelect = useCallback((id) => {
 
       uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: consolidatedProject });
       saveProject(consolidatedProject);
-
-      // NE PAS naviguer vers une autre URL !
-      // La page actuelle se mettra à jour automatiquement grâce au contexte
-      
-      // Seule exception : si on est sur une page qui n'existe pas pour les consolidations
-      // Mais pour l'échéancier, dashboard, etc., on reste sur la même page
       
     } else {
-      // Projet simple
       const selectedProject = allProjects.find(p => areIdsEqual(p.id, id));
       if (selectedProject) {
         const isArchived = ["1", 1, true, "true"].includes(
@@ -304,8 +295,6 @@ const handleSelect = useCallback((id) => {
         uiDispatch({ type: 'SET_ACTIVE_PROJECT', payload: selectedProject });
         saveProject(selectedProject);
         
-        // NE PAS naviguer non plus !
-        // On reste sur la même page
       }
     }
     
@@ -313,7 +302,7 @@ const handleSelect = useCallback((id) => {
   } catch (error) {
     console.error(' Erreur lors de la sélection:', error);
   }
-}, [allProjects, uiDispatch, saveProject, safeConsolidations]); // Retirer "navigate" des dépendances
+}, [allProjects, uiDispatch, saveProject, safeConsolidations]); 
 
   const handleManualRefresh = useCallback(() => {
     refetchProjects();

@@ -11,7 +11,6 @@ const BudgetTableSkeleton = ({ isMobile = false }) => {
 const DesktopSkeleton = () => {
   return (
     <div className="p-6 animate-pulse">
-      {/* En-tête du tableau */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex gap-2">
           {[1, 2, 3, 4].map((i) => (
@@ -23,8 +22,6 @@ const DesktopSkeleton = () => {
           <div className="w-10 h-10 bg-gray-200 rounded-lg"></div>
         </div>
       </div>
-
-      {/* Barre d'outils temporelle */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex gap-2">
           {[1, 2, 3].map((i) => (
@@ -37,15 +34,11 @@ const DesktopSkeleton = () => {
           ))}
         </div>
       </div>
-
-      {/* En-têtes de colonnes */}
       <div className="flex mb-2">
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="flex-1 h-8 mr-2 bg-gray-200 rounded last:mr-0"></div>
         ))}
       </div>
-
-      {/* Lignes du tableau */}
       {[1, 2, 3, 4, 5, 6].map((row) => (
         <div key={row} className="flex mb-2">
           {[1, 2, 3, 4].map((col) => (
@@ -53,8 +46,6 @@ const DesktopSkeleton = () => {
           ))}
         </div>
       ))}
-
-      {/* Pied de tableau */}
       <div className="flex mt-4">
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="flex-1 h-8 mr-2 bg-gray-200 rounded last:mr-0"></div>
@@ -67,20 +58,15 @@ const DesktopSkeleton = () => {
 const MobileSkeleton = () => {
   return (
     <div className="p-4 animate-pulse">
-      {/* En-tête mobile */}
       <div className="flex justify-between mb-4">
         <div className="w-32 h-8 bg-gray-200 rounded"></div>
         <div className="w-20 h-8 bg-gray-200 rounded"></div>
       </div>
-
-      {/* Périodes mobiles */}
       <div className="flex gap-2 mb-4 overflow-x-auto">
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="w-20 h-10 bg-gray-200 rounded-lg shrink-0"></div>
         ))}
       </div>
-
-      {/* Cartes de données */}
       {[1, 2, 3, 4, 5].map((item) => (
         <div key={item} className="p-4 mb-3 bg-white rounded-lg shadow">
           <div className="flex justify-between mb-2">

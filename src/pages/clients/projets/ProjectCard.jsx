@@ -82,13 +82,11 @@ const ProjectCard = ({
             
             const data = await apiGet(`/budget-projects/${project.id}`);
             
-            // Calculez les sommes à partir de la réponse API
             let sumEntries = 0;
             let sumExpenses = 0;
             let entryCount = 0;
             let exitCount = 0;
 
-            // Calcul des revenus (entries)
             if (data.entries && data.entries.entry_items && data.entries.entry_items.sub_categories) {
                 sumEntries = data.entries.entry_items.sub_categories.reduce((total, item) => {
                     return total + parseFloat(item.amount || 0);
@@ -96,7 +94,6 @@ const ProjectCard = ({
                 entryCount = data.entries.entry_count || 0;
             }
 
-            // Calcul des dépenses (exits)
             if (data.exits && data.exits.exit_items && data.exits.exit_items.sub_categories) {
                 sumExpenses = data.exits.exit_items.sub_categories.reduce((total, item) => {
                     return total + parseFloat(item.amount || 0);
@@ -165,7 +162,6 @@ const ProjectCard = ({
             .toUpperCase();
     };
 
-    // Palette de couleurs épurée et professionnelle
     const colorClasses = {
         blue: {
             bg: 'bg-blue-50',
@@ -212,23 +208,18 @@ const ProjectCard = ({
     };
 
     const getFinancialHealth = () => {
-        // 1. Budget non défini
         if (netBudget === null || netBudget === undefined) {
             return "budget non défini";
         }
-        // 2. Budget négatif → alerte fa manohy manao évaluation ihany
         if (netBudget < 0) {
-            return "⚠️ budget négatif (à vérifier)";
+            return "budget négatif (à vérifier)";
         }
-        // 3. Budget = 0 → tsy azo kajiana ny pourcentage
         if (netBudget === 0) {
             return "aucun budget alloué";
         }
-        // 4. Raha netRealized négatif → déficit
         if (netRealized < 0) {
             return "déficitaire";
         }
-        // 5. Raha ara-dalàna → kajy pourcentage
         const pourcentage = (netRealized / netBudget) * 100;
 
         if (pourcentage >= 100) return "excellent";
@@ -241,7 +232,6 @@ const ProjectCard = ({
     };
     const financialHealth = getFinancialHealth();
 
-    // Fonction pour fermer le menu d'actions en cliquant à l'extérieur
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (showActionsMenu) {
@@ -258,7 +248,6 @@ const ProjectCard = ({
             'hover:border-slate-300'
             } ${isActiveProject ? 'ring-1 ring-emerald-500' : ''}`}>
 
-            {/* Indicateur de sélection compact */}
             {isSelectMode && (
                 <div className="absolute z-10 top-2 left-2">
                     <div
@@ -387,7 +376,6 @@ const ProjectCard = ({
                                             </Badge>
                                         </div>
 
-                                        {/* Menu d'actions compact */}
                                         <div className="relative">
                                             <Button
                                                 size="sm"
@@ -448,12 +436,10 @@ const ProjectCard = ({
                                                                 try {
                                                                     await handleDeleteProject(project.id);
 
-                                                                    // Déclencher un événement pour notifier la suppression
                                                                     window.dispatchEvent(new CustomEvent('projectDeleted', {
                                                                         detail: { projectId: project.id }
                                                                     }));
 
-                                                                    // OU déclencher l'événement existant
                                                                     window.dispatchEvent(new CustomEvent('projectsUpdated', {
                                                                         detail: {
                                                                             action: 'deleted',
@@ -537,7 +523,6 @@ const ProjectCard = ({
             {editingProjectId !== project.id && (
                 <CardContent className="pt-0">
                     <div className="space-y-3">
-                        {/* Indicateur de performance financière compact */}
                         <div className="flex items-center justify-between p-2 rounded-lg bg-slate-50">
                             <span className="text-xs font-medium text-slate-700">Performance</span>
                             <div className="flex items-center space-x-1.5">
@@ -555,8 +540,7 @@ const ProjectCard = ({
                                 </span>
                             </div>
                         </div>
-
-                        {/* Budget Summary - Design compact */}
+                        
                         <div className="grid grid-cols-2 gap-2">
                             <div className="p-2 bg-white border rounded-lg border-slate-200">
                                 <div className="flex items-center justify-between mb-1">

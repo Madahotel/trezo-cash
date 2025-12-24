@@ -21,11 +21,8 @@ const BudgetTableView = (props) => {
     visibleColumns,
     hasVisibleColumns: !!visibleColumns
   });
-
-  // Déterminer si on affiche la version consolidée ou simple
   const shouldShowConsolidated = isConsolidated || isCustomConsolidated;
 
-  // Créer un nouvel objet props avec les valeurs par défaut garanties
   const enhancedProps = {
     ...props,
     visibleColumns: {
