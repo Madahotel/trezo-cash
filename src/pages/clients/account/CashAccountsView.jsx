@@ -11,6 +11,7 @@ import ConfirmationModal from './ConfirmationModal';
 import TransfertModal from './TransfertModal';
 import AccountsTable from './AccountTable';
 import AccountDetailModal from './AccountDetailModal';
+import TransactionHistoryDrawer from './transactionHistoryDrawer';
 
 const accountCategories = [
   { id: 'bank', name: 'Banque' },
@@ -24,7 +25,11 @@ const CashAccountsView = () => {
   const [isAddingAccount, setIsAddingAccount] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [loadingCard, setLoadingCard] = useState(true);
-  const [selectedAccount, setSelectedAccount] = useState(null);
+  const [selectedAccountForDetails, setSelectedAccountForDetails] =
+    useState(null);
+  const [selectedAccountForHistory, setSelectedAccountForHistory] =
+    useState(null);
+  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
   const [confirmationModal, setConfirmationModal] = useState({
     isOpen: false,
     type: '',
@@ -108,6 +113,17 @@ const CashAccountsView = () => {
     }
   };
 
+  // Fonction pour l'historique
+  const handleViewHistory = (account) => {
+    setSelectedAccountForHistory(account);
+    setIsHistoryDrawerOpen(true);
+  };
+
+  const handleCloseHistory = () => {
+    setIsHistoryDrawerOpen(false);
+    setSelectedAccountForHistory(null);
+  };
+
   const showCloseConfirmation = (account) => {
     setConfirmationModal({
       isOpen: true,
@@ -186,12 +202,13 @@ const CashAccountsView = () => {
     );
   };
 
+  // Fonction pour les détails (séparez des historiques)
   const handleViewDetails = (account) => {
-    setSelectedAccount(account);
+    setSelectedAccountForDetails(account);
   };
 
   const handleCloseDetails = () => {
-    setSelectedAccount(null);
+    setSelectedAccountForDetails(null);
   };
 
   if (loadingCard) {
@@ -228,6 +245,7 @@ const CashAccountsView = () => {
             onCloseAccount={showCloseConfirmation}
             onReopenAccount={showReopenConfirmation}
             onViewDetails={handleViewDetails}
+            onViewHistory={handleViewHistory} // Ajoutez cette prop
           />
         </div>
 
@@ -277,12 +295,18 @@ const CashAccountsView = () => {
       />
 
       <AccountDetailModal
-        open={!!selectedAccount}
+        open={!!selectedAccountForDetails}
         onClose={handleCloseDetails}
-        account={selectedAccount}
+        account={selectedAccountForDetails}
         onEdit={handleStartEdit}
         onCloseAccount={showCloseConfirmation}
         onReopenAccount={showReopenConfirmation}
+      />
+
+      <TransactionHistoryDrawer
+        isOpen={isHistoryDrawerOpen}
+        onClose={handleCloseHistory}
+        account={selectedAccountForHistory}
       />
     </>
   );
