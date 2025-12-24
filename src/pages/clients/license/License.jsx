@@ -3,12 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, Star, Clock, Loader } from 'lucide-react';
 import { apiGet } from '../../../components/context/actionsMethode';
 import axios from '../../../components/config/Axios';
+import toast from 'react-hot-toast';
 
 export function License() {
   const [billingCycle, setBillingCycle] = useState('monthly');
   const [subscriptions, setSubscriptions] = useState([]);
   const [loading, setLoading] = useState(true);
-  // Nombre de jours restants pour l'offre Lifetime
+  const [processingPayment, setProcessingPayment] = useState(null); // ID du plan en cours de paiement
   const [daysRemaining, setDaysRemaining] = useState(7);
 
   // Descriptions pour chaque type de plan
@@ -18,14 +19,12 @@ export function License() {
     Vip: 'Accès à vie avec toutes les fonctionnalités premium',
   };
 
-  // Fallback descriptions si le nom n'est pas dans le mapping
   const defaultDescriptions = [
     'Solution économique pour démarrer',
     'Plan complet avec toutes les fonctionnalités',
     'Offre exclusive avec support prioritaire',
   ];
 
-  // Fonction pour obtenir une description
   const getDescription = (planName, index) => {
     return (
       planDescriptions[planName] ||
@@ -44,13 +43,32 @@ export function License() {
     'Toutes les futures mises à jour',
   ];
 
-  const handleButtonClick = async (planId) => {
-    console.log(planId);
+  const handleButtonClick = async (planId, planName) => {
+    setProcessingPayment(planId);
+
     try {
+      // 1. Obtenir l'URL de paiement
       const res = await axios.get(`/subscriptions/${planId}`);
-      console.log(res);
+      const url = res.data?.url;
+
+      if (!url) {
+        toast.error('URL de paiement non disponible');
+        setProcessingPayment(null);
+        return;
+      }
+
+      // 2. Stocker l'ID du plan dans le localStorage pour le vérifier au retour
+      localStorage.setItem('pendingPaymentPlanId', planId);
+      localStorage.setItem('pendingPaymentPlanName', planName);
+
+      // 3. Rediriger directement vers la page de paiement (ferme l'onglet actuel)
+      window.location.href = url;
+
+      // Note: Le code suivant ne s'exécutera pas immédiatement car la redirection est synchrone
     } catch (error) {
-      console.log(error);
+      console.error('Erreur:', error);
+      setProcessingPayment(null);
+      // Gestion des erreurs...
     }
   };
 
@@ -114,6 +132,37 @@ export function License() {
       ))}
     </div>
   );
+
+  // Fonction pour rendre le bouton avec état de chargement
+  const renderButton = (subscription, isHighlight) => {
+    const isProcessing = processingPayment === subscription.stripe_plan_id;
+
+    return (
+      <button
+        onClick={() =>
+          !isProcessing &&
+          handleButtonClick(subscription.stripe_plan_id, subscription.name)
+        }
+        disabled={isProcessing}
+        className={`w-full px-6 py-3 font-semibold rounded-lg transition-colors shadow-lg flex items-center justify-center gap-2 ${
+          isHighlight
+            ? 'bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-400'
+            : 'bg-blue-100 text-blue-600 hover:bg-blue-200 disabled:bg-blue-50 disabled:text-blue-400'
+        } ${isProcessing ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+      >
+        {isProcessing ? (
+          <>
+            <Loader className="w-5 h-5 animate-spin" />
+            Traitement en cours...
+          </>
+        ) : subscription.name === 'Vip' || subscription.name === 'VIP' ? (
+          'Devenir un Visionnaire'
+        ) : (
+          "Démarrer l'essai de 14 jours"
+        )}
+      </button>
+    );
+  };
 
   return (
     <>
@@ -185,14 +234,7 @@ export function License() {
                       </div>
                     </div>
                     <div>
-                      <button
-                        onClick={() =>
-                          handleButtonClick(subscription.stripe_plan_id)
-                        }
-                        className="w-full px-6 py-3 font-semibold text-gray-900 bg-amber-400 rounded-lg hover:bg-amber-500 transition-colors shadow-lg flex items-center justify-center"
-                      >
-                        Devenir un Visionnaire
-                      </button>
+                      {renderButton(subscription, false)}
                       <p className="text-center text-xs text-amber-400 font-semibold mt-4 h-10 flex items-center justify-center">
                         ⚠️ Offre limitée dans le temps
                       </p>
@@ -272,18 +314,7 @@ export function License() {
                       </div>
                     </div>
                     <div>
-                      <button
-                        onClick={() =>
-                          handleButtonClick(subscription.stripe_plan_id)
-                        }
-                        className={`w-full px-6 py-3 font-semibold rounded-lg transition-colors shadow-lg flex items-center justify-center ${
-                          isHighlight
-                            ? 'bg-blue-600 text-white hover:bg-blue-700'
-                            : 'bg-blue-100 text-blue-600 hover:bg-blue-200'
-                        }`}
-                      >
-                        Démarrer l'essai de 14 jours
-                      </button>
+                      {renderButton(subscription, isHighlight)}
                       <hr className="my-8" />
                       <ul className="space-y-3 text-sm">
                         {isHighlight && (
