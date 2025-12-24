@@ -1,72 +1,71 @@
-import React, { useState } from "react";
-import { X, Plus, Edit, Trash2, TrendingUp, TrendingDown } from "lucide-react";
-import { formatCurrency } from "../../../utils/formatting";
+import React, { useEffect, useState, useMemo } from "react";
+import { X } from "lucide-react";
+import { apiGet } from "../../../components/context/actionsMethode";
 
-// Données de test statiques
-const testScenario = {
-  id: "sc1",
-  name: "Scénario Test",
-};
+const ScenarioEntriesDrawer = ({ isOpen, onClose, scenario }) => {
+  const [entries, setEntries] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("revenus");
+  const [openCategories, setOpenCategories] = useState({});
 
-const testEntries = [
-  {
-    id: "e1",
-    type: "revenu",
-    category: "Ventes",
-    supplier: "Client A",
-    amount: 1200,
-    frequency: "Mensuel",
-    isDeleted: false,
-  },
-  {
-    id: "e2",
-    type: "depense",
-    category: "Salaires",
-    supplier: "Employés",
-    amount: 800,
-    frequency: "Mensuel",
-    isDeleted: false,
-  },
-  {
-    id: "e3",
-    type: "revenu",
-    category: "Consulting",
-    supplier: "Client B",
-    amount: 500,
-    frequency: "Ponctuel",
-    isDeleted: false,
-    isNew: true,
-  },
-];
+  useEffect(() => {
+    if (!scenario?.id) return;
 
-// Mock settings
-const settings = { locale: "fr-FR", currency: "EUR" };
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        const res = await apiGet(`/budget-projects/${scenario.id}`);
+        setEntries(res);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-const ScenarioEntriesDrawer = ({ isOpen, onClose, setOpenScenario }) => {
-  const [entries, setEntries] = useState(testEntries);
-
-  const handleAddEntry = () => {
-    setOpenScenario();
-  };
-
-  const handleEditEntry = (entry) => {
-    const newAmount = prompt("Modifier le montant", entry.amount);
-    if (newAmount !== null) {
-      setEntries((prev) =>
-        prev.map((e) =>
-          e.id === entry.id ? { ...e, amount: parseFloat(newAmount) } : e
-        )
-      );
-    }
-  };
-
-  const handleDeleteEntry = (entryId) => {
-    if (window.confirm("Supprimer cette écriture ?")) {
-      setEntries((prev) => prev.filter((e) => e.id !== entryId));
-    }
-  };
+    fetchData();
+  }, [scenario?.id]);
 
   if (!isOpen) return null;
+
+  const revenusData = entries?.entries?.entry_items?.sub_categories ?? [];
+  const depensesData = entries?.exits?.exit_items?.sub_categories ?? [];
+
+  const activeData = activeTab === "revenus" ? revenusData : depensesData;
+
+  const groupedByCategory = useMemo(() => {
+    return activeData.reduce((acc, item) => {
+      const categoryName = item.category_name;
+
+      if (!acc[categoryName]) {
+        acc[categoryName] = {
+          category_id: item.category_id,
+          items: [],
+          total: 0,
+        };
+      }
+
+      acc[categoryName].items.push(item);
+      acc[categoryName].total += parseFloat(item.amount);
+
+      return acc;
+    }, {});
+  }, [activeData]);
+
+  useEffect(() => {
+    const initialOpen = {};
+    Object.keys(groupedByCategory).forEach((cat) => {
+      initialOpen[cat] = false;
+    });
+    setOpenCategories(initialOpen);
+  }, [groupedByCategory]);
+
+  const toggleCategory = (categoryName) => {
+    setOpenCategories((prev) => ({
+      ...prev,
+      [categoryName]: !prev[categoryName],
+    }));
+  };
 
   return (
     <>
@@ -75,8 +74,9 @@ const ScenarioEntriesDrawer = ({ isOpen, onClose, setOpenScenario }) => {
           isOpen ? "bg-opacity-60" : "bg-opacity-0 pointer-events-none"
         }`}
         onClick={onClose}
-      ></div>
-      <div className="fixed top-0 right-0 bottom-0 w-full max-w-xl bg-gray-50 shadow-xl z-50 transform transition-transform duration-300 ease-in-out translate-x-0">
+      />
+
+      <div className="fixed top-0 right-0 bottom-0 w-[600px] bg-gray-50 shadow-xl z-50">
         <div className="flex flex-col h-full">
           <div className="flex items-start justify-between p-4 border-b bg-white">
             <div>
@@ -84,9 +84,10 @@ const ScenarioEntriesDrawer = ({ isOpen, onClose, setOpenScenario }) => {
                 Écritures du Scénario
               </h2>
               <p className="text-sm text-purple-700 font-medium">
-                {testScenario.name}
+                {scenario?.name}
               </p>
             </div>
+
             <button
               onClick={onClose}
               className="p-2 rounded-full text-gray-500 hover:bg-gray-100"
@@ -94,84 +95,99 @@ const ScenarioEntriesDrawer = ({ isOpen, onClose, setOpenScenario }) => {
               <X className="w-5 h-5" />
             </button>
           </div>
-          <div className="flex-grow p-4 overflow-y-auto">
-            {entries.length > 0 ? (
-              <ul className="space-y-3">
-                {entries.map((entry) => {
-                  const isIncome = entry.type === "revenu";
-                  return (
-                    <li
-                      key={entry.id}
-                      className="p-3 bg-white rounded-lg border group"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-3">
-                          {isIncome ? (
-                            <TrendingUp className="w-5 h-5 text-green-500" />
-                          ) : (
-                            <TrendingDown className="w-5 h-5 text-red-500" />
-                          )}
-                          <div>
-                            <p className="font-medium text-gray-800 text-sm">
-                              {entry.supplier}
+
+          <div className="bg-white border-b">
+            <div className="flex">
+              <button
+                onClick={() => setActiveTab("revenus")}
+                className={`flex-1 px-4 py-3 text-sm font-medium ${
+                  activeTab === "revenus"
+                    ? "text-green-700 border-b-2 border-green-600 bg-green-50"
+                    : "text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                Revenus
+              </button>
+
+              <button
+                onClick={() => setActiveTab("depenses")}
+                className={`flex-1 px-4 py-3 text-sm font-medium ${
+                  activeTab === "depenses"
+                    ? "text-red-700 border-b-2 border-red-600 bg-red-50"
+                    : "text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                Dépenses
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4">
+            {isLoading && (
+              <p className="text-center text-gray-500">
+                Chargement des écritures...
+              </p>
+            )}
+
+            {!isLoading && activeData.length === 0 && (
+              <p className="text-center text-gray-500">
+                Aucune {activeTab === "revenus" ? "entrée" : "sortie"}
+              </p>
+            )}
+
+            {!isLoading &&
+              Object.entries(groupedByCategory).map(([categoryName, data]) => (
+                <div key={categoryName} className="mb-6">
+                  <div
+                    className="flex justify-between items-center mb-2 cursor-pointer select-none bg-gray-100 px-3 py-2 rounded"
+                    onClick={() => toggleCategory(categoryName)}
+                  >
+                    <h3 className="font-bold text-lg">{categoryName}</h3>
+
+                    <span className="text-sm font-bold">
+                      {openCategories[categoryName] ? "-" : "+"}
+                    </span>
+                  </div>
+
+                  {openCategories[categoryName] &&
+                    data.items.map((item) => (
+                      <div
+                        key={item.id}
+                        className="ml-4 p-3 bg-white rounded shadow-sm mb-2 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-800">
+                              {item.sub_category_name}
                             </p>
-                            <p className="text-xs text-gray-500">
-                              {entry.category}
+
+                            {item.description && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                {item.description}
+                              </p>
+                            )}
+
+                            <div className="flex gap-2 mt-2 text-xs text-gray-600">
+                              <span className="bg-gray-100 px-2 py-0.5 rounded">
+                                {item.frequency_name}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="text-right ml-4">
+                            <p className="text-base font-bold text-gray-800">
+                              {parseFloat(item.amount).toLocaleString("fr-FR", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}{" "}
+                              {item.currency_symbol}
                             </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className={`font-semibold text-sm ${
-                              isIncome ? "text-green-600" : "text-red-600"
-                            }`}
-                          >
-                            {formatCurrency(entry.amount, settings)}
-                            <span className="text-xs font-normal text-gray-500 ml-1">
-                              /{entry.frequency}
-                            </span>
-                          </div>
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center">
-                            <button
-                              onClick={() => handleEditEntry(entry)}
-                              className="p-1 text-blue-600 hover:text-blue-800"
-                            >
-                              <Edit size={14} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteEntry(entry.id)}
-                              className="p-1 text-red-600 hover:text-red-800"
-                            >
-                              <Trash2 size={14} />
-                            </button>
                           </div>
                         </div>
                       </div>
-                      {entry.isNew && (
-                        <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full mt-2 inline-block">
-                          Nouvelle entrée
-                        </span>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <div className="text-center py-10 text-gray-500">
-                <p>Aucune écriture spécifique à ce scénario.</p>
-                <p className="text-sm mt-1">
-                  Ajoutez des modifications pour simuler leur impact.
-                </p>
-              </div>
-            )}
-          </div>
-          <div className="p-4 border-t bg-white">
-            <button
-              onClick={handleAddEntry}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-lg flex items-center justify-center gap-2"
-            >
-              <Plus className="w-4 h-4" /> Ajouter une écriture au scénario
-            </button>
+                    ))}
+                </div>
+              ))}
           </div>
         </div>
       </div>
