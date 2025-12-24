@@ -42,6 +42,7 @@ import AnalyseView from '../pages/clients/analyse/AnalyseView';
 import TVATable from '../pages/clients/tva/TVATable';
 import ScheduleViewWrapper from '../pages/clients/echeance/ScheduleViewWrapper';
 import AnalyseViewWrapper from '../pages/clients/analyse/AnalyseViewWrapper';
+import { License } from '../pages/clients/license/License';
 const ClientRoute = {
   path: '/client',
   element: (
@@ -53,22 +54,23 @@ const ClientRoute = {
   ),
   children: [
     { index: true, element: <div>HomePage client</div> },
-    { path: 'projet', element: <ProjetClient /> },
-    { path: 'dashboard', element: <DashboardView /> },
-    { path: 'trezo', element: <TrezoPage /> },
-    { path: 'budget', element: <BudgetPage /> },
-    { path: 'scenarios', element: <ScenarioView /> },
-    { path: 'flux', element: <CashflowView /> },
-    { path: 'echeancier', element: <ScheduleViewWrapper /> },
     { path: 'analyse', element: <AnalyseViewWrapper /> },
+    { path: 'archives', element: <ArchivesPage /> },
+    { path: 'budget', element: <BudgetPage /> },
+    { path: 'categories', element: <CategoryView /> },
+    { path: 'comptes', element: <CashAccountsPage /> },
+    { path: 'dashboard', element: <DashboardView /> },
+    { path: 'echeancier', element: <ScheduleViewWrapper /> },
+    { path: 'flux', element: <CashflowView /> },
+    { path: 'licence', element: <License /> },
+    { path: 'projet', element: <ProjetClient /> },
+    { path: 'scenarios', element: <ScenarioView /> },
     { path: 'templates', element: <MyTemplatesPage /> },
+    { path: 'tiers', element: <TiersManagementPage /> },
+    { path: 'trezo', element: <TrezoPage /> },
     { path: 'parametres-projet', element: <ProjectSettingsPage /> },
     { path: 'provisions', element: <ProvisionsPage /> },
-    { path: 'categories', element: <CategoryView /> },
-    { path: 'tiers', element: <TiersManagementPage /> },
-    { path: 'comptes', element: <CashAccountsPage /> },
     { path: 'timezoneSettings', element: <TimezoneSettingsPage /> },
-    { path: 'archives', element: <ArchivesPage /> },
     { path: 'profil', element: <ProfilePage /> },
     { path: 'securite', element: <SecurityPage /> },
     { path: 'factures', element: <UnderConstructionView /> },
